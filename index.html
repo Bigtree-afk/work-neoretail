@@ -110,12 +110,54 @@
   .btn {
     display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
     border-radius: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; transition: all .15s;
+    position: relative; overflow: hidden; user-select: none;
   }
+  .btn:active { transform: scale(0.96); }
   .btn-primary { background: var(--primary); color: #fff; }
-  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-primary:hover { background: var(--primary-dark); box-shadow: 0 4px 12px rgba(37,99,235,0.35); }
   .btn-outline { background: #fff; color: var(--gray-700); border: 1.5px solid var(--gray-200); }
-  .btn-outline:hover { border-color: var(--gray-400); }
+  .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
   .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  /* ── RIPPLE EFFECT ── */
+  @keyframes ripple-anim {
+    to { transform: scale(4); opacity: 0; }
+  }
+  .ripple-wave {
+    position: absolute; border-radius: 50%;
+    background: rgba(255,255,255,0.45);
+    transform: scale(0); animation: ripple-anim 0.55s linear;
+    pointer-events: none;
+  }
+
+  /* ── SCHEDULE EVENT TOOLTIP ── */
+  .cal-event {
+    cursor: pointer; transition: filter .15s, transform .12s;
+  }
+  .cal-event:hover { filter: brightness(0.93); transform: scale(1.03); }
+  #calTooltip {
+    position: fixed; z-index: 9999;
+    background: #1E293B; color: #F8FAFC;
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 12px; line-height: 1.6;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    pointer-events: none; opacity: 0; transition: opacity .15s;
+    max-width: 220px;
+  }
+  #calTooltip.visible { opacity: 1; }
+  #calTooltip .ct-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  #calTooltip .ct-row { color: #94A3B8; }
+  #calTooltip .ct-row b { color: #E2E8F0; }
+
+  /* ── SCHEDULE CARD ROW HOVER ── */
+  .sched-row {
+    cursor: pointer; transition: background .12s;
+  }
+  .sched-row:hover { background: var(--primary-light) !important; }
+
+  /* ── JOB CARD HOVER ── */
+  .job-card { transition: box-shadow .15s, transform .12s; cursor: pointer; }
+  .job-card:hover { box-shadow: 0 6px 20px rgba(37,99,235,0.15); transform: translateY(-2px); }
 
   .content { padding: 28px; flex: 1; }
 
@@ -829,7 +871,8 @@
             <div class="section-title">📅 오늘 일정 (4월 20일)</div>
           </div>
           <div style="padding:8px 0">
-            <div style="padding:12px 18px; border-bottom:1px solid var(--gray-100); display:flex; gap:14px; align-items:flex-start">
+            <div class="sched-row" data-title="K-1마트 안중점 신규개업" data-icon="🏪" data-type="신규개업" data-store="K-1마트 안중점" data-date="4월 20일 09:00" data-engineer="김현장" data-note="POS 5대 + 저울 + 계산대 설치 | 설치 진행중 (4/6단계)"
+              style="padding:12px 18px; border-bottom:1px solid var(--gray-100); display:flex; gap:14px; align-items:flex-start">
               <div style="font-size:12px; font-weight:700; color:var(--primary); width:45px; flex-shrink:0; padding-top:2px">09:00</div>
               <div style="flex:1">
                 <div style="font-size:14px; font-weight:700; margin-bottom:3px">K-1마트 안중점 — 신규개업</div>
@@ -837,7 +880,8 @@
               </div>
               <span class="badge badge-blue">설치중</span>
             </div>
-            <div style="padding:12px 18px; border-bottom:1px solid var(--gray-100); display:flex; gap:14px; align-items:flex-start">
+            <div class="sched-row" data-title="웰빙마트 신림 VAN 교체" data-icon="💳" data-type="VAN 교체" data-store="웰빙마트 신림점" data-date="4월 20일 14:00" data-engineer="이기사" data-note="KIS → KCP 단말 교체 3대"
+              style="padding:12px 18px; border-bottom:1px solid var(--gray-100); display:flex; gap:14px; align-items:flex-start">
               <div style="font-size:12px; font-weight:700; color:var(--purple); width:45px; flex-shrink:0; padding-top:2px">14:00</div>
               <div style="flex:1">
                 <div style="font-size:14px; font-weight:700; margin-bottom:3px">웰빙마트 신림 — VAN 교체</div>
@@ -845,7 +889,8 @@
               </div>
               <span class="badge badge-purple">예정</span>
             </div>
-            <div style="padding:12px 18px; display:flex; gap:14px; align-items:flex-start">
+            <div class="sched-row" data-title="ECJ마트 AS 처리" data-icon="🔧" data-type="AS 처리" data-store="ECJ마트" data-date="4월 20일 16:30" data-engineer="박기사" data-note="영수프린터 용지 걸림 반복 문제"
+              style="padding:12px 18px; display:flex; gap:14px; align-items:flex-start">
               <div style="font-size:12px; font-weight:700; color:var(--warning); width:45px; flex-shrink:0; padding-top:2px">16:30</div>
               <div style="flex:1">
                 <div style="font-size:14px; font-weight:700; margin-bottom:3px">ECJ마트 — AS 처리</div>
@@ -979,8 +1024,7 @@
             </div>
           </div>
           <div style="display:flex;gap:6px;align-items:center">
-            <button class="btn btn-sm" id="aiReanalysisBtn" onclick="runDashboardAnalysis()"
-              style="background:#6366F1; color:#fff; font-size:11px; padding:5px 12px">↻ 재분석</button>
+            <span id="aiAutoScheduleBadge" style="font-size:11px;color:#6366F1;background:#EEF2FF;padding:4px 10px;border-radius:8px;font-weight:600">🕛 매일 자정 자동 분析</span>
             <button class="btn btn-sm btn-outline" onclick="confirmClearSampleData()"
               style="font-size:11px; color:#EF4444; border-color:#FCA5A5; padding:5px 12px"
               title="샘플 데이터 전체 삭제">🗑 초기화</button>
@@ -1944,7 +1988,7 @@
       <div style="font-size:11px;color:var(--gray-400)">📌 등록 후 장비 설치 일정을 바로 추가할 수 있습니다</div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-outline" onclick="closeModal('newStoreModal')">취소</button>
-        <button class="btn btn-primary" style="background:var(--success)">점포 등록</button>
+        <button class="btn btn-primary" style="background:var(--success)" onclick="saveNewStore()">점포 등록</button>
       </div>
     </div>
   </div>
@@ -1967,7 +2011,7 @@
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
         <div class="form-group" style="margin:0">
           <label>작업 유형</label>
-          <select>
+          <select id="jobType">
             <option>신규개업</option>
             <option>POS 교체</option>
             <option>VAN 교체</option>
@@ -1977,11 +2021,12 @@
         </div>
         <div class="form-group" style="margin:0">
           <label>점포명</label>
-          <input type="text" placeholder="점포 검색...">
+          <input type="text" id="jobStoreName" list="storeNameList" placeholder="점포 검색..." autocomplete="off">
+          <datalist id="storeNameList"></datalist>
         </div>
         <div class="form-group" style="margin:0">
           <label>담당 엔지니어</label>
-          <select>
+          <select id="jobEngineer">
             <option>김현장</option>
             <option>이기사</option>
             <option>박기사</option>
@@ -1989,7 +2034,7 @@
         </div>
         <div class="form-group" style="margin:0">
           <label>예정일</label>
-          <input type="date" value="2026-04-23">
+          <input type="date" id="jobDate" value="2026-04-23">
         </div>
         <div class="form-group" style="margin:0;grid-column:2/-1">
           <label>주소 <span style="font-size:10px;color:var(--gray-400);font-weight:400">🎙 음성 입력 가능</span></label>
@@ -2017,14 +2062,14 @@
 
       <div class="form-group" style="margin-top:14px;margin-bottom:0">
         <label>비고 / 특이사항</label>
-        <textarea placeholder="VAN사 변경 사항, 고객 요청, 현장 특이사항 등..." style="min-height:52px"></textarea>
+        <textarea id="jobNotes" placeholder="VAN사 변경 사항, 고객 요청, 현장 특이사항 등..." style="min-height:52px"></textarea>
       </div>
     </div>
     <div class="modal-footer" style="justify-content:space-between">
       <div style="font-size:11px;color:var(--gray-400)" id="job-equip-summary">장비 미선택</div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-outline" onclick="closeModal('newJobModal')">취소</button>
-        <button class="btn btn-primary">작업 등록</button>
+        <button class="btn btn-primary" onclick="saveNewJob()">작업 등록</button>
       </div>
     </div>
   </div>
@@ -2459,12 +2504,12 @@
     <button class="cm-close" onclick="toggleCommentPanel()">✕</button>
   </div>
 
-  <!-- 작성자 선택 -->
+  <!-- 작성자 표시 -->
   <div class="cm-user-bar">
     <span class="cm-user-label">작성자</span>
-    <select class="cm-user-select" id="cmUserSelect" onchange="renderCommentPanel()">
-      <!-- JS가 채움 -->
-    </select>
+    <span id="cmCurrentUserLabel" style="font-size:13px;font-weight:600;color:var(--gray-700)">로그인 필요</span>
+    <!-- legacy hidden select (not used) -->
+    <select id="cmUserSelect" style="display:none"></select>
   </div>
 
   <!-- 페이지 탭 -->
@@ -2526,7 +2571,7 @@
   function showModal(id) {
     document.getElementById(id).classList.add('show');
     if (id === 'lineImportModal') initLineImportModal();
-    if (id === 'newJobModal') buildBallSelectors();
+    if (id === 'newJobModal') { buildBallSelectors(); populateStoreNameList(); }
   }
 
   function closeModal(id) {
@@ -3893,7 +3938,20 @@ ${text.slice(0, 3000)}`;
   function renderCmList() {
     const comments = getScreenComments(cmCurrentScreen);
     const list = document.getElementById('cmList');
-    const currentUserId = document.getElementById('cmUserSelect').value;
+    const authState = getAuthState();
+    const currentUserId = authState && authState.loggedIn ? authState.id : null;
+
+    // 작성자 레이블 업데이트
+    const labelEl = document.getElementById('cmCurrentUserLabel');
+    if (labelEl) {
+      if (authState && authState.loggedIn) {
+        labelEl.textContent = authState.name + ' (' + (authState.role === 'admin' ? '관리자' : '직원') + ')';
+        labelEl.style.color = 'var(--primary)';
+      } else {
+        labelEl.textContent = '로그인 필요';
+        labelEl.style.color = 'var(--gray-400)';
+      }
+    }
 
     if (comments.length === 0) {
       list.innerHTML = `<div class="cm-empty">
@@ -3906,10 +3964,19 @@ ${text.slice(0, 3000)}`;
       return;
     }
 
+    // 아바타 색상 팔레트 (userId 기반)
+    const AVATAR_PALETTE = ['#FF2D1F','#2563EB','#10B981','#8B5CF6','#F59E0B','#06B6D4','#EC4899','#14B8A6'];
+    function getAvatarColor(userId) {
+      const preset = APPROVED_EMPLOYEES.find(e => e.id === userId);
+      if (preset) return preset.color;
+      let hash = 0;
+      for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+      return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+    }
+
     list.innerHTML = comments.map(c => {
-      const emp = APPROVED_EMPLOYEES.find(e => e.id === c.userId);
       const isOwn = c.userId === currentUserId;
-      const avatarColor = emp ? emp.color : '#888';
+      const avatarColor = getAvatarColor(c.userId);
       return `<div class="cm-item${isOwn ? ' own' : ''}">
         <div class="cm-avatar" style="background:${avatarColor}">${c.userName.charAt(0)}</div>
         <div class="cm-body">
@@ -3933,9 +4000,18 @@ ${text.slice(0, 3000)}`;
     const text = input.value.trim();
     if (!text) { input.focus(); return; }
 
-    const userId = document.getElementById('cmUserSelect').value;
-    const user = APPROVED_EMPLOYEES.find(e => e.id === userId);
-    if (!user) return;
+    const authState = getAuthState();
+    if (!authState || !authState.loggedIn) {
+      showToast('💬 로그인 후 댓글을 작성할 수 있습니다');
+      openLoginModal && openLoginModal();
+      return;
+    }
+
+    const user = {
+      id: authState.id,
+      name: authState.name,
+      role: authState.role === 'admin' ? '관리자' : '직원'
+    };
 
     const all = getComments();
     if (!all[cmCurrentScreen]) all[cmCurrentScreen] = [];
@@ -3998,13 +4074,18 @@ ${text.slice(0, 3000)}`;
 
   /* 초기화 */
   (function initCommentSystem() {
-    const sel = document.getElementById('cmUserSelect');
-    APPROVED_EMPLOYEES.forEach(e => {
-      const opt = document.createElement('option');
-      opt.value = e.id;
-      opt.textContent = `${e.name} (${e.role})`;
-      sel.appendChild(opt);
-    });
+    // 현재 로그인 사용자 이름 표시
+    const labelEl = document.getElementById('cmCurrentUserLabel');
+    if (labelEl) {
+      const authState = getAuthState();
+      if (authState && authState.loggedIn) {
+        labelEl.textContent = authState.name + ' (' + (authState.role === 'admin' ? '관리자' : '직원') + ')';
+        labelEl.style.color = 'var(--primary)';
+      } else {
+        labelEl.textContent = '로그인 필요';
+        labelEl.style.color = 'var(--gray-400)';
+      }
+    }
     updateFabBadge();
   })();
 
@@ -4139,10 +4220,284 @@ ${text.slice(0, 3000)}`;
   }
 
   /* ══════════════════════════════════════════════
+     STORES — localStorage 헬퍼
+  ══════════════════════════════════════════════ */
+  function getStores() {
+    try { return JSON.parse(localStorage.getItem('ns_stores') || '[]'); } catch { return []; }
+  }
+  function saveStores(arr) {
+    localStorage.setItem('ns_stores', JSON.stringify(arr));
+  }
+
+  /* ══════════════════════════════════════════════
+     JOBS — localStorage 헬퍼
+  ══════════════════════════════════════════════ */
+  function getJobs() {
+    try { return JSON.parse(localStorage.getItem('ns_jobs') || '[]'); } catch { return []; }
+  }
+  function saveJobs(arr) {
+    localStorage.setItem('ns_jobs', JSON.stringify(arr));
+  }
+
+  /* ══════════════════════════════════════════════
+     점포 등록 저장
+  ══════════════════════════════════════════════ */
+  function saveNewStore() {
+    const name = (document.getElementById('f-name') || {}).value?.trim();
+    if (!name) { showToast('점포명을 입력하세요'); document.getElementById('f-name')?.focus(); return; }
+
+    const store = {
+      id: 'EC-' + Date.now().toString().slice(-5),
+      name,
+      ceo:  (document.getElementById('f-ceo')  || {}).value?.trim() || '',
+      tel:  (document.getElementById('f-tel')  || {}).value?.trim() || '',
+      biz:  (document.getElementById('f-biz')  || {}).value?.trim() || '',
+      addr: (document.getElementById('f-addr') || {}).value?.trim() || '',
+      van:  (document.getElementById('f-van')  || {}).value || '',
+      tid:  (document.getElementById('f-tid')  || {}).value?.trim() || '',
+      date: (document.getElementById('f-date') || {}).value || '',
+      pos:  (document.getElementById('f-pos')  || {}).value || '0',
+      memo: (document.getElementById('f-memo') || {}).value?.trim() || '',
+      status: '거래중',
+      createdAt: Date.now()
+    };
+
+    const stores = getStores();
+    stores.unshift(store);
+    saveStores(stores);
+
+    // storeNameList datalist 갱신
+    populateStoreNameList();
+
+    closeModal('newStoreModal');
+    showToast(`✅ ${name} 점포가 등록되었습니다`);
+
+    // 입력 필드 초기화
+    ['f-name','f-ceo','f-tel','f-biz','f-addr','f-tid','f-memo'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const van = document.getElementById('f-van');
+    if (van) van.value = '';
+  }
+
+  /* ══════════════════════════════════════════════
+     작업 등록 저장
+  ══════════════════════════════════════════════ */
+  function saveNewJob() {
+    const storeName = (document.getElementById('jobStoreName') || {}).value?.trim();
+    if (!storeName) { showToast('점포명을 입력하세요'); document.getElementById('jobStoreName')?.focus(); return; }
+
+    const job = {
+      id: 'JOB-' + Date.now().toString(36).toUpperCase(),
+      type:      (document.getElementById('jobType')     || {}).value || '신규개업',
+      storeName,
+      engineer:  (document.getElementById('jobEngineer') || {}).value || '',
+      date:      (document.getElementById('jobDate')     || {}).value || '',
+      address:   (document.getElementById('jobAddressInput') || {}).value?.trim() || '',
+      notes:     (document.getElementById('jobNotes')    || {}).value?.trim() || '',
+      status:    '진행중',
+      createdAt: Date.now()
+    };
+
+    const jobs = getJobs();
+    jobs.unshift(job);
+    saveJobs(jobs);
+
+    closeModal('newJobModal');
+    showToast(`✅ ${storeName} 작업이 등록되었습니다`);
+
+    // 입력 필드 초기화
+    const storeEl = document.getElementById('jobStoreName');
+    if (storeEl) storeEl.value = '';
+    const notesEl = document.getElementById('jobNotes');
+    if (notesEl) notesEl.value = '';
+    const addrEl = document.getElementById('jobAddressInput');
+    if (addrEl) addrEl.value = '';
+  }
+
+  /* 점포 datalist 채우기 (모달 열릴 때도 호출) */
+  function populateStoreNameList() {
+    const dl = document.getElementById('storeNameList');
+    if (!dl) return;
+    const stores = getStores();
+    dl.innerHTML = stores.map(s => `<option value="${s.name.replace(/"/g,'&quot;')}">`).join('');
+  }
+
+  /* ══════════════════════════════════════════════
      페이지 로드 초기화
   ══════════════════════════════════════════════ */
   renderQuote();
   updateNavAuth();
+  populateStoreNameList();
+
+  /* ══════════════════════════════════════════════
+     RIPPLE EFFECT — 모든 버튼 클릭 시 물결 효과
+  ══════════════════════════════════════════════ */
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest('button, .btn, .filter-chip, .capture-tab, .nav-item, .cm-tab');
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height) * 1.6;
+    const x = e.clientX - rect.left - size / 2;
+    const y = e.clientY - rect.top  - size / 2;
+    const wave = document.createElement('span');
+    wave.className = 'ripple-wave';
+    wave.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px`;
+    btn.appendChild(wave);
+    wave.addEventListener('animationend', () => wave.remove());
+  }, true);
+
+  /* ══════════════════════════════════════════════
+     CALENDAR EVENT TOOLTIP — 일정 마우스오버/클릭 팝업
+  ══════════════════════════════════════════════ */
+  // 캘린더 이벤트 메타 데이터 (타입→색상·아이콘)
+  const CAL_EVENT_META = {
+    'new':     { icon: '🏪', label: '신규개업',  color: '#1D4ED8' },
+    'replace': { icon: '🖥',  label: 'POS 교체', color: '#065F46' },
+    'van':     { icon: '💳', label: 'VAN 교체', color: '#5B21B6' },
+    'as':      { icon: '🔧', label: 'AS 처리',  color: '#92400E' },
+  };
+
+  // 캘린더 이벤트 상세 데이터 (점포명 → 상세)
+  const CAL_EVENT_DETAIL = {
+    'K-1 안중 신규':   { store:'K-1마트 안중점',   date:'4월 7일',  engineer:'김현장', note:'POS 5대 + 저울 설치' },
+    '웰빙마트 POS':    { store:'웰빙마트 일산점',   date:'4월 9일',  engineer:'이기사', note:'POS 교체 3대' },
+    'SK마트 강화':     { store:'SK마트 강화점',     date:'4월 14일', engineer:'박기사', note:'신규 POS 2대' },
+    '가락마트 AS':     { store:'가락마트 하나시스', date:'4월 15일', engineer:'이기사', note:'영수프린터 교체' },
+    'L-마트 VAN':      { store:'L-마트 반포점',     date:'4월 16일', engineer:'박기사', note:'KCP → KSNET 전환' },
+    '365할인마트':     { store:'365할인마트 광적',   date:'4월 18일', engineer:'김현장', note:'신규 POS 3대 설치' },
+    'K-1 안중점':      { store:'K-1마트 안중점',   date:'4월 20일', engineer:'김현장', note:'설치 진행중 (4/6단계)' },
+    '웰빙마트 VAN':    { store:'웰빙마트 신림점',   date:'4월 20일', engineer:'이기사', note:'VAN 단말 교체 3대' },
+    'ECJ마트 AS':      { store:'ECJ마트',           date:'4월 20일', engineer:'박기사', note:'영수프린터 용지 걸림' },
+    '365마트 VAN':     { store:'365마트',           date:'4월 22일', engineer:'이기사', note:'VAN 교체' },
+    '웰빙마트 설치':   { store:'웰빙마트 신림점',   date:'4월 23일', engineer:'김현장', note:'POS 교체 최종 설치' },
+  };
+
+  // 툴팁 DOM 생성
+  const calTooltip = document.createElement('div');
+  calTooltip.id = 'calTooltip';
+  calTooltip.innerHTML = '<div class="ct-title"></div><div class="ct-rows"></div>';
+  document.body.appendChild(calTooltip);
+
+  function showCalTooltip(e, el) {
+    const text = el.textContent.trim();
+    const detail = CAL_EVENT_DETAIL[text];
+    const typeClass = [...el.classList].find(c => CAL_EVENT_META[c]);
+    const meta = CAL_EVENT_META[typeClass] || { icon:'📅', label:'일정', color:'#374151' };
+
+    calTooltip.querySelector('.ct-title').innerHTML =
+      `<span style="margin-right:4px">${meta.icon}</span>${text}`;
+    calTooltip.querySelector('.ct-rows').innerHTML = detail ? `
+      <div class="ct-row"><b>점포:</b> ${detail.store}</div>
+      <div class="ct-row"><b>날짜:</b> ${detail.date}</div>
+      <div class="ct-row"><b>담당:</b> ${detail.engineer}</div>
+      <div class="ct-row"><b>내용:</b> ${detail.note}</div>
+    ` : `<div class="ct-row" style="color:#64748B">유형: ${meta.label}</div>`;
+
+    positionTooltip(e);
+    calTooltip.classList.add('visible');
+  }
+
+  function positionTooltip(e) {
+    const tx = Math.min(e.clientX + 14, window.innerWidth - 240);
+    const ty = Math.min(e.clientY + 14, window.innerHeight - 140);
+    calTooltip.style.left = tx + 'px';
+    calTooltip.style.top  = ty + 'px';
+  }
+
+  function hideCalTooltip() {
+    calTooltip.classList.remove('visible');
+  }
+
+  // 이벤트 바인딩 (이벤트 위임)
+  document.addEventListener('mouseover', function(e) {
+    const ev = e.target.closest('.cal-event');
+    if (ev) showCalTooltip(e, ev);
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (calTooltip.classList.contains('visible')) positionTooltip(e);
+  });
+  document.addEventListener('mouseout', function(e) {
+    if (e.target.closest('.cal-event')) hideCalTooltip();
+  });
+
+  // 캘린더 이벤트 클릭 → 상세 팝업 (재사용 가능 모달)
+  document.addEventListener('click', function(e) {
+    const ev = e.target.closest('.cal-event');
+    if (!ev) return;
+    hideCalTooltip();
+    const text = ev.textContent.trim();
+    const detail = CAL_EVENT_DETAIL[text] || {};
+    const typeClass = [...ev.classList].find(c => CAL_EVENT_META[c]);
+    const meta = CAL_EVENT_META[typeClass] || { icon:'📅', label:'일정', color:'#374151' };
+    showScheduleDetail({
+      title: text,
+      icon: meta.icon,
+      type: meta.label,
+      color: meta.color,
+      store: detail.store || text,
+      date: detail.date || '',
+      engineer: detail.engineer || '',
+      note: detail.note || '',
+    });
+  });
+
+  // 오늘 일정 카드 행 클릭
+  document.addEventListener('click', function(e) {
+    const row = e.target.closest('.sched-row');
+    if (!row) return;
+    showScheduleDetail({
+      title: row.dataset.title || '',
+      icon: row.dataset.icon || '📅',
+      type: row.dataset.type || '',
+      color: '#2563EB',
+      store: row.dataset.store || '',
+      date: row.dataset.date || '',
+      engineer: row.dataset.engineer || '',
+      note: row.dataset.note || '',
+    });
+  });
+
+  /* 일정 상세 모달 표시 */
+  function showScheduleDetail(d) {
+    let modal = document.getElementById('scheduleDetailModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'scheduleDetailModal';
+      modal.className = 'modal-overlay';
+      modal.style.cssText = 'z-index:9000';
+      modal.innerHTML = `
+        <div class="modal" style="width:min(440px,92vw);max-height:80vh;overflow-y:auto">
+          <div class="modal-header" id="sdmHeader" style="padding-bottom:12px">
+            <div>
+              <div id="sdmTitle" class="modal-title" style="font-size:17px"></div>
+              <div id="sdmType" style="font-size:12px;font-weight:600;margin-top:3px"></div>
+            </div>
+            <button class="modal-close" onclick="document.getElementById('scheduleDetailModal').classList.remove('show')">✕</button>
+          </div>
+          <div class="modal-body" id="sdmBody" style="padding:16px 20px 20px"></div>
+        </div>`;
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.classList.remove('show');
+      });
+      document.body.appendChild(modal);
+    }
+
+    document.getElementById('sdmTitle').textContent = d.icon + ' ' + d.title;
+    document.getElementById('sdmType').style.color = d.color;
+    document.getElementById('sdmType').textContent = d.type;
+
+    const rows = [
+      d.store    ? `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-100)"><span style="width:60px;font-size:12px;color:var(--gray-400);font-weight:600">점포</span><span style="font-size:13px;font-weight:700">${d.store}</span></div>` : '',
+      d.date     ? `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-100)"><span style="width:60px;font-size:12px;color:var(--gray-400);font-weight:600">날짜</span><span style="font-size:13px">${d.date}</span></div>` : '',
+      d.engineer ? `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-100)"><span style="width:60px;font-size:12px;color:var(--gray-400);font-weight:600">담당</span><span style="font-size:13px">${d.engineer}</span></div>` : '',
+      d.note     ? `<div style="display:flex;gap:10px;padding:9px 0"><span style="width:60px;font-size:12px;color:var(--gray-400);font-weight:600">내용</span><span style="font-size:13px;color:var(--gray-600)">${d.note}</span></div>` : '',
+    ].filter(Boolean).join('');
+
+    document.getElementById('sdmBody').innerHTML = rows || '<p style="color:var(--gray-400);font-size:13px">상세 정보가 없습니다.</p>';
+    modal.classList.add('show');
+  }
 </script>
 </body>
 </html>
