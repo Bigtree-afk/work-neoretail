@@ -2397,17 +2397,15 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   </div>
 </div>
 
-<div class="modal-overlay" id="loginModal" onclick="if(event.target===this&&!document.body.classList.contains('auth-required'))closeModal('loginModal')">
-  <div class="modal" style="width:400px;max-width:96vw">
-    <div class="modal-header">
-      <div class="modal-title" id="loginModalTitle">🔐 로그인</div>
-      <button class="modal-close" id="loginModalCloseBtn" onclick="if(!document.body.classList.contains('auth-required'))closeModal('loginModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="text-align:center;padding:8px 0 18px">
-        <div style="font-size:15px;font-weight:700;color:var(--gray-800);margin-bottom:8px">회사 구글 계정으로 로그인하세요.</div>
-        <div style="font-size:12px;color:var(--gray-500);line-height:1.6">
-          등록된 직원만 접근할 수 있습니다.
+<div class="modal-overlay" id="loginModal" style="align-items:center !important;justify-content:center !important" onclick="if(event.target===this&&!document.body.classList.contains('auth-required'))closeModal('loginModal')">
+  <div class="modal" style="width:400px;max-width:96vw;margin:0 auto">
+    <div class="modal-body" style="padding:40px 28px 32px">
+      <!-- 회사 로고 -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:28px">
+        <div style="width:64px;height:64px;background:#1A1614;border-radius:16px;display:flex;align-items:center;justify-content:center;font-family:'Archivo Black',sans-serif;font-size:22px;font-weight:900;color:#FFF8E7;letter-spacing:-0.04em;box-shadow:4px 4px 0 rgba(255,45,31,0.9)">NS</div>
+        <div style="text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--gray-800);letter-spacing:-0.01em">NeoSolution</div>
+          <div style="font-size:10px;color:var(--gray-400);font-family:'Space Grotesk',sans-serif;letter-spacing:0.15em;text-transform:uppercase;margin-top:3px">Work Order System</div>
         </div>
       </div>
 
