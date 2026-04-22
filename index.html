@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>작업관리 — NeoSolution</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -3166,19 +3167,66 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         return;
       }
 
-      // 파일 크기 기반 행 수 추정 (평균 행당 ~200바이트)
-      const estRows = Math.max(1, Math.round(file.size / 200));
-      const safeRows = Math.min(estRows, 9999); // 표시용 cap
+      // 실제 XLSX 파싱 (SheetJS)
+      let parsedRows = [];
+      try {
+        if (typeof XLSX === 'undefined') throw new Error('XLSX 라이브러리 로드 실패');
+        const wb = XLSX.read(bytes, { type: 'array' });
+        const sheetName = wb.SheetNames[0];
+        const sheet = wb.Sheets[sheetName];
+        parsedRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+      } catch (err) {
+        dz.style.display = '';
+        resetExcelUploadUI();
+        alert('엑셀 파싱 실패: ' + err.message);
+        return;
+      }
+
+      // 헤더 행 찾기 (이카운트는 1행 회사명 → 2행 헤더 → 3행~ 데이터인 경우가 있음)
+      let headerIdx = -1;
+      for (let i = 0; i < Math.min(parsedRows.length, 5); i++) {
+        const joined = (parsedRows[i] || []).join('|');
+        if (/거래처|점포|상호|사업자|대표/.test(joined)) { headerIdx = i; break; }
+      }
+      if (headerIdx < 0) headerIdx = 0;
+      const header = (parsedRows[headerIdx] || []).map(h => String(h || '').trim());
+      const dataRows = parsedRows.slice(headerIdx + 1).filter(r => (r || []).some(c => String(c || '').trim()));
+
+      // 컬럼 인덱스 매핑
+      const findCol = (patterns) => header.findIndex(h => patterns.some(p => h.includes(p)));
+      const idxCode  = findCol(['거래처코드', '코드']);
+      const idxName  = findCol(['거래처명', '점포명', '상호']);
+      const idxOwner = findCol(['대표자', '대표']);
+      const idxBizno = findCol(['사업자번호', '사업자등록', '사업자']);
+      const idxAddr  = findCol(['주소', '소재지']);
+      const idxPhone = findCol(['전화', '연락처', '휴대']);
+
+      // 파싱된 점포 객체 목록
+      const parsedStores = dataRows.map(r => ({
+        code:    idxCode  >= 0 ? String(r[idxCode]  || '').trim() : '',
+        name:    idxName  >= 0 ? String(r[idxName]  || '').trim() : '',
+        owner:   idxOwner >= 0 ? String(r[idxOwner] || '').trim() : '',
+        bizno:   idxBizno >= 0 ? String(r[idxBizno] || '').trim() : '',
+        address: idxAddr  >= 0 ? String(r[idxAddr]  || '').trim() : '',
+        phone:   idxPhone >= 0 ? String(r[idxPhone] || '').trim() : '',
+      })).filter(s => s.name || s.code);
+
+      const safeRows = parsedStores.length;
+
+      // 다음 버튼용으로 임시 저장
+      window._pendingImportStores = parsedStores;
 
       setTimeout(() => {
-        // 중복 체크 (기존 시뮬 데이터 사용)
-        const duplicates = [
-          { code: '03275', name: '(2)호영슈퍼(철곡동)', reason: '거래처코드 중복' },
-          { code: '09913', name: '(GG식품)성남녀석들', reason: '거래처코드 중복' },
-          { code: '09361', name: 'C.A슈퍼', reason: '거래처코드 중복' },
-        ].filter(d => registeredStores.has(d.code));
+        // 기존 저장소와 중복 체크 (거래처코드 기준)
+        const existing = getStores();
+        const existingCodes = new Set(existing.map(s => (s.code || '').trim()).filter(Boolean));
+        const duplicates = parsedStores
+          .filter(s => s.code && existingCodes.has(s.code))
+          .slice(0, 10)  // 상위 10건만 미리보기
+          .map(s => ({ code: s.code, name: s.name, reason: '거래처코드 중복' }));
+        const totalDupCount = parsedStores.filter(s => s.code && existingCodes.has(s.code)).length;
 
-        const newCount = Math.max(0, safeRows - duplicates.length);
+        const newCount = Math.max(0, safeRows - totalDupCount);
 
         dz.style.display = 'none';
         const preview = document.getElementById('excelPreview');
@@ -3190,10 +3238,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         if (firstInfoDiv) firstInfoDiv.textContent = `✅ ${safeRows.toLocaleString()}개 행 인식됨 — ${file.name}`;
 
         const dupWarning = document.getElementById('excelDupWarning');
-        if (dupWarning && duplicates.length > 0) {
+        if (dupWarning && totalDupCount > 0) {
           dupWarning.innerHTML = `
             <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:12px 16px;margin-bottom:12px">
-              <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:8px">⚠ 중복 감지 — ${duplicates.length}건은 등록하지 않음</div>
+              <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:8px">⚠ 중복 감지 — 총 ${totalDupCount}건은 등록하지 않음${duplicates.length < totalDupCount ? ` (아래 ${duplicates.length}건만 표시)` : ''}</div>
               ${duplicates.map(d => `
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;color:#92400E">
                   <span style="background:#FCD34D;color:#78350F;padding:1px 6px;border-radius:4px;font-weight:700;font-family:monospace">${d.code}</span>
@@ -3212,8 +3260,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
         const importBtn = document.getElementById('excelImportBtn');
         importBtn.style.display = '';
-        importBtn.textContent = duplicates.length > 0
-          ? `${newCount.toLocaleString()}개 점포 등록 (${duplicates.length}건 제외)`
+        importBtn.onclick = runExcelImport;
+        importBtn.textContent = totalDupCount > 0
+          ? `${newCount.toLocaleString()}개 점포 등록 (${totalDupCount}건 제외)`
           : `${safeRows.toLocaleString()}개 점포 일괄 등록`;
         document.getElementById('excelResetBtn').style.display = '';
 
@@ -3234,6 +3283,105 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   function resetExcelUploadUI() {
     document.getElementById('excelFileInput').value = '';
+  }
+
+  /* ── 엑셀 일괄 등록 실행 (프로그래스 바 포함) ── */
+  async function runExcelImport() {
+    const pending = window._pendingImportStores || [];
+    if (pending.length === 0) { alert('등록할 점포 데이터가 없습니다.'); return; }
+
+    const existing = getStores();
+    const existingCodes = new Set(existing.map(s => (s.code || '').trim()).filter(Boolean));
+    const toInsert = pending.filter(s => !s.code || !existingCodes.has(s.code));
+    const total = toInsert.length;
+    if (total === 0) { alert('등록할 신규 점포가 없습니다 (모두 중복).'); return; }
+
+    // 프로그래스 바 UI 주입
+    const preview = document.getElementById('excelPreview');
+    const importBtn = document.getElementById('excelImportBtn');
+    const resetBtn = document.getElementById('excelResetBtn');
+    if (importBtn) importBtn.style.display = 'none';
+    if (resetBtn) resetBtn.style.display = 'none';
+
+    let progressWrap = document.getElementById('excelImportProgress');
+    if (!progressWrap) {
+      progressWrap = document.createElement('div');
+      progressWrap.id = 'excelImportProgress';
+      progressWrap.style.cssText = 'margin-top:14px;padding:16px;border:1px solid var(--gray-200);border-radius:10px;background:#F9FAFB';
+      preview.appendChild(progressWrap);
+    }
+    progressWrap.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:700;color:var(--gray-700)">📥 점포 등록 진행중...</div>
+        <div style="font-size:12px;font-weight:700;color:var(--primary)" id="excelImportCountLabel">0 / ${total.toLocaleString()}</div>
+      </div>
+      <div style="width:100%;height:10px;background:var(--gray-200);border-radius:5px;overflow:hidden">
+        <div id="excelImportBar" style="width:0%;height:100%;background:linear-gradient(90deg,#22C55E,#16A34A);transition:width 0.1s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px">
+        <div style="font-size:11px;color:var(--gray-500)" id="excelImportPctLabel">0%</div>
+        <div style="font-size:11px;color:var(--gray-400)" id="excelImportEtaLabel">남은 시간 계산 중...</div>
+      </div>
+      <div style="font-size:11px;color:var(--gray-500);margin-top:4px" id="excelImportCurrentLabel">—</div>
+    `;
+
+    const bar = document.getElementById('excelImportBar');
+    const cntLbl = document.getElementById('excelImportCountLabel');
+    const pctLbl = document.getElementById('excelImportPctLabel');
+    const etaLbl = document.getElementById('excelImportEtaLabel');
+    const curLbl = document.getElementById('excelImportCurrentLabel');
+
+    const startTime = Date.now();
+    const store = existing.slice();
+    const batchSize = Math.max(1, Math.min(100, Math.ceil(total / 200)));
+
+    for (let i = 0; i < total; i++) {
+      const s = toInsert[i];
+      store.push({
+        id: 'st_' + Date.now().toString(36) + '_' + i.toString(36),
+        code: s.code,
+        name: s.name,
+        owner: s.owner,
+        bizno: s.bizno,
+        address: s.address,
+        phone: s.phone,
+        createdAt: new Date().toISOString(),
+      });
+
+      if ((i + 1) % batchSize === 0 || i === total - 1) {
+        const done = i + 1;
+        const pct = (done / total) * 100;
+        bar.style.width = pct.toFixed(1) + '%';
+        cntLbl.textContent = `${done.toLocaleString()} / ${total.toLocaleString()}`;
+        pctLbl.textContent = pct.toFixed(1) + '%';
+        const elapsed = (Date.now() - startTime) / 1000;
+        const rate = done / Math.max(0.1, elapsed);
+        const remain = Math.max(0, (total - done) / rate);
+        etaLbl.textContent = `⏱ 남은 시간: 약 ${remain < 1 ? '1초' : Math.ceil(remain) + '초'} · ${Math.round(rate).toLocaleString()} 건/초`;
+        curLbl.textContent = '현재: ' + (s.name || s.code || '—');
+        // 매 배치마다 UI 이벤트 루프에 양보
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+
+    // 최종 저장
+    saveStores(store);
+
+    // 완료 UI
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    progressWrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px">
+        <div style="font-size:28px">✅</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:800;color:#166534">${total.toLocaleString()}개 점포 등록 완료</div>
+          <div style="font-size:11px;color:#15803D;margin-top:2px">소요시간: ${elapsed}초 · 전체 저장된 점포: ${store.length.toLocaleString()}개</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="closeModal('excelUploadModal');renderStores&&renderStores();">점포 목록 보기</button>
+      </div>
+    `;
+
+    if (typeof showToast === 'function') showToast(`✅ ${total}개 점포 등록 완료`);
+    window._pendingImportStores = null;
   }
 
   function resetExcelUpload() {
