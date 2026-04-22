@@ -3396,6 +3396,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
     // 최종 저장
     saveStores(store);
+    // 점포 목록 DOM 즉시 갱신
+    try { if (typeof hydrateSavedStores === 'function') hydrateSavedStores(); } catch(e) {}
 
     // 완료 UI
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -3406,7 +3408,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <div style="font-size:14px;font-weight:800;color:#166534">${total.toLocaleString()}개 점포 등록 완료</div>
           <div style="font-size:11px;color:#15803D;margin-top:2px">소요시간: ${elapsed}초 · 전체 저장된 점포: ${store.length.toLocaleString()}개</div>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="closeModal('excelUploadModal');renderStores&&renderStores();">점포 목록 보기</button>
+        <button class="btn btn-primary btn-sm" onclick="closeModal('excelUploadModal');hydrateSavedStores&&hydrateSavedStores();">점포 목록 보기</button>
       </div>
     `;
 
@@ -4981,9 +4983,32 @@ ${text.slice(0, 3000)}`;
   function hydrateSavedStores() {
     try {
       const stores = (typeof getStores === 'function') ? getStores() : [];
-      stores.slice().reverse().forEach(s => injectStoreRow(s));
-    } catch {}
+      const tb = document.getElementById('storeListTbody');
+      if (!tb) return;
+      // 저장된 점포가 있으면 하드코딩된 데모 행을 모두 치우고 실제 데이터로 교체
+      if (stores.length > 0) {
+        tb.innerHTML = '';
+        stores.slice().reverse().forEach(s => injectStoreRow(s));
+        // 점포 개수 표시
+        const countRow = document.createElement('tr');
+        countRow.style.color = 'var(--gray-400)';
+        countRow.innerHTML = `<td colspan="10" style="text-align:center;padding:10px;font-size:11px;background:#F9FAFB">총 ${stores.length.toLocaleString()}개 점포 · 최신 ${Math.min(stores.length, 200).toLocaleString()}개 표시</td>`;
+        // 너무 많으면 상위 200개만 렌더 (성능)
+        if (stores.length > 200) {
+          tb.innerHTML = '';
+          stores.slice(-200).reverse().forEach(s => injectStoreRow(s));
+          tb.appendChild(countRow);
+        } else {
+          tb.appendChild(countRow);
+        }
+      } else {
+        // 저장된 점포가 없으면 데모 행 유지
+        stores.slice().reverse().forEach(s => injectStoreRow(s));
+      }
+    } catch(e) { console.warn('hydrateSavedStores error', e); }
   }
+  window.hydrateSavedStores = hydrateSavedStores;
+  window.renderStores = hydrateSavedStores;
 
   /* saveNewJob / saveNewStore 훅: 저장 후 DOM 주입 */
   (function patchSavers() {
