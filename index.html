@@ -1024,10 +1024,8 @@
             </div>
           </div>
           <div style="display:flex;gap:6px;align-items:center">
-            <span id="aiAutoScheduleBadge" style="font-size:11px;color:#6366F1;background:#EEF2FF;padding:4px 10px;border-radius:8px;font-weight:600">🕛 매일 자정 자동 분析</span>
-            <button class="btn btn-sm btn-outline" onclick="confirmClearSampleData()"
-              style="font-size:11px; color:#EF4444; border-color:#FCA5A5; padding:5px 12px"
-              title="샘플 데이터 전체 삭제">🗑 초기화</button>
+            <span id="aiAutoScheduleBadge" style="font-size:11px;color:#6366F1;background:#EEF2FF;padding:4px 10px;border-radius:8px;font-weight:600">🕛 매일 자정 자동 분석</span>
+            <span style="font-size:10px;color:var(--gray-400)">재분석은 관리자 페이지에서</span>
           </div>
         </div>
 
@@ -1105,9 +1103,10 @@
     <!-- ═══════════════════════════════════════ -->
     <div class="screen" id="screen-jobs">
       <div class="filter-row">
-        <div class="search-bar" style="flex:0 0 240px">
-          <span class="search-icon">🔍</span>
-          <input type="text" placeholder="점포명 검색...">
+        <div class="search-bar" style="flex:0 0 280px;position:relative">
+          <span class="search-icon" onclick="runJobSearch()" style="cursor:pointer" title="검색">🔍</span>
+          <input type="text" id="jobSearchInput" placeholder="점포명 검색..." onkeydown="if(event.key==='Enter'){event.preventDefault();runJobSearch();}" style="padding-right:40px">
+          <button type="button" onclick="startJobVoiceSearch()" title="음성 검색" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:#F3F4F6;border:1px solid var(--gray-200);border-radius:8px;width:30px;height:30px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center">🎙</button>
         </div>
         <div class="filter-chip active" onclick="filterJobs(this,'전체')">전체</div>
         <div class="filter-chip" onclick="filterJobs(this,'신규개업')">신규개업</div>
@@ -1127,7 +1126,7 @@
         </button>
       </div>
 
-      <div class="grid-3">
+      <div class="grid-3" id="jobsGrid">
 
         <div class="job-card" data-jobtype="신규개업">
           <div class="job-card-header">
@@ -1320,7 +1319,7 @@
           </div>
         </div>
 
-        <div class="job-card" style="border:2px dashed var(--gray-200); background:var(--gray-50); display:flex; align-items:center; justify-content:center; min-height:200px; cursor:pointer" onclick="showModal('newJobModal')">
+        <div class="job-card" id="newJobCardBtn" style="border:2px dashed var(--gray-200); background:var(--gray-50); display:flex; align-items:center; justify-content:center; min-height:200px; cursor:pointer" onclick="showModal('newJobModal')">
           <div style="text-align:center">
             <div style="font-size:32px; margin-bottom:10px">➕</div>
             <div style="font-size:14px; font-weight:700; color:var(--gray-500)">새 작업 등록</div>
@@ -1336,14 +1335,15 @@
     <!-- ═══════════════════════════════════════ -->
     <div class="screen" id="screen-stores">
       <div class="filter-row" style="margin-bottom:16px">
-        <div class="search-bar" style="flex:0 0 280px">
-          <span class="search-icon">🔍</span>
-          <input type="text" placeholder="점포명, 사업자번호, 대표자 검색...">
+        <div class="search-bar" style="flex:0 0 320px;position:relative">
+          <span class="search-icon" onclick="runStoreSearch()" style="cursor:pointer" title="검색">🔍</span>
+          <input type="text" id="storeSearchInput" placeholder="점포명, 사업자번호, 대표자 검색..." onkeydown="if(event.key==='Enter'){event.preventDefault();runStoreSearch();}" style="padding-right:40px">
+          <button type="button" id="storeMicBtn" onclick="startStoreVoiceSearch()" title="음성 검색" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:#F3F4F6;border:1px solid var(--gray-200);border-radius:8px;width:30px;height:30px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center">🎙</button>
         </div>
-        <div class="filter-chip active">전체</div>
-        <div class="filter-chip">거래중</div>
-        <div class="filter-chip">신규예정</div>
-        <div class="filter-chip">이탈</div>
+        <div class="filter-chip active" onclick="filterStoresByStatus(this,'전체')">전체</div>
+        <div class="filter-chip" onclick="filterStoresByStatus(this,'거래중')">거래중</div>
+        <div class="filter-chip" onclick="filterStoresByStatus(this,'신규예정')">신규예정</div>
+        <div class="filter-chip" onclick="filterStoresByStatus(this,'이탈')">이탈</div>
         <div style="margin-left:auto;display:flex;gap:8px">
           <button class="btn btn-outline btn-sm" onclick="showModal('excelUploadModal')" style="border-color:#22C55E;color:#16A34A;background:#F0FDF4">
             📊 엑셀 업로드
@@ -1358,7 +1358,7 @@
           <div style="font-size:12px;font-weight:600;color:var(--gray-600)">전체 <b style="color:var(--primary)">38</b>개 점포</div>
           <div style="font-size:11px;color:var(--gray-400)">클릭 시 상세보기</div>
         </div>
-        <table class="store-list-table">
+        <table class="store-list-table" id="storeListTable">
           <thead>
             <tr>
               <th>거래처코드</th>
@@ -1373,7 +1373,7 @@
               <th>상태</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="storeListTbody">
             <tr onclick="toggleStoreDetail(this)" style="font-weight:600;background:#EFF6FF">
               <td style="color:var(--gray-400);font-size:11px">EC-10286</td>
               <td><b>K-1마트 안중점</b></td>
@@ -2356,6 +2356,36 @@
 <!-- ═══════════════════════════════════════ -->
 <!-- MODAL: 로그인 / 회원가입               -->
 <!-- ═══════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════ -->
+<!-- MODAL: 비밀번호 강제 변경               -->
+<!-- ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="forcePwModal">
+  <div class="modal" style="width:420px;max-width:94vw">
+    <div class="modal-header">
+      <div class="modal-title">🔐 비밀번호 변경 필요</div>
+    </div>
+    <div class="modal-body">
+      <div style="background:#FEF3C7;border:1px solid #FDE68A;color:#92400E;padding:10px 14px;border-radius:8px;font-size:12.5px;line-height:1.6;margin-bottom:14px">
+        보안을 위해 초기 비밀번호를 <b>반드시 변경</b>해야 합니다.<br>
+        변경 전에는 로그인이 완료되지 않습니다.
+      </div>
+      <div class="form-group">
+        <label>새 비밀번호 (8자 이상)</label>
+        <input type="password" id="forcePwNew" placeholder="새 비밀번호" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>새 비밀번호 확인</label>
+        <input type="password" id="forcePwNew2" placeholder="비밀번호 재입력" autocomplete="new-password">
+      </div>
+      <div id="forcePwError" style="display:none;color:var(--danger);font-size:12px;margin-top:4px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cancelForcePasswordChange()">나중에</button>
+      <button class="btn btn-primary" onclick="submitForcePasswordChange()">변경 완료</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="loginModal" onclick="if(event.target===this)closeModal('loginModal')">
   <div class="modal" style="width:400px;max-width:96vw">
     <div class="modal-header">
@@ -2465,6 +2495,21 @@
           <div style="font-size:11px;color:var(--gray-400);margin-top:5px">🔒 키는 브라우저 localStorage에만 저장됩니다.</div>
         </div>
         <div id="adminApiKeyStatus" style="display:none;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:600;margin-top:4px"></div>
+      </div>
+
+      <!-- 구분선 -->
+      <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+
+      <!-- AI 대시보드 분석 -->
+      <div class="admin-section">
+        <div class="admin-section-title">AI 대시보드 분석</div>
+        <div style="font-size:12px;color:var(--gray-500);margin-bottom:8px;line-height:1.55">
+          매일 자정에 자동 분석이 실행됩니다. 즉시 재분석하거나 샘플 데이터를 초기화할 수 있습니다.
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="closeModal('adminModal'); runDashboardAnalysis();">✦ AI 재분석 실행</button>
+          <button class="btn btn-outline btn-sm" onclick="confirmClearSampleData()" style="color:#EF4444;border-color:#FCA5A5">🗑 샘플 데이터 초기화</button>
+        </div>
       </div>
 
       <!-- 구분선 -->
@@ -3746,10 +3791,73 @@ ${text.slice(0, 3000)}`;
       return;
     }
 
+    // 최초 로그인/강제 변경 필요: 비번 변경 전에는 로그인 완료 안 됨
+    if (user.mustChangePassword) {
+      window._forceChangeUserId = user.id;
+      closeModal('loginModal');
+      showModal('forcePwModal');
+      setTimeout(() => document.getElementById('forcePwNew')?.focus(), 80);
+      return;
+    }
+
     setAuthState({ loggedIn: true, id: user.id, name: user.name, role: user.role });
     closeModal('loginModal');
     updateNavAuth();
   }
+
+  /* ── 강제 비밀번호 변경 처리 ── */
+  function submitForcePasswordChange() {
+    const userId = window._forceChangeUserId;
+    if (!userId) { closeModal('forcePwModal'); return; }
+    const pw = document.getElementById('forcePwNew').value;
+    const pw2 = document.getElementById('forcePwNew2').value;
+    const errEl = document.getElementById('forcePwError');
+    errEl.style.display = 'none';
+    if (!pw || pw.length < 8) { errEl.textContent = '비밀번호는 8자 이상이어야 합니다.'; errEl.style.display=''; return; }
+    if (pw !== pw2) { errEl.textContent = '비밀번호가 일치하지 않습니다.'; errEl.style.display=''; return; }
+    if (pw === '1234') { errEl.textContent = '초기 비밀번호와 다른 값으로 설정하세요.'; errEl.style.display=''; return; }
+
+    const users = getUsers();
+    const u = users.find(x => x.id === userId);
+    if (!u) { closeModal('forcePwModal'); return; }
+    u.pw = btoa(pw);
+    u.mustChangePassword = false;
+    saveUsers(users);
+
+    setAuthState({ loggedIn: true, id: u.id, name: u.name, role: u.role });
+    window._forceChangeUserId = null;
+    document.getElementById('forcePwNew').value = '';
+    document.getElementById('forcePwNew2').value = '';
+    closeModal('forcePwModal');
+    updateNavAuth();
+    showToast && showToast('✅ 비밀번호가 변경되었습니다');
+  }
+
+  function cancelForcePasswordChange() {
+    // 로그인 완료시키지 않고 모달만 닫음. mustChangePassword 플래그 유지.
+    window._forceChangeUserId = null;
+    document.getElementById('forcePwNew').value = '';
+    document.getElementById('forcePwNew2').value = '';
+    closeModal('forcePwModal');
+    showToast && showToast('⚠️ 비밀번호 변경 전까지 로그인 불가');
+  }
+
+  /* ── 관리자 시드: zoolex@gmail.com / 이동호 / 1234 ── */
+  (function seedAdminUser() {
+    try {
+      const users = getUsers();
+      if (!users.find(u => u.id === 'zoolex@gmail.com')) {
+        users.push({
+          id: 'zoolex@gmail.com',
+          name: '이동호',
+          pw: btoa('1234'),
+          role: 'admin',
+          mustChangePassword: true
+        });
+        saveUsers(users);
+      }
+    } catch (e) { console.warn('seedAdminUser failed', e); }
+  })();
 
   function doSignup() {
     const name = document.getElementById('signupName').value.trim();
@@ -4325,11 +4433,210 @@ ${text.slice(0, 3000)}`;
   }
 
   /* ══════════════════════════════════════════════
+     새 작업/점포 DOM 주입 + 목록 하이드레이션
+  ══════════════════════════════════════════════ */
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function buildJobCardEl(job) {
+    const typeIcon = { '신규개업':'🏪','POS교체':'🔄','VAN교체':'💳','AS':'🔧','기타':'📋' }[job.type] || '📋';
+    const card = document.createElement('div');
+    card.className = 'job-card';
+    card.setAttribute('data-jobtype', job.type || '기타');
+    card.dataset.jobId = job.id;
+    card.innerHTML = `
+      <div class="job-card-header">
+        <div>
+          <div class="job-type" style="color:var(--primary)">${typeIcon} ${esc(job.type||'기타')}</div>
+          <div class="job-store">${esc(job.storeName)}</div>
+          <div class="job-addr">${esc(job.address||'')}</div>
+        </div>
+        <span class="badge badge-blue"><span class="badge-dot"></span>${esc(job.status||'진행중')}</span>
+      </div>
+      <div style="font-size:12.5px;color:var(--gray-600);margin-top:8px;line-height:1.55">${esc(job.notes||'메모 없음')}</div>
+      <div class="job-meta">
+        <div class="job-meta-item"><div class="job-meta-label">작업일</div><div class="job-meta-value">${esc(job.date||'-')}</div></div>
+        <div class="job-meta-item"><div class="job-meta-label">담당</div><div class="job-meta-value">${esc(job.engineer||'미배정')}</div></div>
+        <div class="job-meta-item"><div class="job-meta-label">등록</div><div class="job-meta-value">방금</div></div>
+        <div class="job-meta-item"><div class="job-meta-label">ID</div><div class="job-meta-value" style="font-size:10px">${esc(job.id)}</div></div>
+      </div>
+    `;
+    return card;
+  }
+
+  function injectJobCard(job) {
+    const grid = document.getElementById('jobsGrid');
+    if (!grid) return;
+    const addBtn = document.getElementById('newJobCardBtn');
+    const card = buildJobCardEl(job);
+    if (addBtn) grid.insertBefore(card, addBtn); else grid.appendChild(card);
+  }
+
+  function hydrateSavedJobs() {
+    try {
+      const jobs = (typeof getJobs === 'function') ? getJobs() : [];
+      const grid = document.getElementById('jobsGrid');
+      if (!grid) return;
+      // 최신 등록이 위로 오도록 역순으로 prepend
+      jobs.slice().reverse().forEach(j => injectJobCard(j));
+    } catch {}
+  }
+
+  function buildStoreRowEl(store) {
+    const tr = document.createElement('tr');
+    tr.dataset.storeId = store.id;
+    tr.setAttribute('onclick','toggleStoreDetail(this)');
+    tr.innerHTML = `
+      <td style="color:var(--gray-400);font-size:11px">${esc(store.id)}</td>
+      <td><b>${esc(store.name)}</b></td>
+      <td style="font-family:monospace;font-size:11px">${esc(store.biz||'-')}</td>
+      <td>${esc(store.ceo||'-')}</td>
+      <td style="font-size:11px;color:var(--gray-500)">${esc(store.tel||'-')}</td>
+      <td style="font-size:11px;color:var(--gray-500)">${esc(store.addr||'-')}</td>
+      <td>${store.van ? `<span class="badge badge-purple">${esc(store.van)}</span>` : '-'}</td>
+      <td>
+        <div class="pos-kiosk-badge">
+          <span class="pk-chip" style="background:#DBEAFE;color:#1D4ED8">POS ${esc(store.pos||0)}</span>
+        </div>
+      </td>
+      <td style="font-size:11px">-</td>
+      <td><span class="badge badge-green">${esc(store.status||'거래중')}</span></td>
+    `;
+    return tr;
+  }
+
+  function injectStoreRow(store) {
+    const tb = document.getElementById('storeListTbody');
+    if (!tb) return;
+    tb.insertBefore(buildStoreRowEl(store), tb.firstChild);
+  }
+
+  function hydrateSavedStores() {
+    try {
+      const stores = (typeof getStores === 'function') ? getStores() : [];
+      stores.slice().reverse().forEach(s => injectStoreRow(s));
+    } catch {}
+  }
+
+  /* saveNewJob / saveNewStore 훅: 저장 후 DOM 주입 */
+  (function patchSavers() {
+    if (typeof saveNewJob === 'function') {
+      const _origJob = saveNewJob;
+      window.saveNewJob = function() {
+        const prev = (typeof getJobs === 'function') ? getJobs() : [];
+        _origJob.apply(this, arguments);
+        try {
+          const now = getJobs();
+          if (now.length > prev.length) injectJobCard(now[0]);
+        } catch {}
+      };
+    }
+    if (typeof saveNewStore === 'function') {
+      const _origStore = saveNewStore;
+      window.saveNewStore = function() {
+        const prev = (typeof getStores === 'function') ? getStores() : [];
+        _origStore.apply(this, arguments);
+        try {
+          const now = getStores();
+          if (now.length > prev.length) injectStoreRow(now[0]);
+        } catch {}
+      };
+    }
+  })();
+
+  /* 점포 행 클릭: 하이라이트 토글 (상세보기 스텁) */
+  if (typeof window.toggleStoreDetail !== 'function') {
+    window.toggleStoreDetail = function(tr) {
+      const tb = tr.parentElement;
+      Array.from(tb.querySelectorAll('tr')).forEach(r => r.style.outline = '');
+      tr.style.outline = '2px solid var(--primary)';
+      tr.style.outlineOffset = '-2px';
+      const name = tr.querySelector('b')?.textContent || '선택된 점포';
+      showToast && showToast(`📌 ${name}`);
+    };
+  }
+
+  /* ══════════════════════════════════════════════
+     검색 / 필터 / 음성 인식
+  ══════════════════════════════════════════════ */
+  function _runVoice(inputEl, onDone) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { showToast && showToast('이 브라우저는 음성 인식을 지원하지 않습니다'); return; }
+    const rec = new SR();
+    rec.lang = 'ko-KR';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    showToast && showToast('🎙 듣고 있습니다...');
+    rec.onresult = (ev) => {
+      const text = ev.results[0][0].transcript || '';
+      if (inputEl) inputEl.value = text;
+      if (typeof onDone === 'function') onDone(text);
+    };
+    rec.onerror = (e) => { showToast && showToast('음성 인식 오류: ' + (e.error||'')); };
+    try { rec.start(); } catch {}
+  }
+
+  function runStoreSearch() {
+    const q = (document.getElementById('storeSearchInput')?.value || '').trim().toLowerCase();
+    const tb = document.getElementById('storeListTbody');
+    if (!tb) return;
+    let shown = 0;
+    Array.from(tb.querySelectorAll('tr')).forEach(tr => {
+      if (tr.classList.contains('store-detail-row')) return; // 상세 행은 건드리지 않음
+      const txt = tr.textContent.toLowerCase();
+      const match = !q || txt.includes(q);
+      tr.style.display = match ? '' : 'none';
+      if (match) shown++;
+    });
+    showToast && showToast(q ? `🔍 "${q}" 결과 ${shown}건` : `전체 ${shown}개 점포`);
+  }
+
+  function startStoreVoiceSearch() {
+    const inp = document.getElementById('storeSearchInput');
+    _runVoice(inp, () => runStoreSearch());
+  }
+
+  function filterStoresByStatus(chip, status) {
+    const row = chip.parentElement;
+    row.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    const tb = document.getElementById('storeListTbody');
+    if (!tb) return;
+    Array.from(tb.querySelectorAll('tr')).forEach(tr => {
+      if (status === '전체') { tr.style.display = ''; return; }
+      const badge = tr.querySelector('.badge-green, .badge-blue, .badge-amber, .badge-red, .badge-gray');
+      const text = badge ? badge.textContent.trim() : '';
+      tr.style.display = (text === status) ? '' : 'none';
+    });
+  }
+
+  function runJobSearch() {
+    const q = (document.getElementById('jobSearchInput')?.value || '').trim().toLowerCase();
+    const grid = document.getElementById('jobsGrid');
+    if (!grid) return;
+    let shown = 0;
+    grid.querySelectorAll('.job-card').forEach(c => {
+      if (c.id === 'newJobCardBtn') return;
+      const txt = c.textContent.toLowerCase();
+      const match = !q || txt.includes(q);
+      c.style.display = match ? '' : 'none';
+      if (match) shown++;
+    });
+    showToast && showToast(q ? `🔍 "${q}" 작업 ${shown}건` : `전체 ${shown}건 작업`);
+  }
+
+  function startJobVoiceSearch() {
+    const inp = document.getElementById('jobSearchInput');
+    _runVoice(inp, () => runJobSearch());
+  }
+
+  /* ══════════════════════════════════════════════
      페이지 로드 초기화
   ══════════════════════════════════════════════ */
   renderQuote();
   updateNavAuth();
   populateStoreNameList();
+  hydrateSavedJobs();
+  hydrateSavedStores();
 
   /* ══════════════════════════════════════════════
      RIPPLE EFFECT — 모든 버튼 클릭 시 물결 효과
