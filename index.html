@@ -1,0 +1,3710 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>작업관리 — NeoSolution</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --primary: #2563EB;
+    --primary-dark: #1d4ed8;
+    --primary-light: #EFF6FF;
+    --success: #10B981;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --purple: #8B5CF6;
+    --gray-50: #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-600: #4B5563;
+    --gray-700: #374151;
+    --gray-800: #1F2937;
+    --gray-900: #111827;
+    --neo-paper: #F5EEDF;
+    --neo-cream: #FFF8E7;
+    --neo-ink: #1A1614;
+    --neo-red: #FF2D1F;
+    --neo-line-c: rgba(26,22,20,0.10);
+    --neo-ink-2: rgba(26,22,20,0.55);
+    --neo-ink-3: rgba(26,22,20,0.35);
+  }
+  body { font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--neo-paper); color: var(--gray-800); display: flex; flex-direction: column; min-height: 100vh; }
+  body::before {
+    content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    opacity: 0.45; mix-blend-mode: multiply;
+  }
+
+  /* ── TOP NAV ── */
+  .topnav {
+    background: #1A1614; color: #FFF8E7;
+    display: flex; align-items: center; height: 56px;
+    padding: 0 18px; gap: 6px;
+    position: sticky; top: 0; z-index: 100; flex-shrink: 0;
+    border-bottom: 1px solid rgba(255,248,231,0.08);
+  }
+  .topnav-logo {
+    display: flex; align-items: center; gap: 9px; margin-right: 12px; flex-shrink: 0; text-decoration: none;
+  }
+  .logo-icon {
+    width: 32px; height: 32px; background: #FFF8E7; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Archivo Black', sans-serif; font-size: 13px; font-weight: 900;
+    color: #1A1614; letter-spacing: -0.04em; flex-shrink: 0;
+    box-shadow: 2px 2px 0 rgba(255,45,31,0.9);
+  }
+  .logo-text { font-size: 14px; font-weight: 800; letter-spacing: -0.01em; color: #FFF8E7; }
+  .logo-sub { font-size: 9.5px; color: rgba(255,248,231,0.55); font-family: 'Space Grotesk', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 1px; }
+
+  .topnav-divider { width: 1px; height: 22px; background: rgba(255,248,231,0.15); margin: 0 6px; flex-shrink: 0; }
+
+  .topnav-links { display: flex; align-items: center; gap: 1px; flex: 1; overflow-x: auto; }
+  .topnav-links::-webkit-scrollbar { display: none; }
+  .nav-item {
+    display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 7px;
+    font-size: 13px; font-weight: 500; color: rgba(255,248,231,0.7); cursor: pointer; transition: all .15s;
+    text-decoration: none; white-space: nowrap; flex-shrink: 0;
+  }
+  .nav-item:hover { background: rgba(255,248,231,0.08); color: #FFF8E7; }
+  .nav-item.active { background: #FFF8E7; color: #1A1614; font-weight: 700; }
+  .nav-icon { font-size: 11px; opacity: 0.7; }
+  .nav-badge { background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
+
+  .topnav-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: auto; }
+  .topnav-date { font-size: 11.5px; color: rgba(255,248,231,0.55); font-family: 'Space Grotesk', sans-serif; white-space: nowrap; }
+  .avatar { width: 26px; height: 26px; background: #FF2D1F; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0; }
+  .topnav-user { display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 4px 8px 4px 4px; border-radius: 8px; background: rgba(255,248,231,0.06); }
+  .user-name { font-size: 12px; font-weight: 600; color: #FFF8E7; }
+  .user-role { font-size: 10px; color: rgba(255,248,231,0.5); font-family: 'Space Grotesk', sans-serif; }
+
+  /* ── MOBILE DROPDOWN MENU ── */
+  .topnav-mobile-menu {
+    display: none; position: fixed; top: 56px; left: 0; right: 0;
+    background: #1A1614; z-index: 99; flex-direction: column; gap: 2px;
+    padding: 8px 12px 16px; border-bottom: 1px solid rgba(255,248,231,0.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .topnav-mobile-menu.open { display: flex; }
+  .topnav-mobile-menu .nav-item { font-size: 14px; padding: 10px 12px; }
+  .topnav-mobile-menu .nav-section { font-size: 10px; font-weight: 600; color: var(--gray-600); letter-spacing: 1px; text-transform: uppercase; padding: 10px 12px 4px; }
+  .menu-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 98; }
+  .menu-overlay.show { display: block; }
+
+  /* ── MAIN ── */
+  .main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .topbar {
+    background: #FFF8E7; border-bottom: 1px solid var(--neo-line-c);
+    padding: 0 24px; height: 50px; display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 56px; z-index: 50;
+  }
+  .page-title { font-size: 15px; font-weight: 700; color: var(--gray-900); }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+    border-radius: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; transition: all .15s;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-outline { background: #fff; color: var(--gray-700); border: 1.5px solid var(--gray-200); }
+  .btn-outline:hover { border-color: var(--gray-400); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  .content { padding: 28px; flex: 1; }
+
+  /* ── TABS ── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── STAT CARDS ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .stat-card {
+    background: #fff; border-radius: 12px; padding: 20px 22px;
+    border: 1px solid var(--gray-200); position: relative; overflow: hidden;
+  }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .stat-card.blue::before { background: var(--primary); }
+  .stat-card.green::before { background: var(--success); }
+  .stat-card.amber::before { background: var(--warning); }
+  .stat-card.red::before { background: var(--danger); }
+  .stat-label { font-size: 12px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 30px; font-weight: 800; color: var(--gray-900); margin: 6px 0 4px; line-height: 1; }
+  .stat-sub { font-size: 12px; color: var(--gray-400); }
+  .stat-icon { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); font-size: 32px; opacity: .12; }
+
+  /* ── SECTION ── */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .section-title { font-size: 15px; font-weight: 700; color: var(--gray-900); }
+
+  /* ── TABLE ── */
+  .card { background: #fff; border-radius: 12px; border: 1px solid var(--gray-200); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--gray-50); }
+  th { padding: 10px 16px; text-align: left; font-size: 11.5px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--gray-200); }
+  td { padding: 13px 16px; font-size: 13.5px; color: var(--gray-700); border-bottom: 1px solid var(--gray-100); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--gray-50); }
+
+  /* ── BADGE ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 600;
+  }
+  .badge-blue { background: #DBEAFE; color: #1D4ED8; }
+  .badge-green { background: #D1FAE5; color: #065F46; }
+  .badge-amber { background: #FEF3C7; color: #92400E; }
+  .badge-red { background: #FEE2E2; color: #991B1B; }
+  .badge-purple { background: #EDE9FE; color: #5B21B6; }
+  .badge-gray { background: var(--gray-100); color: var(--gray-600); }
+  .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* ── GRID 2 ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* ── JOB CARD ── */
+  .job-card {
+    background: #fff; border-radius: 12px; border: 1px solid var(--gray-200);
+    padding: 18px; transition: box-shadow .2s;
+  }
+  .job-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+  .job-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+  .job-type { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+  .job-store { font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; }
+  .job-addr { font-size: 12px; color: var(--gray-400); }
+  .job-meta { display: flex; gap: 16px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--gray-100); }
+  .job-meta-item { display: flex; flex-direction: column; gap: 2px; }
+  .job-meta-label { font-size: 10.5px; color: var(--gray-400); font-weight: 600; text-transform: uppercase; }
+  .job-meta-value { font-size: 12.5px; font-weight: 600; color: var(--gray-700); }
+
+  /* ── PROGRESS STEPS ── */
+  .steps { display: flex; align-items: center; gap: 0; margin: 12px 0; }
+  .step { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; }
+  .step-dot { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; flex-shrink: 0; }
+  .step-dot.done { background: var(--success); color: #fff; }
+  .step-dot.current { background: var(--primary); color: #fff; }
+  .step-dot.pending { background: var(--gray-200); color: var(--gray-500); }
+  .step-line { height: 2px; width: 16px; background: var(--gray-200); margin: 0 2px; flex-shrink: 0; }
+  .step-line.done { background: var(--success); }
+
+  /* ── CALENDAR ── */
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-day-header { text-align: center; font-size: 11px; font-weight: 700; color: var(--gray-500); padding: 6px; }
+  .cal-day {
+    min-height: 80px; background: #fff; border: 1px solid var(--gray-200);
+    border-radius: 8px; padding: 6px; font-size: 12px; color: var(--gray-700);
+  }
+  .cal-day.today { border-color: var(--primary); background: var(--primary-light); }
+  .cal-day.other-month { background: var(--gray-50); color: var(--gray-300); }
+  .cal-day-num { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .cal-event {
+    border-radius: 4px; padding: 2px 5px; font-size: 10.5px; font-weight: 600;
+    margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cal-event.new { background: #DBEAFE; color: #1D4ED8; }
+  .cal-event.replace { background: #D1FAE5; color: #065F46; }
+  .cal-event.van { background: #EDE9FE; color: #5B21B6; }
+  .cal-event.as { background: #FEF3C7; color: #92400E; }
+
+  /* ── FORM ── */
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 12.5px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
+  input[type=text], input[type=date], input[type=number], select, textarea {
+    width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-200); border-radius: 8px;
+    font-size: 13.5px; color: var(--gray-800); background: #fff; transition: border .15s;
+    font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* ── MODAL ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: #FFF8E7; border-radius: 12px; box-shadow: 6px 6px 0 #1A1614; width: 560px; max-height: 85vh; overflow-y: auto; }
+  .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 16px; font-weight: 700; }
+  .modal-close { width: 30px; height: 30px; border-radius: 8px; border: none; background: var(--gray-100); cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; color: var(--gray-500); }
+  .modal-body { padding: 20px 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--gray-200); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ── CAPTURE TABS ── */
+  .capture-tabs { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: wrap; }
+  .capture-tab {
+    padding: 5px 12px; border-radius: 8px; font-size: 11px; font-weight: 600;
+    border: 1px solid #C7D2FE; background: #fff; color: #6366F1; cursor: pointer; transition: all 0.15s;
+  }
+  .capture-tab.active { background: #4F46E5; color: #fff; border-color: #4F46E5; }
+  .capture-tab:hover:not(.active) { background: #EEF2FF; }
+
+  /* ── DROP ZONE ── */
+  .drop-zone {
+    border: 2px dashed #A5B4FC; border-radius: 10px; padding: 28px 20px;
+    text-align: center; background: #fff; cursor: pointer; transition: all 0.2s;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: #4F46E5; background: #EEF2FF; }
+  .drop-zone.has-image { border-style: solid; border-color: #4F46E5; padding: 12px; }
+
+  /* ── AI PROGRESS ── */
+  @keyframes progress-bar { from { width: 0% } to { width: 100% } }
+  @keyframes pulse-dot { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
+  .progress-track { height: 5px; background: #E0E7FF; border-radius: 10px; overflow: hidden; margin-top: 8px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg,#6366F1,#8B5CF6); border-radius: 10px; animation: progress-bar 2.2s ease forwards; }
+
+  /* ── BILLIARD BALLS ── */
+  .ball-selector-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--gray-100); }
+  .ball-selector-row:last-child { border-bottom:none; }
+  .ball-label { width:130px; font-size:12px; font-weight:600; color:var(--gray-700); flex-shrink:0; }
+  .ball-label small { display:block; font-size:10px; color:var(--gray-400); font-weight:400; margin-top:1px; }
+  .balls { display:flex; gap:6px; flex-wrap:wrap; flex:1; }
+  .ball {
+    width:34px; height:34px; border-radius:50%; cursor:pointer; border:2.5px solid transparent;
+    display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800;
+    color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.6); transition:transform 0.1s, border-color 0.1s;
+    position:relative; overflow:hidden; flex-shrink:0; user-select:none;
+  }
+  .ball:hover { transform:scale(1.18); }
+  .ball.selected { border-color:#1F2937; transform:scale(1.22); box-shadow:0 0 0 2px #fff, 0 0 0 4px #1F2937; }
+  .ball.b0  { background:#D1D5DB; color:#6B7280; text-shadow:none; }
+  .ball.b1  { background:radial-gradient(circle at 35% 35%,#FBBF24,#D97706); }
+  .ball.b2  { background:radial-gradient(circle at 35% 35%,#60A5FA,#1D4ED8); }
+  .ball.b3  { background:radial-gradient(circle at 35% 35%,#F87171,#DC2626); }
+  .ball.b4  { background:radial-gradient(circle at 35% 35%,#C084FC,#7C3AED); }
+  .ball.b5  { background:radial-gradient(circle at 35% 35%,#FB923C,#EA580C); }
+  .ball.b6  { background:radial-gradient(circle at 35% 35%,#4ADE80,#16A34A); }
+  .ball.b7  { background:radial-gradient(circle at 35% 35%,#F87171,#7F1D1D); }
+  .ball.b8  { background:radial-gradient(circle at 35% 35%,#4B5563,#111827); }
+  /* 스트라이프 볼 (9-15): 흰 띠 */
+  .ball.b9  { background:radial-gradient(circle at 35% 35%,#FBBF24,#D97706); }
+  .ball.b10 { background:radial-gradient(circle at 35% 35%,#60A5FA,#1D4ED8); }
+  .ball.b11 { background:radial-gradient(circle at 35% 35%,#F87171,#DC2626); }
+  .ball.b12 { background:radial-gradient(circle at 35% 35%,#C084FC,#7C3AED); }
+  .ball.b13 { background:radial-gradient(circle at 35% 35%,#FB923C,#EA580C); }
+  .ball.b14 { background:radial-gradient(circle at 35% 35%,#4ADE80,#16A34A); }
+  .ball.b15 { background:radial-gradient(circle at 35% 35%,#F87171,#7F1D1D); }
+  .ball.b9::after,.ball.b10::after,.ball.b11::after,.ball.b12::after,
+  .ball.b13::after,.ball.b14::after,.ball.b15::after {
+    content:''; position:absolute; left:0; right:0; top:35%; height:30%;
+    background:rgba(255,255,255,0.75); pointer-events:none;
+  }
+  .ball-count-badge { min-width:22px; text-align:center; font-size:12px; font-weight:700; color:var(--primary); }
+
+  /* ── STORE LIST TABLE ── */
+  .store-list-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .store-list-table th { background:var(--gray-50); padding:8px 12px; text-align:left; font-weight:600; color:var(--gray-500); border-bottom:2px solid var(--gray-200); font-size:11px; white-space:nowrap; }
+  .store-list-table td { padding:9px 12px; border-bottom:1px solid var(--gray-100); vertical-align:middle; }
+  .store-list-table tr:hover td { background:#F8FAFF; cursor:pointer; }
+  .pos-kiosk-badge { display:inline-flex; gap:4px; align-items:center; }
+  .pk-chip { font-size:10px; font-weight:700; padding:2px 7px; border-radius:8px; }
+
+  /* ── EXCEL UPLOAD ── */
+  .excel-drop { border:2px dashed #22C55E; border-radius:10px; padding:32px; text-align:center; background:#F0FDF4; cursor:pointer; transition:all 0.2s; }
+  .excel-drop:hover { background:#DCFCE7; border-color:#16A34A; }
+  .excel-preview-table { width:100%; font-size:11px; border-collapse:collapse; margin-top:12px; }
+  .excel-preview-table th { background:#F0FDF4; padding:5px 8px; border:1px solid #BBF7D0; color:#166534; font-weight:600; }
+  .excel-preview-table td { padding:4px 8px; border:1px solid #E5E7EB; color:var(--gray-700); }
+
+  /* ── AUTO-FILLED FIELD ── */
+  .field-auto { background: #F0FDF4 !important; border-color: #86EFAC !important; }
+  .field-warn { background: #FFFBEB !important; border-color: #FCD34D !important; }
+  .field-badge { font-size: 10px; padding: 2px 7px; border-radius: 6px; margin-left: 6px; font-weight: 600; }
+  .field-badge.auto { background: #D1FAE5; color: #065F46; }
+  .field-badge.warn { background: #FEF3C7; color: #92400E; }
+
+  /* ── EQUIP GRID ── */
+  .equip-category { margin-bottom: 24px; }
+  .equip-category-title { font-size: 13px; font-weight: 700; color: var(--gray-600); padding: 8px 0; margin-bottom: 10px; border-bottom: 2px solid var(--gray-100); display: flex; align-items: center; gap: 8px; }
+  .equip-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .equip-item {
+    border: 1.5px solid var(--gray-200); border-radius: 10px; padding: 14px;
+    background: #fff; transition: all .15s;
+  }
+  .equip-item:hover { border-color: var(--primary); box-shadow: 0 2px 8px rgba(37,99,235,0.1); }
+  .equip-name { font-size: 13px; font-weight: 700; color: var(--gray-800); margin-bottom: 4px; }
+  .equip-spec { font-size: 11.5px; color: var(--gray-400); margin-bottom: 8px; line-height: 1.4; }
+  .equip-footer { display: flex; align-items: center; justify-content: space-between; }
+  .equip-price { font-size: 13px; font-weight: 700; color: var(--primary); }
+  .equip-stock { font-size: 11px; font-weight: 600; }
+  .equip-stock.ok { color: var(--success); }
+  .equip-stock.low { color: var(--warning); }
+  .equip-stock.out { color: var(--danger); }
+
+  /* ── SEARCH BAR ── */
+  .search-bar { position: relative; }
+  .search-bar input { padding-left: 36px; }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--gray-400); font-size: 14px; }
+
+  /* ── FILTER ROW ── */
+  .filter-row { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+  .filter-chip {
+    padding: 6px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 600;
+    cursor: pointer; border: 1.5px solid var(--gray-200); background: #fff; color: var(--gray-600);
+    transition: all .15s;
+  }
+  .filter-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+  /* ── QUOTE BUILDER ── */
+  .quote-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+  .quote-item-name { flex: 1; font-size: 13.5px; font-weight: 600; }
+  .quote-item-spec { font-size: 12px; color: var(--gray-400); }
+  .qty-control { display: flex; align-items: center; gap: 8px; }
+  .qty-btn { width: 26px; height: 26px; border-radius: 6px; border: 1.5px solid var(--gray-200); background: #fff; cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center; color: var(--gray-600); }
+  .qty-val { width: 32px; text-align: center; font-size: 14px; font-weight: 700; }
+  .quote-price { font-size: 13.5px; font-weight: 700; color: var(--gray-800); width: 70px; text-align: right; }
+
+  /* ── STORE DETAIL ── */
+  .detail-header { background: #fff; border: 1px solid var(--gray-200); border-radius: 12px; padding: 24px; margin-bottom: 20px; display: flex; gap: 20px; align-items: flex-start; }
+  .store-avatar { width: 56px; height: 56px; background: var(--primary-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
+  .store-info h2 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+  .store-info p { font-size: 13px; color: var(--gray-500); }
+  .store-tags { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+  /* ── VOICE INPUT ── */
+  .voice-input-wrap { position:relative; display:flex; align-items:center; }
+  .voice-input-wrap input { padding-right:44px; width:100%; }
+  .voice-btn {
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    background:none; border:none; cursor:pointer; font-size:18px; padding:4px;
+    color:var(--gray-400); transition:color .15s;
+  }
+  .voice-btn:hover { color:var(--primary); }
+  .voice-btn.listening { color:#EF4444; animation:pulse-dot 0.8s infinite; }
+  .voice-btn.mobile-only { display:none; }
+
+  /* ── LINE IMPORT ── */
+  .line-room-chip {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600;
+    border:1.5px solid #06C755; background:#fff; color:#06C755; cursor:pointer; transition:all .15s;
+  }
+  .line-room-chip.active { background:#06C755; color:#fff; }
+  .line-room-chip:hover:not(.active) { background:#E8FFF0; }
+  .line-room-chip .remove-btn { display:none; font-size:11px; color:inherit; margin-left:2px; }
+  .line-room-chip:hover .remove-btn { display:inline; }
+
+  .line-parse-item {
+    display:flex; align-items:flex-start; gap:10px; padding:12px 14px;
+    border-radius:8px; border:1px solid var(--gray-200); background:#fff;
+    margin-bottom:8px; cursor:pointer; transition:all .15s;
+  }
+  .line-parse-item:hover { border-color:var(--primary); }
+  .line-parse-item.checked { border-color:#06C755; background:#F0FDF4; }
+  .line-parse-item.type-request { border-left:3px solid var(--danger); }
+  .line-parse-item.type-done    { border-left:3px solid var(--success); }
+  .line-parse-item.type-schedule{ border-left:3px solid var(--primary); }
+  .line-parse-item.type-ignore  { border-left:3px solid var(--gray-300); opacity:.6; }
+
+  .line-type-badge {
+    font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; white-space:nowrap; flex-shrink:0; margin-top:2px;
+  }
+  .lbadge-request  { background:#FEE2E2; color:#991B1B; }
+  .lbadge-done     { background:#D1FAE5; color:#065F46; }
+  .lbadge-schedule { background:#DBEAFE; color:#1D4ED8; }
+  .lbadge-ignore   { background:var(--gray-100); color:var(--gray-500); }
+
+  .line-msg-sender { font-size:11px; color:var(--gray-400); font-weight:600; }
+  .line-msg-text   { font-size:13px; color:var(--gray-800); margin-top:2px; line-height:1.55; }
+  .line-msg-parsed { font-size:12px; color:var(--primary); margin-top:5px; font-weight:600; }
+
+  .line-logo { display:inline-flex; align-items:center; gap:6px; }
+  .line-logo-icon { width:22px; height:22px; background:#06C755; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff; font-weight:800; flex-shrink:0; }
+
+  /* ── SETTINGS BUTTON ── */
+  .settings-btn {
+    background: none; border: none; cursor: pointer; font-size: 17px;
+    padding: 4px 6px; border-radius: 7px; color: rgba(255,248,231,0.6);
+    transition: background .15s, color .15s; line-height: 1; flex-shrink: 0;
+  }
+  .settings-btn:hover { background: rgba(255,248,231,0.08); color: #FFF8E7; }
+  .api-key-input-wrap { position: relative; }
+  .api-key-input-wrap input { padding-right: 80px; font-family: monospace; font-size: 13px; }
+  .api-key-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 12px; color: var(--gray-400); font-weight: 600; }
+  .model-badge { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg,#EEF2FF,#F5F3FF); border: 1.5px solid #C7D2FE; border-radius: 10px; padding: 8px 14px; }
+  .model-dot { width: 8px; height: 8px; border-radius: 50%; background: #6366F1; animation: pulse-dot 2s infinite; }
+
+  /* ── HAMBURGER ── */
+  .hamburger-btn {
+    display:none; background:none; border:none; cursor:pointer; font-size:22px;
+    color:rgba(255,248,231,0.6); padding:4px 8px; line-height:1; flex-shrink:0;
+  }
+  .hamburger-btn:hover { color: #FFF8E7; }
+
+  /* ── MOBILE RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .topnav { padding: 0 14px; gap: 4px; }
+    .topnav-links { display: none; }
+    .topnav-date { display: none; }
+    .topnav-user .user-name, .topnav-user .user-role { display: none; }
+    .topnav-divider { display: none; }
+    .hamburger-btn { display: flex; align-items: center; margin-left: auto; }
+    .topnav-right { gap: 6px; margin-left: 0; }
+    .topnav-right .btn-primary { font-size: 12px; padding: 6px 12px; }
+
+    .topbar { padding: 0 14px; top: 56px; }
+    .topbar-right span { display:none; }
+    .content { padding: 16px; }
+
+    /* stat grid */
+    .stat-grid { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .stat-value { font-size: 22px; }
+
+    /* grid responsive */
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+
+    /* tables scroll */
+    .card { overflow-x: auto; }
+    .store-list-table { min-width: 700px; }
+    .store-list-table th, .store-list-table td { padding: 7px 8px; font-size: 11px; }
+
+    /* modals full screen on mobile */
+    .modal-overlay { align-items: flex-end; }
+    .modal {
+      width: 100% !important;
+      max-width: 100% !important;
+      border-radius: 20px 20px 0 0 !important;
+      max-height: 92vh;
+    }
+
+    /* ball selector mobile */
+    .ball { width:24px; height:24px; font-size:8px; }
+    .ball-label { width:90px; font-size:11px; }
+    .balls { gap:3px; }
+
+    /* job modal grid */
+    #newJobModal .modal-body > div[style*="grid-template-columns:1fr 1fr 1fr"] {
+      grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* voice button visible on mobile */
+    .voice-btn.mobile-only { display:flex; }
+
+    /* filter row scroll */
+    .filter-row { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; }
+    .filter-row::-webkit-scrollbar { height: 0; }
+
+    /* cal grid */
+    .cal-grid { gap: 2px; }
+    .cal-day { min-height: 56px; padding: 4px; }
+    .cal-event { display:none; }
+    .cal-day-num { font-size:12px; }
+  }
+
+  @media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .topbar { height: 52px; }
+    .content { padding: 12px; }
+  }
+
+  /* ── TIMELINE ── */
+  .timeline { padding: 8px 0; }
+  .tl-item { display: flex; gap: 16px; padding-bottom: 20px; position: relative; }
+  .tl-item::after { content: ''; position: absolute; left: 15px; top: 30px; bottom: 0; width: 2px; background: var(--gray-200); }
+  .tl-item:last-child::after { display: none; }
+  .tl-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; z-index: 1; }
+  .tl-dot.done { background: var(--success); }
+  .tl-dot.current { background: var(--primary); }
+  .tl-dot.pending { background: var(--gray-200); }
+  .tl-content { flex: 1; padding-top: 4px; }
+  .tl-title { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+  .tl-date { font-size: 12px; color: var(--gray-400); }
+  .tl-desc { font-size: 12.5px; color: var(--gray-600); margin-top: 4px; }
+
+  /* ── NEO UTILITY CLASSES ── */
+  .neo-eyebrow { font-size: 9.5px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--neo-ink-3); }
+  .neo-num { font-family: 'Archivo Black', sans-serif; }
+  .neo-card { border: 1px solid var(--neo-line-c); border-radius: 10px; background: #fff; }
+  .neo-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer; border: 1.5px solid var(--neo-ink); font-family: inherit; transition: all .15s; }
+  .neo-btn.pri { background: var(--neo-ink); color: var(--neo-cream); box-shadow: 3px 3px 0 #1A1614; }
+  .neo-btn.ghost { background: transparent; color: var(--neo-ink); }
+  .neo-btn.blue { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .neo-btn.sm { padding: 5px 10px; font-size: 11.5px; }
+  .neo-badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; letter-spacing: 0.05em; }
+  .neo-badge.b-green { background: #D1FAE5; color: #065F46; }
+  .neo-badge.b-orange { background: #FEF3C7; color: #92400E; }
+  .neo-badge.b-red { background: #FEE2E2; color: #991B1B; }
+  .neo-badge.b-blue { background: #DBEAFE; color: #1D4ED8; }
+  .neo-badge.b-purple { background: #EDE9FE; color: #5B21B6; }
+
+  /* ── COMMENT PANEL ── */
+  .comment-fab-wrap { position: fixed; bottom: 28px; right: 28px; z-index: 300; }
+  .comment-fab {
+    width: 52px; height: 52px; border-radius: 50%; background: #1A1614; color: #FFF8E7;
+    border: none; cursor: pointer; font-size: 22px;
+    box-shadow: 3px 3px 0 rgba(255,45,31,0.7);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; transition: transform .15s;
+  }
+  .comment-fab:hover { transform: scale(1.08); }
+  .comment-fab-badge {
+    position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px;
+    background: #FF2D1F; color: #fff; border-radius: 10px; font-size: 10px;
+    font-weight: 800; font-family: 'Space Grotesk', sans-serif;
+    display: flex; align-items: center; justify-content: center; padding: 0 4px;
+    border: 2px solid var(--neo-paper);
+  }
+  .comment-panel {
+    position: fixed; top: 56px; right: 0; bottom: 0; width: 360px;
+    background: #FFF8E7; z-index: 250; display: flex; flex-direction: column;
+    border-left: 1px solid var(--neo-line-c);
+    box-shadow: -4px 0 24px rgba(26,22,20,0.10);
+    transform: translateX(100%); transition: transform .25s cubic-bezier(.4,0,.2,1);
+  }
+  .comment-panel.open { transform: translateX(0); }
+  .comment-overlay {
+    display: none; position: fixed; inset: 0; z-index: 240;
+    background: rgba(26,22,20,0.18);
+  }
+  .comment-overlay.show { display: block; }
+  .cm-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 16px 16px 12px; border-bottom: 1px solid var(--neo-line-c);
+    background: #FFF8E7; flex-shrink: 0;
+  }
+  .cm-title { font-size: 14px; font-weight: 800; color: var(--neo-ink); margin-top: 3px; }
+  .cm-close {
+    width: 28px; height: 28px; border-radius: 6px; border: 1.5px solid var(--neo-line-c);
+    background: transparent; cursor: pointer; font-size: 14px; display: flex;
+    align-items: center; justify-content: center; color: var(--neo-ink-3); flex-shrink: 0;
+  }
+  .cm-close:hover { background: rgba(26,22,20,0.06); color: var(--neo-ink); }
+  .cm-user-bar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    border-bottom: 1px solid var(--neo-line-c);
+    background: rgba(26,22,20,0.03); flex-shrink: 0;
+  }
+  .cm-user-label { font-size: 10px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; letter-spacing: 0.15em; color: var(--neo-ink-3); text-transform: uppercase; white-space: nowrap; }
+  .cm-user-select {
+    flex: 1; padding: 5px 8px; border: 1.5px solid var(--neo-line-c); border-radius: 6px;
+    font-size: 12.5px; font-weight: 600; background: #fff; color: var(--neo-ink);
+    font-family: inherit; cursor: pointer;
+  }
+  .cm-user-select:focus { outline: none; border-color: var(--neo-ink); }
+  .cm-list {
+    flex: 1; overflow-y: auto; padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .cm-list::-webkit-scrollbar { width: 4px; }
+  .cm-list::-webkit-scrollbar-track { background: transparent; }
+  .cm-list::-webkit-scrollbar-thumb { background: rgba(26,22,20,0.15); border-radius: 4px; }
+  .cm-empty { text-align: center; padding: 40px 20px; font-size: 12.5px; color: var(--neo-ink-3); }
+  .cm-empty-icon { font-size: 32px; margin-bottom: 10px; opacity: .4; }
+  .cm-item { display: flex; gap: 10px; animation: cmFadeIn .2s ease; }
+  @keyframes cmFadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .cm-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0;
+  }
+  .cm-body { flex: 1; min-width: 0; }
+  .cm-meta { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+  .cm-name { font-size: 12px; font-weight: 700; color: var(--neo-ink); }
+  .cm-role { font-size: 10px; font-family: 'Space Grotesk', sans-serif; color: var(--neo-ink-3); letter-spacing: 0.05em; }
+  .cm-time { font-size: 10px; font-family: 'Space Grotesk', sans-serif; color: var(--neo-ink-3); margin-left: auto; }
+  .cm-text {
+    font-size: 13px; color: var(--neo-ink); line-height: 1.58;
+    background: #fff; border: 1px solid var(--neo-line-c);
+    border-radius: 8px; border-top-left-radius: 2px;
+    padding: 8px 10px; word-break: break-word;
+  }
+  .cm-item.own .cm-text { background: rgba(37,99,235,0.04); border-color: rgba(37,99,235,0.18); }
+  .cm-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .cm-del {
+    font-size: 10px; color: var(--neo-ink-3); background: none; border: none;
+    cursor: pointer; padding: 0; font-family: inherit; font-weight: 600;
+  }
+  .cm-del:hover { color: #EF4444; }
+  .cm-screen-tabs {
+    display: flex; gap: 2px; padding: 8px 16px; border-bottom: 1px solid var(--neo-line-c);
+    overflow-x: auto; flex-shrink: 0; background: rgba(26,22,20,0.015);
+  }
+  .cm-screen-tabs::-webkit-scrollbar { display: none; }
+  .cm-tab {
+    padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; border: none; background: transparent;
+    color: var(--neo-ink-3); font-family: inherit; display: flex; align-items: center; gap: 4px;
+    transition: all .12s;
+  }
+  .cm-tab:hover { background: rgba(26,22,20,0.06); color: var(--neo-ink); }
+  .cm-tab.active { background: var(--neo-ink); color: #FFF8E7; }
+  .cm-tab-count {
+    min-width: 16px; height: 16px; border-radius: 8px; font-size: 9.5px; font-weight: 800;
+    background: #FF2D1F; color: #fff; display: inline-flex; align-items: center;
+    justify-content: center; padding: 0 4px; font-family: 'Space Grotesk', sans-serif;
+  }
+  .cm-input-area {
+    padding: 12px 16px; border-top: 1px solid var(--neo-line-c);
+    background: #FFF8E7; flex-shrink: 0;
+  }
+  .cm-input {
+    width: 100%; padding: 9px 12px; border: 1.5px solid var(--neo-line-c);
+    border-radius: 8px; font-size: 13px; color: var(--neo-ink); background: #fff;
+    resize: none; font-family: inherit; transition: border .15s; min-height: 64px;
+  }
+  .cm-input:focus { outline: none; border-color: var(--neo-ink); }
+  .cm-input-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .cm-hint { font-size: 10px; color: var(--neo-ink-3); font-family: 'Space Grotesk', sans-serif; }
+  .cm-post-btn {
+    background: #1A1614; color: #FFF8E7; border: none; border-radius: 6px;
+    padding: 7px 18px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+    box-shadow: 2px 2px 0 rgba(255,45,31,0.5); font-family: inherit; transition: opacity .15s;
+  }
+  .cm-post-btn:hover { opacity: .85; }
+  @media (max-width: 768px) {
+    .comment-panel { width: 100%; top: 56px; }
+    .comment-fab-wrap { bottom: 20px; right: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- MOBILE MENU OVERLAY -->
+<div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"></div>
+
+<!-- TOP NAV -->
+<nav class="topnav" id="topnav">
+  <!-- 로고 -->
+  <a class="topnav-logo" onclick="showScreen('dashboard')">
+    <div class="logo-icon">NS</div>
+    <div>
+      <div class="logo-text">NeoSolution</div>
+      <div class="logo-sub">WORK ORDER SYSTEM</div>
+    </div>
+  </a>
+
+  <div class="topnav-divider"></div>
+
+  <!-- 네비게이션 링크 (데스크탑) -->
+  <div class="topnav-links" id="topnavLinks">
+    <a class="nav-item active" onclick="showScreen('dashboard')">
+      <span class="nav-icon">◆</span> 대시보드
+    </a>
+    <a class="nav-item" onclick="showScreen('jobs')">
+      <span class="nav-icon">●</span> 작업 목록
+      <span class="nav-badge">3</span>
+    </a>
+    <a class="nav-item" onclick="showScreen('stores')">
+      <span class="nav-icon">▣</span> 점포 관리
+    </a>
+    <a class="nav-item" onclick="showScreen('calendar')">
+      <span class="nav-icon">▤</span> 일정 캘린더
+    </a>
+    <a class="nav-item" onclick="showScreen('equipment')">
+      <span class="nav-icon">▦</span> 장비 재고
+    </a>
+    <a class="nav-item" onclick="showScreen('quote')">
+      <span class="nav-icon">₩</span> 견적 작성
+    </a>
+  </div>
+
+  <!-- 우측 영역 -->
+  <div class="topnav-right">
+    <span class="topnav-date">2026. 04. 20 (월)</span>
+    <button class="btn btn-primary btn-sm" onclick="showModal('newJobModal')" style="background:#FF2D1F; box-shadow:3px 3px 0 #1A1614; border-radius:7px; border:none;">+ 새 작업</button>
+    <div class="topnav-divider"></div>
+    <div class="topnav-user">
+      <div class="avatar">정</div>
+      <div>
+        <div class="user-name">정치은</div>
+        <div class="user-role">관리자</div>
+      </div>
+    </div>
+    <button class="settings-btn" onclick="openSettingsModal()" title="AI 설정">⚙️</button>
+    <!-- 모바일 햄버거 -->
+    <button class="hamburger-btn" onclick="toggleMenu()" aria-label="메뉴">☰</button>
+  </div>
+</nav>
+
+<!-- 모바일 드롭다운 메뉴 -->
+<div class="topnav-mobile-menu" id="mobileMenu">
+  <div class="nav-section">메인</div>
+  <a class="nav-item active" onclick="showScreen('dashboard'); closeMenu()">
+    <span class="nav-icon">◆</span> 대시보드
+  </a>
+  <div class="nav-section">업무</div>
+  <a class="nav-item" onclick="showScreen('jobs'); closeMenu()">
+    <span class="nav-icon">●</span> 작업 목록
+    <span class="nav-badge">3</span>
+  </a>
+  <a class="nav-item" onclick="showScreen('stores'); closeMenu()">
+    <span class="nav-icon">▣</span> 점포 관리
+  </a>
+  <a class="nav-item" onclick="showScreen('calendar'); closeMenu()">
+    <span class="nav-icon">▤</span> 일정 캘린더
+  </a>
+  <div class="nav-section">운영</div>
+  <a class="nav-item" onclick="showScreen('equipment'); closeMenu()">
+    <span class="nav-icon">▦</span> 장비 재고
+  </a>
+  <a class="nav-item" onclick="showScreen('quote'); closeMenu()">
+    <span class="nav-icon">₩</span> 견적 작성
+  </a>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- PAGE TITLE BAR -->
+  <div class="topbar">
+    <span class="page-title" id="pageTitle">대시보드</span>
+    <div class="topbar-right">
+      <span style="font-size:12px; color:var(--gray-400)" class="topbar-date">2026. 04. 20 (월)</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- SCREEN: DASHBOARD                       -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="screen active" id="screen-dashboard">
+
+      <!-- STAT CARDS -->
+      <div class="stat-grid">
+        <div class="stat-card blue">
+          <div class="stat-label">이번달 신규개업</div>
+          <div class="stat-value">7</div>
+          <div class="stat-sub">지난달 대비 +2건</div>
+          <div class="stat-icon">🏪</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">진행중 작업</div>
+          <div class="stat-value">12</div>
+          <div class="stat-sub">오늘 완료 예정 3건</div>
+          <div class="stat-icon">⚙️</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-label">AS 접수</div>
+          <div class="stat-value">5</div>
+          <div class="stat-sub">48시간 초과 2건 ⚠️</div>
+          <div class="stat-icon">🔧</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">장비 재고 부족</div>
+          <div class="stat-value">3</div>
+          <div class="stat-sub">발주 필요 품목</div>
+          <div class="stat-icon">📦</div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:20px">
+        <!-- 오늘 일정 -->
+        <div class="card">
+          <div style="padding:16px 18px; border-bottom:1px solid var(--gray-100)">
+            <div class="section-title">📅 오늘 일정 (4월 20일)</div>
+          </div>
+          <div style="padding:8px 0">
+            <div style="padding:12px 18px; border-bottom:1px solid var(--gray-100); display:flex; gap:14px; align-items:flex-start">
+              <div style="font-size:12px; font-weight:700; color:var(--primary); width:45px; flex-shrink:0; padding-top:2px">09:00</div>
+              <div style="flex:1">
+                <div style="font-size:14px; font-weight:700; margin-bottom:3px">K-1마트 안중점 — 신규개업</div>
+                <div style="font-size:12px; color:var(--gray-400)">POS 5대 + 저울 + 계산대 설치 / 담당: 김현장</div>
+              </div>
+              <span class="badge badge-blue">설치중</span>
+            </div>
+            <div style="padding:12px 18px; border-bottom:1px solid var(--gray-100); display:flex; gap:14px; align-items:flex-start">
+              <div style="font-size:12px; font-weight:700; color:var(--purple); width:45px; flex-shrink:0; padding-top:2px">14:00</div>
+              <div style="flex:1">
+                <div style="font-size:14px; font-weight:700; margin-bottom:3px">웰빙마트 신림 — VAN 교체</div>
+                <div style="font-size:12px; color:var(--gray-400)">KIS → KCP 단말 교체 3대 / 담당: 이기사</div>
+              </div>
+              <span class="badge badge-purple">예정</span>
+            </div>
+            <div style="padding:12px 18px; display:flex; gap:14px; align-items:flex-start">
+              <div style="font-size:12px; font-weight:700; color:var(--warning); width:45px; flex-shrink:0; padding-top:2px">16:30</div>
+              <div style="flex:1">
+                <div style="font-size:14px; font-weight:700; margin-bottom:3px">ECJ마트 — AS 처리</div>
+                <div style="font-size:12px; color:var(--gray-400)">영수프린터 용지 걸림 반복 문제 / 담당: 박기사</div>
+              </div>
+              <span class="badge badge-amber">AS</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 최근 완료 작업 -->
+        <div class="card">
+          <div style="padding:16px 18px; border-bottom:1px solid var(--gray-100)">
+            <div class="section-title">✅ 최근 완료 작업</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>점포</th>
+                <th>유형</th>
+                <th>완료일</th>
+                <th>담당</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>365할인마트 광적</b></td>
+                <td><span class="badge badge-blue">신규</span></td>
+                <td style="color:var(--gray-400)">04.18</td>
+                <td>김현장</td>
+              </tr>
+              <tr>
+                <td><b>K-마트 오창점</b></td>
+                <td><span class="badge badge-green">POS교체</span></td>
+                <td style="color:var(--gray-400)">04.17</td>
+                <td>이기사</td>
+              </tr>
+              <tr>
+                <td><b>L-마트 반포점</b></td>
+                <td><span class="badge badge-purple">VAN교체</span></td>
+                <td style="color:var(--gray-400)">04.16</td>
+                <td>박기사</td>
+              </tr>
+              <tr>
+                <td><b>가락마트 하나시스</b></td>
+                <td><span class="badge badge-amber">AS</span></td>
+                <td style="color:var(--gray-400)">04.15</td>
+                <td>이기사</td>
+              </tr>
+              <tr>
+                <td><b>SK마트 강화점</b></td>
+                <td><span class="badge badge-blue">신규</span></td>
+                <td style="color:var(--gray-400)">04.14</td>
+                <td>김현장</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- AS 현황 -->
+      <div class="card">
+        <div style="padding:16px 18px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; justify-content:space-between">
+          <div class="section-title">🔧 AS 미처리 현황</div>
+          <button class="btn btn-outline btn-sm" onclick="showScreen('jobs')">전체보기</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>점포</th>
+              <th>증상</th>
+              <th>접수일</th>
+              <th>경과</th>
+              <th>담당</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>가평1번가마트</b></td>
+              <td>바코드 스캐너 인식 불량</td>
+              <td style="color:var(--gray-400)">04.17</td>
+              <td><span style="color:var(--danger); font-weight:700">72시간</span></td>
+              <td>미배정</td>
+              <td><span class="badge badge-red">긴급</span></td>
+            </tr>
+            <tr>
+              <td><b>ECJ마트</b></td>
+              <td>영수프린터 용지 걸림</td>
+              <td style="color:var(--gray-400)">04.18</td>
+              <td><span style="color:var(--warning); font-weight:700">48시간</span></td>
+              <td>박기사</td>
+              <td><span class="badge badge-amber">처리중</span></td>
+            </tr>
+            <tr>
+              <td><b>ATOP마트 수암점</b></td>
+              <td>POS 부팅 안됨</td>
+              <td style="color:var(--gray-400)">04.19</td>
+              <td>24시간</td>
+              <td>김현장</td>
+              <td><span class="badge badge-blue">방문예정</span></td>
+            </tr>
+            <tr>
+              <td><b>E-PLUS마트 안성</b></td>
+              <td>카드단말 통신 오류</td>
+              <td style="color:var(--gray-400)">04.20</td>
+              <td>2시간</td>
+              <td>이기사</td>
+              <td><span class="badge badge-gray">접수</span></td>
+            </tr>
+            <tr>
+              <td><b>K-마트 인덕원</b></td>
+              <td>전자저울 영점 오류</td>
+              <td style="color:var(--gray-400)">04.20</td>
+              <td>1시간</td>
+              <td>미배정</td>
+              <td><span class="badge badge-gray">접수</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- AI 점검 분석 패널 -->
+      <div class="card" style="margin-top:20px; border:1.5px solid #6366F1; overflow:visible" id="aiAnalysisCard">
+        <div style="padding:14px 18px; border-bottom:1px solid #E0E7FF; background:linear-gradient(135deg,#EEF2FF 0%,#F5F3FF 100%); display:flex; align-items:center; justify-content:space-between; border-radius:10px 10px 0 0">
+          <div style="display:flex; align-items:center; gap:10px">
+            <div style="width:30px; height:30px; background:linear-gradient(135deg,#6366F1,#8B5CF6); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:15px">✦</div>
+            <div>
+              <div style="font-size:13px; font-weight:800; color:#3730A3">AI 작업 점검 분석</div>
+              <div style="font-size:11px; color:#6366F1; font-weight:500" id="aiAnalysisTime">Claude Sonnet • 샘플 데이터</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn btn-sm" id="aiReanalysisBtn" onclick="runDashboardAnalysis()"
+              style="background:#6366F1; color:#fff; font-size:11px; padding:5px 12px">↻ 재분석</button>
+            <button class="btn btn-sm btn-outline" onclick="confirmClearSampleData()"
+              style="font-size:11px; color:#EF4444; border-color:#FCA5A5; padding:5px 12px"
+              title="샘플 데이터 전체 삭제">🗑 초기화</button>
+          </div>
+        </div>
+
+        <!-- 재분석 중 상태 (숨김) -->
+        <div id="aiReanalysisLoading" style="display:none;padding:24px;text-align:center">
+          <div style="font-size:28px;animation:pulse-dot 1s infinite;margin-bottom:8px">✦</div>
+          <div style="font-size:13px;font-weight:700;color:#6366F1">Claude Sonnet 분석 중…</div>
+          <div style="font-size:11px;color:var(--gray-400);margin-top:4px">작업·AS·재고 현황을 종합 분석합니다</div>
+          <div class="progress-track" style="margin-top:12px;max-width:300px;margin-left:auto;margin-right:auto">
+            <div id="dashProgressFill" class="progress-fill"></div>
+          </div>
+        </div>
+
+        <!-- 분석 결과 영역 -->
+        <div id="aiAnalysisBody" style="padding:18px 22px">
+
+          <!-- 샘플 배너 -->
+          <div id="sampleDataBanner" style="display:flex;align-items:center;gap:8px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:11px;color:#92400E">
+            <span style="font-size:14px">📌</span>
+            <span><b>샘플 데이터</b>입니다. 직원 교육용으로 제공됩니다. 실제 운영 전 <b>🗑 초기화</b>로 삭제하세요.</span>
+          </div>
+
+          <!-- 요약 줄 -->
+          <div id="aiSummaryBox" style="background:#F5F3FF; border-left:3px solid #6366F1; padding:10px 14px; border-radius:0 6px 6px 0; margin-bottom:14px; font-size:13px; color:#3730A3; font-weight:600; line-height:1.6">
+            현재 진행 중인 12개 작업 중 즉각적인 조치가 필요한 <span style="color:#EF4444">위험 2건</span>, 주의가 필요한 <span style="color:#F59E0B">주의 3건</span>이 식별되었습니다.
+          </div>
+
+          <!-- 분석 항목들 -->
+          <div id="aiAnalysisItems" style="display:flex; flex-direction:column; gap:10px">
+
+            <div class="ai-item" style="display:flex; gap:12px; align-items:flex-start; padding:12px 14px; background:#FEF2F2; border-radius:8px; border:1px solid #FECACA">
+              <div style="flex-shrink:0; width:22px; height:22px; background:#EF4444; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; font-weight:800; margin-top:1px">!</div>
+              <div style="font-size:13px; color:#7F1D1D; line-height:1.65">
+                <b>[위험] 가평1번가마트 AS 72시간 초과 — 담당자 미배정 상태</b>가 지속되고 있어 고객 불만 및 계약 신뢰도 하락이 우려됩니다. 바코드 스캐너 교체 부품(마젤란 8100 유리면)은 현재 재고에 있으므로 즉시 담당 엔지니어를 배정하고 오늘 오후 중 방문 일정을 확정해야 합니다.
+              </div>
+            </div>
+
+            <div class="ai-item" style="display:flex; gap:12px; align-items:flex-start; padding:12px 14px; background:#FEF2F2; border-radius:8px; border:1px solid #FECACA">
+              <div style="flex-shrink:0; width:22px; height:22px; background:#EF4444; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; font-weight:800; margin-top:1px">!</div>
+              <div style="font-size:13px; color:#7F1D1D; line-height:1.65">
+                <b>[위험] 서버용 PC 신품(Intel i7-11세대) 재고 소진 — 4/23 예정 웰빙마트 신림점 POS 교체</b>에 서버 PC가 포함될 경우 설치 일정을 맞추기 어렵습니다. 현재 납기 7일 소요 예상이므로 오늘 바로 발주 확인이 필요하며, 중고 Ryzen5 대체 투입 가능 여부를 점포측과 사전 협의해야 합니다.
+              </div>
+            </div>
+
+            <div class="ai-item" style="display:flex; gap:12px; align-items:flex-start; padding:12px 14px; background:#FFFBEB; border-radius:8px; border:1px solid #FDE68A">
+              <div style="flex-shrink:0; width:22px; height:22px; background:#F59E0B; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; font-weight:800; margin-top:1px">△</div>
+              <div style="font-size:13px; color:#78350F; line-height:1.65">
+                <b>[주의] K-1마트 안중점 오늘 설치 4/6단계 진행 중 — 바코드프린터(SRP-770 II) 재고 없음</b> 상태입니다. 해당 점포 견적에 바코드프린터가 포함되어 있다면 현장 설치 전 반드시 재고 여부를 재확인하고, 포함되지 않은 경우 점검 항목에서 제외 처리가 필요합니다.
+              </div>
+            </div>
+
+            <div class="ai-item" style="display:flex; gap:12px; align-items:flex-start; padding:12px 14px; background:#FFFBEB; border-radius:8px; border:1px solid #FDE68A">
+              <div style="flex-shrink:0; width:22px; height:22px; background:#F59E0B; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; font-weight:800; margin-top:1px">△</div>
+              <div style="font-size:13px; color:#78350F; line-height:1.65">
+                <b>[주의] 365할인마트 광적 VAN 교체(KIS→KCP) 4/22 예정 — KCP 측 가맹점 변경 신청 완료 여부 미확인</b>입니다. VAN사 승인 없이 단말 교체를 진행하면 결제 오류가 발생하므로, 방문 전날(4/21)까지 KCP 담당자에게 개통 가능 여부를 확인해야 합니다.
+              </div>
+            </div>
+
+            <div class="ai-item" style="display:flex; gap:12px; align-items:flex-start; padding:12px 14px; background:#FFFBEB; border-radius:8px; border:1px solid #FDE68A">
+              <div style="flex-shrink:0; width:22px; height:22px; background:#F59E0B; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; font-weight:800; margin-top:1px">△</div>
+              <div style="font-size:13px; color:#78350F; line-height:1.65">
+                <b>[주의] K-1마트 안중점 영수프린터(SRP-330) 1대 노후 이력 — K-마트 인덕원 전자저울 영점 오류 동시 AS 접수</b>로 오늘 이기사·박기사 두 팀의 이동 동선이 겹칩니다. 일정 충돌 없이 처리 가능한지 확인 후 필요시 우선순위를 재조정하세요.
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /screen-dashboard -->
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- SCREEN: JOBS                            -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="screen" id="screen-jobs">
+      <div class="filter-row">
+        <div class="search-bar" style="flex:0 0 240px">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="점포명 검색...">
+        </div>
+        <div class="filter-chip active" onclick="filterJobs(this,'전체')">전체</div>
+        <div class="filter-chip" onclick="filterJobs(this,'신규개업')">신규개업</div>
+        <div class="filter-chip" onclick="filterJobs(this,'POS교체')">POS교체</div>
+        <div class="filter-chip" onclick="filterJobs(this,'VAN교체')">VAN교체</div>
+        <div class="filter-chip" onclick="filterJobs(this,'AS')">AS</div>
+        <div class="filter-chip" onclick="filterJobs(this,'완료')">완료</div>
+        <select style="padding:6px 12px; border:1.5px solid var(--gray-200); border-radius:8px; font-size:13px; color:var(--gray-600); background:#fff">
+          <option>담당자 전체</option>
+          <option>김현장</option>
+          <option>이기사</option>
+          <option>박기사</option>
+        </select>
+        <button class="btn btn-sm" onclick="showModal('lineImportModal')"
+          style="margin-left:auto; background:#06C755; color:#fff; font-size:12px; padding:6px 14px; gap:5px; white-space:nowrap; flex-shrink:0">
+          <span style="font-size:14px">💬</span> Line 메시지 가져오기
+        </button>
+      </div>
+
+      <div class="grid-3">
+
+        <div class="job-card" data-jobtype="신규개업">
+          <div class="job-card-header">
+            <div>
+              <div class="job-type" style="color:var(--primary)">🏪 신규개업</div>
+              <div class="job-store">K-1마트 안중점</div>
+              <div class="job-addr">경기 평택시 안중읍</div>
+            </div>
+            <span class="badge badge-blue"><span class="badge-dot"></span>진행중</span>
+          </div>
+          <div class="steps">
+            <div class="step"><div class="step-dot done">✓</div></div>
+            <div class="step-line done"></div>
+            <div class="step"><div class="step-dot done">✓</div></div>
+            <div class="step-line done"></div>
+            <div class="step"><div class="step-dot done">✓</div></div>
+            <div class="step-line"></div>
+            <div class="step"><div class="step-dot current">4</div></div>
+            <div class="step-line"></div>
+            <div class="step"><div class="step-dot pending">5</div></div>
+            <div class="step-line"></div>
+            <div class="step"><div class="step-dot pending">6</div></div>
+          </div>
+          <div style="font-size:11.5px; color:var(--primary); font-weight:600; margin-top:4px">설치 진행중 (4/6 단계)</div>
+          <div class="job-meta">
+            <div class="job-meta-item">
+              <div class="job-meta-label">설치일</div>
+              <div class="job-meta-value">04.20</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">POS</div>
+              <div class="job-meta-value">5대</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">담당</div>
+              <div class="job-meta-value">김현장</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">견적</div>
+              <div class="job-meta-value">1,240만</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="job-card" data-jobtype="POS교체">
+          <div class="job-card-header">
+            <div>
+              <div class="job-type" style="color:var(--success)">🔄 POS 교체</div>
+              <div class="job-store">웰빙마트 신림점</div>
+              <div class="job-addr">서울 관악구 신림동</div>
+            </div>
+            <span class="badge badge-amber"><span class="badge-dot"></span>준비중</span>
+          </div>
+          <div class="steps">
+            <div class="step"><div class="step-dot done">✓</div></div>
+            <div class="step-line done"></div>
+            <div class="step"><div class="step-dot done">✓</div></div>
+            <div class="step-line"></div>
+            <div class="step"><div class="step-dot current">3</div></div>
+            <div class="step-line"></div>
+            <div class="step"><div class="step-dot pending">4</div></div>
+            <div class="step-line"></div>
+            <div class="step"><div class="step-dot pending">5</div></div>
+          </div>
+          <div style="font-size:11.5px; color:var(--warning); font-weight:600; margin-top:4px">발주 완료 → 배송 대기 (3/5 단계)</div>
+          <div class="job-meta">
+            <div class="job-meta-item">
+              <div class="job-meta-label">설치예정</div>
+              <div class="job-meta-value">04.23</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">POS</div>
+              <div class="job-meta-value">3대 교체</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">담당</div>
+              <div class="job-meta-value">이기사</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">견적</div>
+              <div class="job-meta-value">780만</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="job-card" data-jobtype="VAN교체">
+          <div class="job-card-header">
+            <div>
+              <div class="job-type" style="color:var(--purple)">💳 VAN 교체</div>
+              <div class="job-store">365할인마트 광적</div>
+              <div class="job-addr">경기 양주시 광적면</div>
+            </div>
+            <span class="badge badge-purple"><span class="badge-dot"></span>예정</span>
+          </div>
+          <div class="steps">
+            <div class="step"><div class="step-dot done">✓</div></div>
+            <div class="step-line done"></div>
+            <div class="step"><div class="step-dot current">2</div></div>
+            <div class="step-line"></div>
+            <div class="step"><div class="step-dot pending">3</div></div>
+            <div class="step-line"></div>
+            <div class="step"><div class="step-dot pending">4</div></div>
+          </div>
+          <div style="font-size:11.5px; color:var(--purple); font-weight:600; margin-top:4px">VAN사 변경 신청 접수중 (2/4 단계)</div>
+          <div class="job-meta">
+            <div class="job-meta-item">
+              <div class="job-meta-label">방문예정</div>
+              <div class="job-meta-value">04.22</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">단말</div>
+              <div class="job-meta-value">KIS→KCP</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">담당</div>
+              <div class="job-meta-value">박기사</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">수량</div>
+              <div class="job-meta-value">2대</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="job-card" data-jobtype="AS">
+          <div class="job-card-header">
+            <div>
+              <div class="job-type" style="color:var(--warning)">🔧 AS 처리</div>
+              <div class="job-store">가평1번가마트</div>
+              <div class="job-addr">경기 가평군 가평읍</div>
+            </div>
+            <span class="badge badge-red"><span class="badge-dot"></span>긴급</span>
+          </div>
+          <div style="background:#FEF2F2; border-radius:8px; padding:10px 12px; margin:8px 0; font-size:12.5px; color:var(--danger); font-weight:600">
+            ⚠️ 72시간 초과 — 즉시 배정 필요
+          </div>
+          <div style="font-size:13px; color:var(--gray-700)">바코드 고정스캐너 인식 불량 (마젤란 8100)</div>
+          <div class="job-meta">
+            <div class="job-meta-item">
+              <div class="job-meta-label">접수일시</div>
+              <div class="job-meta-value">04.17 10:30</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">담당</div>
+              <div class="job-meta-value" style="color:var(--danger)">미배정</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="job-card" data-jobtype="완료">
+          <div class="job-card-header">
+            <div>
+              <div class="job-type" style="color:var(--primary)">🏪 신규개업</div>
+              <div class="job-store">SK마트 강화점</div>
+              <div class="job-addr">인천 강화군</div>
+            </div>
+            <span class="badge badge-green"><span class="badge-dot"></span>완료</span>
+          </div>
+          <div class="steps">
+            <div class="step"><div class="step-dot done">✓</div></div>
+            <div class="step-line done"></div>
+            <div class="step"><div class="step-dot done">✓</div></div>
+            <div class="step-line done"></div>
+            <div class="step"><div class="step-dot done">✓</div></div>
+            <div class="step-line done"></div>
+            <div class="step"><div class="step-dot done">✓</div></div>
+            <div class="step-line done"></div>
+            <div class="step"><div class="step-dot done">✓</div></div>
+            <div class="step-line done"></div>
+            <div class="step"><div class="step-dot done">✓</div></div>
+          </div>
+          <div style="font-size:11.5px; color:var(--success); font-weight:600; margin-top:4px">모든 단계 완료 ✓</div>
+          <div class="job-meta">
+            <div class="job-meta-item">
+              <div class="job-meta-label">완료일</div>
+              <div class="job-meta-value">04.14</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">POS</div>
+              <div class="job-meta-value">5대</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">담당</div>
+              <div class="job-meta-value">김현장</div>
+            </div>
+            <div class="job-meta-item">
+              <div class="job-meta-label">견적</div>
+              <div class="job-meta-value">1,180만</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="job-card" style="border:2px dashed var(--gray-200); background:var(--gray-50); display:flex; align-items:center; justify-content:center; min-height:200px; cursor:pointer" onclick="showModal('newJobModal')">
+          <div style="text-align:center">
+            <div style="font-size:32px; margin-bottom:10px">➕</div>
+            <div style="font-size:14px; font-weight:700; color:var(--gray-500)">새 작업 등록</div>
+            <div style="font-size:12px; color:var(--gray-400); margin-top:4px">클릭하여 작업을 추가하세요</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- SCREEN: STORES                          -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="screen" id="screen-stores">
+      <div class="filter-row" style="margin-bottom:16px">
+        <div class="search-bar" style="flex:0 0 280px">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="점포명, 사업자번호, 대표자 검색...">
+        </div>
+        <div class="filter-chip active">전체</div>
+        <div class="filter-chip">거래중</div>
+        <div class="filter-chip">신규예정</div>
+        <div class="filter-chip">이탈</div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="showModal('excelUploadModal')" style="border-color:#22C55E;color:#16A34A;background:#F0FDF4">
+            📊 엑셀 업로드
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="showModal('newStoreModal')">+ 점포 등록</button>
+        </div>
+      </div>
+
+      <!-- 점포 리스트 -->
+      <div class="card" style="margin-bottom:16px;overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:12px;font-weight:600;color:var(--gray-600)">전체 <b style="color:var(--primary)">38</b>개 점포</div>
+          <div style="font-size:11px;color:var(--gray-400)">클릭 시 상세보기</div>
+        </div>
+        <table class="store-list-table">
+          <thead>
+            <tr>
+              <th>거래처코드</th>
+              <th>점포명 (간판)</th>
+              <th>사업자번호</th>
+              <th>대표자</th>
+              <th>연락처</th>
+              <th>주소</th>
+              <th>VAN사</th>
+              <th>POS 구성</th>
+              <th>담당자</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr onclick="toggleStoreDetail(this)" style="font-weight:600;background:#EFF6FF">
+              <td style="color:var(--gray-400);font-size:11px">EC-10286</td>
+              <td><b>K-1마트 안중점</b></td>
+              <td style="font-family:monospace;font-size:11px">102-86-01482</td>
+              <td>김○○</td>
+              <td style="font-size:11px;color:var(--gray-500)">031-000-0000</td>
+              <td style="font-size:11px;color:var(--gray-500)">경기 평택시 안중읍...</td>
+              <td><span class="badge badge-purple">KCP</span></td>
+              <td>
+                <div class="pos-kiosk-badge">
+                  <span class="pk-chip" style="background:#DBEAFE;color:#1D4ED8">POS 5</span>
+                  <span class="pk-chip" style="background:#EDE9FE;color:#5B21B6">KIO 0</span>
+                </div>
+              </td>
+              <td style="font-size:11px">김현장</td>
+              <td><span class="badge badge-green">거래중</span></td>
+            </tr>
+            <tr>
+              <td style="color:var(--gray-400);font-size:11px">EC-10301</td>
+              <td><b>웰빙마트 고양점</b></td>
+              <td style="font-family:monospace;font-size:11px">134-22-98712</td>
+              <td>이○○</td>
+              <td style="font-size:11px;color:var(--gray-500)">031-900-0000</td>
+              <td style="font-size:11px;color:var(--gray-500)">경기 고양시 일산동구...</td>
+              <td><span class="badge badge-blue">KSNET</span></td>
+              <td>
+                <div class="pos-kiosk-badge">
+                  <span class="pk-chip" style="background:#DBEAFE;color:#1D4ED8">POS 3</span>
+                  <span class="pk-chip" style="background:#EDE9FE;color:#5B21B6">KIO 1</span>
+                </div>
+              </td>
+              <td style="font-size:11px">이기사</td>
+              <td><span class="badge badge-amber">신규예정</span></td>
+            </tr>
+            <tr>
+              <td style="color:var(--gray-400);font-size:11px">EC-10188</td>
+              <td><b>365할인마트 광적</b></td>
+              <td style="font-family:monospace;font-size:11px">211-45-67234</td>
+              <td>박○○</td>
+              <td style="font-size:11px;color:var(--gray-500)">031-871-0000</td>
+              <td style="font-size:11px;color:var(--gray-500)">경기 양주시 광적면...</td>
+              <td><span class="badge badge-green">KICC</span></td>
+              <td>
+                <div class="pos-kiosk-badge">
+                  <span class="pk-chip" style="background:#DBEAFE;color:#1D4ED8">POS 4</span>
+                  <span class="pk-chip" style="background:#EDE9FE;color:#5B21B6">KIO 0</span>
+                </div>
+              </td>
+              <td style="font-size:11px">박기사</td>
+              <td><span class="badge badge-green">거래중</span></td>
+            </tr>
+            <tr>
+              <td style="color:var(--gray-400);font-size:11px">EC-10255</td>
+              <td><b>가평1번가마트</b></td>
+              <td style="font-family:monospace;font-size:11px">305-12-44561</td>
+              <td>최○○</td>
+              <td style="font-size:11px;color:var(--gray-500)">031-582-0000</td>
+              <td style="font-size:11px;color:var(--gray-500)">경기 가평군 가평읍...</td>
+              <td><span class="badge badge-purple">KCP</span></td>
+              <td>
+                <div class="pos-kiosk-badge">
+                  <span class="pk-chip" style="background:#DBEAFE;color:#1D4ED8">POS 2</span>
+                  <span class="pk-chip" style="background:#EDE9FE;color:#5B21B6">KIO 0</span>
+                </div>
+              </td>
+              <td style="font-size:11px">이기사</td>
+              <td><span class="badge badge-red" style="background:#FEE2E2;color:#991B1B">AS중</span></td>
+            </tr>
+            <tr style="color:var(--gray-400)">
+              <td colspan="10" style="text-align:center;padding:10px;font-size:11px">
+                … 34개 점포 더보기
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 점포 상세 뷰 -->
+      <div class="detail-header">
+        <div class="store-avatar">🏪</div>
+        <div class="store-info" style="flex:1">
+          <h2>K-1마트 안중점</h2>
+          <p>경기도 평택시 안중읍 안중로 123 | 대표: 김○○ | 031-000-0000</p>
+          <div class="store-tags">
+            <span class="badge badge-green">거래중</span>
+            <span class="badge badge-blue">POS 5대</span>
+            <span class="badge badge-purple">KCP VAN</span>
+            <span class="badge badge-gray">2022.03 개업</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; flex-shrink:0">
+          <button class="btn btn-outline btn-sm">📝 편집</button>
+          <button class="btn btn-primary btn-sm">+ 작업 등록</button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- 설치 장비 현황 -->
+        <div class="card">
+          <div style="padding:14px 18px; border-bottom:1px solid var(--gray-100)">
+            <div class="section-title">🖥️ 설치 장비 현황</div>
+          </div>
+          <table>
+            <thead><tr><th>장비</th><th>모델</th><th>수량</th><th>설치일</th><th>상태</th></tr></thead>
+            <tbody>
+              <tr><td><b>POS 일체형</b></td><td style="color:var(--gray-400)">Intel N5095</td><td>5대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-green">정상</span></td></tr>
+              <tr><td><b>서버 PC</b></td><td style="color:var(--gray-400)">Ryzen5 4650G</td><td>1대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-green">정상</span></td></tr>
+              <tr><td><b>고정스캐너</b></td><td style="color:var(--gray-400)">마젤란 8100</td><td>2대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-green">정상</span></td></tr>
+              <tr><td><b>전자저울</b></td><td style="color:var(--gray-400)">SM-100</td><td>3대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-green">정상</span></td></tr>
+              <tr><td><b>영수프린터</b></td><td style="color:var(--gray-400)">SRP-330</td><td>5대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-amber">1대 노후</span></td></tr>
+              <tr><td><b>카드단말</b></td><td style="color:var(--gray-400)">N100</td><td>5대</td><td style="color:var(--gray-400)">2024.06</td><td><span class="badge badge-green">정상</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 작업 이력 타임라인 -->
+        <div class="card">
+          <div style="padding:14px 18px; border-bottom:1px solid var(--gray-100)">
+            <div class="section-title">📋 작업 이력</div>
+          </div>
+          <div style="padding:16px 18px">
+            <div class="timeline">
+              <div class="tl-item">
+                <div class="tl-dot done">✓</div>
+                <div class="tl-content">
+                  <div class="tl-title">신규개업 — POS 5대 설치</div>
+                  <div class="tl-date">2022.03.15 | 김현장</div>
+                  <div class="tl-desc">K-1마트 안중점 오픈. POS 5대 + 서버 + 저울 3대 + 스캐너 2대 설치 완료.</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-dot done">✓</div>
+                <div class="tl-content">
+                  <div class="tl-title">VAN 교체 — KIS → KCP</div>
+                  <div class="tl-date">2024.06.08 | 이기사</div>
+                  <div class="tl-desc">VAN사 변경 요청으로 카드단말 5대 KCP N100으로 교체.</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-dot done">✓</div>
+                <div class="tl-content">
+                  <div class="tl-title">AS — 스캐너 1번 인식 불량</div>
+                  <div class="tl-date">2025.02.20 | 박기사</div>
+                  <div class="tl-desc">마젤란 8100 유리면 교체 처리. 부품비 35,000원.</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-dot current">!</div>
+                <div class="tl-content">
+                  <div class="tl-title">영수프린터 교체 검토중</div>
+                  <div class="tl-date">2026.04.20 접수</div>
+                  <div class="tl-desc">3번 계산대 SRP-330 용지걸림 반복. 교체 or 수리 결정 필요.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- SCREEN: CALENDAR                        -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="screen" id="screen-calendar">
+      <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px">
+        <button class="btn btn-outline btn-sm">◀</button>
+        <div style="font-size:18px; font-weight:800; color:var(--gray-900)">2026년 4월</div>
+        <button class="btn btn-outline btn-sm">▶</button>
+        <div style="margin-left:auto; display:flex; gap:8px; font-size:12px; font-weight:600">
+          <span style="background:#DBEAFE; color:#1D4ED8; padding:3px 10px; border-radius:10px">신규개업</span>
+          <span style="background:#D1FAE5; color:#065F46; padding:3px 10px; border-radius:10px">POS교체</span>
+          <span style="background:#EDE9FE; color:#5B21B6; padding:3px 10px; border-radius:10px">VAN교체</span>
+          <span style="background:#FEF3C7; color:#92400E; padding:3px 10px; border-radius:10px">AS</span>
+        </div>
+      </div>
+
+      <div class="cal-grid">
+        <div class="cal-day-header">일</div>
+        <div class="cal-day-header">월</div>
+        <div class="cal-day-header">화</div>
+        <div class="cal-day-header">수</div>
+        <div class="cal-day-header">목</div>
+        <div class="cal-day-header">금</div>
+        <div class="cal-day-header">토</div>
+        <!-- Row 1 -->
+        <div class="cal-day other-month"><div class="cal-day-num">30</div></div>
+        <div class="cal-day other-month"><div class="cal-day-num">31</div></div>
+        <div class="cal-day"><div class="cal-day-num">1</div></div>
+        <div class="cal-day"><div class="cal-day-num">2</div></div>
+        <div class="cal-day"><div class="cal-day-num">3</div></div>
+        <div class="cal-day"><div class="cal-day-num">4</div></div>
+        <div class="cal-day"><div class="cal-day-num">5</div></div>
+        <!-- Row 2 -->
+        <div class="cal-day"><div class="cal-day-num">6</div></div>
+        <div class="cal-day"><div class="cal-day-num">7</div><div class="cal-event new">K-1 안중 신규</div></div>
+        <div class="cal-day"><div class="cal-day-num">8</div></div>
+        <div class="cal-day"><div class="cal-day-num">9</div><div class="cal-event replace">웰빙마트 POS</div></div>
+        <div class="cal-day"><div class="cal-day-num">10</div></div>
+        <div class="cal-day"><div class="cal-day-num">11</div></div>
+        <div class="cal-day"><div class="cal-day-num">12</div></div>
+        <!-- Row 3 -->
+        <div class="cal-day"><div class="cal-day-num">13</div></div>
+        <div class="cal-day"><div class="cal-day-num">14</div><div class="cal-event new">SK마트 강화</div></div>
+        <div class="cal-day"><div class="cal-day-num">15</div><div class="cal-event as">가락마트 AS</div></div>
+        <div class="cal-day"><div class="cal-day-num">16</div><div class="cal-event van">L-마트 VAN</div></div>
+        <div class="cal-day"><div class="cal-day-num">17</div></div>
+        <div class="cal-day"><div class="cal-day-num">18</div><div class="cal-event new">365할인마트</div></div>
+        <div class="cal-day"><div class="cal-day-num">19</div></div>
+        <!-- Row 4 -->
+        <div class="cal-day today">
+          <div class="cal-day-num" style="color:var(--primary)">20</div>
+          <div class="cal-event new">K-1 안중점</div>
+          <div class="cal-event van">웰빙마트 VAN</div>
+          <div class="cal-event as">ECJ마트 AS</div>
+        </div>
+        <div class="cal-day"><div class="cal-day-num">21</div></div>
+        <div class="cal-day"><div class="cal-day-num">22</div><div class="cal-event van">365마트 VAN</div></div>
+        <div class="cal-day"><div class="cal-day-num">23</div><div class="cal-event replace">웰빙마트 설치</div></div>
+        <div class="cal-day"><div class="cal-day-num">24</div></div>
+        <div class="cal-day"><div class="cal-day-num">25</div></div>
+        <div class="cal-day"><div class="cal-day-num">26</div></div>
+        <!-- Row 5 -->
+        <div class="cal-day"><div class="cal-day-num">27</div></div>
+        <div class="cal-day"><div class="cal-day-num">28</div></div>
+        <div class="cal-day"><div class="cal-day-num">29</div></div>
+        <div class="cal-day"><div class="cal-day-num">30</div></div>
+        <div class="cal-day other-month"><div class="cal-day-num">1</div></div>
+        <div class="cal-day other-month"><div class="cal-day-num">2</div></div>
+        <div class="cal-day other-month"><div class="cal-day-num">3</div></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- SCREEN: EQUIPMENT                       -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="screen" id="screen-equipment">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px">
+        <div class="search-bar" style="flex:0 0 240px">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="장비명 검색..." oninput="searchEquip(this.value)">
+        </div>
+        <button class="btn btn-outline btn-sm" id="equipFilterBtn" onclick="toggleEquipFilter(this)">📦 발주 필요 품목만</button>
+        <button class="btn btn-primary btn-sm" style="margin-left:auto">＋ 품목 추가</button>
+      </div>
+      <div class="stat-grid" style="margin-bottom:24px">
+        <div class="stat-card blue">
+          <div class="stat-label">전체 품목</div>
+          <div class="stat-value">24</div>
+          <div class="stat-sub">카테고리 6개</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">재고 정상</div>
+          <div class="stat-value">18</div>
+          <div class="stat-sub">품목</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-label">재고 부족</div>
+          <div class="stat-value">3</div>
+          <div class="stat-sub">발주 권장</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">재고 없음</div>
+          <div class="stat-value">3</div>
+          <div class="stat-sub">즉시 발주 필요</div>
+        </div>
+      </div>
+
+      <div class="equip-category">
+        <div class="equip-category-title">🖥️ POS 본체</div>
+        <div class="equip-grid">
+          <div class="equip-item" data-stock="ok" data-name="POS 일체형 PC">
+            <div class="equip-name">POS 일체형 PC</div>
+            <div class="equip-spec">Intel N5095 / 4GB / SSD 128G<br>15.6" 터치스크린</div>
+            <div class="equip-footer">
+              <div class="equip-price">110만원</div>
+              <div class="equip-stock ok">재고 8대</div>
+            </div>
+          </div>
+          <div class="equip-item" data-stock="low" data-name="서버용 PC 중고" style="border-color:var(--warning)">
+            <div class="equip-name">서버용 PC (중고)</div>
+            <div class="equip-spec">AMD Ryzen5 4650G / DDR4 8G<br>SSD 256G</div>
+            <div class="equip-footer">
+              <div class="equip-price">70만원</div>
+              <div class="equip-stock low">⚠ 재고 2대</div>
+            </div>
+          </div>
+          <div class="equip-item" data-stock="out" data-name="서버용 PC 신품" style="border-color:var(--danger)">
+            <div class="equip-name">서버용 PC (신품)</div>
+            <div class="equip-spec">Intel i7-11세대 / DDR4 16G<br>SSD 240G</div>
+            <div class="equip-footer">
+              <div class="equip-price">130만원</div>
+              <div class="equip-stock out">✗ 재고 없음</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="equip-category">
+        <div class="equip-category-title">🔍 스캐너 / 입력장치</div>
+        <div class="equip-grid">
+          <div class="equip-item" data-stock="ok" data-name="고정스캐너 마젤란 8100">
+            <div class="equip-name">고정스캐너</div>
+            <div class="equip-spec">마젤란 8100<br>360° 전방향 인식</div>
+            <div class="equip-footer">
+              <div class="equip-price">120만원</div>
+              <div class="equip-stock ok">재고 5대</div>
+            </div>
+          </div>
+          <div class="equip-item" data-stock="ok" data-name="PLU 키보드 NPK-1000">
+            <div class="equip-name">PLU 키보드</div>
+            <div class="equip-spec">NPK-1000<br>POS 전용 수량 입력</div>
+            <div class="equip-footer">
+              <div class="equip-price">18.5만원</div>
+              <div class="equip-stock ok">재고 12개</div>
+            </div>
+          </div>
+          <div class="equip-item" data-stock="low" data-name="핸드터미널 DT-930" style="border-color:var(--warning)">
+            <div class="equip-name">핸드터미널</div>
+            <div class="equip-spec">DT-930<br>이동 결제 / 재고 확인</div>
+            <div class="equip-footer">
+              <div class="equip-price">80만원</div>
+              <div class="equip-stock low">⚠ 재고 1대</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="equip-category">
+        <div class="equip-category-title">🖨️ 프린터 / 출력장치</div>
+        <div class="equip-grid">
+          <div class="equip-item" data-stock="ok" data-name="영수프린터 BIXOLON SRP-330">
+            <div class="equip-name">영수프린터</div>
+            <div class="equip-spec">BIXOLON SRP-330<br>58mm 감열지</div>
+            <div class="equip-footer">
+              <div class="equip-price">25만원</div>
+              <div class="equip-stock ok">재고 10대</div>
+            </div>
+          </div>
+          <div class="equip-item" data-stock="out" data-name="바코드프린터 SRP-770" style="border-color:var(--danger)">
+            <div class="equip-name">바코드프린터</div>
+            <div class="equip-spec">SRP-770 II<br>라벨 인쇄 / 신선식품</div>
+            <div class="equip-footer">
+              <div class="equip-price">95만원</div>
+              <div class="equip-stock out">✗ 재고 없음</div>
+            </div>
+          </div>
+          <div class="equip-item" data-stock="ok" data-name="전자저울 CAS SM-100">
+            <div class="equip-name">전자저울</div>
+            <div class="equip-spec">CAS SM-100<br>라벨 프린터 내장</div>
+            <div class="equip-footer">
+              <div class="equip-price">65만원</div>
+              <div class="equip-stock ok">재고 4대</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="equip-category">
+        <div class="equip-category-title">💳 VAN 단말</div>
+        <div class="equip-grid">
+          <div class="equip-item" data-stock="ok" data-name="카드리더기 N100">
+            <div class="equip-name">카드리더기 N100</div>
+            <div class="equip-spec">애플페이 / QR / NFC 지원<br>KCP, KIS, NICE 호환</div>
+            <div class="equip-footer">
+              <div class="equip-price">13만원</div>
+              <div class="equip-stock ok">재고 20대</div>
+            </div>
+          </div>
+          <div class="equip-item" data-stock="ok" data-name="사인패드 SC301">
+            <div class="equip-name">사인패드 SC301</div>
+            <div class="equip-spec">전자서명 입력<br>카드 단말 연동</div>
+            <div class="equip-footer">
+              <div class="equip-price">13만원</div>
+              <div class="equip-stock ok">재고 15대</div>
+            </div>
+          </div>
+          <div class="equip-item" data-stock="out" data-name="금전통 Cash Drawer" style="border-color:var(--danger)">
+            <div class="equip-name">금전통</div>
+            <div class="equip-spec">수평형 Cash Drawer<br>POS 연동 자동 오픈</div>
+            <div class="equip-footer">
+              <div class="equip-price">8만원</div>
+              <div class="equip-stock out">✗ 재고 없음</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- SCREEN: QUOTE                           -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="screen" id="screen-quote">
+      <div class="grid-2">
+        <!-- 견적 설정 -->
+        <div class="card" style="padding:20px">
+          <div class="section-title" style="margin-bottom:16px">📝 견적 기본 정보</div>
+          <div class="form-group">
+            <label>점포명</label>
+            <input type="text" placeholder="예: K-1마트 안중점">
+          </div>
+          <div class="form-group">
+            <label>작업 유형</label>
+            <select>
+              <option>신규개업</option>
+              <option>POS 교체</option>
+              <option>VAN 교체</option>
+              <option>장비 추가</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>점포 규모</label>
+            <select>
+              <option>소형 (1~3대)</option>
+              <option selected>중형 (4~8대)</option>
+              <option>대형 (9대 이상)</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin:20px 0 12px">
+            <div class="section-title">장비 구성</div>
+            <button class="btn btn-outline btn-sm" onclick="addQuoteItemPrompt()" style="font-size:11px">＋ 품목 추가</button>
+          </div>
+          <div id="quoteItemList"></div>
+        </div>
+
+        <!-- 견적 미리보기 -->
+        <div class="card" style="padding:20px">
+          <div class="section-title" style="margin-bottom:16px">💰 견적 요약</div>
+          <div id="quoteSummary" style="background:var(--gray-50); border-radius:10px; padding:16px; margin-bottom:16px"></div>
+          <div style="display:flex; gap:8px; flex-direction:column">
+            <button class="btn btn-primary" style="justify-content:center">📄 견적서 PDF 출력</button>
+            <button class="btn btn-outline" style="justify-content:center">💾 작업으로 저장</button>
+            <button class="btn btn-outline" style="justify-content:center">📧 이메일 발송</button>
+          </div>
+          <div style="margin-top:16px; padding:12px; background:#FFF7ED; border-radius:8px; border:1px solid #FED7AA">
+            <div style="font-size:12px; font-weight:700; color:#92400E; margin-bottom:4px">⚠️ 재고 부족 알림</div>
+            <div style="font-size:12px; color:#78350F">서버용 PC (신품) 재고 없음 — 납기 7일 추가 소요 예상</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ═══════════════════════════════════════ -->
+<!-- MODAL: 점포 등록 (스크린샷 자동입력)   -->
+<!-- ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="newStoreModal" onclick="if(event.target===this)closeModal('newStoreModal')">
+  <div class="modal" style="width:680px; max-width:96vw">
+    <div class="modal-header" style="align-items:flex-start">
+      <div>
+        <div class="modal-title">점포 등록</div>
+        <div style="font-size:11px; color:var(--gray-400); margin-top:3px">이카운트·밴사 화면 캡처로 점포 정보를 자동으로 입력할 수 있습니다</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('newStoreModal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px 24px">
+
+      <!-- ① AI 스크린샷 자동입력 패널 -->
+      <div style="background:linear-gradient(135deg,#EEF2FF 0%,#F5F3FF 100%); border:1.5px solid #C7D2FE; border-radius:14px; padding:16px 18px; margin-bottom:22px">
+
+        <!-- 헤더 -->
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px">
+          <div style="width:26px;height:26px;background:#4F46E5;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;letter-spacing:-0.5px">AI</div>
+          <div style="font-size:13px;font-weight:800;color:#3730A3">스크린샷으로 자동 불러오기</div>
+          <div style="margin-left:auto;font-size:11px;color:#6366F1;background:#E0E7FF;padding:2px 8px;border-radius:8px;font-weight:600">Claude Vision</div>
+        </div>
+
+        <!-- 소스 선택 탭 -->
+        <div style="font-size:11px;color:#6366F1;font-weight:600;margin-bottom:7px">📌 캡처 소스 선택</div>
+        <div class="capture-tabs">
+          <div class="capture-tab active" onclick="selectCaptureTab(this,'ecount')">이카운트 (ERP)</div>
+          <div class="capture-tab" onclick="selectCaptureTab(this,'kcp')">KCP 가맹점</div>
+          <div class="capture-tab" onclick="selectCaptureTab(this,'ksnet')">KSNET 가맹점</div>
+          <div class="capture-tab" onclick="selectCaptureTab(this,'kicc')">KICC 가맹점</div>
+          <div class="capture-tab" onclick="selectCaptureTab(this,'nice')">나이스페이</div>
+          <div class="capture-tab" onclick="selectCaptureTab(this,'manual')" style="border-color:var(--gray-300);color:var(--gray-500)">✏️ 직접 입력</div>
+        </div>
+
+        <!-- 탭별 안내 문구 -->
+        <div id="capture-hint" style="font-size:11px;color:#7C3AED;background:#F3F0FF;border-radius:8px;padding:7px 10px;margin-bottom:12px">
+          💡 이카운트 &gt; 거래처 관리 &gt; 거래처 상세 화면을 캡처하세요. 점포명·대표자·주소·사업자번호가 자동 입력됩니다.
+        </div>
+
+        <!-- 드롭존 (기본 상태) -->
+        <div class="drop-zone" id="dropZone" onclick="simulateCapture()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+          <div style="font-size:30px;margin-bottom:8px">📋</div>
+          <div style="font-size:13px;font-weight:700;color:#4F46E5">스크린샷을 여기에 붙여넣으세요</div>
+          <div style="font-size:11px;color:var(--gray-400);margin-top:4px"><kbd style="background:#F3F4F6;border:1px solid #D1D5DB;border-radius:4px;padding:1px 5px;font-size:10px">Ctrl</kbd> + <kbd style="background:#F3F4F6;border:1px solid #D1D5DB;border-radius:4px;padding:1px 5px;font-size:10px">V</kbd> 로 클립보드 이미지 붙여넣기</div>
+          <div style="font-size:11px;color:var(--gray-300);margin-top:6px">또는</div>
+          <button onclick="event.stopPropagation();simulateCapture()" style="margin-top:8px;padding:6px 16px;border:1.5px solid #6366F1;color:#6366F1;background:#EEF2FF;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">🖼️ 파일 선택</button>
+        </div>
+
+        <!-- AI 분석 중 (숨김) -->
+        <div id="aiAnalyzing" style="display:none;background:#fff;border-radius:10px;padding:14px 16px;margin-top:10px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:20px;animation:pulse-dot 1s infinite">🤖</div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:#4F46E5" id="analyzeStatus">화면 분석 중...</div>
+              <div style="font-size:11px;color:var(--gray-400)" id="analyzeDetail">텍스트 인식 → 필드 매핑 → 주소 정규화</div>
+            </div>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+
+        <!-- 분석 완료 결과 (숨김) -->
+        <div id="aiResult" style="display:none;background:#fff;border-radius:10px;padding:12px 14px;margin-top:10px;border:1px solid #A7F3D0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+            <span style="font-size:15px">✅</span>
+            <span style="font-size:12px;font-weight:700;color:#065F46">7개 항목을 자동으로 읽었습니다 — 아래 양식에 반영됨</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px">
+            <span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:6px;font-weight:600">✓ 점포명</span>
+            <span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:6px;font-weight:600">✓ 대표자</span>
+            <span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:6px;font-weight:600">✓ 주소</span>
+            <span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:6px;font-weight:600">✓ 연락처</span>
+            <span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:6px;font-weight:600">✓ 개업일</span>
+            <span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:6px;font-weight:600">⚠ 사업자번호 확인필요</span>
+            <span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:6px;font-weight:600">⚠ 터미널ID 미확인</span>
+          </div>
+          <div style="margin-top:8px;font-size:11px;color:var(--gray-400)">⚠ 표시 항목은 직접 확인 후 수정하세요</div>
+        </div>
+
+        <!-- 미리보기 썸네일 (숨김) -->
+        <div id="previewThumb" style="display:none;margin-top:10px;border-radius:8px;overflow:hidden;border:1px solid #C7D2FE;position:relative">
+          <div style="background:#1E1E2E;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:11px;color:#A5B4FC">
+            <span>🖼️</span><span id="captureSourceLabel">이카운트 — 거래처 상세</span>
+            <button onclick="resetCapture()" style="margin-left:auto;background:none;border:none;color:#818CF8;cursor:pointer;font-size:11px">✕ 다시 캡처</button>
+          </div>
+          <!-- 이카운트 화면 시뮬레이션 -->
+          <div style="background:#F8F9FA;padding:12px 16px;font-size:11px;font-family:monospace;color:#374151;line-height:1.8;border-top:1px solid #E5E7EB">
+            <div style="display:flex;gap:20px;flex-wrap:wrap">
+              <div><span style="color:#9CA3AF">거래처명:</span> <b style="color:#1D4ED8">웰빙마트 고양점</b></div>
+              <div><span style="color:#9CA3AF">대표자:</span> <b>이○○</b></div>
+              <div><span style="color:#9CA3AF">사업자:</span> <b>123-45-<span style="background:#FEF3C7">67890</span></b></div>
+            </div>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:4px">
+              <div><span style="color:#9CA3AF">주소:</span> <b>경기도 고양시 일산동구 장항동 856</b></div>
+              <div><span style="color:#9CA3AF">전화:</span> <b>031-900-0000</b></div>
+            </div>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:4px">
+              <div><span style="color:#9CA3AF">거래시작:</span> <b>2024-02-01</b></div>
+              <div><span style="color:#9CA3AF">업태:</span> <b>소매/마트</b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② 점포 정보 입력 폼 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <!-- 점포명 -->
+        <div class="form-group" style="margin:0">
+          <label>점포명 <span class="field-badge auto" id="badge-name" style="display:none">AI 자동입력</span></label>
+          <input type="text" id="f-name" placeholder="예: 웰빙마트 고양점">
+        </div>
+        <!-- 대표자 -->
+        <div class="form-group" style="margin:0">
+          <label>대표자 <span class="field-badge auto" id="badge-ceo" style="display:none">AI 자동입력</span></label>
+          <input type="text" id="f-ceo" placeholder="홍길동">
+        </div>
+        <!-- 연락처 -->
+        <div class="form-group" style="margin:0">
+          <label>연락처 <span class="field-badge auto" id="badge-tel" style="display:none">AI 자동입력</span></label>
+          <input type="text" id="f-tel" placeholder="031-000-0000">
+        </div>
+        <!-- 사업자번호 -->
+        <div class="form-group" style="margin:0">
+          <label>사업자등록번호 <span class="field-badge warn" id="badge-biz" style="display:none">⚠ 확인필요</span></label>
+          <input type="text" id="f-biz" placeholder="000-00-00000">
+        </div>
+        <!-- 주소 (full width) -->
+        <div class="form-group" style="margin:0;grid-column:1/-1">
+          <label>주소 <span class="field-badge auto" id="badge-addr" style="display:none">AI 자동입력</span></label>
+          <input type="text" id="f-addr" placeholder="경기도 고양시 일산동구...">
+        </div>
+        <!-- VAN사 -->
+        <div class="form-group" style="margin:0">
+          <label>VAN사</label>
+          <select id="f-van">
+            <option value="">선택</option>
+            <option>KCP</option>
+            <option>KSNET</option>
+            <option>KICC</option>
+            <option>NICE</option>
+            <option>KIS</option>
+          </select>
+        </div>
+        <!-- 터미널ID -->
+        <div class="form-group" style="margin:0">
+          <label>터미널 ID <span class="field-badge warn" id="badge-tid" style="display:none">⚠ 확인필요</span></label>
+          <input type="text" id="f-tid" placeholder="VAN사 가맹점 관리 화면에서 확인">
+        </div>
+        <!-- 개업일 -->
+        <div class="form-group" style="margin:0">
+          <label>개업(계약)일 <span class="field-badge auto" id="badge-date" style="display:none">AI 자동입력</span></label>
+          <input type="date" id="f-date">
+        </div>
+        <!-- POS 수량 -->
+        <div class="form-group" style="margin:0">
+          <label>POS 수량 (예정)</label>
+          <input type="number" id="f-pos" placeholder="0" min="1" max="99">
+        </div>
+        <!-- 비고 -->
+        <div class="form-group" style="margin:0;grid-column:1/-1">
+          <label>비고</label>
+          <textarea id="f-memo" placeholder="특이사항, 요청사항 등..." style="min-height:60px"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer" style="justify-content:space-between">
+      <div style="font-size:11px;color:var(--gray-400)">📌 등록 후 장비 설치 일정을 바로 추가할 수 있습니다</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="closeModal('newStoreModal')">취소</button>
+        <button class="btn btn-primary" style="background:var(--success)">점포 등록</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- MODAL: 새 작업 등록                    -->
+<!-- ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="newJobModal" onclick="if(event.target===this)closeModal('newJobModal')">
+  <div class="modal" style="width:min(960px,96vw)">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">새 작업 등록</div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:2px">투입 장비 수량을 당구공으로 선택하세요 (0 = 미투입)</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('newJobModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- 기본 정보 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+        <div class="form-group" style="margin:0">
+          <label>작업 유형</label>
+          <select>
+            <option>신규개업</option>
+            <option>POS 교체</option>
+            <option>VAN 교체</option>
+            <option>장비 추가</option>
+            <option>AS 처리</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>점포명</label>
+          <input type="text" placeholder="점포 검색...">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>담당 엔지니어</label>
+          <select>
+            <option>김현장</option>
+            <option>이기사</option>
+            <option>박기사</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>예정일</label>
+          <input type="date" value="2026-04-23">
+        </div>
+        <div class="form-group" style="margin:0;grid-column:2/-1">
+          <label>주소 <span style="font-size:10px;color:var(--gray-400);font-weight:400">🎙 음성 입력 가능</span></label>
+          <div class="voice-input-wrap">
+            <input type="text" id="jobAddressInput" placeholder="도로명 주소">
+            <button class="voice-btn mobile-only" onclick="startVoiceInput('jobAddressInput', this)" title="음성으로 주소 입력">🎙</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 당구공 장비 수량 선택기 -->
+      <div style="background:var(--gray-50);border-radius:12px;padding:16px 20px;border:1px solid var(--gray-200)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:13px;font-weight:700;color:var(--gray-700)">🎱 투입 장비 수량 선택</div>
+          <div style="display:flex;gap:12px;font-size:11px;color:var(--gray-400);align-items:center;flex-wrap:wrap">
+            <span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#D1D5DB;flex-shrink:0"></span>0 = 미투입</span>
+            <span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FBBF24,#D97706);flex-shrink:0"></span>솔리드 1–8</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;position:relative"><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#60A5FA,#1D4ED8);overflow:hidden;flex-shrink:0;position:relative"><span style="display:block;position:absolute;left:0;right:0;top:35%;height:30%;background:rgba(255,255,255,0.75)"></span></span>스트라이프 9–15</span>
+          </div>
+        </div>
+        <div id="ball-selectors">
+          <!-- 장비별 당구공 선택 행 (JS로 생성) -->
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:14px;margin-bottom:0">
+        <label>비고 / 특이사항</label>
+        <textarea placeholder="VAN사 변경 사항, 고객 요청, 현장 특이사항 등..." style="min-height:52px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <div style="font-size:11px;color:var(--gray-400)" id="job-equip-summary">장비 미선택</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="closeModal('newJobModal')">취소</button>
+        <button class="btn btn-primary">작업 등록</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- MODAL: 엑셀 업로드                     -->
+<!-- ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="excelUploadModal" onclick="if(event.target===this)closeModal('excelUploadModal')">
+  <div class="modal" style="width:min(740px,96vw)">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">📊 점포 일괄 업로드</div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:2px">이카운트 거래처 내보내기(ESA001M) 파일 그대로 업로드 가능</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('excelUploadModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- 서식 안내 -->
+      <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:22px">📋</div>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700;color:#166534">ESA001M 거래처 내보내기 포맷</div>
+          <div style="font-size:11px;color:#15803D;margin-top:2px">이카운트 → 거래처 → 내보내기(ESA001M) 파일 그대로 업로드 · 1행 회사명 헤더 자동 건너뜀</div>
+        </div>
+        <button style="padding:6px 14px;background:#22C55E;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap" onclick="simulateExcelDownload()">⬇ 서식 다운로드</button>
+      </div>
+
+      <!-- ESA001M 컬럼 매핑 -->
+      <div style="font-size:11px;color:var(--gray-500);margin-bottom:8px;font-weight:600">📌 ESA001M 컬럼 구성 (2행부터 데이터)</div>
+      <div style="border:1px solid var(--gray-200);border-radius:8px;overflow:hidden;margin-bottom:14px">
+        <table style="width:100%;font-size:11px;border-collapse:collapse">
+          <thead>
+            <tr style="background:var(--gray-50)">
+              <th style="padding:6px 10px;border-bottom:1px solid var(--gray-200);color:var(--gray-500);font-weight:600;text-align:left;width:24px">열</th>
+              <th style="padding:6px 10px;border-bottom:1px solid var(--gray-200);color:var(--gray-500);font-weight:600;text-align:left">ESA001M 컬럼명</th>
+              <th style="padding:6px 10px;border-bottom:1px solid var(--gray-200);color:var(--gray-500);font-weight:600;text-align:left">매핑 필드</th>
+              <th style="padding:6px 10px;border-bottom:1px solid var(--gray-200);color:var(--gray-500);font-weight:600;text-align:center">필수</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-400)">A</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);font-weight:600">거래처코드</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-500)">점포 ID</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);text-align:center"><span style="background:#DBEAFE;color:#1E40AF;padding:2px 7px;border-radius:6px;font-weight:600;font-size:10px">필수</span></td></tr>
+            <tr style="background:#FAFAFA"><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-400)">B</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);font-weight:600">거래처명</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-500)">사업자명</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);text-align:center"><span style="background:#DBEAFE;color:#1E40AF;padding:2px 7px;border-radius:6px;font-weight:600;font-size:10px">필수</span></td></tr>
+            <tr><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-400)">C</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);font-weight:600">매장간판명</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-500)">점포 표시명</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);text-align:center"><span style="background:#DBEAFE;color:#1E40AF;padding:2px 7px;border-radius:6px;font-weight:600;font-size:10px">필수</span></td></tr>
+            <tr style="background:#FAFAFA"><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-400)">D</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);font-weight:600">사업자번호</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-500)">사업자등록번호</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);text-align:center"><span style="background:#DBEAFE;color:#1E40AF;padding:2px 7px;border-radius:6px;font-weight:600;font-size:10px">필수</span></td></tr>
+            <tr><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-400)">E</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);font-weight:600">대표자명</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-500)">대표자</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);text-align:center"><span style="background:#DBEAFE;color:#1E40AF;padding:2px 7px;border-radius:6px;font-weight:600;font-size:10px">필수</span></td></tr>
+            <tr style="background:#FAFAFA"><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-400)">F</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);font-weight:600">매장 전화번호</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-500)">매장 전화</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);text-align:center"><span style="background:#DBEAFE;color:#1E40AF;padding:2px 7px;border-radius:6px;font-weight:600;font-size:10px">필수</span></td></tr>
+            <tr><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-400)">G</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);font-weight:600">매장 주소</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-500)">주소</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);text-align:center"><span style="background:#DBEAFE;color:#1E40AF;padding:2px 7px;border-radius:6px;font-weight:600;font-size:10px">필수</span></td></tr>
+            <tr style="background:#FAFAFA"><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-400)">H</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);font-weight:600">담당자</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-500)">담당 엔지니어</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);text-align:center"><span style="background:#F3F4F6;color:var(--gray-500);padding:2px 7px;border-radius:6px;font-weight:600;font-size:10px">선택</span></td></tr>
+            <tr><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-400)">I</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);font-weight:600">이카운트 등록일</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-500)">거래처 등록일</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);text-align:center"><span style="background:#F3F4F6;color:var(--gray-500);padding:2px 7px;border-radius:6px;font-weight:600;font-size:10px">선택</span></td></tr>
+            <tr style="background:#FAFAFA"><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-400)">J</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);font-weight:600">이카운트 담당자</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);color:var(--gray-500)">관리자</td><td style="padding:5px 10px;border-bottom:1px solid var(--gray-100);text-align:center"><span style="background:#F3F4F6;color:var(--gray-500);padding:2px 7px;border-radius:6px;font-weight:600;font-size:10px">선택</span></td></tr>
+            <tr><td style="padding:5px 10px;color:var(--gray-400)">K</td><td style="padding:5px 10px;font-weight:600">POS(수/구성) / 단말체제 / 소프트프로그램</td><td style="padding:5px 10px;color:var(--gray-500)">POS구성 참고</td><td style="padding:5px 10px;text-align:center"><span style="background:#F3F4F6;color:var(--gray-500);padding:2px 7px;border-radius:6px;font-weight:600;font-size:10px">선택</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 드롭존 -->
+      <div class="excel-drop" id="excelDropZone" onclick="simulateExcelUpload()">
+        <div style="font-size:36px;margin-bottom:10px">📊</div>
+        <div style="font-size:14px;font-weight:700;color:#166534">ESA001M 엑셀을 여기에 끌어다 놓으세요</div>
+        <div style="font-size:11px;color:#4ADE80;margin-top:4px">.xlsx · .xls 지원 · 1행 회사명 헤더 자동 건너뜀</div>
+        <div style="font-size:11px;color:#86EFAC;margin-top:6px">또는</div>
+        <button onclick="event.stopPropagation();simulateExcelUpload()" style="margin-top:8px;padding:6px 18px;background:#22C55E;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">파일 선택</button>
+      </div>
+
+      <!-- 미리보기 (숨김) -->
+      <div id="excelPreview" style="display:none;margin-top:14px">
+        <!-- 중복 경고 (JS로 동적 표시) -->
+        <div id="excelDupWarning"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:700;color:#166534">✅ 2,766개 행 인식됨 — 미리보기 (상위 4개)</div>
+          <div style="font-size:11px;color:var(--gray-400)">중복 3건 건너뜀</div>
+        </div>
+        <div style="overflow-x:auto">
+        <table class="excel-preview-table" style="min-width:600px">
+          <thead>
+            <tr>
+              <th>거래처코드</th><th>거래처명</th><th>매장간판명</th><th>사업자번호</th><th>대표자명</th><th>전화</th><th>주소</th><th>담당자</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>03275</td><td>(2)호영슈퍼(철곡동)</td><td>(2)호영슈퍼</td><td>856-39-00325</td><td>김○○</td><td>02-2614-2100</td><td>서울 강서구...</td><td>이동호이상</td></tr>
+            <tr><td>09913</td><td>(GG식품)성남녀석들(분당점)</td><td>(GG식품)성남녀석들</td><td>221-72-00021</td><td>임○○</td><td>031-716-3434</td><td>경기 성남시...</td><td>이동호이상</td></tr>
+            <tr><td>09361</td><td>(X) CA(코리아마트)슈퍼(경기점)</td><td>C.A슈퍼</td><td>105-10-49781</td><td>이○○</td><td>02-712-8330</td><td>서울 마포구...</td><td>김성단</td></tr>
+            <tr><td>10012</td><td>가나다마트 안성점</td><td>가나다마트</td><td>208-45-67123</td><td>박○○</td><td>031-675-2210</td><td>경기 안성시...</td><td>박기사</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div style="margin-top:10px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:8px;padding:8px 12px;font-size:11px;color:#92400E">
+          ⚠ <b>3건 주의:</b> 사업자번호 형식 오류 2건 · 주소 불완전 1건 — 업로드 후 수정 가능
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-outline" onclick="closeModal('excelUploadModal')">취소</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" id="excelResetBtn" style="display:none" onclick="resetExcelUpload()">다시 선택</button>
+        <button class="btn btn-primary" id="excelImportBtn" style="display:none;background:var(--success)">2,766개 점포 일괄 등록</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- MODAL: Line 메시지 가져오기              -->
+<!-- ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="lineImportModal" onclick="if(event.target===this)closeModal('lineImportModal')">
+  <div class="modal" style="width:660px;max-width:96vw;max-height:90vh">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span class="line-logo">
+          <span class="line-logo-icon">L</span>
+          Line 메시지 가져오기
+        </span>
+      </div>
+      <button class="modal-close" onclick="closeModal('lineImportModal')">✕</button>
+    </div>
+
+    <div class="modal-body" style="padding-bottom:8px">
+
+      <!-- STEP 1: 그룹채팅방 선택 -->
+      <div style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:700;color:var(--gray-700)">📌 STEP 1 — 어느 채팅방의 메시지인가요?</div>
+          <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 10px" onclick="showAddRoomUI()">+ 채팅방 추가</button>
+        </div>
+
+        <!-- 채팅방 칩 목록 -->
+        <div id="lineRoomChips" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <!-- JS로 렌더링 -->
+        </div>
+
+        <!-- 채팅방 추가 인라인 폼 (숨김) -->
+        <div id="addRoomForm" style="display:none;margin-top:10px;background:var(--gray-50);border-radius:10px;padding:12px;border:1px dashed var(--gray-300)">
+          <div style="font-size:11px;font-weight:700;color:var(--gray-600);margin-bottom:8px">새 채팅방 등록</div>
+          <div style="display:grid;grid-template-columns:1fr 160px auto;gap:8px;align-items:center">
+            <input type="text" id="newRoomName" placeholder="채팅방 이름 (예: AS접수방)" style="font-size:13px" maxlength="30">
+            <select id="newRoomType" style="font-size:13px;padding:9px 10px">
+              <option value="as">🔧 AS 접수</option>
+              <option value="schedule">📅 일정 관리</option>
+              <option value="work">📋 업무 지시</option>
+              <option value="general">💬 일반</option>
+            </select>
+            <button class="btn btn-sm btn-primary" onclick="addLineRoom()" style="white-space:nowrap">추가</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: 메시지 붙여넣기 -->
+      <div style="margin-bottom:18px">
+        <div style="font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:8px">
+          📋 STEP 2 — 오늘 Line 대화 내용을 붙여넣으세요
+        </div>
+        <div style="font-size:11px;color:var(--gray-400);margin-bottom:8px;line-height:1.6">
+          💡 Line 앱에서 대화 내용 선택 → 복사 → 여기에 붙여넣기 하세요.
+          <b>오늘 날짜 메시지만</b> 자동으로 필터링됩니다.
+        </div>
+        <textarea id="linePasteArea" rows="8"
+          placeholder="오후 2:35  김기사&#10;강남 K마트 POS 2번 영수증 안나와요&#10;&#10;오후 2:41  박반장&#10;확인해볼게요&#10;&#10;오후 3:10  김기사&#10;강남 K마트 처리 완료했습니다&#10;&#10;오후 4:20  이부장&#10;내일 오전 10시 안성점 신규개업 설치 있어요. 박기사님 가능하신가요?"
+          style="font-family:monospace;font-size:12.5px;line-height:1.7;resize:vertical;min-height:160px;max-height:280px">
+        </textarea>
+      </div>
+
+      <!-- 분석 버튼 -->
+      <div style="text-align:center;margin-bottom:14px">
+        <button class="btn btn-primary" onclick="runLineImport()" id="lineAnalyzeBtn"
+          style="background:#06C755;font-size:13px;padding:10px 28px;gap:8px">
+          <span>✦</span> Claude로 분석하기
+        </button>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:6px" id="lineAnalyzeHint">
+          선택한 채팅방 유형을 참고해 요청·완료·일정을 자동 분류합니다
+        </div>
+      </div>
+
+      <!-- 분석 로딩 -->
+      <div id="lineParseLoading" style="display:none;text-align:center;padding:20px">
+        <div style="font-size:26px;animation:pulse-dot 1s infinite;margin-bottom:6px">✦</div>
+        <div style="font-size:13px;font-weight:700;color:#06C755">Claude Sonnet 분석 중…</div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:3px">메시지를 읽고 요청·완료·일정을 분류합니다</div>
+        <div class="progress-track" style="margin:12px auto 0;max-width:280px">
+          <div id="lineProgressFill" class="progress-fill" style="background:linear-gradient(90deg,#06C755,#00B04A)"></div>
+        </div>
+      </div>
+
+      <!-- 분석 결과 -->
+      <div id="lineParseResults" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:700;color:var(--gray-800)" id="lineResultSummary"></div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 10px" onclick="selectAllLineItems(true)">전체 선택</button>
+            <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 10px" onclick="selectAllLineItems(false)">전체 해제</button>
+          </div>
+        </div>
+
+        <!-- 범례 -->
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <span class="line-type-badge lbadge-request">🔴 AS/작업 요청</span>
+          <span class="line-type-badge lbadge-done">🟢 실행 완료</span>
+          <span class="line-type-badge lbadge-schedule">🔵 일정</span>
+          <span class="line-type-badge lbadge-ignore">⚪ 기타</span>
+          <span style="font-size:11px;color:var(--gray-400);margin-left:4px">체크된 항목만 등록됩니다</span>
+        </div>
+
+        <div id="lineItemList" style="max-height:320px;overflow-y:auto;padding-right:4px">
+          <!-- JS로 렌더링 -->
+        </div>
+      </div>
+
+    </div>
+
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-outline" onclick="closeModal('lineImportModal')">닫기</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="lineRegisterCount" style="font-size:12px;color:var(--gray-500);display:none"></span>
+        <button class="btn btn-primary" id="lineRegisterBtn" onclick="registerLineItems()" style="display:none;background:#06C755">
+          ✅ 선택 항목 등록
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- MODAL: AI 설정                          -->
+<!-- ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="settingsModal" onclick="if(event.target===this)closeModal('settingsModal')">
+  <div class="modal" style="width:480px;max-width:96vw">
+    <div class="modal-header">
+      <div class="modal-title">⚙️ AI 설정</div>
+      <button class="modal-close" onclick="closeModal('settingsModal')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- 현재 모델 -->
+      <div class="model-badge" style="margin-bottom:20px;width:100%">
+        <div class="model-dot"></div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#3730A3">Claude Sonnet</div>
+          <div style="font-size:10px;color:#6366F1;font-weight:500">claude-sonnet-4-5 · Anthropic</div>
+        </div>
+        <div style="margin-left:auto;font-size:11px;color:var(--gray-400)">스크린샷 분석 · 대시보드 AI</div>
+      </div>
+
+      <!-- API 키 입력 -->
+      <div class="form-group">
+        <label>Anthropic API 키
+          <span style="font-size:10px;color:var(--gray-400);font-weight:400;margin-left:6px">
+            <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--primary)">발급받기 →</a>
+          </span>
+        </label>
+        <div class="api-key-input-wrap">
+          <input type="password" id="settingsApiKey" placeholder="sk-ant-api03-..." autocomplete="off">
+          <button class="api-key-toggle" onclick="toggleApiKeyVisibility()">보기</button>
+        </div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:5px">
+          🔒 키는 브라우저 localStorage에만 저장됩니다. 외부로 전송되지 않습니다.
+        </div>
+      </div>
+
+      <!-- 연결 상태 -->
+      <div id="apiKeyStatus" style="display:none;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:600;margin-top:4px"></div>
+
+      <!-- 기능 안내 -->
+      <div style="background:var(--gray-50);border-radius:10px;padding:14px 16px;margin-top:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:10px">활성화되는 AI 기능</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--gray-600)">
+          <div style="display:flex;gap:8px;align-items:center"><span style="font-size:16px">📷</span><div><b>스크린샷 자동 인식</b> — 이카운트·VAN 화면 붙여넣기 시 점포 정보 자동 추출</div></div>
+          <div style="display:flex;gap:8px;align-items:center"><span style="font-size:16px">📊</span><div><b>대시보드 AI 분석</b> — 진행 중인 작업·AS·재고 현황 기반 위험 항목 탐지</div></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('settingsModal')">취소</button>
+      <button class="btn btn-outline btn-sm" onclick="testApiKey()" id="testApiBtn">연결 테스트</button>
+      <button class="btn btn-primary" onclick="saveSettings()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- hidden file input for AI image upload -->
+<input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageFile(this)">
+
+<!-- ═══════════════════════════════════════ -->
+<!-- COMMENT PANEL (fixed, slide-in right)  -->
+<!-- ═══════════════════════════════════════ -->
+<div class="comment-overlay" id="commentOverlay" onclick="toggleCommentPanel()"></div>
+
+<div class="comment-panel" id="commentPanel">
+  <!-- 헤더 -->
+  <div class="cm-header">
+    <div>
+      <div class="neo-eyebrow">TEAM COMMENTS</div>
+      <div class="cm-title" id="cmPanelTitle">대시보드 댓글</div>
+    </div>
+    <button class="cm-close" onclick="toggleCommentPanel()">✕</button>
+  </div>
+
+  <!-- 작성자 선택 -->
+  <div class="cm-user-bar">
+    <span class="cm-user-label">작성자</span>
+    <select class="cm-user-select" id="cmUserSelect" onchange="renderCommentPanel()">
+      <!-- JS가 채움 -->
+    </select>
+  </div>
+
+  <!-- 페이지 탭 -->
+  <div class="cm-screen-tabs" id="cmScreenTabs"></div>
+
+  <!-- 댓글 목록 -->
+  <div class="cm-list" id="cmList"></div>
+
+  <!-- 입력 영역 -->
+  <div class="cm-input-area">
+    <textarea
+      class="cm-input" id="cmInput"
+      placeholder="이 페이지에 대한 의견을 남겨주세요... (Ctrl+Enter 전송)"
+      rows="2"
+      onkeydown="if(event.ctrlKey&&event.key==='Enter'){event.preventDefault();postComment();}"
+    ></textarea>
+    <div class="cm-input-footer">
+      <span class="cm-hint">Ctrl+Enter · 승인된 직원만 작성 가능</span>
+      <button class="cm-post-btn" onclick="postComment()">전송 ↵</button>
+    </div>
+  </div>
+</div>
+
+<!-- 댓글 플로팅 버튼 -->
+<div class="comment-fab-wrap">
+  <button class="comment-fab" onclick="toggleCommentPanel()" title="팀 댓글">
+    💬
+    <span class="comment-fab-badge" id="commentFabBadge" style="display:none">0</span>
+  </button>
+</div>
+
+<script>
+  const titles = {
+    dashboard: '대시보드',
+    jobs: '작업 목록',
+    stores: '점포 관리',
+    calendar: '일정 캘린더',
+    equipment: '장비 재고',
+    quote: '견적 작성'
+  };
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('screen-' + id).classList.add('active');
+    document.getElementById('pageTitle').textContent = titles[id];
+    event.currentTarget && event.currentTarget.classList.add('active');
+    // re-highlight nav
+    document.querySelectorAll('.nav-item').forEach(n => {
+      if (n.getAttribute('onclick') && n.getAttribute('onclick').includes(id)) {
+        n.classList.add('active');
+      }
+    });
+    // 댓글 패널 화면 동기화
+    cmCurrentScreen = id;
+    if (typeof renderCommentPanel === 'function') renderCommentPanel();
+  }
+
+  function showModal(id) {
+    document.getElementById(id).classList.add('show');
+    if (id === 'lineImportModal') initLineImportModal();
+    if (id === 'newJobModal') buildBallSelectors();
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', function() {
+      const parent = this.closest('.filter-row');
+      parent.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  /* ── 캡처 소스 탭 선택 ── */
+  const captureHints = {
+    ecount: '💡 이카운트 › 거래처 관리 › 거래처 상세 화면을 캡처하세요. 점포명·대표자·주소·사업자번호가 자동 입력됩니다.',
+    kcp:    '💡 KCP 가맹점 포털 › 가맹점 정보 페이지를 캡처하세요. 사업자번호·터미널 ID·가맹점명이 자동 입력됩니다.',
+    ksnet:  '💡 KSNET 파트너 포털 › 가맹점 조회 화면을 캡처하세요. 터미널 ID·대표자 정보가 자동 입력됩니다.',
+    kicc:   '💡 KICC 파트너넷 › 가맹점 상세 화면을 캡처하세요. 사업자번호·가맹점코드가 자동 입력됩니다.',
+    nice:   '💡 나이스페이 파트너 페이지 › 가맹점 정보 화면을 캡처하세요.',
+    manual: '✏️ 직접 입력 모드입니다. 아래 양식에 점포 정보를 입력해 주세요.'
+  };
+  const captureSourceLabels = {
+    ecount:'이카운트 — 거래처 상세', kcp:'KCP — 가맹점 정보',
+    ksnet:'KSNET — 가맹점 조회', kicc:'KICC — 가맹점 상세',
+    nice:'나이스페이 — 가맹점 정보', manual:'직접 입력'
+  };
+  let currentCaptureSource = 'ecount';
+
+  function selectCaptureTab(el, src) {
+    document.querySelectorAll('.capture-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentCaptureSource = src;
+    document.getElementById('capture-hint').textContent = captureHints[src];
+    if (src === 'manual') {
+      document.getElementById('dropZone').style.display = 'none';
+    } else {
+      document.getElementById('dropZone').style.display = '';
+      resetCapture();
+    }
+  }
+
+  /* ══════════════════════════════════
+     Claude Sonnet API 연동
+  ══════════════════════════════════ */
+
+  const CLAUDE_MODEL = 'claude-sonnet-4-5';
+
+  function getApiKey() { return localStorage.getItem('neo_api_key') || ''; }
+  function saveApiKey(key) { localStorage.setItem('neo_api_key', key.trim()); }
+
+  async function callClaude(messages, maxTokens = 1500) {
+    const apiKey = getApiKey();
+    if (!apiKey) throw new Error('API_KEY_MISSING');
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: maxTokens, messages })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `API 오류 (${res.status})`);
+    }
+    const data = await res.json();
+    return data.content[0].text;
+  }
+
+  /* ── 설정 모달 ── */
+  function toggleApiKeyVisibility() {
+    const inp = document.getElementById('settingsApiKey');
+    const btn = inp.nextElementSibling;
+    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '숨기기'; }
+    else { inp.type = 'password'; btn.textContent = '보기'; }
+  }
+
+  function showModal_settings() {
+    document.getElementById('settingsApiKey').value = getApiKey();
+    showModal('settingsModal');
+  }
+
+  async function testApiKey() {
+    const key = document.getElementById('settingsApiKey').value.trim();
+    if (!key) { showApiStatus('error', '⚠️ API 키를 먼저 입력하세요'); return; }
+    const btn = document.getElementById('testApiBtn');
+    btn.disabled = true; btn.textContent = '테스트 중…';
+    const origKey = getApiKey();
+    saveApiKey(key); // 임시 저장
+    try {
+      await callClaude([{ role: 'user', content: '안녕? 한 문장으로 응답해.' }], 50);
+      showApiStatus('success', '✅ 연결 성공 — Claude Sonnet 사용 가능');
+    } catch (e) {
+      saveApiKey(origKey); // 실패 시 복원
+      showApiStatus('error', '❌ ' + (e.message === 'API_KEY_MISSING' ? '키가 비어 있습니다' : e.message));
+    }
+    btn.disabled = false; btn.textContent = '연결 테스트';
+  }
+
+  function showApiStatus(type, msg) {
+    const el = document.getElementById('apiKeyStatus');
+    el.style.display = '';
+    el.style.background = type === 'success' ? '#D1FAE5' : '#FEE2E2';
+    el.style.color = type === 'success' ? '#065F46' : '#991B1B';
+    el.textContent = msg;
+  }
+
+  function saveSettings() {
+    const key = document.getElementById('settingsApiKey').value.trim();
+    saveApiKey(key);
+    closeModal('settingsModal');
+    if (key) showToast('Claude Sonnet API 키가 저장되었습니다 ✅');
+  }
+
+  /* ── 토스트 메시지 ── */
+  function showToast(msg) {
+    let t = document.getElementById('neoToast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'neoToast';
+      t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1F2937;color:#fff;padding:10px 20px;border-radius:24px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);transition:opacity .3s;pointer-events:none';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg; t.style.opacity = '1';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
+  }
+
+  /* ══════════════════════════════════
+     스크린샷 → Claude Vision 분석
+  ══════════════════════════════════ */
+
+  let capturedImageData = null; // base64
+
+  function simulateCapture() {
+    // API 키 있으면 파일 선택, 없으면 데모 실행
+    if (getApiKey()) {
+      document.getElementById('imageFileInput').click();
+    } else {
+      runDemoCapture();
+    }
+  }
+
+  function handleImageFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      capturedImageData = e.target.result; // data:image/...;base64,...
+      runClaudeCapture(capturedImageData);
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+  }
+
+  async function runClaudeCapture(dataUrl) {
+    const dz = document.getElementById('dropZone');
+    const analyzing = document.getElementById('aiAnalyzing');
+    const result = document.getElementById('aiResult');
+    const preview = document.getElementById('previewThumb');
+
+    result.style.display = 'none';
+    preview.style.display = 'none';
+    dz.style.display = 'none';
+    analyzing.style.display = '';
+
+    const statusEl = document.getElementById('analyzeStatus');
+    const detailEl = document.getElementById('analyzeDetail');
+    const pf = document.getElementById('progressFill');
+    pf.style.animation = 'none'; void pf.offsetWidth;
+    pf.style.animation = 'progress-bar 3s ease forwards';
+
+    statusEl.textContent = 'Claude Sonnet 분석 중...';
+    detailEl.textContent = '이미지 → 텍스트 인식 → 필드 매핑';
+
+    try {
+      // base64 데이터 추출
+      const base64 = dataUrl.split(',')[1];
+      const mediaType = dataUrl.match(/data:(image\/[^;]+)/)?.[1] || 'image/png';
+
+      const prompt = `이 이미지는 마트/점포 관련 화면 캡처입니다. 이미지에서 점포 정보를 추출해주세요.
+
+반드시 아래 JSON 형식으로만 응답하세요 (설명 없이 JSON만):
+{
+  "store_name": "점포명",
+  "owner": "대표자명",
+  "phone": "전화번호(예:031-000-0000)",
+  "biz_no": "사업자번호(예:123-45-67890)",
+  "address": "전체 주소",
+  "contract_date": "YYYY-MM-DD 형식 날짜",
+  "confidence": "high|medium|low"
+}
+
+찾을 수 없는 필드는 빈 문자열("")로 두세요.`;
+
+      statusEl.textContent = '텍스트 추출 중...';
+      detailEl.textContent = 'OCR → 필드 분류';
+
+      const text = await callClaude([{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: prompt }
+        ]
+      }], 500);
+
+      statusEl.textContent = '필드 매핑 중...';
+      detailEl.textContent = '점포명·주소·사업자번호 매핑';
+
+      // JSON 파싱
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('응답 파싱 실패');
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      analyzing.style.display = 'none';
+      document.getElementById('captureSourceLabel').textContent = captureSourceLabels[currentCaptureSource] + ' (Claude Sonnet 분석)';
+      preview.style.display = '';
+      result.style.display = '';
+
+      applyAutoFillFromClaude(parsed);
+
+    } catch (e) {
+      analyzing.style.display = 'none';
+      if (e.message === 'API_KEY_MISSING') {
+        dz.style.display = '';
+        showToast('⚙️ 설정에서 API 키를 먼저 입력하세요');
+      } else {
+        // 오류 시 데모 폴백
+        document.getElementById('captureSourceLabel').textContent = captureSourceLabels[currentCaptureSource] + ' (데모 결과)';
+        preview.style.display = '';
+        result.style.display = '';
+        applyAutoFill();
+        showToast('⚠️ API 오류 — 데모 데이터 사용: ' + e.message.slice(0, 60));
+      }
+    }
+  }
+
+  function applyAutoFillFromClaude(data) {
+    const fieldMap = {
+      'f-name': data.store_name,
+      'f-ceo':  data.owner,
+      'f-tel':  data.phone,
+      'f-biz':  data.biz_no,
+      'f-addr': data.address,
+      'f-date': data.contract_date
+    };
+    const warnFields = ['f-biz', 'f-tid'];
+    const badgeMap = {'f-name':'badge-name','f-ceo':'badge-ceo','f-tel':'badge-tel','f-biz':'badge-biz','f-addr':'badge-addr','f-date':'badge-date'};
+    let filled = 0;
+
+    Object.entries(fieldMap).forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el && val) {
+        el.value = val; filled++;
+        el.classList.add(warnFields.includes(id) ? 'field-warn' : 'field-auto');
+      }
+    });
+    Object.entries(badgeMap).forEach(([fid, bid]) => {
+      const badge = document.getElementById(bid);
+      if (badge) badge.style.display = fieldMap[fid] ? 'inline' : 'none';
+    });
+
+    // 결과 텍스트 업데이트
+    const resultEl = document.getElementById('aiResult');
+    resultEl.querySelector('span[style*="font-weight:700"]').textContent =
+      `${filled}개 항목 자동 입력 완료 — Claude Sonnet 분석`;
+  }
+
+  /* ── 데모 캡처 (API 키 없을 때) ── */
+  function runDemoCapture() {
+    const dz = document.getElementById('dropZone');
+    const analyzing = document.getElementById('aiAnalyzing');
+    const result = document.getElementById('aiResult');
+    const preview = document.getElementById('previewThumb');
+
+    result.style.display = 'none';
+    preview.style.display = 'none';
+    dz.style.display = 'none';
+    analyzing.style.display = '';
+
+    const steps = [
+      ['화면 이미지 인식 중...', '텍스트 영역 탐지'],
+      ['텍스트 추출 중...', 'OCR → 필드 분류'],
+      ['필드 매핑 중...', '점포명·주소·사업자번호 매핑'],
+      ['주소 정규화 중...', '행정 구역 표준화'],
+      ['완료 ✅', '결과 적용 중...']
+    ];
+    let stepIdx = 0;
+    const statusEl = document.getElementById('analyzeStatus');
+    const detailEl = document.getElementById('analyzeDetail');
+    const pf = document.getElementById('progressFill');
+    pf.style.animation = 'none'; void pf.offsetWidth;
+    pf.style.animation = 'progress-bar 2.2s ease forwards';
+
+    const stepTimer = setInterval(() => {
+      if (stepIdx < steps.length) {
+        statusEl.textContent = steps[stepIdx][0];
+        detailEl.textContent = steps[stepIdx][1];
+        stepIdx++;
+      }
+    }, 450);
+
+    setTimeout(() => {
+      clearInterval(stepTimer);
+      analyzing.style.display = 'none';
+      document.getElementById('captureSourceLabel').textContent = captureSourceLabels[currentCaptureSource] + ' (데모)';
+      preview.style.display = '';
+      result.style.display = '';
+      applyAutoFill();
+    }, 2400);
+  }
+
+  function applyAutoFill() {
+    const autoData = {
+      'f-name': '웰빙마트 고양점',
+      'f-ceo': '이○○',
+      'f-tel': '031-900-0000',
+      'f-biz': '123-45-67890',
+      'f-addr': '경기도 고양시 일산동구 장항동 856',
+      'f-date': '2024-02-01'
+    };
+    const warnFields = ['f-biz', 'f-tid'];
+    const badgeMap = {'f-name':'badge-name','f-ceo':'badge-ceo','f-tel':'badge-tel','f-biz':'badge-biz','f-addr':'badge-addr','f-date':'badge-date','f-tid':'badge-tid'};
+
+    Object.entries(autoData).forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.value = val;
+        el.classList.add(warnFields.includes(id) ? 'field-warn' : 'field-auto');
+      }
+    });
+    Object.entries(badgeMap).forEach(([fid, bid]) => {
+      const badge = document.getElementById(bid);
+      if (badge) badge.style.display = autoData[fid] !== undefined ? 'inline' : 'none';
+    });
+    document.getElementById('badge-tid').style.display = 'inline';
+  }
+
+  function resetCapture() {
+    document.getElementById('dropZone').style.display = '';
+    document.getElementById('aiAnalyzing').style.display = 'none';
+    document.getElementById('aiResult').style.display = 'none';
+    document.getElementById('previewThumb').style.display = 'none';
+    // 폼 초기화
+    ['f-name','f-ceo','f-tel','f-biz','f-addr','f-date'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.value = ''; el.classList.remove('field-auto','field-warn'); }
+    });
+    ['badge-name','badge-ceo','badge-tel','badge-biz','badge-addr','badge-date','badge-tid'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
+
+  /* ── 당구공 선택기 ── */
+  const equipList = [
+    { key:'pos',    label:'POS 일체형',   sub:'계산대 본체' },
+    { key:'kiosk',  label:'키오스크',      sub:'셀프 계산대' },
+    { key:'server', label:'서버 PC',       sub:'백오피스 서버' },
+    { key:'scanner_f',label:'고정스캐너',  sub:'마젤란/LS류' },
+    { key:'scanner_h',label:'핸드스캐너',  sub:'바코드 핸드' },
+    { key:'scale',  label:'전자저울',      sub:'SM-100 등' },
+    { key:'printer_r',label:'영수프린터',  sub:'SRP-330 등' },
+    { key:'printer_l',label:'라벨프린터',  sub:'바코드 라벨' },
+    { key:'card_w', label:'카드단말(유선)', sub:'N100 등' },
+    { key:'card_m', label:'카드단말(무선)', sub:'포터블' },
+    { key:'display',label:'고객용 화면',   sub:'2nd Display' },
+    { key:'drawer', label:'현금서랍',      sub:'APG 등' },
+    { key:'ups',    label:'UPS',           sub:'무정전전원' },
+    { key:'etc',    label:'기타 장비',     sub:'' },
+  ];
+  const ballState = {};
+
+  function buildBallSelectors() {
+    const container = document.getElementById('ball-selectors');
+    if (!container) return;
+    container.innerHTML = '';
+    equipList.forEach(eq => {
+      ballState[eq.key] = 0;
+      const row = document.createElement('div');
+      row.className = 'ball-selector-row';
+      let ballsHtml = '';
+      for (let i = 0; i <= 15; i++) {
+        ballsHtml += `<div class="ball b${i}${i===0?' selected':''}" data-key="${eq.key}" data-val="${i}" onclick="selectBall(this,'${eq.key}',${i})">${i}</div>`;
+      }
+      row.innerHTML = `
+        <div class="ball-label">${eq.label}<small>${eq.sub}</small></div>
+        <div class="balls" id="balls-${eq.key}">${ballsHtml}</div>
+        <div class="ball-count-badge" id="cnt-${eq.key}">—</div>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  function selectBall(el, key, val) {
+    // 같은 장비 행의 모든 볼 선택 해제
+    document.querySelectorAll(`#balls-${key} .ball`).forEach(b => b.classList.remove('selected'));
+    el.classList.add('selected');
+    ballState[key] = val;
+    const cnt = document.getElementById('cnt-' + key);
+    if (cnt) cnt.textContent = val > 0 ? val + '대' : '—';
+    updateJobSummary();
+  }
+
+  function updateJobSummary() {
+    const parts = [];
+    equipList.forEach(eq => {
+      if (ballState[eq.key] > 0) parts.push(`${eq.label} ${ballState[eq.key]}대`);
+    });
+    const el = document.getElementById('job-equip-summary');
+    if (el) el.textContent = parts.length ? '📦 ' + parts.join(' · ') : '장비 미선택';
+  }
+
+  // 당구공 초기화는 showModal 함수에 통합됨
+
+  /* ── 등록된 점포 (중복 체크용 시뮬레이션 데이터) ── */
+  const registeredStores = new Set([
+    '03275', '09913', '09361'  // 이미 등록된 거래처코드 예시
+  ]);
+
+  /* ── 엑셀 업로드 시뮬레이션 ── */
+  function simulateExcelUpload() {
+    const dz = document.getElementById('excelDropZone');
+    dz.innerHTML = `
+      <div style="font-size:28px">⏳</div>
+      <div style="font-size:12px;font-weight:600;color:#166534;margin-top:6px">ESA001M 파일 분석 중...</div>
+      <div style="font-size:11px;color:#86EFAC;margin-top:4px">중복 거래처코드 검사 중...</div>
+    `;
+
+    setTimeout(() => {
+      // 시뮬: 2766개 중 3개 중복 감지
+      const totalRows = 2766;
+      const duplicates = [
+        { code: '03275', name: '(2)호영슈퍼(철곡동)', reason: '거래처코드 중복' },
+        { code: '09913', name: '(GG식품)성남녀석들', reason: '거래처코드 중복' },
+        { code: '09361', name: 'C.A슈퍼', reason: '거래처코드 중복' },
+      ];
+      const newCount = totalRows - duplicates.length;
+
+      dz.style.display = 'none';
+
+      // 중복 안내 박스 표시
+      const preview = document.getElementById('excelPreview');
+      preview.style.display = '';
+
+      // 중복 경고 섹션 추가
+      const dupWarning = document.getElementById('excelDupWarning');
+      if (dupWarning) {
+        dupWarning.innerHTML = `
+          <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:12px 16px;margin-bottom:12px">
+            <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:8px">⚠ 중복 감지 — ${duplicates.length}건은 등록하지 않음</div>
+            ${duplicates.map(d => `
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;color:#92400E">
+                <span style="background:#FCD34D;color:#78350F;padding:1px 6px;border-radius:4px;font-weight:700;font-family:monospace">${d.code}</span>
+                <span style="font-weight:600">${d.name}</span>
+                <span style="color:#B45309">${d.reason}</span>
+              </div>
+            `).join('')}
+            <div style="font-size:11px;color:#B45309;margin-top:8px;padding-top:8px;border-top:1px solid #FCD34D">
+              ✅ 나머지 <b>${newCount.toLocaleString()}개</b> 점포는 정상 등록됩니다.
+            </div>
+          </div>
+        `;
+      }
+
+      document.getElementById('excelImportBtn').style.display = '';
+      document.getElementById('excelImportBtn').textContent = `${newCount.toLocaleString()}개 점포 등록 (${duplicates.length}건 제외)`;
+      document.getElementById('excelResetBtn').style.display = '';
+    }, 1800);
+  }
+
+  function resetExcelUpload() {
+    const dz = document.getElementById('excelDropZone');
+    dz.style.display = '';
+    dz.innerHTML = `
+      <div style="font-size:36px;margin-bottom:10px">📊</div>
+      <div style="font-size:14px;font-weight:700;color:#166534">ESA001M 엑셀을 여기에 끌어다 놓으세요</div>
+      <div style="font-size:11px;color:#4ADE80;margin-top:4px">.xlsx · .xls 지원 · 1행 회사명 헤더 자동 건너뜀</div>
+      <div style="font-size:11px;color:#86EFAC;margin-top:6px">또는</div>
+      <button onclick="event.stopPropagation();simulateExcelUpload()" style="margin-top:8px;padding:6px 18px;background:#22C55E;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">파일 선택</button>
+    `;
+    document.getElementById('excelPreview').style.display = 'none';
+    document.getElementById('excelResetBtn').style.display = 'none';
+    document.getElementById('excelImportBtn').style.display = 'none';
+    const dupWarning = document.getElementById('excelDupWarning');
+    if (dupWarning) dupWarning.innerHTML = '';
+  }
+
+  function simulateExcelDownload() {
+    alert('서식 파일 다운로드: ESA001M_template.xlsx\n\n이카운트 → 거래처관리 → 내보내기(ESA001M) 파일을 그대로 사용하셔도 됩니다.');
+  }
+
+  /* ── 모바일 드롭다운 메뉴 ── */
+  function toggleMenu() {
+    const menu = document.getElementById('mobileMenu');
+    const overlay = document.getElementById('menuOverlay');
+    const isOpen = menu.classList.contains('open');
+    if (isOpen) {
+      menu.classList.remove('open');
+      overlay.classList.remove('show');
+      document.body.style.overflow = '';
+    } else {
+      menu.classList.add('open');
+      overlay.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+  function closeMenu() {
+    document.getElementById('mobileMenu').classList.remove('open');
+    document.getElementById('menuOverlay').classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
+  /* ── 음성 인식 (Web Speech API) ── */
+  function startVoiceInput(inputId, btnEl) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('이 브라우저는 음성 인식을 지원하지 않습니다.\n(Chrome 모바일 권장)');
+      return;
+    }
+    const recog = new SpeechRecognition();
+    recog.lang = 'ko-KR';
+    recog.interimResults = false;
+    recog.maxAlternatives = 1;
+
+    btnEl.classList.add('listening');
+    btnEl.textContent = '🔴';
+
+    recog.start();
+
+    recog.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      const input = document.getElementById(inputId);
+      if (input) input.value = transcript;
+    };
+    recog.onerror = (e) => {
+      console.warn('음성 인식 오류:', e.error);
+    };
+    recog.onend = () => {
+      btnEl.classList.remove('listening');
+      btnEl.textContent = '🎙';
+    };
+  }
+
+  /* ── 모바일: 음성 버튼 자동 표시 ── */
+  function checkMobileVoice() {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    document.querySelectorAll('.voice-btn.mobile-only').forEach(btn => {
+      btn.style.display = isMobile ? 'flex' : 'none';
+    });
+  }
+  checkMobileVoice();
+  window.addEventListener('resize', checkMobileVoice);
+
+  /* ── Ctrl+V 클립보드 붙여넣기 감지 ── */
+  document.addEventListener('paste', function(e) {
+    if (!document.getElementById('newStoreModal').classList.contains('show')) return;
+    if (document.getElementById('dropZone').style.display === 'none') return;
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const blob = items[i].getAsFile();
+        if (!blob) { simulateCapture(); break; }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          capturedImageData = ev.target.result;
+          if (getApiKey()) {
+            runClaudeCapture(capturedImageData);
+          } else {
+            runDemoCapture();
+          }
+        };
+        reader.readAsDataURL(blob);
+        break;
+      }
+    }
+  });
+
+  /* ══════════════════════════════════
+     대시보드 AI 분석 (하루 1회)
+  ══════════════════════════════════ */
+
+  function getTodayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function canRunAnalysis() {
+    const lastRun = localStorage.getItem('neo_analysis_date');
+    return lastRun !== getTodayStr();
+  }
+
+  // 페이지 로드 시 재분석 버튼 상태 초기화
+  (function initAnalysisBtn() {
+    if (!canRunAnalysis()) {
+      const btn = document.getElementById('aiReanalysisBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.title = '오늘 이미 분석했습니다. 내일 다시 사용 가능합니다.';
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+      }
+      const saved = localStorage.getItem('neo_analysis_result');
+      if (saved) {
+        try { renderAnalysisResult(JSON.parse(saved)); } catch(e) {}
+      }
+    }
+  })();
+
+  async function runDashboardAnalysis() {
+    if (!getApiKey()) {
+      showToast('⚙️ 설정에서 Anthropic API 키를 먼저 입력하세요');
+      showModal('settingsModal');
+      return;
+    }
+    if (!canRunAnalysis()) {
+      showToast('오늘 이미 분석 완료했습니다. 내일 다시 사용 가능합니다.');
+      return;
+    }
+
+    const body = document.getElementById('aiAnalysisBody');
+    const loading = document.getElementById('aiReanalysisLoading');
+    const btn = document.getElementById('aiReanalysisBtn');
+    const pf = document.getElementById('dashProgressFill');
+
+    body.style.display = 'none';
+    loading.style.display = '';
+    btn.disabled = true;
+    pf.style.animation = 'none'; void pf.offsetWidth;
+    pf.style.animation = 'progress-bar 8s ease forwards';
+
+    const contextData = `
+[현재 작업 현황]
+- 이번달 신규개업: 7건 (지난달 대비 +2)
+- 진행중 작업: 12건 (오늘 완료 예정 3건)
+- AS 접수: 5건 (48시간 초과 2건 미배정)
+- 장비 재고 부족: 3개 품목
+
+[오늘 일정]
+- 09:00 K-1마트 안중점 신규개업 설치 (POS 5대+저울+계산대 / 담당: 김현장) - 4/6단계 진행중
+- 14:00 웰빙마트 신림점 VAN 교체 (KIS→KCP 단말 3대 / 담당: 이기사) - 예정
+- 16:30 ECJ마트 AS 처리 (영수프린터 용지 걸림 / 담당: 박기사)
+
+[AS 미처리 현황]
+- 가평1번가마트: 바코드 스캐너 인식 불량 / 접수 04.17 / 72시간 경과 / 미배정 / 긴급
+- ECJ마트: 영수프린터 용지 걸림 / 접수 04.18 / 48시간 경과 / 박기사 / 처리중
+
+[재고 부족 품목]
+- 서버용 PC 신품 (Intel i7-11세대): 재고 0 / 납기 7일
+- 바코드프린터 (SRP-770 II): 재고 0
+- 전자저울 (CAS DB-II 15kg): 재고 2개 (최소 재고 기준 미달)
+
+[최근 완료 작업]
+- 365할인마트 광적: 신규 04.18 / 김현장
+- K-마트 오창점: POS교체 04.17 / 이기사
+- L-마트 반포점: VAN교체 04.16 / 박기사
+`;
+
+    const prompt = `당신은 POS/VAN 설치 관리 회사의 운영 AI 어시스턴트입니다.
+아래 현황 데이터를 분석하고 즉각적인 조치가 필요한 위험 항목과 주의 항목을 파악해주세요.
+
+${contextData}
+
+다음 JSON 형식으로만 응답해주세요:
+{
+  "summary": "한 문장 요약 (위험 N건, 주의 M건 식별 형식)",
+  "items": [
+    {
+      "level": "danger|warning|info",
+      "text": "구체적인 분석 내용 (2-3문장, 원인+영향+권고조치 포함)"
+    }
+  ]
+}`;
+
+    try {
+      const text = await callClaude([{ role: 'user', content: prompt }], 1500);
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('응답 파싱 실패');
+      const result = JSON.parse(jsonMatch[0]);
+
+      // 저장 (하루 1회)
+      localStorage.setItem('neo_analysis_date', getTodayStr());
+      localStorage.setItem('neo_analysis_result', JSON.stringify(result));
+      document.getElementById('sampleDataBanner').style.display = 'none';
+
+      renderAnalysisResult(result);
+
+      // 버튼 비활성화
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.style.cursor = 'not-allowed';
+      btn.title = '오늘 분석 완료. 내일 다시 사용 가능합니다.';
+
+    } catch(e) {
+      showToast('❌ 분석 오류: ' + e.message.slice(0, 80));
+    }
+
+    loading.style.display = 'none';
+    body.style.display = '';
+    btn.disabled = !canRunAnalysis();
+  }
+
+  function renderAnalysisResult(result) {
+    // 요약
+    document.getElementById('aiSummaryBox').innerHTML = result.summary || '';
+    document.getElementById('aiAnalysisTime').textContent =
+      'Claude Sonnet • ' + new Date().toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) + ' 분석';
+
+    // 항목 렌더링
+    const container = document.getElementById('aiAnalysisItems');
+    container.innerHTML = result.items.map(item => {
+      const isDanger = item.level === 'danger';
+      const bg = isDanger ? '#FEF2F2' : '#FFFBEB';
+      const border = isDanger ? '#FECACA' : '#FDE68A';
+      const iconBg = isDanger ? '#EF4444' : '#F59E0B';
+      const textColor = isDanger ? '#7F1D1D' : '#78350F';
+      const icon = isDanger ? '!' : '△';
+      return `<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:${bg};border-radius:8px;border:1px solid ${border}">
+        <div style="flex-shrink:0;width:22px;height:22px;background:${iconBg};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:800;margin-top:1px">${icon}</div>
+        <div style="font-size:13px;color:${textColor};line-height:1.65">${item.text}</div>
+      </div>`;
+    }).join('');
+  }
+
+  /* ── 샘플 데이터 초기화 ── */
+  function confirmClearSampleData() {
+    if (!confirm('샘플 데이터를 모두 삭제하시겠습니까?\n\n• AI 분석 패널이 비워집니다\n• 저장된 분석 기록이 삭제됩니다\n\n이 작업은 되돌릴 수 없습니다.')) return;
+    clearSampleData();
+  }
+
+  function clearSampleData() {
+    // 분석 저장 데이터 삭제
+    localStorage.removeItem('neo_analysis_result');
+    localStorage.removeItem('neo_analysis_date');
+
+    // 패널 초기화
+    document.getElementById('aiAnalysisItems').innerHTML =
+      `<div style="text-align:center;padding:28px;color:var(--gray-400)">
+        <div style="font-size:28px;margin-bottom:8px">📊</div>
+        <div style="font-size:13px;font-weight:600">분석 데이터가 없습니다</div>
+        <div style="font-size:11px;margin-top:4px">↻ 재분석 버튼을 눌러 Claude Sonnet으로 분석을 시작하세요</div>
+      </div>`;
+    document.getElementById('aiSummaryBox').innerHTML = '재분석 버튼을 눌러 AI 분석을 시작하세요.';
+    document.getElementById('sampleDataBanner').style.display = 'none';
+    document.getElementById('aiAnalysisTime').textContent = 'Claude Sonnet · 분석 대기 중';
+
+    // 재분석 버튼 활성화
+    const btn = document.getElementById('aiReanalysisBtn');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btn.title = '';
+
+    showToast('샘플 데이터가 삭제되었습니다 ✅');
+  }
+
+  /* ══════════════════════════════════════════
+     LINE 메시지 가져오기
+  ══════════════════════════════════════════ */
+
+  // 기본 채팅방 설정
+  const DEFAULT_LINE_ROOMS = [
+    { id: 'r1', name: 'AS접수방',    type: 'as' },
+    { id: 'r2', name: '일정관리방',  type: 'schedule' },
+    { id: 'r3', name: '업무지시방',  type: 'work' },
+  ];
+
+  function getLineRooms() {
+    try {
+      const saved = localStorage.getItem('neo_line_rooms');
+      return saved ? JSON.parse(saved) : DEFAULT_LINE_ROOMS;
+    } catch(e) { return DEFAULT_LINE_ROOMS; }
+  }
+
+  function saveLineRooms(rooms) {
+    localStorage.setItem('neo_line_rooms', JSON.stringify(rooms));
+  }
+
+  let selectedRoomId = null;
+  let lineParseData   = [];   // 분석 결과 저장
+
+  function renderLineRoomChips() {
+    const rooms = getLineRooms();
+    const container = document.getElementById('lineRoomChips');
+    if (!container) return;
+    if (!selectedRoomId && rooms.length) selectedRoomId = rooms[0].id;
+
+    const typeIcon = { as:'🔧', schedule:'📅', work:'📋', general:'💬' };
+    container.innerHTML = rooms.map(r => `
+      <div class="line-room-chip ${r.id === selectedRoomId ? 'active' : ''}"
+           onclick="selectLineRoom('${r.id}')" id="chip-${r.id}">
+        ${typeIcon[r.type] || '💬'} ${r.name}
+        <span class="remove-btn" onclick="event.stopPropagation();removeLineRoom('${r.id}')" title="삭제">✕</span>
+      </div>
+    `).join('');
+  }
+
+  function selectLineRoom(id) {
+    selectedRoomId = id;
+    renderLineRoomChips();
+  }
+
+  function showAddRoomUI() {
+    const f = document.getElementById('addRoomForm');
+    f.style.display = f.style.display === 'none' ? '' : 'none';
+    if (f.style.display !== 'none') document.getElementById('newRoomName').focus();
+  }
+
+  function addLineRoom() {
+    const name = document.getElementById('newRoomName').value.trim();
+    const type = document.getElementById('newRoomType').value;
+    if (!name) { showToast('채팅방 이름을 입력하세요'); return; }
+    const rooms = getLineRooms();
+    const id = 'r' + Date.now();
+    rooms.push({ id, name, type });
+    saveLineRooms(rooms);
+    selectedRoomId = id;
+    document.getElementById('newRoomName').value = '';
+    document.getElementById('addRoomForm').style.display = 'none';
+    renderLineRoomChips();
+    showToast(`'${name}' 채팅방이 추가되었습니다`);
+  }
+
+  function removeLineRoom(id) {
+    if (!confirm('이 채팅방을 삭제하시겠습니까?')) return;
+    const rooms = getLineRooms().filter(r => r.id !== id);
+    saveLineRooms(rooms);
+    if (selectedRoomId === id) selectedRoomId = rooms[0]?.id || null;
+    renderLineRoomChips();
+  }
+
+  function initLineImportModal() {
+    renderLineRoomChips();
+    document.getElementById('lineParseResults').style.display = 'none';
+    document.getElementById('lineParseLoading').style.display = 'none';
+    document.getElementById('lineRegisterBtn').style.display = 'none';
+    document.getElementById('lineRegisterCount').style.display = 'none';
+    document.getElementById('lineAnalyzeBtn').style.display = '';
+    document.getElementById('lineAnalyzeHint').style.display = '';
+    lineParseData = [];
+  }
+
+  async function runLineImport() {
+    const text = document.getElementById('linePasteArea').value.trim();
+    if (!text) { showToast('대화 내용을 붙여넣어 주세요'); return; }
+    if (!selectedRoomId) { showToast('채팅방을 먼저 선택하세요'); return; }
+    if (!getApiKey()) {
+      showToast('⚙️ AI 설정에서 API 키를 먼저 입력하세요');
+      closeModal('lineImportModal');
+      setTimeout(() => showModal('settingsModal'), 300);
+      return;
+    }
+
+    const rooms = getLineRooms();
+    const room  = rooms.find(r => r.id === selectedRoomId);
+    const roomTypeLabel = { as:'AS/작업 접수 목적', schedule:'일정 관리 목적', work:'업무 지시 목적', general:'일반 대화' }[room?.type] || '일반';
+
+    // UI 전환
+    document.getElementById('lineAnalyzeBtn').style.display = 'none';
+    document.getElementById('lineAnalyzeHint').style.display = 'none';
+    document.getElementById('lineParseLoading').style.display = '';
+    document.getElementById('lineParseResults').style.display = 'none';
+    const pf = document.getElementById('lineProgressFill');
+    pf.style.animation = 'none'; void pf.offsetWidth;
+    pf.style.animation = 'progress-bar 6s ease forwards';
+
+    const prompt = `당신은 POS/VAN 설치·AS 관리 회사의 운영 어시스턴트입니다.
+아래는 '${room?.name || '채팅방'}' (${roomTypeLabel}) Line 그룹 채팅 내용입니다.
+
+각 메시지를 분석해서 업무적으로 의미 있는 항목을 추출하고 분류해주세요.
+
+분류 기준:
+- request: AS 접수, 수리 요청, 장비 이상 신고, 설치 요청 등 새로운 작업이 필요한 메시지
+- done: "완료", "처리했습니다", "해결됐어요" 등 작업 실행/완료 보고 메시지
+- schedule: 날짜/시간이 언급된 방문 예정, 일정 협의, 미팅 등
+- ignore: 단순 인사, 확인 응답("네", "알겠습니다"), 관련 없는 잡담
+
+당일 날짜(오늘)의 메시지를 우선 처리하되, 날짜 정보가 없으면 전체를 처리하세요.
+
+다음 JSON 형식으로만 응답하세요 (items 배열, 최대 15개):
+{
+  "summary": "총 N건 분석: 요청 A건 · 완료 B건 · 일정 C건",
+  "items": [
+    {
+      "type": "request|done|schedule|ignore",
+      "sender": "발신자 이름 (없으면 '알 수 없음')",
+      "time": "시간 (있으면)",
+      "original": "원본 메시지 (50자 이내로 줄임)",
+      "parsed": "핵심 정리: 점포명, 내용, 담당자, 날짜 등 추출된 정보",
+      "store": "점포명 (추출 가능한 경우, 없으면 null)",
+      "assignee": "담당자명 (추출 가능한 경우, 없으면 null)"
+    }
+  ]
+}
+
+채팅 내용:
+${text.slice(0, 3000)}`;
+
+    try {
+      const response = await callClaude([{ role:'user', content: prompt }], 2000);
+      const match = response.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('응답 파싱 실패');
+      const result = JSON.parse(match[0]);
+
+      lineParseData = (result.items || []).map((item, i) => ({ ...item, id: i, checked: item.type !== 'ignore' }));
+
+      renderLineParseResults(result.summary);
+
+    } catch(e) {
+      showToast('❌ 분석 오류: ' + e.message.slice(0,80));
+      document.getElementById('lineAnalyzeBtn').style.display = '';
+      document.getElementById('lineAnalyzeHint').style.display = '';
+    }
+
+    document.getElementById('lineParseLoading').style.display = 'none';
+  }
+
+  function renderLineParseResults(summary) {
+    document.getElementById('lineResultSummary').textContent = summary || '';
+    document.getElementById('lineParseResults').style.display = '';
+
+    const typeLabel = { request:'AS/작업 요청', done:'실행 완료', schedule:'일정', ignore:'기타' };
+    const typeClass = { request:'lbadge-request', done:'lbadge-done', schedule:'lbadge-schedule', ignore:'lbadge-ignore' };
+    const typeLeft  = { request:'type-request', done:'type-done', schedule:'type-schedule', ignore:'type-ignore' };
+
+    document.getElementById('lineItemList').innerHTML = lineParseData.map(item => `
+      <div class="line-parse-item ${typeLeft[item.type]} ${item.checked ? 'checked' : ''}"
+           id="litem-${item.id}" onclick="toggleLineItem(${item.id})">
+        <input type="checkbox" ${item.checked ? 'checked' : ''}
+               onclick="event.stopPropagation();toggleLineItem(${item.id})"
+               style="margin-top:3px;flex-shrink:0;width:15px;height:15px;accent-color:#06C755">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+            <span class="line-type-badge ${typeClass[item.type]}">${typeLabel[item.type]}</span>
+            <span class="line-msg-sender">${item.sender || ''}${item.time ? ' · ' + item.time : ''}</span>
+            ${item.store ? `<span style="font-size:11px;background:#EEF2FF;color:#3730A3;padding:1px 7px;border-radius:8px;font-weight:600">🏪 ${item.store}</span>` : ''}
+            ${item.assignee ? `<span style="font-size:11px;background:#FEF3C7;color:#92400E;padding:1px 7px;border-radius:8px;font-weight:600">👤 ${item.assignee}</span>` : ''}
+          </div>
+          <div class="line-msg-text">${item.original || ''}</div>
+          ${item.parsed ? `<div class="line-msg-parsed">→ ${item.parsed}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+
+    updateLineRegisterCount();
+  }
+
+  function toggleLineItem(id) {
+    const item = lineParseData.find(i => i.id === id);
+    if (!item) return;
+    item.checked = !item.checked;
+    const el = document.getElementById('litem-' + id);
+    if (el) {
+      el.classList.toggle('checked', item.checked);
+      el.querySelector('input[type=checkbox]').checked = item.checked;
+    }
+    updateLineRegisterCount();
+  }
+
+  function selectAllLineItems(val) {
+    lineParseData.forEach(item => { item.checked = val; });
+    renderLineParseResults(document.getElementById('lineResultSummary').textContent);
+  }
+
+  function updateLineRegisterCount() {
+    const checked = lineParseData.filter(i => i.checked && i.type !== 'ignore');
+    const countEl = document.getElementById('lineRegisterCount');
+    const btnEl   = document.getElementById('lineRegisterBtn');
+    if (checked.length > 0) {
+      countEl.textContent = `${checked.length}건 선택됨`;
+      countEl.style.display = '';
+      btnEl.style.display = '';
+    } else {
+      countEl.style.display = 'none';
+      btnEl.style.display = 'none';
+    }
+  }
+
+  function registerLineItems() {
+    const toRegister = lineParseData.filter(i => i.checked && i.type !== 'ignore');
+    if (!toRegister.length) { showToast('등록할 항목이 없습니다'); return; }
+
+    const rooms = getLineRooms();
+    const room  = rooms.find(r => r.id === selectedRoomId);
+
+    // 등록 시뮬레이션 (실제로는 jobs 배열에 push 등)
+    const typeAction = { request:'AS 접수 등록', done:'완료 처리', schedule:'일정 등록' };
+    const now = new Date().toLocaleString('ko-KR', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+
+    showToast(`✅ ${toRegister.length}건이 작업 목록에 등록되었습니다`);
+    closeModal('lineImportModal');
+
+    // 대시보드 AS 건수 업데이트 (시뮬레이션)
+    const requests = toRegister.filter(i => i.type === 'request').length;
+    if (requests > 0) {
+      const asCard = document.querySelector('.stat-card.amber .stat-value');
+      if (asCard) asCard.textContent = parseInt(asCard.textContent || '0') + requests;
+    }
+
+    // 작업 목록 화면으로 이동
+    setTimeout(() => showScreen('jobs'), 300);
+  }
+
+  /* ── 설정 모달 초기화 ── */
+  function openSettingsModal() {
+    document.getElementById('settingsApiKey').value = getApiKey();
+    document.getElementById('apiKeyStatus').style.display = 'none';
+    showModal('settingsModal');
+  }
+
+  /* ════════════════════════════════════════
+     COMMENT SYSTEM — 팀 댓글
+     승인된 직원: localStorage 저장 · 페이지별
+  ════════════════════════════════════════ */
+
+  const APPROVED_EMPLOYEES = [
+    { id: 'jce', name: '정치은', role: '관리자',   color: '#FF2D1F' },
+    { id: 'kmj', name: '김민준', role: '기술팀장', color: '#2563EB' },
+    { id: 'lsy', name: '이수연', role: '현장기사', color: '#10B981' },
+    { id: 'pdh', name: '박도현', role: '현장기사', color: '#8B5CF6' },
+    { id: 'cyj', name: '최예진', role: '영업담당', color: '#F59E0B' },
+    { id: 'hjw', name: '한재원', role: '현장기사', color: '#06B6D4' },
+  ];
+
+  const CM_SCREEN_LABELS = {
+    dashboard: '대시보드', jobs: '작업목록', stores: '점포관리',
+    calendar: '일정', equipment: '장비재고', quote: '견적'
+  };
+
+  let cmCurrentScreen = 'dashboard';
+  let cmPanelOpen = false;
+
+  /* 저장소 접근 */
+  function getComments() {
+    try { return JSON.parse(localStorage.getItem('ns_comments') || '{}'); } catch { return {}; }
+  }
+  function saveComments(data) {
+    localStorage.setItem('ns_comments', JSON.stringify(data));
+  }
+  function getScreenComments(screen) {
+    return (getComments()[screen] || []);
+  }
+
+  /* 패널 토글 */
+  function toggleCommentPanel() {
+    cmPanelOpen = !cmPanelOpen;
+    document.getElementById('commentPanel').classList.toggle('open', cmPanelOpen);
+    document.getElementById('commentOverlay').classList.toggle('show', cmPanelOpen);
+    if (cmPanelOpen) {
+      renderCommentPanel();
+      setTimeout(() => {
+        const list = document.getElementById('cmList');
+        list.scrollTop = list.scrollHeight;
+      }, 50);
+    }
+  }
+
+  /* 패널 전체 렌더 */
+  function renderCommentPanel() {
+    renderCmTabs();
+    renderCmList();
+    updateFabBadge();
+    document.getElementById('cmPanelTitle').textContent =
+      (CM_SCREEN_LABELS[cmCurrentScreen] || cmCurrentScreen) + ' 댓글';
+  }
+
+  /* 화면 탭 렌더 */
+  function renderCmTabs() {
+    const all = getComments();
+    const tabs = document.getElementById('cmScreenTabs');
+    tabs.innerHTML = Object.entries(CM_SCREEN_LABELS).map(([k, v]) => {
+      const cnt = (all[k] || []).length;
+      const isActive = k === cmCurrentScreen;
+      return `<button class="cm-tab${isActive ? ' active' : ''}" onclick="cmSwitchScreen('${k}')">
+        ${v}${cnt > 0 ? `<span class="cm-tab-count">${cnt}</span>` : ''}
+      </button>`;
+    }).join('');
+  }
+
+  /* 화면 탭 클릭 */
+  function cmSwitchScreen(screen) {
+    cmCurrentScreen = screen;
+    renderCommentPanel();
+    document.getElementById('cmList').scrollTop = 0;
+  }
+
+  /* 댓글 목록 렌더 */
+  function renderCmList() {
+    const comments = getScreenComments(cmCurrentScreen);
+    const list = document.getElementById('cmList');
+    const currentUserId = document.getElementById('cmUserSelect').value;
+
+    if (comments.length === 0) {
+      list.innerHTML = `<div class="cm-empty">
+        <div class="cm-empty-icon">💬</div>
+        아직 댓글이 없습니다.<br>
+        <span style="font-size:11px;opacity:.7;display:block;margin-top:6px">
+          이 페이지의 첫 댓글을 남겨보세요!
+        </span>
+      </div>`;
+      return;
+    }
+
+    list.innerHTML = comments.map(c => {
+      const emp = APPROVED_EMPLOYEES.find(e => e.id === c.userId);
+      const isOwn = c.userId === currentUserId;
+      const avatarColor = emp ? emp.color : '#888';
+      return `<div class="cm-item${isOwn ? ' own' : ''}">
+        <div class="cm-avatar" style="background:${avatarColor}">${c.userName.charAt(0)}</div>
+        <div class="cm-body">
+          <div class="cm-meta">
+            <span class="cm-name">${escCm(c.userName)}</span>
+            <span class="cm-role">${escCm(c.userRole)}</span>
+            <span class="cm-time">${formatCmTime(c.ts)}</span>
+          </div>
+          <div class="cm-text">${escCm(c.text).replace(/\n/g,'<br>')}</div>
+          ${isOwn ? `<div class="cm-actions"><button class="cm-del" onclick="deleteComment('${c.id}','${cmCurrentScreen}')">삭제</button></div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    list.scrollTop = list.scrollHeight;
+  }
+
+  /* 댓글 작성 */
+  function postComment() {
+    const input = document.getElementById('cmInput');
+    const text = input.value.trim();
+    if (!text) { input.focus(); return; }
+
+    const userId = document.getElementById('cmUserSelect').value;
+    const user = APPROVED_EMPLOYEES.find(e => e.id === userId);
+    if (!user) return;
+
+    const all = getComments();
+    if (!all[cmCurrentScreen]) all[cmCurrentScreen] = [];
+
+    all[cmCurrentScreen].push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      screen: cmCurrentScreen,
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      text,
+      ts: Date.now()
+    });
+
+    saveComments(all);
+    input.value = '';
+    renderCommentPanel();
+    showToast(`💬 ${user.name}님이 댓글을 남겼습니다`);
+  }
+
+  /* 댓글 삭제 */
+  function deleteComment(id, screen) {
+    const all = getComments();
+    if (!all[screen]) return;
+    all[screen] = all[screen].filter(c => c.id !== id);
+    saveComments(all);
+    renderCommentPanel();
+  }
+
+  /* 시간 포맷 */
+  function formatCmTime(ts) {
+    const diff = Date.now() - ts;
+    if (diff < 60000)     return '방금';
+    if (diff < 3600000)   return Math.floor(diff / 60000) + '분 전';
+    if (diff < 86400000)  return Math.floor(diff / 3600000) + '시간 전';
+    const d = new Date(ts);
+    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  /* HTML 이스케이프 */
+  function escCm(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* FAB 뱃지 업데이트 */
+  function updateFabBadge() {
+    const all = getComments();
+    let total = 0;
+    Object.values(all).forEach(arr => { total += (arr || []).length; });
+    const badge = document.getElementById('commentFabBadge');
+    if (total > 0) {
+      badge.textContent = total > 99 ? '99+' : total;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  /* 초기화 */
+  (function initCommentSystem() {
+    const sel = document.getElementById('cmUserSelect');
+    APPROVED_EMPLOYEES.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = `${e.name} (${e.role})`;
+      sel.appendChild(opt);
+    });
+    updateFabBadge();
+  })();
+
+  /* ══════════════════════════════════════════════
+     QUOTE SCREEN — 견적 화면
+  ══════════════════════════════════════════════ */
+  const QUOTE_ITEMS_DATA = [
+    { name:'POS 일체형 PC',      spec:'Intel N5095 / 15.6" 터치',    unit:1100000, qty:5 },
+    { name:'서버용 PC',           spec:'Ryzen5 4650G / SSD 256G',      unit:700000,  qty:1 },
+    { name:'고정스캐너 마젤란 8100', spec:'360° 전방향 인식',          unit:1200000, qty:2 },
+    { name:'영수프린터 SRP-330',  spec:'58mm 감열지',                  unit:250000,  qty:5 },
+    { name:'전자저울 SM-100',     spec:'라벨 프린터 내장',              unit:650000,  qty:3 },
+    { name:'설치 / 데이터 이관',  spec:'1년 무상 AS 포함',             unit:1500000, qty:1 },
+  ];
+
+  function renderQuote() {
+    const list = document.getElementById('quoteItemList');
+    const summary = document.getElementById('quoteSummary');
+    if (!list || !summary) return;
+
+    let subtotal = 0;
+    list.innerHTML = QUOTE_ITEMS_DATA.map((it, idx) => {
+      const lineTotal = it.unit * it.qty;
+      subtotal += lineTotal;
+      return `
+        <div class="quote-item" style="display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--gray-200)">
+          <div style="flex:1; min-width:0">
+            <div style="font-weight:700; font-size:13.5px">${it.name}</div>
+            <div style="font-size:11px; color:var(--text-secondary); margin-top:2px">${it.spec}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden; flex-shrink:0">
+            <button onclick="changeQty(${idx},-1)" style="width:28px; height:28px; border:0; background:var(--gray-50); cursor:pointer; font-size:14px; color:var(--text-secondary)">−</button>
+            <span style="width:32px; text-align:center; font-size:13px; font-weight:700; font-variant-numeric:tabular-nums">${it.qty}</span>
+            <button onclick="changeQty(${idx},+1)" style="width:28px; height:28px; border:0; background:var(--gray-50); cursor:pointer; font-size:14px; color:var(--text-secondary)">＋</button>
+          </div>
+          <div style="width:90px; text-align:right; font-size:12px; color:var(--text-secondary); flex-shrink:0">₩${it.unit.toLocaleString()}</div>
+          <div style="width:100px; text-align:right; font-size:14px; font-weight:700; flex-shrink:0">₩${lineTotal.toLocaleString()}</div>
+          <button onclick="removeQuoteItem(${idx})" style="background:transparent; border:0; color:var(--text-secondary); cursor:pointer; font-size:14px; padding:4px; flex-shrink:0">✕</button>
+        </div>`;
+    }).join('');
+
+    const vat = Math.round(subtotal * 0.1);
+    const total = subtotal + vat;
+    summary.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:13px">
+        <span style="color:var(--text-secondary)">공급가액</span>
+        <span style="font-weight:600">₩${subtotal.toLocaleString()}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:13px; border-bottom:1px dashed var(--gray-200)">
+        <span style="color:var(--text-secondary)">부가세 (10%)</span>
+        <span style="font-weight:600">₩${vat.toLocaleString()}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0 4px">
+        <span style="font-size:14px; font-weight:800">합계</span>
+        <span style="font-size:22px; font-weight:900; color:var(--danger)">₩${total.toLocaleString()}</span>
+      </div>`;
+  }
+
+  function changeQty(idx, delta) {
+    QUOTE_ITEMS_DATA[idx].qty = Math.max(0, QUOTE_ITEMS_DATA[idx].qty + delta);
+    renderQuote();
+  }
+
+  function removeQuoteItem(idx) {
+    QUOTE_ITEMS_DATA.splice(idx, 1);
+    renderQuote();
+  }
+
+  function addQuoteItemPrompt() {
+    const name = prompt('품목명을 입력하세요:');
+    if (!name) return;
+    const priceStr = prompt('단가 (원, 숫자만):');
+    const unit = parseInt(priceStr) || 0;
+    if (unit <= 0) { alert('올바른 단가를 입력하세요.'); return; }
+    QUOTE_ITEMS_DATA.push({ name, spec:'', unit, qty:1 });
+    renderQuote();
+  }
+
+  /* ══════════════════════════════════════════════
+     JOBS SCREEN — 작업 목록 필터
+  ══════════════════════════════════════════════ */
+  function filterJobs(el, type) {
+    // 칩 active 상태
+    document.querySelectorAll('#screen-jobs .filter-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+
+    // 카드 표시/숨김
+    document.querySelectorAll('#screen-jobs .job-card').forEach(card => {
+      if (type === '전체') {
+        card.style.display = '';
+      } else if (type === '완료') {
+        const badge = card.querySelector('.status-badge');
+        card.style.display = (badge && badge.textContent.trim() === '완료') ? '' : 'none';
+      } else {
+        card.style.display = (card.dataset.jobtype === type) ? '' : 'none';
+      }
+    });
+  }
+
+  /* ══════════════════════════════════════════════
+     EQUIPMENT SCREEN — 장비 재고 필터 + 검색
+  ══════════════════════════════════════════════ */
+  let equipFilterActive = false;
+  let equipSearchQuery = '';
+
+  function applyEquipFilters() {
+    document.querySelectorAll('#screen-equipment .equip-item').forEach(item => {
+      const stockOk = !equipFilterActive || item.dataset.stock === 'low' || item.dataset.stock === 'out';
+      const name = (item.dataset.name || item.textContent || '').toLowerCase();
+      const searchOk = !equipSearchQuery || name.includes(equipSearchQuery.toLowerCase());
+      item.style.display = (stockOk && searchOk) ? '' : 'none';
+    });
+    // 카테고리 헤더 - 아이템이 하나도 없으면 숨김
+    document.querySelectorAll('#screen-equipment .equip-category').forEach(cat => {
+      const visible = [...cat.querySelectorAll('.equip-item')].some(i => i.style.display !== 'none');
+      cat.style.display = visible ? '' : 'none';
+    });
+  }
+
+  function toggleEquipFilter(btn) {
+    equipFilterActive = !equipFilterActive;
+    btn.classList.toggle('active', equipFilterActive);
+    btn.style.background = equipFilterActive ? 'var(--primary)' : '';
+    btn.style.color = equipFilterActive ? '#fff' : '';
+    btn.style.borderColor = equipFilterActive ? 'var(--primary)' : '';
+    applyEquipFilters();
+  }
+
+  function searchEquip(query) {
+    equipSearchQuery = query;
+    applyEquipFilters();
+  }
+
+  /* ══════════════════════════════════════════════
+     페이지 로드 초기화
+  ══════════════════════════════════════════════ */
+  renderQuote();
+</script>
+</body>
+</html>
