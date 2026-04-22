@@ -2411,7 +2411,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
       <!-- Google Sign-In 버튼이 여기 렌더됨 (미렌더 시 스타일 버튼 표시) -->
       <div id="gsiButtonContainer" style="display:flex;justify-content:center;margin:6px 0 10px;min-height:48px">
-        <button type="button" id="gsiPlaceholderBtn" onclick="initGoogleSignIn()" style="display:inline-flex;align-items:center;gap:10px;padding:10px 22px;background:#fff;border:1px solid #dadce0;border-radius:6px;cursor:pointer;font-family:'Roboto',Arial,sans-serif;font-size:14px;font-weight:500;color:#3c4043;box-shadow:0 1px 2px rgba(0,0,0,.04);transition:box-shadow .15s,background .15s" onmouseover="this.style.boxShadow='0 1px 3px rgba(60,64,67,.3)';this.style.background='#f8f9fa'" onmouseout="this.style.boxShadow='0 1px 2px rgba(0,0,0,.04)';this.style.background='#fff'">
+        <button type="button" id="gsiPlaceholderBtn" onclick="handleGsiPlaceholderClick()" style="display:inline-flex;align-items:center;gap:10px;padding:10px 22px;background:#fff;border:1px solid #dadce0;border-radius:6px;cursor:pointer;font-family:'Roboto',Arial,sans-serif;font-size:14px;font-weight:500;color:#3c4043;box-shadow:0 1px 2px rgba(0,0,0,.04);transition:box-shadow .15s,background .15s" onmouseover="this.style.boxShadow='0 1px 3px rgba(60,64,67,.3)';this.style.background='#f8f9fa'" onmouseout="this.style.boxShadow='0 1px 2px rgba(0,0,0,.04)';this.style.background='#fff'">
           <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
             <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
             <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
@@ -3803,6 +3803,25 @@ ${text.slice(0, 3000)}`;
   }
 
   // GIS 초기화 + 버튼 렌더
+  // 플레이스홀더 Google 버튼 클릭 핸들러:
+  // - Client ID 설정됨 → 실제 GIS 초기화 시도
+  // - 미설정 → 바로 개발자 모드 로그인 프롬프트 (관리자가 초기 설정 가능)
+  function handleGsiPlaceholderClick() {
+    const clientId = getGoogleClientId();
+    if (clientId && window.google && google.accounts && google.accounts.id) {
+      initGoogleSignIn();
+      return;
+    }
+    if (!clientId) {
+      const ok = confirm('Google OAuth Client ID가 아직 설정되지 않았습니다.\n\n관리자 초기 설정을 위해 "개발자 모드 로그인"으로 먼저 들어가시겠습니까?\n(관리자 페이지에서 Client ID를 등록한 뒤 정식 Google 로그인을 사용할 수 있습니다.)');
+      if (ok) devQuickLogin();
+      return;
+    }
+    // Client ID는 있는데 라이브러리가 아직 로드 안됨
+    alert('Google 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.');
+    setTimeout(initGoogleSignIn, 500);
+  }
+
   function initGoogleSignIn() {
     const clientId = getGoogleClientId();
     const container = document.getElementById('gsiButtonContainer');
