@@ -2463,7 +2463,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
       <!-- AI 설정 (기존 기능 이동) -->
       <div class="admin-section">
-        <div class="admin-section-title">AI 연동 설정</div>
+        <div class="admin-section-title" onclick="toggleAdminSection('apiKey')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
+          <span>AI 연동 설정 <span style="font-size:11px;color:var(--gray-400);font-weight:500;margin-left:6px">🔒 민감정보</span></span>
+          <span id="apiKeySectionArrow" style="font-size:12px;color:var(--gray-400);font-weight:600">▸ 펼치기</span>
+        </div>
+        <div id="apiKeySectionBody" style="display:none;margin-top:12px">
         <div class="model-badge" style="margin-bottom:14px;width:100%">
           <div class="model-dot"></div>
           <div>
@@ -2485,6 +2489,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <div style="font-size:11px;color:var(--gray-400);margin-top:5px">🔒 키는 브라우저 localStorage에만 저장됩니다.</div>
         </div>
         <div id="adminApiKeyStatus" style="display:none;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:600;margin-top:4px"></div>
+        </div>
       </div>
 
       <!-- 구분선 -->
@@ -2511,7 +2516,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
       <!-- Google OAuth 설정 -->
       <div class="admin-section">
-        <div class="admin-section-title">Google 로그인 설정</div>
+        <div class="admin-section-title" onclick="toggleAdminSection('googleOAuth')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
+          <span>Google 로그인 설정 <span style="font-size:11px;color:var(--gray-400);font-weight:500;margin-left:6px">🔒 민감정보</span></span>
+          <span id="googleOAuthSectionArrow" style="font-size:12px;color:var(--gray-400);font-weight:600">▸ 펼치기</span>
+        </div>
+        <div id="googleOAuthSectionBody" style="display:none;margin-top:12px">
         <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px;line-height:1.6">
           Google Cloud Console → APIs &amp; Services → Credentials 에서 OAuth 2.0 Client ID 를 발급받아 아래에 입력하세요.<br>
           승인된 JavaScript 원본에 현재 사이트 URL을 등록해야 합니다.
@@ -2524,6 +2533,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <button class="api-key-toggle" onclick="toggleAdminGoogleClientIdVisibility()">보기</button>
           </div>
           <div style="font-size:11px;color:var(--gray-400);margin-top:5px">🔒 브라우저 localStorage에 저장됩니다. (참고: Google Client ID는 공개값이라도 보안 문제가 없습니다.)</div>
+        </div>
         </div>
       </div>
 
@@ -4029,6 +4039,15 @@ ${text.slice(0, 3000)}`;
     const inp = document.getElementById('adminGoogleClientId');
     if (!inp) return;
     inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+
+  function toggleAdminSection(key) {
+    const body = document.getElementById(key + 'SectionBody');
+    const arrow = document.getElementById(key + 'SectionArrow');
+    if (!body) return;
+    const hidden = body.style.display === 'none' || !body.style.display;
+    body.style.display = hidden ? 'block' : 'none';
+    if (arrow) arrow.textContent = hidden ? '▾ 접기' : '▸ 펼치기';
   }
 
   async function testAdminApiKey() {
