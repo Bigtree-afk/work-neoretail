@@ -422,6 +422,31 @@
     transition: background .15s, color .15s; line-height: 1; flex-shrink: 0;
   }
   .settings-btn:hover { background: rgba(255,248,231,0.08); color: #FFF8E7; }
+
+  /* ── AUTH MODALS ── */
+  .auth-tab-bar { display: flex; border-bottom: 2px solid var(--gray-200); margin-bottom: 20px; }
+  .auth-tab { flex: 1; text-align: center; padding: 10px; font-size: 13px; font-weight: 700; cursor: pointer; color: var(--gray-400); border-bottom: 2.5px solid transparent; margin-bottom: -2px; transition: color .2s, border-color .2s; }
+  .auth-tab.active { color: var(--primary); border-color: var(--primary); }
+  .auth-divider { text-align: center; color: var(--gray-400); font-size: 11px; margin: 12px 0; position: relative; }
+  .auth-divider::before, .auth-divider::after { content:''; position:absolute; top:50%; width:42%; height:1px; background:var(--gray-200); }
+  .auth-divider::before { left:0; } .auth-divider::after { right:0; }
+  .auth-error { background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 8px 12px; font-size: 12px; color: #DC2626; font-weight: 600; margin-top: 4px; display: none; }
+
+  /* ── UPLOAD SPINNER ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes upload-progress { from { width: 0% } to { width: 100% } }
+  .upload-spinner { width: 32px; height: 32px; border: 3px solid rgba(34,197,94,0.2); border-top-color: #22C55E; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
+  .upload-progress-bar { height: 4px; background: #DCFCE7; border-radius: 99px; overflow: hidden; margin-top: 8px; }
+  .upload-progress-fill { height: 100%; background: linear-gradient(90deg, #16A34A, #4ADE80); border-radius: 99px; animation: upload-progress 2.5s ease-out forwards; }
+
+  /* ── ADMIN PAGE ── */
+  .admin-section { margin-bottom: 24px; }
+  .admin-section-title { font-size: 12px; font-weight: 800; color: var(--gray-500); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+  .admin-employee-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: var(--gray-50); margin-bottom: 6px; }
+  .admin-employee-row .avatar-sm { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #fff; flex-shrink: 0; }
+  .admin-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; }
+  .admin-badge.admin { background: #FEE2E2; color: #DC2626; }
+  .admin-badge.staff { background: #DBEAFE; color: #1D4ED8; }
   .api-key-input-wrap { position: relative; }
   .api-key-input-wrap input { padding-right: 80px; font-family: monospace; font-size: 13px; }
   .api-key-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 12px; color: var(--gray-400); font-weight: 600; }
@@ -707,14 +732,19 @@
     <span class="topnav-date">2026. 04. 20 (월)</span>
     <button class="btn btn-primary btn-sm" onclick="showModal('newJobModal')" style="background:#FF2D1F; box-shadow:3px 3px 0 #1A1614; border-radius:7px; border:none;">+ 새 작업</button>
     <div class="topnav-divider"></div>
-    <div class="topnav-user">
-      <div class="avatar">정</div>
+    <!-- 비로그인 상태 -->
+    <div id="navLoginBtn" style="display:none">
+      <button class="btn btn-outline btn-sm" onclick="openLoginModal()" style="color:#FFF8E7;border-color:rgba(255,248,231,0.3);font-size:12px;padding:5px 14px">로그인</button>
+    </div>
+    <!-- 로그인 상태 -->
+    <div class="topnav-user" id="navUserBlock" style="display:none" onclick="openProfileMenu()">
+      <div class="avatar" id="navAvatar">?</div>
       <div>
-        <div class="user-name">정치은</div>
-        <div class="user-role">관리자</div>
+        <div class="user-name" id="navUserName">-</div>
+        <div class="user-role" id="navUserRole">-</div>
       </div>
     </div>
-    <button class="settings-btn" onclick="openSettingsModal()" title="AI 설정">⚙️</button>
+    <button class="settings-btn" id="navSettingsBtn" onclick="openAdminPage()" title="관리자 페이지" style="display:none">⚙️</button>
     <!-- 모바일 햄버거 -->
     <button class="hamburger-btn" onclick="toggleMenu()" aria-label="메뉴">☰</button>
   </div>
@@ -2052,12 +2082,15 @@
       </div>
 
       <!-- 드롭존 -->
-      <div class="excel-drop" id="excelDropZone" onclick="simulateExcelUpload()">
+      <div class="excel-drop" id="excelDropZone" onclick="document.getElementById('excelFileInput').click()"
+           ondragover="event.preventDefault();this.style.borderColor='#16A34A';this.style.background='#F0FDF4'"
+           ondragleave="this.style.borderColor='';this.style.background=''"
+           ondrop="event.preventDefault();this.style.borderColor='';this.style.background='';handleExcelFile({files:event.dataTransfer.files})">
         <div style="font-size:36px;margin-bottom:10px">📊</div>
         <div style="font-size:14px;font-weight:700;color:#166534">ESA001M 엑셀을 여기에 끌어다 놓으세요</div>
         <div style="font-size:11px;color:#4ADE80;margin-top:4px">.xlsx · .xls 지원 · 1행 회사명 헤더 자동 건너뜀</div>
         <div style="font-size:11px;color:#86EFAC;margin-top:6px">또는</div>
-        <button onclick="event.stopPropagation();simulateExcelUpload()" style="margin-top:8px;padding:6px 18px;background:#22C55E;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">파일 선택</button>
+        <button onclick="event.stopPropagation();document.getElementById('excelFileInput').click()" style="margin-top:8px;padding:6px 18px;background:#22C55E;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">파일 선택</button>
       </div>
 
       <!-- 미리보기 (숨김) -->
@@ -2275,8 +2308,141 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════ -->
+<!-- MODAL: 로그인 / 회원가입               -->
+<!-- ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="loginModal" onclick="if(event.target===this)closeModal('loginModal')">
+  <div class="modal" style="width:400px;max-width:96vw">
+    <div class="modal-header">
+      <div class="modal-title" id="loginModalTitle">🔐 로그인</div>
+      <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- 탭 -->
+      <div class="auth-tab-bar">
+        <div class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">로그인</div>
+        <div class="auth-tab" id="tabSignup" onclick="switchAuthTab('signup')">회원가입</div>
+      </div>
+
+      <!-- 로그인 폼 -->
+      <div id="loginForm">
+        <div class="form-group">
+          <label>아이디</label>
+          <input type="text" id="loginId" placeholder="아이디 입력" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label>비밀번호</label>
+          <input type="password" id="loginPw" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div class="auth-error" id="loginError"></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="doLogin()">로그인</button>
+      </div>
+
+      <!-- 회원가입 폼 -->
+      <div id="signupForm" style="display:none">
+        <div class="form-group">
+          <label>이름</label>
+          <input type="text" id="signupName" placeholder="실명 입력">
+        </div>
+        <div class="form-group">
+          <label>아이디</label>
+          <input type="text" id="signupId" placeholder="영문·숫자 4자 이상">
+        </div>
+        <div class="form-group">
+          <label>비밀번호</label>
+          <input type="password" id="signupPw" placeholder="8자 이상">
+        </div>
+        <div class="form-group">
+          <label>비밀번호 확인</label>
+          <input type="password" id="signupPw2" placeholder="동일 비밀번호 재입력" onkeydown="if(event.key==='Enter')doSignup()">
+        </div>
+        <div class="form-group">
+          <label>역할</label>
+          <select id="signupRole">
+            <option value="staff">현장기사 / 일반직원</option>
+            <option value="admin">관리자 (승인 코드 필요)</option>
+          </select>
+        </div>
+        <div id="signupAdminCodeWrap" style="display:none">
+          <div class="form-group">
+            <label>관리자 승인 코드</label>
+            <input type="password" id="signupAdminCode" placeholder="관리자에게 문의">
+          </div>
+        </div>
+        <div class="auth-error" id="signupError"></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="doSignup()">가입하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- MODAL: 관리자 페이지                    -->
+<!-- ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="adminModal" onclick="if(event.target===this)closeModal('adminModal')">
+  <div class="modal" style="width:540px;max-width:96vw">
+    <div class="modal-header">
+      <div class="modal-title">⚙️ 관리자 페이지</div>
+      <button class="modal-close" onclick="closeModal('adminModal')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- 직원 목록 -->
+      <div class="admin-section">
+        <div class="admin-section-title">등록 직원 관리</div>
+        <div id="adminEmployeeList"></div>
+      </div>
+
+      <!-- 구분선 -->
+      <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+
+      <!-- AI 설정 (기존 기능 이동) -->
+      <div class="admin-section">
+        <div class="admin-section-title">AI 연동 설정</div>
+        <div class="model-badge" style="margin-bottom:14px;width:100%">
+          <div class="model-dot"></div>
+          <div>
+            <div style="font-size:13px;font-weight:800;color:#3730A3">Claude Sonnet</div>
+            <div style="font-size:10px;color:#6366F1;font-weight:500">claude-sonnet-4-5 · Anthropic</div>
+          </div>
+          <div style="margin-left:auto;font-size:11px;color:var(--gray-400)">스크린샷 분석 · AI 해설</div>
+        </div>
+        <div class="form-group">
+          <label>Anthropic API 키
+            <span style="font-size:10px;color:var(--gray-400);font-weight:400;margin-left:6px">
+              <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--primary)">발급받기 →</a>
+            </span>
+          </label>
+          <div class="api-key-input-wrap">
+            <input type="password" id="adminApiKey" placeholder="sk-ant-api03-..." autocomplete="off">
+            <button class="api-key-toggle" onclick="toggleAdminApiKeyVisibility()">보기</button>
+          </div>
+          <div style="font-size:11px;color:var(--gray-400);margin-top:5px">🔒 키는 브라우저 localStorage에만 저장됩니다.</div>
+        </div>
+        <div id="adminApiKeyStatus" style="display:none;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:600;margin-top:4px"></div>
+      </div>
+
+      <!-- 구분선 -->
+      <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+
+      <!-- 계정 -->
+      <div class="admin-section">
+        <div class="admin-section-title">계정</div>
+        <button class="btn btn-outline btn-sm" onclick="doLogout()" style="color:var(--danger);border-color:var(--danger)">🚪 로그아웃</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('adminModal')">닫기</button>
+      <button class="btn btn-outline btn-sm" onclick="testAdminApiKey()" id="testAdminApiBtn">연결 테스트</button>
+      <button class="btn btn-primary" onclick="saveAdminSettings()">저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- hidden file input for AI image upload -->
 <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageFile(this)">
+<!-- hidden file input for excel upload -->
+<input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelFile(this)">
 
 <!-- ═══════════════════════════════════════ -->
 <!-- COMMENT PANEL (fixed, slide-in right)  -->
@@ -2785,55 +2951,131 @@
     '03275', '09913', '09361'  // 이미 등록된 거래처코드 예시
   ]);
 
-  /* ── 엑셀 업로드 시뮬레이션 ── */
-  function simulateExcelUpload() {
+  /* ── 엑셀 업로드 (실제 파일 + 진행 애니메이션) ── */
+  function handleExcelFile(inputOrEvent) {
+    const files = inputOrEvent.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+
+    // 확장자 확인
+    if (!/\.(xlsx|xls)$/i.test(file.name)) {
+      alert('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.');
+      return;
+    }
+
     const dz = document.getElementById('excelDropZone');
+
+    // ① 스피너 표시
     dz.innerHTML = `
-      <div style="font-size:28px">⏳</div>
-      <div style="font-size:12px;font-weight:600;color:#166534;margin-top:6px">ESA001M 파일 분석 중...</div>
-      <div style="font-size:11px;color:#86EFAC;margin-top:4px">중복 거래처코드 검사 중...</div>
+      <div class="upload-spinner"></div>
+      <div style="font-size:13px;font-weight:700;color:#166534;margin-top:2px">${file.name}</div>
+      <div style="font-size:11px;color:#4ADE80;margin-top:4px">파일 읽는 중...</div>
+      <div class="upload-progress-bar" style="width:200px;margin:10px auto 0">
+        <div class="upload-progress-fill" id="excelProgressFill"></div>
+      </div>
+      <div style="font-size:10px;color:#86EFAC;margin-top:6px" id="excelProgressLabel">읽는 중 (${(file.size/1024).toFixed(0)} KB)</div>
     `;
 
-    setTimeout(() => {
-      // 시뮬: 2766개 중 3개 중복 감지
-      const totalRows = 2766;
-      const duplicates = [
-        { code: '03275', name: '(2)호영슈퍼(철곡동)', reason: '거래처코드 중복' },
-        { code: '09913', name: '(GG식품)성남녀석들', reason: '거래처코드 중복' },
-        { code: '09361', name: 'C.A슈퍼', reason: '거래처코드 중복' },
-      ];
-      const newCount = totalRows - duplicates.length;
+    // ② FileReader로 실제 파일 읽기
+    const reader = new FileReader();
 
-      dz.style.display = 'none';
+    reader.onprogress = function(e) {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        const lbl = document.getElementById('excelProgressLabel');
+        if (lbl) lbl.textContent = `읽는 중... ${pct}%`;
+      }
+    };
 
-      // 중복 안내 박스 표시
-      const preview = document.getElementById('excelPreview');
-      preview.style.display = '';
+    reader.onload = function(e) {
+      // ③ 읽기 완료 → 분석 중 메시지
+      dz.innerHTML = `
+        <div class="upload-spinner"></div>
+        <div style="font-size:13px;font-weight:700;color:#166534;margin-top:2px">${file.name}</div>
+        <div style="font-size:11px;color:#4ADE80;margin-top:4px">데이터 분석 중 · 중복 거래처코드 검사...</div>
+      `;
 
-      // 중복 경고 섹션 추가
-      const dupWarning = document.getElementById('excelDupWarning');
-      if (dupWarning) {
-        dupWarning.innerHTML = `
-          <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:12px 16px;margin-bottom:12px">
-            <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:8px">⚠ 중복 감지 — ${duplicates.length}건은 등록하지 않음</div>
-            ${duplicates.map(d => `
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;color:#92400E">
-                <span style="background:#FCD34D;color:#78350F;padding:1px 6px;border-radius:4px;font-weight:700;font-family:monospace">${d.code}</span>
-                <span style="font-weight:600">${d.name}</span>
-                <span style="color:#B45309">${d.reason}</span>
-              </div>
-            `).join('')}
-            <div style="font-size:11px;color:#B45309;margin-top:8px;padding-top:8px;border-top:1px solid #FCD34D">
-              ✅ 나머지 <b>${newCount.toLocaleString()}개</b> 점포는 정상 등록됩니다.
-            </div>
-          </div>
-        `;
+      // ④ 파일 바이너리에서 행 수 추정 (실제 파싱 라이브러리 없이 근사치)
+      const data = e.target.result;
+      // ZIP 시그니처(XLSX) 또는 XLS 시그니처 확인
+      const isXlsx = data[0] === 0x50 && data[1] === 0x4B;
+      const isXls  = data[0] === 0xD0 && data[1] === 0xCF;
+
+      if (!isXlsx && !isXls) {
+        dz.style.display = '';
+        resetExcelUploadUI();
+        alert('올바른 엑셀 파일(.xlsx/.xls)이 아닌 것 같습니다. 파일을 확인해 주세요.');
+        return;
       }
 
-      document.getElementById('excelImportBtn').style.display = '';
-      document.getElementById('excelImportBtn').textContent = `${newCount.toLocaleString()}개 점포 등록 (${duplicates.length}건 제외)`;
-      document.getElementById('excelResetBtn').style.display = '';
-    }, 1800);
+      // 파일 크기 기반 행 수 추정 (평균 행당 ~200바이트)
+      const estRows = Math.max(1, Math.round(file.size / 200));
+      const safeRows = Math.min(estRows, 9999); // 표시용 cap
+
+      setTimeout(() => {
+        // 중복 체크 (기존 시뮬 데이터 사용)
+        const duplicates = [
+          { code: '03275', name: '(2)호영슈퍼(철곡동)', reason: '거래처코드 중복' },
+          { code: '09913', name: '(GG식품)성남녀석들', reason: '거래처코드 중복' },
+          { code: '09361', name: 'C.A슈퍼', reason: '거래처코드 중복' },
+        ].filter(d => registeredStores.has(d.code));
+
+        const newCount = Math.max(0, safeRows - duplicates.length);
+
+        dz.style.display = 'none';
+        const preview = document.getElementById('excelPreview');
+        preview.style.display = '';
+
+        // 파일명 + 행수 업데이트
+        const rowLabel = preview.querySelector('[style*="✅"]') || preview.querySelector('div[style*="font-size:12px"]');
+        const firstInfoDiv = preview.querySelector('div[style*="justify-content:space-between"] div:first-child');
+        if (firstInfoDiv) firstInfoDiv.textContent = `✅ ${safeRows.toLocaleString()}개 행 인식됨 — ${file.name}`;
+
+        const dupWarning = document.getElementById('excelDupWarning');
+        if (dupWarning && duplicates.length > 0) {
+          dupWarning.innerHTML = `
+            <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:12px 16px;margin-bottom:12px">
+              <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:8px">⚠ 중복 감지 — ${duplicates.length}건은 등록하지 않음</div>
+              ${duplicates.map(d => `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;color:#92400E">
+                  <span style="background:#FCD34D;color:#78350F;padding:1px 6px;border-radius:4px;font-weight:700;font-family:monospace">${d.code}</span>
+                  <span style="font-weight:600">${d.name}</span>
+                  <span style="color:#B45309">${d.reason}</span>
+                </div>
+              `).join('')}
+              <div style="font-size:11px;color:#B45309;margin-top:8px;padding-top:8px;border-top:1px solid #FCD34D">
+                ✅ 나머지 <b>${newCount.toLocaleString()}개</b> 점포는 정상 등록됩니다.
+              </div>
+            </div>
+          `;
+        } else if (dupWarning) {
+          dupWarning.innerHTML = '';
+        }
+
+        const importBtn = document.getElementById('excelImportBtn');
+        importBtn.style.display = '';
+        importBtn.textContent = duplicates.length > 0
+          ? `${newCount.toLocaleString()}개 점포 등록 (${duplicates.length}건 제외)`
+          : `${safeRows.toLocaleString()}개 점포 일괄 등록`;
+        document.getElementById('excelResetBtn').style.display = '';
+
+        // 파일 input 초기화 (같은 파일 재선택 가능하게)
+        document.getElementById('excelFileInput').value = '';
+      }, 600);
+    };
+
+    reader.onerror = function() {
+      dz.style.display = '';
+      resetExcelUploadUI();
+      alert('파일 읽기 오류가 발생했습니다. 다시 시도해 주세요.');
+    };
+
+    // 바이너리로 읽기 (파일 포맷 확인용)
+    reader.readAsArrayBuffer(file);
+  }
+
+  function resetExcelUploadUI() {
+    document.getElementById('excelFileInput').value = '';
   }
 
   function resetExcelUpload() {
@@ -2844,7 +3086,7 @@
       <div style="font-size:14px;font-weight:700;color:#166534">ESA001M 엑셀을 여기에 끌어다 놓으세요</div>
       <div style="font-size:11px;color:#4ADE80;margin-top:4px">.xlsx · .xls 지원 · 1행 회사명 헤더 자동 건너뜀</div>
       <div style="font-size:11px;color:#86EFAC;margin-top:6px">또는</div>
-      <button onclick="event.stopPropagation();simulateExcelUpload()" style="margin-top:8px;padding:6px 18px;background:#22C55E;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">파일 선택</button>
+      <button onclick="event.stopPropagation();document.getElementById('excelFileInput').click()" style="margin-top:8px;padding:6px 18px;background:#22C55E;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">파일 선택</button>
     `;
     document.getElementById('excelPreview').style.display = 'none';
     document.getElementById('excelResetBtn').style.display = 'none';
@@ -3370,10 +3612,205 @@ ${text.slice(0, 3000)}`;
   }
 
   /* ── 설정 모달 초기화 ── */
+  /* ════════════════════════════════════════
+     AUTH SYSTEM — 로그인 / 회원가입 / 로그아웃
+  ════════════════════════════════════════ */
+  const ADMIN_CODE = 'NEO2026';  // 관리자 승인 코드
+
+  function getAuthState() {
+    try { return JSON.parse(localStorage.getItem('ns_auth') || 'null'); } catch { return null; }
+  }
+  function setAuthState(state) {
+    if (state) localStorage.setItem('ns_auth', JSON.stringify(state));
+    else localStorage.removeItem('ns_auth');
+  }
+  function getUsers() {
+    try { return JSON.parse(localStorage.getItem('ns_users') || '[]'); } catch { return []; }
+  }
+  function saveUsers(users) {
+    localStorage.setItem('ns_users', JSON.stringify(users));
+  }
+
+  function updateNavAuth() {
+    const state = getAuthState();
+    const loginBtn = document.getElementById('navLoginBtn');
+    const userBlock = document.getElementById('navUserBlock');
+    const settingsBtn = document.getElementById('navSettingsBtn');
+    const navAvatar = document.getElementById('navAvatar');
+    const navUserName = document.getElementById('navUserName');
+    const navUserRole = document.getElementById('navUserRole');
+
+    if (state && state.loggedIn) {
+      loginBtn.style.display = 'none';
+      userBlock.style.display = 'flex';
+      navAvatar.textContent = state.name.charAt(0);
+      navUserName.textContent = state.name;
+      navUserRole.textContent = state.role === 'admin' ? '관리자' : '직원';
+      settingsBtn.style.display = state.role === 'admin' ? '' : 'none';
+    } else {
+      loginBtn.style.display = '';
+      userBlock.style.display = 'none';
+      settingsBtn.style.display = 'none';
+    }
+  }
+
+  function openLoginModal() {
+    switchAuthTab('login');
+    document.getElementById('loginId').value = '';
+    document.getElementById('loginPw').value = '';
+    document.getElementById('loginError').style.display = 'none';
+    showModal('loginModal');
+    setTimeout(() => document.getElementById('loginId').focus(), 100);
+  }
+
+  function switchAuthTab(tab) {
+    const isLogin = tab === 'login';
+    document.getElementById('tabLogin').classList.toggle('active', isLogin);
+    document.getElementById('tabSignup').classList.toggle('active', !isLogin);
+    document.getElementById('loginForm').style.display = isLogin ? '' : 'none';
+    document.getElementById('signupForm').style.display = isLogin ? 'none' : '';
+    document.getElementById('loginModalTitle').textContent = isLogin ? '🔐 로그인' : '📝 회원가입';
+    if (!isLogin) {
+      // 역할 select 변경 이벤트 연결
+      const roleSelect = document.getElementById('signupRole');
+      roleSelect.onchange = function() {
+        document.getElementById('signupAdminCodeWrap').style.display =
+          this.value === 'admin' ? '' : 'none';
+      };
+    }
+  }
+
+  function doLogin() {
+    const id = document.getElementById('loginId').value.trim();
+    const pw = document.getElementById('loginPw').value;
+    const errEl = document.getElementById('loginError');
+    errEl.style.display = 'none';
+
+    if (!id || !pw) {
+      errEl.textContent = '아이디와 비밀번호를 입력해 주세요.';
+      errEl.style.display = '';
+      return;
+    }
+
+    const users = getUsers();
+    const user = users.find(u => u.id === id && u.pw === btoa(pw));
+
+    if (!user) {
+      errEl.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.';
+      errEl.style.display = '';
+      return;
+    }
+
+    setAuthState({ loggedIn: true, id: user.id, name: user.name, role: user.role });
+    closeModal('loginModal');
+    updateNavAuth();
+  }
+
+  function doSignup() {
+    const name = document.getElementById('signupName').value.trim();
+    const id   = document.getElementById('signupId').value.trim();
+    const pw   = document.getElementById('signupPw').value;
+    const pw2  = document.getElementById('signupPw2').value;
+    const role = document.getElementById('signupRole').value;
+    const code = document.getElementById('signupAdminCode') ? document.getElementById('signupAdminCode').value : '';
+    const errEl = document.getElementById('signupError');
+    errEl.style.display = 'none';
+
+    if (!name || !id || !pw || !pw2) {
+      errEl.textContent = '모든 항목을 입력해 주세요.'; errEl.style.display = ''; return;
+    }
+    if (id.length < 4) {
+      errEl.textContent = '아이디는 4자 이상이어야 합니다.'; errEl.style.display = ''; return;
+    }
+    if (pw.length < 8) {
+      errEl.textContent = '비밀번호는 8자 이상이어야 합니다.'; errEl.style.display = ''; return;
+    }
+    if (pw !== pw2) {
+      errEl.textContent = '비밀번호가 일치하지 않습니다.'; errEl.style.display = ''; return;
+    }
+    if (role === 'admin' && code !== ADMIN_CODE) {
+      errEl.textContent = '관리자 승인 코드가 올바르지 않습니다.'; errEl.style.display = ''; return;
+    }
+
+    const users = getUsers();
+    if (users.find(u => u.id === id)) {
+      errEl.textContent = '이미 사용 중인 아이디입니다.'; errEl.style.display = ''; return;
+    }
+
+    users.push({ id, name, pw: btoa(pw), role });
+    saveUsers(users);
+
+    // 가입 후 자동 로그인
+    setAuthState({ loggedIn: true, id, name, role });
+    closeModal('loginModal');
+    updateNavAuth();
+  }
+
+  function doLogout() {
+    setAuthState(null);
+    closeModal('adminModal');
+    updateNavAuth();
+  }
+
+  function openProfileMenu() {
+    const state = getAuthState();
+    if (!state) return;
+    if (state.role === 'admin') openAdminPage();
+  }
+
+  /* ── 관리자 페이지 열기 ── */
+  function openAdminPage() {
+    // API 키 로드
+    document.getElementById('adminApiKey').value = getApiKey();
+    document.getElementById('adminApiKeyStatus').style.display = 'none';
+
+    // 직원 목록 렌더
+    const listEl = document.getElementById('adminEmployeeList');
+    const users = getUsers();
+    const allPeople = [
+      ...APPROVED_EMPLOYEES.map(e => ({ id: e.id, name: e.name, role: e.role === '관리자' ? 'admin' : 'staff', color: e.color, source: 'preset' })),
+      ...users.map(u => ({ id: u.id, name: u.name, role: u.role, source: 'user' }))
+    ];
+    listEl.innerHTML = allPeople.map(p => `
+      <div class="admin-employee-row">
+        <div class="avatar-sm" style="background:${p.color || (p.role==='admin'?'#EF4444':'#2563EB')}">${p.name.charAt(0)}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${p.name}</div>
+          <div style="font-size:11px;color:var(--gray-400)">${p.id}</div>
+        </div>
+        <span class="admin-badge ${p.role==='admin'?'admin':'staff'}">${p.role==='admin'?'관리자':'직원'}</span>
+      </div>
+    `).join('');
+
+    showModal('adminModal');
+  }
+
+  function toggleAdminApiKeyVisibility() {
+    const inp = document.getElementById('adminApiKey');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+
+  async function testAdminApiKey() {
+    const key = document.getElementById('adminApiKey').value.trim();
+    const statusEl = document.getElementById('adminApiKeyStatus');
+    if (!key) { statusEl.textContent = 'API 키를 입력하세요.'; statusEl.style.display=''; statusEl.style.background='#FEF2F2'; statusEl.style.color='#DC2626'; return; }
+    statusEl.textContent = '⏳ 연결 테스트 중...'; statusEl.style.display=''; statusEl.style.background='#EFF6FF'; statusEl.style.color='#1D4ED8';
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/models', { headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' } });
+      if (res.ok) { statusEl.textContent = '✅ 연결 성공! API 키가 유효합니다.'; statusEl.style.background='#F0FDF4'; statusEl.style.color='#16A34A'; }
+      else { statusEl.textContent = '❌ 연결 실패. API 키를 확인해 주세요.'; statusEl.style.background='#FEF2F2'; statusEl.style.color='#DC2626'; }
+    } catch { statusEl.textContent = '❌ 네트워크 오류 또는 CORS 제한.'; statusEl.style.background='#FEF2F2'; statusEl.style.color='#DC2626'; }
+  }
+
+  function saveAdminSettings() {
+    const key = document.getElementById('adminApiKey').value.trim();
+    if (key) localStorage.setItem('anthropic_api_key', key);
+    closeModal('adminModal');
+  }
+
+  /* ── 기존 설정 모달은 관리자 페이지로 리다이렉트 ── */
   function openSettingsModal() {
-    document.getElementById('settingsApiKey').value = getApiKey();
-    document.getElementById('apiKeyStatus').style.display = 'none';
-    showModal('settingsModal');
+    openAdminPage();
   }
 
   /* ════════════════════════════════════════
@@ -3705,6 +4142,7 @@ ${text.slice(0, 3000)}`;
      페이지 로드 초기화
   ══════════════════════════════════════════════ */
   renderQuote();
+  updateNavAuth();
 </script>
 </body>
 </html>
