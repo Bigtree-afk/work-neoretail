@@ -726,6 +726,15 @@
     .comment-panel { width: 100%; top: 56px; }
     .comment-fab-wrap { bottom: 20px; right: 16px; }
   }
+/* ── 로그인 게이트 (회사 내부용) ── */
+body.auth-required > .main,
+body.auth-required > nav,
+body.auth-required > header,
+body.auth-required > .top-bar,
+body.auth-required > .bottom-nav,
+body.auth-required .modal-overlay:not(#loginModal) { display:none !important; }
+body.auth-required #loginModal { display:flex !important; }
+body.auth-required #loginModalCloseBtn { display:none !important; }
 </style>
 <!-- Google Identity Services (Sign in with Google) -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -2388,11 +2397,11 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="loginModal" onclick="if(event.target===this)closeModal('loginModal')">
+<div class="modal-overlay" id="loginModal" onclick="if(event.target===this&&!document.body.classList.contains('auth-required'))closeModal('loginModal')">
   <div class="modal" style="width:400px;max-width:96vw">
     <div class="modal-header">
       <div class="modal-title" id="loginModalTitle">🔐 로그인</div>
-      <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
+      <button class="modal-close" id="loginModalCloseBtn" onclick="if(!document.body.classList.contains('auth-required'))closeModal('loginModal')">✕</button>
     </div>
     <div class="modal-body">
       <div style="text-align:center;padding:8px 0 14px">
@@ -3844,6 +3853,7 @@ ${text.slice(0, 3000)}`;
     saveUsers(users);
 
     setAuthState({ loggedIn: true, id: email, name: u.name, role, picture: u.picture || '' });
+    document.body.classList.remove('auth-required');
     closeModal('loginModal');
     updateNavAuth();
     showToast && showToast(`✅ ${u.name} (${role === 'admin' ? '관리자' : '직원'}) 로그인`);
@@ -3870,7 +3880,23 @@ ${text.slice(0, 3000)}`;
     closeModal('adminModal');
     try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch {}
     updateNavAuth();
+    enforceAuthGate();
     showToast && showToast('로그아웃되었습니다');
+  }
+
+  /* ── 사이트 전체 로그인 게이트 (회사 내부용) ── */
+  function enforceAuthGate() {
+    const state = getAuthState();
+    if (state && state.loggedIn) {
+      document.body.classList.remove('auth-required');
+      // 로그인 모달이 열려있다면 닫기
+      const m = document.getElementById('loginModal');
+      if (m && m.classList.contains('show')) closeModal('loginModal');
+    } else {
+      document.body.classList.add('auth-required');
+      showModal('loginModal');
+      setTimeout(initGoogleSignIn, 150);
+    }
   }
 
   // 레거시 함수 스텁 (삭제된 구 인터페이스 호출 방지)
@@ -4618,6 +4644,7 @@ ${text.slice(0, 3000)}`;
   populateStoreNameList();
   hydrateSavedJobs();
   hydrateSavedStores();
+  enforceAuthGate();  // 로그인 안 되어 있으면 사이트 전체 차단
 
   /* ══════════════════════════════════════════════
      RIPPLE EFFECT — 모든 버튼 클릭 시 물결 효과
