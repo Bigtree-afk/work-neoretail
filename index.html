@@ -1490,7 +1490,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </div>
           <table>
             <thead><tr><th>장비</th><th>모델</th><th>수량</th><th>설치일</th><th>상태</th></tr></thead>
-            <tbody>
+            <tbody id="detailEquipTbody">
               <tr><td><b>POS 일체형</b></td><td style="color:var(--gray-400)">Intel N5095</td><td>5대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-green">정상</span></td></tr>
               <tr><td><b>서버 PC</b></td><td style="color:var(--gray-400)">Ryzen5 4650G</td><td>1대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-green">정상</span></td></tr>
               <tr><td><b>고정스캐너</b></td><td style="color:var(--gray-400)">마젤란 8100</td><td>2대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-green">정상</span></td></tr>
@@ -1507,7 +1507,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <div class="section-title">📋 작업 이력</div>
           </div>
           <div style="padding:16px 18px">
-            <div class="timeline">
+            <div class="timeline" id="detailHistoryTimeline">
               <div class="tl-item">
                 <div class="tl-dot done">✓</div>
                 <div class="tl-content">
@@ -5106,6 +5106,78 @@ ${text.slice(0, 3000)}`;
       if (displayPos) tags.push(`<span class="badge badge-blue">${displayPos}</span>`);
       if (displayVan) tags.push(`<span class="badge badge-purple">${displayVan} VAN</span>`);
       tagsEl.innerHTML = tags.join(' ') || '<span class="badge badge-gray">정보 없음</span>';
+    }
+
+    /* ── 설치 장비 현황 ── */
+    const equipBody = document.getElementById('detailEquipTbody');
+    if (equipBody) {
+      const rows = [];
+      const posCount = parseInt(store?.pos, 10) || parseInt((posTxt.match(/\d+/) || [0])[0], 10) || 0;
+      const kioCount = parseInt((cells[7]?.querySelectorAll('.pk-chip')[1]?.textContent.match(/\d+/) || [0])[0], 10) || 0;
+      if (posCount > 0) {
+        rows.push(`<tr><td><b>POS 일체형</b></td><td style="color:var(--gray-400)">-</td><td>${posCount}대</td><td style="color:var(--gray-400)">-</td><td><span class="badge badge-green">정상</span></td></tr>`);
+      }
+      if (kioCount > 0) {
+        rows.push(`<tr><td><b>키오스크</b></td><td style="color:var(--gray-400)">-</td><td>${kioCount}대</td><td style="color:var(--gray-400)">-</td><td><span class="badge badge-green">정상</span></td></tr>`);
+      }
+      if (displayVan) {
+        rows.push(`<tr><td><b>카드단말 (VAN)</b></td><td style="color:var(--gray-400)">${esc ? esc(displayVan) : displayVan}</td><td>${posCount || '-'}${posCount ? '대' : ''}</td><td style="color:var(--gray-400)">-</td><td><span class="badge badge-green">정상</span></td></tr>`);
+      }
+      // 저장된 장비 정보가 있으면 추가 (store.equipment: [{name,model,qty,date,status}])
+      if (store?.equipment && Array.isArray(store.equipment)) {
+        store.equipment.forEach(eq => {
+          rows.push(`<tr><td><b>${eq.name||'-'}</b></td><td style="color:var(--gray-400)">${eq.model||'-'}</td><td>${eq.qty||'-'}</td><td style="color:var(--gray-400)">${eq.date||'-'}</td><td><span class="badge badge-green">${eq.status||'정상'}</span></td></tr>`);
+        });
+      }
+      if (rows.length === 0) {
+        rows.push('<tr><td colspan="5" style="text-align:center;padding:18px;color:var(--gray-400);font-size:12px">등록된 설치 장비 정보가 없습니다. (이카운트 업로드 시 POS 수량만 반영됩니다)</td></tr>');
+      }
+      equipBody.innerHTML = rows.join('');
+    }
+
+    /* ── 작업 이력 (ns_jobs 기반) ── */
+    const tlEl = document.getElementById('detailHistoryTimeline');
+    if (tlEl) {
+      let jobs = [];
+      try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e) {}
+      const nameKey = (displayName || '').trim();
+      const matched = jobs.filter(j => {
+        const s = (j.store || j.storeName || '').trim();
+        return s && nameKey && (s === nameKey || s.includes(nameKey) || nameKey.includes(s));
+      });
+      // 최신순 정렬
+      matched.sort((a,b) => {
+        const da = new Date(a.date || a.createdAt || 0).getTime();
+        const db = new Date(b.date || b.createdAt || 0).getTime();
+        return db - da;
+      });
+      if (matched.length === 0) {
+        tlEl.innerHTML = `
+          <div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">
+            <div style="font-size:28px;margin-bottom:8px">📭</div>
+            <div>이 점포에 등록된 작업 이력이 없습니다.</div>
+            <div style="margin-top:4px;font-size:11px">상단의 "+ 작업 등록"으로 추가하세요.</div>
+          </div>`;
+      } else {
+        tlEl.innerHTML = matched.map((j, idx) => {
+          const done = (j.status === '완료' || j.status === 'done');
+          const dotClass = done ? 'done' : (idx === 0 ? 'current' : '');
+          const dotIcon  = done ? '✓' : '!';
+          const title    = (j.type ? `${j.type} — ` : '') + (j.title || '작업');
+          const date     = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '-');
+          const who      = j.engineer || j.assignee || '-';
+          const desc     = j.note || j.description || '';
+          return `
+            <div class="tl-item">
+              <div class="tl-dot ${dotClass}">${dotIcon}</div>
+              <div class="tl-content">
+                <div class="tl-title">${title}</div>
+                <div class="tl-date">${date} | ${who}</div>
+                ${desc ? `<div class="tl-desc">${desc}</div>` : ''}
+              </div>
+            </div>`;
+        }).join('');
+      }
     }
 
     // 상세 뷰로 부드럽게 스크롤
