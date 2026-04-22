@@ -2151,6 +2151,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <button onclick="event.stopPropagation();document.getElementById('excelFileInput').click()" style="margin-top:8px;padding:6px 18px;background:#22C55E;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">파일 선택</button>
       </div>
 
+      <!-- 기존 점포 전체 삭제 -->
+      <div style="margin-top:10px;padding:10px 14px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div style="font-size:11px;color:#991B1B">
+          <strong>⚠ 잘못 올라간 데이터가 있나요?</strong> 기존 점포를 전부 지우고 다시 업로드할 수 있습니다.
+        </div>
+        <button type="button" onclick="clearAllStores()" style="padding:6px 12px;background:#DC2626;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🗑 전체 삭제</button>
+      </div>
+
       <!-- 미리보기 (숨김) -->
       <div id="excelPreview" style="display:none;margin-top:14px">
         <!-- 중복 경고 (JS로 동적 표시) -->
@@ -3102,6 +3110,23 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     '03275', '09913', '09361'  // 이미 등록된 거래처코드 예시
   ]);
 
+  /* ── 기존 점포 전체 삭제 ── */
+  function clearAllStores() {
+    const cur = getStores() || [];
+    if (cur.length === 0) {
+      (window.showToast ? showToast('삭제할 점포가 없습니다.') : alert('삭제할 점포가 없습니다.'));
+      return;
+    }
+    if (!confirm(`저장된 점포 ${cur.length.toLocaleString()}개를 모두 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`)) return;
+    try {
+      localStorage.removeItem('ns_stores');
+    } catch(e) {}
+    const tb = document.getElementById('storeListTbody');
+    if (tb) tb.innerHTML = '';
+    if (typeof renderStoreList === 'function') { try { renderStoreList(); } catch(e){} }
+    (window.showToast ? showToast(`🗑 ${cur.length.toLocaleString()}개 점포를 모두 삭제했습니다.`) : alert(`${cur.length}개 점포를 모두 삭제했습니다.`));
+  }
+
   /* ── 엑셀 업로드 (실제 파일 + 진행 애니메이션) ── */
   function handleExcelFile(inputOrEvent) {
     const files = inputOrEvent.files;
@@ -3338,14 +3363,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     for (let i = 0; i < total; i++) {
       const s = toInsert[i];
       store.push({
-        id: 'st_' + Date.now().toString(36) + '_' + i.toString(36),
-        code: s.code,
-        name: s.name,
-        owner: s.owner,
-        bizno: s.bizno,
-        address: s.address,
-        phone: s.phone,
-        createdAt: new Date().toISOString(),
+        id: s.code ? ('EC-' + s.code) : ('EC-' + Date.now().toString().slice(-5) + i),
+        code: s.code || '',
+        name: s.name || '',
+        ceo:  s.owner || '',
+        tel:  s.phone || '',
+        biz:  s.bizno || '',
+        addr: s.address || '',
+        van:  '',
+        tid:  '',
+        pos:  '0',
+        memo: '이카운트 일괄 업로드',
+        status: '거래중',
+        createdAt: Date.now(),
       });
 
       if ((i + 1) % batchSize === 0 || i === total - 1) {
