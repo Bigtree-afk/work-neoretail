@@ -2030,17 +2030,18 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <option>AS 처리</option>
           </select>
         </div>
-        <div class="form-group" style="margin:0">
-          <label>점포명</label>
-          <input type="text" id="jobStoreName" list="storeNameList" placeholder="점포 검색..." autocomplete="off">
-          <datalist id="storeNameList"></datalist>
+        <div class="form-group" style="margin:0;position:relative">
+          <label>점포명 <span style="font-size:10px;color:var(--gray-400);font-weight:400">🔍 검색</span></label>
+          <div style="position:relative">
+            <input type="text" id="jobStoreName" placeholder="점포명을 입력해 검색..." autocomplete="off" oninput="runJobStoreSearch()" onfocus="runJobStoreSearch()" onblur="setTimeout(()=>{const p=document.getElementById('jobStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px">
+            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--gray-400);pointer-events:none">🔍</span>
+          </div>
+          <div id="jobStoreResults" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;margin-top:4px"></div>
         </div>
         <div class="form-group" style="margin:0">
-          <label>담당 엔지니어</label>
+          <label>담당 엔지니어 <span style="font-size:10px;color:var(--gray-400);font-weight:400">· 등록 직원만</span></label>
           <select id="jobEngineer">
-            <option>김현장</option>
-            <option>이기사</option>
-            <option>박기사</option>
+            <option value="">담당자 선택...</option>
           </select>
         </div>
         <div class="form-group" style="margin:0">
@@ -3043,12 +3044,18 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       const row = document.createElement('div');
       row.className = 'ball-selector-row';
       let ballsHtml = '';
-      for (let i = 0; i <= 15; i++) {
+      for (let i = 0; i <= 5; i++) {
         ballsHtml += `<div class="ball b${i}${i===0?' selected':''}" data-key="${eq.key}" data-val="${i}" onclick="selectBall(this,'${eq.key}',${i})">${i}</div>`;
       }
+      // 직접 입력 박스 (6대 이상)
+      ballsHtml += `<div style="display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:4px 8px;border:1px dashed var(--gray-300);border-radius:6px;background:#fff">
+        <span style="font-size:10px;color:var(--gray-500);font-weight:600">직접</span>
+        <input type="number" min="0" max="999" id="custom-${eq.key}" placeholder="0" onchange="setCustomBall('${eq.key}', this.value)" oninput="setCustomBall('${eq.key}', this.value)" style="width:56px;padding:4px 6px;border:1px solid var(--gray-200);border-radius:4px;font-size:13px;font-weight:700;text-align:center">
+        <span style="font-size:10px;color:var(--gray-500)">대</span>
+      </div>`;
       row.innerHTML = `
         <div class="ball-label">${eq.label}<small>${eq.sub}</small></div>
-        <div class="balls" id="balls-${eq.key}">${ballsHtml}</div>
+        <div class="balls" id="balls-${eq.key}" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">${ballsHtml}</div>
         <div class="ball-count-badge" id="cnt-${eq.key}">—</div>
       `;
       container.appendChild(row);
@@ -3062,6 +3069,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     ballState[key] = val;
     const cnt = document.getElementById('cnt-' + key);
     if (cnt) cnt.textContent = val > 0 ? val + '대' : '—';
+    // 직접 입력 박스 초기화
+    const customInp = document.getElementById('custom-' + key);
+    if (customInp) customInp.value = '';
+    updateJobSummary();
+  }
+
+  function setCustomBall(key, raw) {
+    const v = Math.max(0, Math.min(999, parseInt(raw, 10) || 0));
+    // 볼 선택 해제
+    document.querySelectorAll(`#balls-${key} .ball`).forEach(b => b.classList.remove('selected'));
+    ballState[key] = v;
+    const cnt = document.getElementById('cnt-' + key);
+    if (cnt) cnt.textContent = v > 0 ? v + '대' : '—';
     updateJobSummary();
   }
 
@@ -4606,9 +4626,92 @@ ${text.slice(0, 3000)}`;
   /* 점포 datalist 채우기 (모달 열릴 때도 호출) */
   function populateStoreNameList() {
     const dl = document.getElementById('storeNameList');
-    if (!dl) return;
+    if (dl) {
+      const stores = getStores();
+      dl.innerHTML = stores.map(s => `<option value="${s.name.replace(/"/g,'&quot;')}">`).join('');
+    }
+    // 점포명 검색 결과 초기화
+    const p = document.getElementById('jobStoreResults');
+    if (p) { p.style.display = 'none'; p.innerHTML = ''; }
+    // 담당 엔지니어 select 채우기
+    populateEngineerSelect();
+  }
+
+  /* 새 작업 모달의 점포명 검색 */
+  function runJobStoreSearch() {
+    const inp = document.getElementById('jobStoreName');
+    const panel = document.getElementById('jobStoreResults');
+    if (!inp || !panel) return;
+    const q = (inp.value || '').trim().toLowerCase();
     const stores = getStores();
-    dl.innerHTML = stores.map(s => `<option value="${s.name.replace(/"/g,'&quot;')}">`).join('');
+    let matches = stores;
+    if (q) {
+      matches = stores.filter(s =>
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.owner || '').toLowerCase().includes(q) ||
+        (s.bizno || '').toLowerCase().includes(q) ||
+        (s.code || '').toLowerCase().includes(q)
+      );
+    }
+    matches = matches.slice(0, 30);
+    if (matches.length === 0) {
+      panel.innerHTML = `<div style="padding:12px 14px;font-size:12px;color:var(--gray-400);text-align:center">검색 결과가 없습니다.</div>`;
+      panel.style.display = 'block';
+      return;
+    }
+    panel.innerHTML = matches.map(s => {
+      const name = esc(s.name || '-');
+      const sub = [s.owner, s.bizno].filter(Boolean).map(esc).join(' · ');
+      const addr = esc(s.address || '');
+      return `<div onclick="pickJobStore(${JSON.stringify(name).replace(/"/g,'&quot;')}, ${JSON.stringify(addr).replace(/"/g,'&quot;')})" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--gray-100)" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+        <div style="font-size:13px;font-weight:700;color:var(--gray-800)">${name}</div>
+        ${sub ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">${sub}</div>` : ''}
+        ${addr ? `<div style="font-size:11px;color:var(--gray-400);margin-top:1px">${addr}</div>` : ''}
+      </div>`;
+    }).join('');
+    panel.style.display = 'block';
+  }
+
+  function pickJobStore(name, address) {
+    const inp = document.getElementById('jobStoreName');
+    if (inp) inp.value = name;
+    const addrEl = document.getElementById('jobAddressInput');
+    if (addrEl && address) addrEl.value = address;
+    const panel = document.getElementById('jobStoreResults');
+    if (panel) panel.style.display = 'none';
+  }
+
+  /* 담당 엔지니어 select: 등록된 직원만 표시 */
+  function populateEngineerSelect() {
+    const sel = document.getElementById('jobEngineer');
+    if (!sel) return;
+    const prev = sel.value;
+    const users = (typeof getUsers === 'function' ? getUsers() : []) || [];
+    const allowed = (typeof getAllowedEmails === 'function' ? getAllowedEmails() : []) || [];
+    const admins = (typeof ADMIN_EMAILS !== 'undefined' ? ADMIN_EMAILS : []);
+    // 이메일 기준 유니크 병합
+    const seen = new Set();
+    const items = [];
+    users.forEach(u => {
+      const e = (u.id || u.email || '').toLowerCase();
+      if (!e || seen.has(e)) return;
+      seen.add(e);
+      items.push({ email: e, name: u.name || e, role: u.role || 'staff' });
+    });
+    [...admins, ...allowed].forEach(email => {
+      const e = (email || '').toLowerCase();
+      if (!e || seen.has(e)) return;
+      seen.add(e);
+      items.push({ email: e, name: e.split('@')[0], role: admins.includes(e) ? 'admin' : 'staff' });
+    });
+    let html = '<option value="">담당자 선택...</option>';
+    if (items.length === 0) {
+      html += '<option value="" disabled>등록된 직원 없음 — 관리자에서 이메일 추가</option>';
+    } else {
+      html += items.map(it => `<option value="${esc(it.name)}">${esc(it.name)}${it.role==='admin'?' (관리자)':''} — ${esc(it.email)}</option>`).join('');
+    }
+    sel.innerHTML = html;
+    if (prev) sel.value = prev;
   }
 
   /* ══════════════════════════════════════════════
