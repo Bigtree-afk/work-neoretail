@@ -4836,9 +4836,10 @@ ${text.slice(0, 3000)}`;
     if (q) {
       matches = stores.filter(s =>
         (s.name || '').toLowerCase().includes(q) ||
-        (s.owner || '').toLowerCase().includes(q) ||
-        (s.bizno || '').toLowerCase().includes(q) ||
-        (s.code || '').toLowerCase().includes(q)
+        (s.ceo || s.owner || '').toLowerCase().includes(q) ||
+        (s.biz || s.bizno || '').toLowerCase().includes(q) ||
+        (s.code || '').toLowerCase().includes(q) ||
+        (s.addr || s.address || '').toLowerCase().includes(q)
       );
     }
     matches = matches.slice(0, 30);
@@ -4849,8 +4850,8 @@ ${text.slice(0, 3000)}`;
     }
     panel.innerHTML = matches.map(s => {
       const name = esc(s.name || '-');
-      const sub = [s.owner, s.bizno].filter(Boolean).map(esc).join(' · ');
-      const addr = esc(s.address || '');
+      const sub = [s.ceo || s.owner, s.biz || s.bizno, s.tel].filter(Boolean).map(esc).join(' · ');
+      const addr = esc(s.addr || s.address || '');
       return `<div onclick="pickJobStore(${JSON.stringify(name).replace(/"/g,'&quot;')}, ${JSON.stringify(addr).replace(/"/g,'&quot;')})" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--gray-100)" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
         <div style="font-size:13px;font-weight:700;color:var(--gray-800)">${name}</div>
         ${sub ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">${sub}</div>` : ''}
