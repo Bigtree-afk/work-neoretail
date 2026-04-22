@@ -1467,9 +1467,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <div class="detail-header">
         <div class="store-avatar">🏪</div>
         <div class="store-info" style="flex:1">
-          <h2>K-1마트 안중점</h2>
-          <p>경기도 평택시 안중읍 안중로 123 | 대표: 김○○ | 031-000-0000</p>
-          <div class="store-tags">
+          <h2 id="detailStoreName">K-1마트 안중점</h2>
+          <p id="detailStoreMeta">경기도 평택시 안중읍 안중로 123 | 대표: 김○○ | 031-000-0000</p>
+          <div class="store-tags" id="detailStoreTags">
             <span class="badge badge-green">거래중</span>
             <span class="badge badge-blue">POS 5대</span>
             <span class="badge badge-purple">KCP VAN</span>
@@ -5010,6 +5010,19 @@ ${text.slice(0, 3000)}`;
   window.hydrateSavedStores = hydrateSavedStores;
   window.renderStores = hydrateSavedStores;
 
+  /* 점포 리스트 tbody 클릭 위임 (데모 행 포함 전체 커버) */
+  (function bindStoreListClick() {
+    const tb = document.getElementById('storeListTbody');
+    if (!tb || tb.dataset.clickBound === '1') return;
+    tb.dataset.clickBound = '1';
+    tb.addEventListener('click', (ev) => {
+      const tr = ev.target.closest('tr');
+      if (!tr || tr.parentElement !== tb) return;
+      if (tr.querySelector('td[colspan]')) return; // 안내 행
+      if (typeof window.toggleStoreDetail === 'function') window.toggleStoreDetail(tr);
+    });
+  })();
+
   /* saveNewJob / saveNewStore 훅: 저장 후 DOM 주입 */
   (function patchSavers() {
     if (typeof saveNewJob === 'function') {
@@ -5037,16 +5050,72 @@ ${text.slice(0, 3000)}`;
   })();
 
   /* 점포 행 클릭: 하이라이트 토글 (상세보기 스텁) */
-  if (typeof window.toggleStoreDetail !== 'function') {
-    window.toggleStoreDetail = function(tr) {
-      const tb = tr.parentElement;
-      Array.from(tb.querySelectorAll('tr')).forEach(r => r.style.outline = '');
-      tr.style.outline = '2px solid var(--primary)';
-      tr.style.outlineOffset = '-2px';
-      const name = tr.querySelector('b')?.textContent || '선택된 점포';
-      showToast && showToast(`📌 ${name}`);
-    };
-  }
+  window.toggleStoreDetail = function(tr) {
+    const tb = tr.parentElement;
+    Array.from(tb.querySelectorAll('tr')).forEach(r => r.style.outline = '');
+    tr.style.outline = '2px solid var(--primary)';
+    tr.style.outlineOffset = '-2px';
+
+    // 행 셀에서 정보 추출 (컬럼: 코드 / 점포명 / 사업자 / 대표 / 전화 / 주소 / VAN / POS·KIO / 담당 / 상태)
+    const cells = tr.querySelectorAll('td');
+    const getText = (i) => (cells[i]?.innerText || cells[i]?.textContent || '').trim();
+    const code   = getText(0);
+    const name   = (tr.querySelector('b')?.textContent || getText(1) || '선택된 점포').trim();
+    const bizno  = getText(2);
+    const ceo    = getText(3);
+    const tel    = getText(4);
+    const addr   = getText(5);
+    const van    = (cells[6]?.querySelector('.badge')?.textContent || '').trim();
+    const posTxt = (cells[7]?.querySelector('.pk-chip')?.textContent || '').trim();
+    const status = (cells[9]?.querySelector('.badge')?.textContent || '거래중').trim();
+
+    // 저장된 점포 데이터가 있으면 보강 (dataset.storeId 기반)
+    let store = null;
+    try {
+      const sid = tr.dataset.storeId;
+      if (sid && typeof getStores === 'function') {
+        store = (getStores() || []).find(s => s.id === sid) || null;
+      }
+    } catch(e) {}
+
+    const displayName = (store?.name) || name;
+    const displayAddr = (store?.addr) || addr || '-';
+    const displayCeo  = (store?.ceo)  || ceo  || '-';
+    const displayTel  = (store?.tel)  || tel  || '-';
+    const displayBiz  = (store?.biz)  || bizno || '';
+    const displayVan  = (store?.van)  || van;
+    const displayPos  = (store?.pos)  ? `POS ${store.pos}대` : (posTxt || '');
+    const displayStat = (store?.status) || status;
+
+    const nameEl = document.getElementById('detailStoreName');
+    const metaEl = document.getElementById('detailStoreMeta');
+    const tagsEl = document.getElementById('detailStoreTags');
+    if (nameEl) nameEl.textContent = displayName;
+    if (metaEl) {
+      const parts = [];
+      if (displayAddr && displayAddr !== '-') parts.push(displayAddr);
+      if (displayCeo && displayCeo !== '-') parts.push('대표: ' + displayCeo);
+      if (displayTel && displayTel !== '-') parts.push(displayTel);
+      if (displayBiz) parts.push('사업자 ' + displayBiz);
+      if (code) parts.push('코드 ' + code);
+      metaEl.textContent = parts.join(' | ') || '-';
+    }
+    if (tagsEl) {
+      const tags = [];
+      if (displayStat) tags.push(`<span class="badge badge-green">${displayStat}</span>`);
+      if (displayPos) tags.push(`<span class="badge badge-blue">${displayPos}</span>`);
+      if (displayVan) tags.push(`<span class="badge badge-purple">${displayVan} VAN</span>`);
+      tagsEl.innerHTML = tags.join(' ') || '<span class="badge badge-gray">정보 없음</span>';
+    }
+
+    // 상세 뷰로 부드럽게 스크롤
+    try {
+      const dh = document.querySelector('.detail-header');
+      if (dh) dh.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch(e) {}
+
+    showToast && showToast(`📌 ${displayName}`);
+  };
 
   /* ══════════════════════════════════════════════
      검색 / 필터 / 음성 인식
