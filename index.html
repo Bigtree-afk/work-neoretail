@@ -2483,6 +2483,25 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <!-- 구분선 -->
       <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
 
+      <!-- 접근 허용 직원 이메일 관리 -->
+      <div class="admin-section">
+        <div class="admin-section-title">접근 허용 이메일 (화이트리스트)</div>
+        <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px;line-height:1.6">
+          여기에 등록된 구글 이메일만 로그인할 수 있습니다. 관리자(<b style="color:var(--primary)">zoolex@gmail.com</b>)는 항상 허용됩니다.
+        </div>
+        <div style="margin-bottom:10px">
+          <button class="btn btn-outline btn-sm" onclick="clearAllLegacyUsers()" style="color:#EF4444;border-color:#FCA5A5;font-size:11px">🗑 기존 등록 직원 데이터 모두 삭제</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <input type="email" id="newAllowedEmail" placeholder="직원 구글 이메일 (예: staff@gmail.com)" style="flex:1;padding:8px 12px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px" onkeydown="if(event.key==='Enter'){event.preventDefault();addAllowedEmail();}">
+          <button class="btn btn-primary btn-sm" onclick="addAllowedEmail()">+ 추가</button>
+        </div>
+        <div id="allowedEmailList" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto"></div>
+      </div>
+
+      <!-- 구분선 -->
+      <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+
       <!-- Google OAuth 설정 -->
       <div class="admin-section">
         <div class="admin-section-title">Google 로그인 설정</div>
@@ -3834,9 +3853,35 @@ ${text.slice(0, 3000)}`;
     });
   }
 
+  // 허용된 이메일 화이트리스트 (관리자 + 직원)
+  function getAllowedEmails() {
+    try { return JSON.parse(localStorage.getItem('ns_allowed_emails') || '[]'); } catch { return []; }
+  }
+  function saveAllowedEmails(list) {
+    localStorage.setItem('ns_allowed_emails', JSON.stringify(list));
+  }
+  function isEmailAllowed(email) {
+    const e = (email || '').toLowerCase();
+    if (ADMIN_EMAILS.includes(e)) return true;  // 관리자는 항상 허용
+    return getAllowedEmails().map(x => x.toLowerCase()).includes(e);
+  }
+
   // 이메일/이름으로 로그인 처리 (Google credential 성공 후 또는 dev quick login)
   function loginWithGoogleProfile({ email, name, picture }) {
-    const role = ADMIN_EMAILS.includes(email.toLowerCase()) ? 'admin' : 'staff';
+    const emailLc = (email || '').toLowerCase();
+
+    // 화이트리스트 체크 — 미등록 시 차단
+    if (!isEmailAllowed(emailLc)) {
+      const errEl = document.getElementById('loginError');
+      if (errEl) {
+        errEl.innerHTML = `❌ <b>${email}</b> 계정은 등록되지 않았습니다.<br>관리자에게 접근 권한을 요청하세요.`;
+        errEl.style.display = '';
+      }
+      try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch {}
+      return;
+    }
+
+    const role = ADMIN_EMAILS.includes(emailLc) ? 'admin' : 'staff';
 
     // ns_users 에 등록/갱신
     const users = getUsers();
@@ -3920,6 +3965,8 @@ ${text.slice(0, 3000)}`;
     // Google Client ID 로드
     const gcidEl = document.getElementById('adminGoogleClientId');
     if (gcidEl) gcidEl.value = getGoogleClientId();
+    // 허용 이메일 목록 렌더
+    renderAllowedEmailList();
 
     // 직원 목록 렌더
     const listEl = document.getElementById('adminEmployeeList');
@@ -3959,6 +4006,81 @@ ${text.slice(0, 3000)}`;
     } catch { statusEl.textContent = '❌ 네트워크 오류 또는 CORS 제한.'; statusEl.style.background='#FEF2F2'; statusEl.style.color='#DC2626'; }
   }
 
+  function clearAllLegacyUsers() {
+    if (!confirm('기존에 등록된 모든 직원 데이터를 삭제합니다.\n(관리자 본인 계정은 유지됩니다.)\n\n계속하시겠습니까?')) return;
+    const me = getAuthState();
+    const keep = (me && me.loggedIn) ? [{
+      id: me.id, name: me.name, role: me.role, picture: me.picture || '', provider: 'google', createdAt: Date.now()
+    }] : [];
+    saveUsers(keep);
+    // 관리자 페이지 즉시 갱신
+    if (typeof openAdminPage === 'function') {
+      const listEl = document.getElementById('adminEmployeeList');
+      if (listEl) {
+        const users = getUsers();
+        listEl.innerHTML = users.length === 0
+          ? '<div style="padding:14px;text-align:center;color:var(--gray-400);font-size:12px;background:#FAFAFA;border-radius:8px">등록된 사용자가 없습니다.</div>'
+          : users.map(p => `
+            <div class="admin-employee-row">
+              <div class="avatar-sm" style="background:${p.role==='admin'?'#EF4444':'#2563EB'}">${(p.name||'?').charAt(0)}</div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:700">${p.name}</div>
+                <div style="font-size:11px;color:var(--gray-400)">${p.id}</div>
+              </div>
+              <span class="admin-badge ${p.role==='admin'?'admin':'staff'}">${p.role==='admin'?'관리자':'직원'}</span>
+            </div>
+          `).join('');
+      }
+    }
+    showToast && showToast('✅ 기존 직원 데이터 삭제됨');
+  }
+
+  function renderAllowedEmailList() {
+    const el = document.getElementById('allowedEmailList');
+    if (!el) return;
+    const list = getAllowedEmails();
+    if (list.length === 0) {
+      el.innerHTML = '<div style="padding:14px;text-align:center;color:var(--gray-400);font-size:12px;background:#FAFAFA;border-radius:8px">등록된 이메일이 없습니다. 직원 이메일을 추가하세요.</div>';
+      return;
+    }
+    el.innerHTML = list.map((em, i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#F9FAFB;border:1px solid var(--gray-200);border-radius:8px;font-size:13px">
+        <span style="flex:1;color:var(--gray-700);font-weight:500">${em}</span>
+        <button class="btn btn-outline btn-sm" style="color:#EF4444;border-color:#FCA5A5;padding:3px 10px;font-size:11px" onclick="removeAllowedEmail(${i})">삭제</button>
+      </div>
+    `).join('');
+  }
+
+  function addAllowedEmail() {
+    const inp = document.getElementById('newAllowedEmail');
+    const em = (inp.value || '').trim().toLowerCase();
+    if (!em || !em.includes('@') || !em.includes('.')) {
+      showToast && showToast('올바른 이메일을 입력하세요.');
+      return;
+    }
+    const list = getAllowedEmails();
+    if (list.map(x => x.toLowerCase()).includes(em)) {
+      showToast && showToast('이미 등록된 이메일입니다.');
+      return;
+    }
+    list.push(em);
+    saveAllowedEmails(list);
+    inp.value = '';
+    renderAllowedEmailList();
+    showToast && showToast(`✅ ${em} 추가됨`);
+  }
+
+  function removeAllowedEmail(idx) {
+    const list = getAllowedEmails();
+    const em = list[idx];
+    if (!em) return;
+    if (!confirm(`${em} 의 접근 권한을 제거할까요?`)) return;
+    list.splice(idx, 1);
+    saveAllowedEmails(list);
+    renderAllowedEmailList();
+    showToast && showToast('삭제됨');
+  }
+
   function saveAdminSettings() {
     const key = document.getElementById('adminApiKey').value.trim();
     if (key) localStorage.setItem('anthropic_api_key', key);
@@ -3978,14 +4100,8 @@ ${text.slice(0, 3000)}`;
      승인된 직원: localStorage 저장 · 페이지별
   ════════════════════════════════════════ */
 
-  const APPROVED_EMPLOYEES = [
-    { id: 'jce', name: '정치은', role: '관리자',   color: '#FF2D1F' },
-    { id: 'kmj', name: '김민준', role: '기술팀장', color: '#2563EB' },
-    { id: 'lsy', name: '이수연', role: '현장기사', color: '#10B981' },
-    { id: 'pdh', name: '박도현', role: '현장기사', color: '#8B5CF6' },
-    { id: 'cyj', name: '최예진', role: '영업담당', color: '#F59E0B' },
-    { id: 'hjw', name: '한재원', role: '현장기사', color: '#06B6D4' },
-  ];
+  // 샘플 직원 목록 제거 — 실제 직원은 관리자 페이지의 접근 허용 이메일로 관리
+  const APPROVED_EMPLOYEES = [];
 
   const CM_SCREEN_LABELS = {
     dashboard: '대시보드', jobs: '작업목록', stores: '점포관리',
