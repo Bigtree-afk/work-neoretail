@@ -3112,19 +3112,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   /* ── 기존 점포 전체 삭제 ── */
   function clearAllStores() {
-    const cur = getStores() || [];
-    if (cur.length === 0) {
-      (window.showToast ? showToast('삭제할 점포가 없습니다.') : alert('삭제할 점포가 없습니다.'));
-      return;
-    }
-    if (!confirm(`저장된 점포 ${cur.length.toLocaleString()}개를 모두 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`)) return;
+    let cnt = 0;
+    try { cnt = (JSON.parse(localStorage.getItem('ns_stores') || '[]')).length; } catch(e) {}
+    if (!confirm(`저장된 점포 ${cnt.toLocaleString()}개를 모두 삭제하고 페이지를 새로고침합니다.\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`)) return;
     try {
       localStorage.removeItem('ns_stores');
+      localStorage.setItem('ns_stores', '[]');
     } catch(e) {}
-    const tb = document.getElementById('storeListTbody');
-    if (tb) tb.innerHTML = '';
-    if (typeof renderStoreList === 'function') { try { renderStoreList(); } catch(e){} }
-    (window.showToast ? showToast(`🗑 ${cur.length.toLocaleString()}개 점포를 모두 삭제했습니다.`) : alert(`${cur.length}개 점포를 모두 삭제했습니다.`));
+    try {
+      const tb = document.getElementById('storeListTbody');
+      if (tb) tb.innerHTML = '';
+    } catch(e) {}
+    alert(`🗑 ${cnt.toLocaleString()}개 점포를 모두 삭제했습니다. 페이지를 새로고침합니다.`);
+    setTimeout(() => { location.reload(); }, 200);
   }
 
   /* ── 엑셀 업로드 (실제 파일 + 진행 애니메이션) ── */
