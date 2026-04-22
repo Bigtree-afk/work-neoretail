@@ -727,6 +727,8 @@
     .comment-fab-wrap { bottom: 20px; right: 16px; }
   }
 </style>
+<!-- Google Identity Services (Sign in with Google) -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -2393,59 +2395,31 @@
       <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
     </div>
     <div class="modal-body">
-      <!-- 탭 -->
-      <div class="auth-tab-bar">
-        <div class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">로그인</div>
-        <div class="auth-tab" id="tabSignup" onclick="switchAuthTab('signup')">회원가입</div>
+      <div style="text-align:center;padding:8px 0 14px">
+        <div style="font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:6px">구글 계정으로 로그인</div>
+        <div style="font-size:12px;color:var(--gray-500);line-height:1.6">
+          등록된 구글 계정으로 간편하게 로그인하세요.<br>
+          <b style="color:var(--primary)">zoolex@gmail.com</b> 계정은 관리자 권한이 자동 부여됩니다.
+        </div>
       </div>
 
-      <!-- 로그인 폼 -->
-      <div id="loginForm">
-        <div class="form-group">
-          <label>아이디</label>
-          <input type="text" id="loginId" placeholder="아이디 입력" autocomplete="username">
+      <!-- Google Sign-In 버튼이 여기 렌더됨 -->
+      <div id="gsiButtonContainer" style="display:flex;justify-content:center;margin:6px 0 10px;min-height:44px"></div>
+
+      <!-- 미설정/오류 안내 -->
+      <div id="gsiFallback" style="display:none;border:1px dashed var(--gray-300);border-radius:8px;padding:12px;font-size:12px;color:var(--gray-600);line-height:1.6;background:#FAFAFA">
+        <b>⚠ Google Client ID 미설정</b><br>
+        관리자 페이지에서 Google OAuth Client ID를 설정한 뒤 다시 시도하세요.
+        <div style="margin-top:8px">
+          <button class="btn btn-outline btn-sm" onclick="devQuickLogin()" style="font-size:11px">🔧 개발자 모드 로그인 (이메일 입력)</button>
         </div>
-        <div class="form-group">
-          <label>비밀번호</label>
-          <input type="password" id="loginPw" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-        </div>
-        <div class="auth-error" id="loginError"></div>
-        <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="doLogin()">로그인</button>
       </div>
 
-      <!-- 회원가입 폼 -->
-      <div id="signupForm" style="display:none">
-        <div class="form-group">
-          <label>이름</label>
-          <input type="text" id="signupName" placeholder="실명 입력">
-        </div>
-        <div class="form-group">
-          <label>아이디</label>
-          <input type="text" id="signupId" placeholder="영문·숫자 4자 이상">
-        </div>
-        <div class="form-group">
-          <label>비밀번호</label>
-          <input type="password" id="signupPw" placeholder="8자 이상">
-        </div>
-        <div class="form-group">
-          <label>비밀번호 확인</label>
-          <input type="password" id="signupPw2" placeholder="동일 비밀번호 재입력" onkeydown="if(event.key==='Enter')doSignup()">
-        </div>
-        <div class="form-group">
-          <label>역할</label>
-          <select id="signupRole">
-            <option value="staff">현장기사 / 일반직원</option>
-            <option value="admin">관리자 (승인 코드 필요)</option>
-          </select>
-        </div>
-        <div id="signupAdminCodeWrap" style="display:none">
-          <div class="form-group">
-            <label>관리자 승인 코드</label>
-            <input type="password" id="signupAdminCode" placeholder="관리자에게 문의">
-          </div>
-        </div>
-        <div class="auth-error" id="signupError"></div>
-        <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="doSignup()">가입하기</button>
+      <div class="auth-error" id="loginError" style="margin-top:10px"></div>
+
+      <div style="font-size:11px;color:var(--gray-400);text-align:center;margin-top:14px;line-height:1.55">
+        🔒 로그인 정보는 브라우저에만 저장됩니다.<br>
+        Google 계정 정보를 서버로 전송하지 않습니다.
       </div>
     </div>
   </div>
@@ -2495,6 +2469,26 @@
           <div style="font-size:11px;color:var(--gray-400);margin-top:5px">🔒 키는 브라우저 localStorage에만 저장됩니다.</div>
         </div>
         <div id="adminApiKeyStatus" style="display:none;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:600;margin-top:4px"></div>
+      </div>
+
+      <!-- 구분선 -->
+      <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+
+      <!-- Google OAuth 설정 -->
+      <div class="admin-section">
+        <div class="admin-section-title">Google 로그인 설정</div>
+        <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px;line-height:1.6">
+          Google Cloud Console → APIs &amp; Services → Credentials 에서 OAuth 2.0 Client ID 를 발급받아 아래에 입력하세요.<br>
+          승인된 JavaScript 원본에 현재 사이트 URL을 등록해야 합니다.
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--primary);margin-left:4px">발급받기 →</a>
+        </div>
+        <div class="form-group">
+          <label>Google OAuth Client ID</label>
+          <div class="api-key-input-wrap">
+            <input type="text" id="adminGoogleClientId" placeholder="xxxxxxxxxx.apps.googleusercontent.com" autocomplete="off">
+          </div>
+          <div style="font-size:11px;color:var(--gray-400);margin-top:5px">🔒 Client ID는 브라우저 localStorage에 저장됩니다. 관리자 이메일: <b style="color:var(--primary)">zoolex@gmail.com</b></div>
+        </div>
       </div>
 
       <!-- 구분선 -->
@@ -3744,166 +3738,147 @@ ${text.slice(0, 3000)}`;
     }
   }
 
-  function openLoginModal() {
-    switchAuthTab('login');
-    document.getElementById('loginId').value = '';
-    document.getElementById('loginPw').value = '';
-    document.getElementById('loginError').style.display = 'none';
-    showModal('loginModal');
-    setTimeout(() => document.getElementById('loginId').focus(), 100);
+  /* ══════════════════════════════════════════════
+     GOOGLE AUTH — Sign in with Google (GIS)
+  ══════════════════════════════════════════════ */
+
+  // 관리자 이메일 화이트리스트 (이 목록에 있는 구글 계정은 자동 관리자 승격)
+  const ADMIN_EMAILS = ['zoolex@gmail.com'];
+
+  // Google OAuth Client ID — 관리자 페이지에서 설정/변경 가능
+  // 기본값: 미설정 (빈 문자열). 설정 시 localStorage에 저장됨.
+  function getGoogleClientId() {
+    return localStorage.getItem('google_client_id') || '';
+  }
+  function setGoogleClientId(id) {
+    if (id) localStorage.setItem('google_client_id', id.trim());
+    else localStorage.removeItem('google_client_id');
   }
 
-  function switchAuthTab(tab) {
-    const isLogin = tab === 'login';
-    document.getElementById('tabLogin').classList.toggle('active', isLogin);
-    document.getElementById('tabSignup').classList.toggle('active', !isLogin);
-    document.getElementById('loginForm').style.display = isLogin ? '' : 'none';
-    document.getElementById('signupForm').style.display = isLogin ? 'none' : '';
-    document.getElementById('loginModalTitle').textContent = isLogin ? '🔐 로그인' : '📝 회원가입';
-    if (!isLogin) {
-      // 역할 select 변경 이벤트 연결
-      const roleSelect = document.getElementById('signupRole');
-      roleSelect.onchange = function() {
-        document.getElementById('signupAdminCodeWrap').style.display =
-          this.value === 'admin' ? '' : 'none';
-      };
-    }
-  }
-
-  function doLogin() {
-    const id = document.getElementById('loginId').value.trim();
-    const pw = document.getElementById('loginPw').value;
-    const errEl = document.getElementById('loginError');
-    errEl.style.display = 'none';
-
-    if (!id || !pw) {
-      errEl.textContent = '아이디와 비밀번호를 입력해 주세요.';
-      errEl.style.display = '';
-      return;
-    }
-
-    const users = getUsers();
-    const user = users.find(u => u.id === id && u.pw === btoa(pw));
-
-    if (!user) {
-      errEl.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.';
-      errEl.style.display = '';
-      return;
-    }
-
-    // 최초 로그인/강제 변경 필요: 비번 변경 전에는 로그인 완료 안 됨
-    if (user.mustChangePassword) {
-      window._forceChangeUserId = user.id;
-      closeModal('loginModal');
-      showModal('forcePwModal');
-      setTimeout(() => document.getElementById('forcePwNew')?.focus(), 80);
-      return;
-    }
-
-    setAuthState({ loggedIn: true, id: user.id, name: user.name, role: user.role });
-    closeModal('loginModal');
-    updateNavAuth();
-  }
-
-  /* ── 강제 비밀번호 변경 처리 ── */
-  function submitForcePasswordChange() {
-    const userId = window._forceChangeUserId;
-    if (!userId) { closeModal('forcePwModal'); return; }
-    const pw = document.getElementById('forcePwNew').value;
-    const pw2 = document.getElementById('forcePwNew2').value;
-    const errEl = document.getElementById('forcePwError');
-    errEl.style.display = 'none';
-    if (!pw || pw.length < 8) { errEl.textContent = '비밀번호는 8자 이상이어야 합니다.'; errEl.style.display=''; return; }
-    if (pw !== pw2) { errEl.textContent = '비밀번호가 일치하지 않습니다.'; errEl.style.display=''; return; }
-    if (pw === '1234') { errEl.textContent = '초기 비밀번호와 다른 값으로 설정하세요.'; errEl.style.display=''; return; }
-
-    const users = getUsers();
-    const u = users.find(x => x.id === userId);
-    if (!u) { closeModal('forcePwModal'); return; }
-    u.pw = btoa(pw);
-    u.mustChangePassword = false;
-    saveUsers(users);
-
-    setAuthState({ loggedIn: true, id: u.id, name: u.name, role: u.role });
-    window._forceChangeUserId = null;
-    document.getElementById('forcePwNew').value = '';
-    document.getElementById('forcePwNew2').value = '';
-    closeModal('forcePwModal');
-    updateNavAuth();
-    showToast && showToast('✅ 비밀번호가 변경되었습니다');
-  }
-
-  function cancelForcePasswordChange() {
-    // 로그인 완료시키지 않고 모달만 닫음. mustChangePassword 플래그 유지.
-    window._forceChangeUserId = null;
-    document.getElementById('forcePwNew').value = '';
-    document.getElementById('forcePwNew2').value = '';
-    closeModal('forcePwModal');
-    showToast && showToast('⚠️ 비밀번호 변경 전까지 로그인 불가');
-  }
-
-  /* ── 관리자 시드: zoolex@gmail.com / 이동호 / 1234 ── */
-  (function seedAdminUser() {
+  // JWT 페이로드 디코딩 (base64url)
+  function decodeJwt(token) {
     try {
-      const users = getUsers();
-      if (!users.find(u => u.id === 'zoolex@gmail.com')) {
-        users.push({
-          id: 'zoolex@gmail.com',
-          name: '이동호',
-          pw: btoa('1234'),
-          role: 'admin',
-          mustChangePassword: true
-        });
-        saveUsers(users);
-      }
-    } catch (e) { console.warn('seedAdminUser failed', e); }
-  })();
+      const payload = token.split('.')[1];
+      const json = atob(payload.replace(/-/g,'+').replace(/_/g,'/'));
+      // UTF-8 복원
+      const decoded = decodeURIComponent(json.split('').map(c => '%' + ('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+      return JSON.parse(decoded);
+    } catch(e) { return null; }
+  }
 
-  function doSignup() {
-    const name = document.getElementById('signupName').value.trim();
-    const id   = document.getElementById('signupId').value.trim();
-    const pw   = document.getElementById('signupPw').value;
-    const pw2  = document.getElementById('signupPw2').value;
-    const role = document.getElementById('signupRole').value;
-    const code = document.getElementById('signupAdminCode') ? document.getElementById('signupAdminCode').value : '';
-    const errEl = document.getElementById('signupError');
-    errEl.style.display = 'none';
+  // GIS 초기화 + 버튼 렌더
+  function initGoogleSignIn() {
+    const clientId = getGoogleClientId();
+    const container = document.getElementById('gsiButtonContainer');
+    const fallback = document.getElementById('gsiFallback');
+    if (!container) return;
 
-    if (!name || !id || !pw || !pw2) {
-      errEl.textContent = '모든 항목을 입력해 주세요.'; errEl.style.display = ''; return;
+    if (!clientId || !window.google || !google.accounts || !google.accounts.id) {
+      container.style.display = 'none';
+      if (fallback) fallback.style.display = '';
+      return;
     }
-    if (id.length < 4) {
-      errEl.textContent = '아이디는 4자 이상이어야 합니다.'; errEl.style.display = ''; return;
-    }
-    if (pw.length < 8) {
-      errEl.textContent = '비밀번호는 8자 이상이어야 합니다.'; errEl.style.display = ''; return;
-    }
-    if (pw !== pw2) {
-      errEl.textContent = '비밀번호가 일치하지 않습니다.'; errEl.style.display = ''; return;
-    }
-    if (role === 'admin' && code !== ADMIN_CODE) {
-      errEl.textContent = '관리자 승인 코드가 올바르지 않습니다.'; errEl.style.display = ''; return;
-    }
+    container.style.display = '';
+    if (fallback) fallback.style.display = 'none';
 
+    try {
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCredential,
+        auto_select: false,
+        ux_mode: 'popup'
+      });
+      container.innerHTML = '';
+      google.accounts.id.renderButton(container, {
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        shape: 'rectangular',
+        logo_alignment: 'left',
+        locale: 'ko_KR',
+        width: 320
+      });
+    } catch(e) {
+      console.error('GIS init failed', e);
+      container.style.display = 'none';
+      if (fallback) fallback.style.display = '';
+    }
+  }
+
+  // Google credential (JWT) 처리
+  function handleGoogleCredential(resp) {
+    const errEl = document.getElementById('loginError');
+    if (errEl) errEl.style.display = 'none';
+    if (!resp || !resp.credential) {
+      if (errEl) { errEl.textContent = '구글 로그인 응답이 비어 있습니다.'; errEl.style.display = ''; }
+      return;
+    }
+    const info = decodeJwt(resp.credential);
+    if (!info || !info.email) {
+      if (errEl) { errEl.textContent = '구글 토큰 해석 실패'; errEl.style.display = ''; }
+      return;
+    }
+    loginWithGoogleProfile({
+      email: info.email,
+      name: info.name || info.given_name || info.email.split('@')[0],
+      picture: info.picture || ''
+    });
+  }
+
+  // 이메일/이름으로 로그인 처리 (Google credential 성공 후 또는 dev quick login)
+  function loginWithGoogleProfile({ email, name, picture }) {
+    const role = ADMIN_EMAILS.includes(email.toLowerCase()) ? 'admin' : 'staff';
+
+    // ns_users 에 등록/갱신
     const users = getUsers();
-    if (users.find(u => u.id === id)) {
-      errEl.textContent = '이미 사용 중인 아이디입니다.'; errEl.style.display = ''; return;
+    let u = users.find(x => x.id === email);
+    if (!u) {
+      u = { id: email, name, role, picture, provider: 'google', createdAt: Date.now() };
+      users.push(u);
+    } else {
+      u.name = name || u.name;
+      u.role = role;         // 화이트리스트 기준으로 매번 갱신
+      u.picture = picture || u.picture || '';
+      u.provider = 'google';
     }
-
-    users.push({ id, name, pw: btoa(pw), role });
     saveUsers(users);
 
-    // 가입 후 자동 로그인
-    setAuthState({ loggedIn: true, id, name, role });
+    setAuthState({ loggedIn: true, id: email, name: u.name, role, picture: u.picture || '' });
     closeModal('loginModal');
     updateNavAuth();
+    showToast && showToast(`✅ ${u.name} (${role === 'admin' ? '관리자' : '직원'}) 로그인`);
+  }
+
+  // 개발자 모드: Client ID 미설정 시 이메일 수동 입력으로 로그인
+  function devQuickLogin() {
+    const email = prompt('구글 계정 이메일을 입력하세요 (개발자 모드):', 'zoolex@gmail.com');
+    if (!email || !email.includes('@')) return;
+    const name = prompt('표시 이름:', email.split('@')[0]) || email.split('@')[0];
+    loginWithGoogleProfile({ email: email.trim().toLowerCase(), name: name.trim(), picture: '' });
+  }
+
+  function openLoginModal() {
+    const errEl = document.getElementById('loginError');
+    if (errEl) errEl.style.display = 'none';
+    showModal('loginModal');
+    // GIS 스크립트 로드를 잠깐 기다렸다가 렌더
+    setTimeout(initGoogleSignIn, 120);
   }
 
   function doLogout() {
     setAuthState(null);
     closeModal('adminModal');
+    try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch {}
     updateNavAuth();
+    showToast && showToast('로그아웃되었습니다');
   }
+
+  // 레거시 함수 스텁 (삭제된 구 인터페이스 호출 방지)
+  function switchAuthTab() {}
+  function doLogin() { initGoogleSignIn(); }
+  function doSignup() { showToast && showToast('구글 로그인을 이용하세요'); }
+  function submitForcePasswordChange() {}
+  function cancelForcePasswordChange() {}
 
   function openProfileMenu() {
     const state = getAuthState();
@@ -3916,6 +3891,9 @@ ${text.slice(0, 3000)}`;
     // API 키 로드
     document.getElementById('adminApiKey').value = getApiKey();
     document.getElementById('adminApiKeyStatus').style.display = 'none';
+    // Google Client ID 로드
+    const gcidEl = document.getElementById('adminGoogleClientId');
+    if (gcidEl) gcidEl.value = getGoogleClientId();
 
     // 직원 목록 렌더
     const listEl = document.getElementById('adminEmployeeList');
@@ -3958,6 +3936,9 @@ ${text.slice(0, 3000)}`;
   function saveAdminSettings() {
     const key = document.getElementById('adminApiKey').value.trim();
     if (key) localStorage.setItem('anthropic_api_key', key);
+    const gcidEl = document.getElementById('adminGoogleClientId');
+    if (gcidEl) setGoogleClientId(gcidEl.value.trim());
+    showToast && showToast('설정이 저장되었습니다.');
     closeModal('adminModal');
   }
 
