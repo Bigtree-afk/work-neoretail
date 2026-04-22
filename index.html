@@ -3147,11 +3147,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
       // ④ 파일 바이너리에서 행 수 추정 (실제 파싱 라이브러리 없이 근사치)
       const data = e.target.result;
+      const bytes = new Uint8Array(data);
       // ZIP 시그니처(XLSX) 또는 XLS 시그니처 확인
-      const isXlsx = data[0] === 0x50 && data[1] === 0x4B;
-      const isXls  = data[0] === 0xD0 && data[1] === 0xCF;
+      const isXlsx = bytes[0] === 0x50 && bytes[1] === 0x4B; // "PK"
+      const isXls  = bytes[0] === 0xD0 && bytes[1] === 0xCF; // BIFF (OLE)
+      // 이카운트 특성: HTML/XML 로 내보낸 .xls 파일도 허용
+      let head = '';
+      try {
+        const sliceLen = Math.min(bytes.length, 2048);
+        head = new TextDecoder('utf-8', { fatal: false }).decode(bytes.subarray(0, sliceLen)).toLowerCase();
+      } catch { head = ''; }
+      const isHtmlXls = /<html|<table|<?xml|<workbook|mso-application/.test(head);
 
-      if (!isXlsx && !isXls) {
+      if (!isXlsx && !isXls && !isHtmlXls) {
         dz.style.display = '';
         resetExcelUploadUI();
         alert('올바른 엑셀 파일(.xlsx/.xls)이 아닌 것 같습니다. 파일을 확인해 주세요.');
