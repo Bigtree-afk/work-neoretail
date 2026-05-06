@@ -1,5 +1,8 @@
 @echo off
 setlocal
+set PYTHONIOENCODING=utf-8
+set PYTHONUTF8=1
+chcp 65001 > /dev/null
 cd /d "%~dp0"
 if not exist .venv\Scripts\python.exe (
   echo [setup] Python venv 생성 중...
@@ -8,6 +11,6 @@ if not exist .venv\Scripts\python.exe (
   .venv\Scripts\python.exe -m pip install --quiet -r requirements.txt
 )
 .venv\Scripts\python.exe sync_ecount.py >> sync.log 2>&1
-echo === sync.log 마지막 30줄 ===
-powershell -NoProfile -Command "Get-Content sync.log -Tail 30"
+echo === sync.log 마지막 60줄 ===
+powershell -NoProfile -Command "Get-Content sync.log -Tail 60"
 endlocal

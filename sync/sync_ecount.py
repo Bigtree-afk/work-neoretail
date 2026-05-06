@@ -22,6 +22,13 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
+# Windows cp949 콘솔에서도 UTF-8 출력
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
 import requests
 
 # .env 자동 로드 (python-dotenv 없으면 수동 파싱)
@@ -42,73 +49,98 @@ if ENV_PATH.exists():
 def env(key: str, *, required: bool = True, default: str = '') -> str:
     val = os.environ.get(key, default).strip()
     if required and not val:
-        raise SystemExit(f'❌ 환경변수 {key} 누락 — sync/.env 또는 시스템 환경변수에 설정하세요.')
+        raise SystemExit(f'[ERR] 환경변수 {key} 누락 - sync/.env 또는 시스템 환경변수에 설정하세요.')
     return val
 
 
 def log(msg: str) -> None:
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f'[{ts}] {msg}', flush=True)
+    try:
+        print(f'[{ts}] {msg}', flush=True)
+    except UnicodeEncodeError:
+        # 콘솔 인코딩 호환 안 되는 문자는 ASCII로 강제
+        print(f'[{ts}] {msg.encode("ascii", "replace").decode("ascii")}', flush=True)
+
+
+def post_json(url: str, *, params=None, body=None, timeout=30) -> dict:
+    """POST + JSON 응답 파싱. 실패 시 응답 본문까지 출력."""
+    log(f'POST {url}')
+    if params: log(f'  params={params}')
+    if body: log(f'  body={json.dumps(body, ensure_ascii=False)[:300]}')
+    res = requests.post(url, params=params, json=body, timeout=timeout)
+    log(f'  -> HTTP {res.status_code}')
+    txt = res.text
+    if len(txt) > 500:
+        log(f'  resp(앞500): {txt[:500]}...')
+    else:
+        log(f'  resp: {txt}')
+    if res.status_code != 200:
+        raise RuntimeError(f'HTTP {res.status_code}: {txt[:300]}')
+    try:
+        return res.json()
+    except Exception:
+        raise RuntimeError(f'JSON 파싱 실패: {txt[:300]}')
 
 
 # ── 이카운트 API ──────────────────────────────────────
 
+# 시도해 볼 Zone API 엔드포인트 (이카운트가 종종 경로를 바꿈)
+ZONE_ENDPOINTS = [
+    'https://oapi.ecounterp.com/OAPI/V2/Zone/ZoneInfo',
+    'https://oapi.ecounterp.com/OAPI/V2/Zone/GetZoneInfo',
+    'https://oapi.ecounterp.com/OAPI/V2/Zone',
+    'https://oapi.ecountapi.com/OAPI/V2/Zone',
+]
+
+
 def get_zone(com_code: str) -> str:
-    """회사 코드로 zone 조회. (V2 Zone API)"""
-    log('zone 조회 중...')
-    res = requests.post(
-        'https://oapi.ecounterp.com/OAPI/V2/Zone/ZoneInfo',
-        json={'COM_CODE': com_code},
-        timeout=30,
-    )
-    res.raise_for_status()
-    data = res.json()
-    zone = (data.get('Data') or {}).get('ZONE') or ''
-    if not zone:
-        raise RuntimeError(f'zone 조회 실패: {data}')
-    log(f'  → zone={zone}')
-    return zone
+    """회사 코드로 zone 조회. 여러 후보 엔드포인트 시도."""
+    last_err = None
+    for url in ZONE_ENDPOINTS:
+        try:
+            log(f'zone 조회 시도 -> {url}')
+            data = post_json(url, body={'COM_CODE': com_code})
+            zone = ((data.get('Data') or {}).get('ZONE')
+                    or (data.get('Data') or {}).get('Zone')
+                    or data.get('ZONE') or '')
+            if zone:
+                log(f'  -> zone={zone}')
+                return str(zone)
+            log(f'  zone 응답에 ZONE 키 없음. 데이터: {data}')
+        except Exception as e:
+            last_err = e
+            log(f'  실패: {e}')
+    raise RuntimeError(f'모든 Zone 엔드포인트 실패. last={last_err}')
 
 
 def login(zone: str, com_code: str, user_id: str, api_cert_key: str) -> str:
-    log('OAPI 로그인 중...')
+    log('OAPI 로그인...')
     url = f'https://oapi{zone}.ecounterp.com/OAPI/V2/OAPILogin/Login'
-    res = requests.post(
-        url,
-        json={
-            'COM_CODE': com_code,
-            'USER_ID': user_id,
-            'API_CERT_KEY': api_cert_key,
-            'LAN_TYPE': 'ko-KR',
-            'ZONE': zone,
-        },
-        timeout=30,
-    )
-    res.raise_for_status()
-    data = res.json()
-    sid = ((data.get('Data') or {}).get('Datas') or {}).get('SESSION_ID')
+    data = post_json(url, body={
+        'COM_CODE': com_code,
+        'USER_ID': user_id,
+        'API_CERT_KEY': api_cert_key,
+        'LAN_TYPE': 'ko-KR',
+        'ZONE': zone,
+    })
+    # SESSION_ID 위치가 응답에 따라 다양함
+    sid = ((data.get('Data') or {}).get('Datas') or {}).get('SESSION_ID') \
+        or (data.get('Data') or {}).get('SESSION_ID') \
+        or data.get('SESSION_ID')
     if not sid:
-        raise RuntimeError(f'로그인 실패: {data}')
-    log('  → 세션 발급 완료')
+        raise RuntimeError(f'로그인 실패: SESSION_ID 없음. data={data}')
+    log(f'  -> 세션 발급 완료 (sid={str(sid)[:8]}...)')
     return sid
 
 
 def fetch_customers(zone: str, session_id: str) -> list[dict]:
-    log('거래처(GetBasicCust) 조회 중...')
+    log('거래처(GetBasicCust) 조회...')
     url = f'https://oapi{zone}.ecounterp.com/OAPI/V2/AccountBasic/GetBasicCust'
-    # SESSION_ID는 쿼리스트링으로
-    res = requests.post(
-        url,
-        params={'SESSION_ID': session_id},
-        json={'SEARCH_FLAG': '1'},  # 1: 전체. 변경분만 받으려면 LAST_UPD_DATE 사용
-        timeout=120,
-    )
-    res.raise_for_status()
-    payload = res.json()
+    payload = post_json(url, params={'SESSION_ID': session_id}, body={'SEARCH_FLAG': '1'}, timeout=120)
     rows = ((payload.get('Data') or {}).get('Result')) or payload.get('Data') or []
     if isinstance(rows, dict):
         rows = rows.get('Result') or []
-    log(f'  → {len(rows)}건 수신')
+    log(f'  -> {len(rows)}건 수신')
     return rows
 
 
@@ -181,11 +213,11 @@ def main() -> int:
 
     # 빈 결과 보호
     if not stores:
-        log('⚠ 거래처 0건 — 푸시 생략 (안전장치).')
+        log('[WARN] 거래처 0건 - 푸시 생략 (안전장치).')
         return 0
 
     result = push_to_worker(stores, sync_url, sync_secret, source='ecount-oapi')
-    log(f'✅ 완료: {result}')
+    log(f'[OK] 완료: {result}')
     return 0
 
 
@@ -195,6 +227,6 @@ if __name__ == '__main__':
     except SystemExit:
         raise
     except Exception as e:
-        log(f'❌ 오류: {e}')
+        log(f'[ERR] 오류: {e}')
         traceback.print_exc()
         sys.exit(1)
