@@ -880,9 +880,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <!-- 오늘 일정 -->
         <div class="card">
           <div style="padding:16px 18px; border-bottom:1px solid var(--gray-100)">
-            <div class="section-title">📅 오늘 일정 (4월 20일)</div>
+            <div class="section-title" id="dashTodayTitle">📅 오늘 일정</div>
           </div>
-          <div style="padding:8px 0">
+          <div style="padding:8px 0" id="dashTodayBody">
             <div class="sched-row" data-title="K-1마트 안중점 신규개업" data-icon="🏪" data-type="신규개업" data-store="K-1마트 안중점" data-date="4월 20일 09:00" data-engineer="김현장" data-note="POS 5대 + 저울 + 계산대 설치 | 설치 진행중 (4/6단계)"
               style="padding:12px 18px; border-bottom:1px solid var(--gray-100); display:flex; gap:14px; align-items:flex-start">
               <div style="font-size:12px; font-weight:700; color:var(--primary); width:45px; flex-shrink:0; padding-top:2px">09:00</div>
@@ -927,8 +927,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
                 <th>담당</th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
+            <tbody id="dashRecentBody">
+              <tr data-demo="1">
                 <td><b>365할인마트 광적</b></td>
                 <td><span class="badge badge-blue">신규</span></td>
                 <td style="color:var(--gray-400)">04.18</td>
@@ -980,8 +980,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
               <th>상태</th>
             </tr>
           </thead>
-          <tbody>
-            <tr>
+          <tbody id="dashAsBody">
+            <tr data-demo="1">
               <td><b>가평1번가마트</b></td>
               <td>바코드 스캐너 인식 불량</td>
               <td style="color:var(--gray-400)">04.17</td>
@@ -5060,6 +5060,103 @@ ${text.slice(0, 3000)}`;
   }
   window.hydrateSavedStores = hydrateSavedStores;
   window.renderStores = hydrateSavedStores;
+
+  /* 대시보드: 오늘 일정 / 최근 완료 / AS 미처리를 ns_jobs로 동적 렌더 */
+  function hydrateDashboardJobs() {
+    let jobs = [];
+    try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e) {}
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0,10);
+
+    // 오늘 일정
+    const todayBody = document.getElementById('dashTodayBody');
+    if (todayBody) {
+      const todays = jobs.filter(j => {
+        const d = (j.date || '').slice(0,10);
+        const done = (j.status === '완료' || j.status === 'done');
+        return d === todayStr && !done;
+      });
+      if (todays.length > 0) {
+        todayBody.innerHTML = todays.map(j => {
+          const time = (j.time || (j.date && j.date.length > 10 ? j.date.slice(11,16) : '')) || '--:--';
+          const store = j.store || j.storeName || '-';
+          const type = j.type || '작업';
+          const note = j.note || j.description || '';
+          const eng = j.engineer || j.assignee || '미배정';
+          return `<div class="sched-row" style="padding:12px 18px;border-bottom:1px solid var(--gray-100);display:flex;gap:14px;align-items:flex-start">
+            <div style="font-size:12px;font-weight:700;color:var(--primary);width:45px;flex-shrink:0;padding-top:2px">${time}</div>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:700;margin-bottom:3px">${esc(store)} — ${esc(type)}</div>
+              <div style="font-size:12px;color:var(--gray-400)">${esc(note)} ${eng?'/ 담당: '+esc(eng):''}</div>
+            </div>
+            <span class="badge badge-blue">${esc(j.status||'예정')}</span>
+          </div>`;
+        }).join('');
+      } else if (jobs.length === 0) {
+        // 데이터 자체가 비어있으면 빈 상태 표시 (데모 행 모두 제거)
+        todayBody.innerHTML = `<div style="padding:30px 20px;text-align:center;color:var(--gray-400);font-size:12px">
+          <div style="font-size:28px;margin-bottom:8px">📭</div>
+          <div>등록된 일정이 없습니다.</div>
+          <div style="margin-top:4px;font-size:11px">"+ 작업 등록"으로 추가하세요.</div>
+        </div>`;
+      }
+    }
+
+    // 최근 완료 작업 (jobs에서 status=완료, 최신 5건)
+    const recentBody = document.getElementById('dashRecentBody');
+    if (recentBody) {
+      const done = jobs.filter(j => (j.status === '완료' || j.status === 'done'))
+                       .sort((a,b)=> new Date(b.date||b.createdAt||0) - new Date(a.date||a.createdAt||0))
+                       .slice(0, 5);
+      if (done.length > 0) {
+        recentBody.innerHTML = done.map(j => `
+          <tr>
+            <td><b>${esc(j.store || j.storeName || '-')}</b></td>
+            <td><span class="badge badge-blue">${esc(j.type || '작업')}</span></td>
+            <td style="color:var(--gray-400)">${esc((j.date||j.createdAt||'').slice(5,10).replace('-','.'))}</td>
+            <td>${esc(j.engineer || j.assignee || '-')}</td>
+          </tr>`).join('');
+      } else if (jobs.length === 0) {
+        recentBody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">완료된 작업이 없습니다.</td></tr>`;
+      }
+    }
+
+    // AS 미처리
+    const asBody = document.getElementById('dashAsBody');
+    if (asBody) {
+      const asJobs = jobs.filter(j => {
+        const t = (j.type || '').toLowerCase();
+        const done = (j.status === '완료' || j.status === 'done');
+        return /as|에이에스/i.test(t) && !done;
+      });
+      if (asJobs.length > 0) {
+        asBody.innerHTML = asJobs.map(j => {
+          const recv = (j.date || j.createdAt || '').slice(5,10).replace('-','.');
+          const hours = j.createdAt ? Math.round((Date.now() - new Date(j.createdAt).getTime())/3600000) : 0;
+          const elapsedTxt = hours >= 72 ? `<span style="color:var(--danger);font-weight:700">${hours}시간</span>`
+                            : hours >= 48 ? `<span style="color:var(--warning);font-weight:700">${hours}시간</span>`
+                            : `${hours}시간`;
+          return `<tr>
+            <td><b>${esc(j.store || j.storeName || '-')}</b></td>
+            <td>${esc(j.note || j.description || '-')}</td>
+            <td style="color:var(--gray-400)">${esc(recv)}</td>
+            <td>${elapsedTxt}</td>
+            <td>${esc(j.engineer || j.assignee || '미배정')}</td>
+            <td><span class="badge badge-amber">${esc(j.status || '접수')}</span></td>
+          </tr>`;
+        }).join('');
+      } else if (jobs.length === 0) {
+        asBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">미처리 AS가 없습니다.</td></tr>`;
+      }
+    }
+  }
+  window.hydrateDashboardJobs = hydrateDashboardJobs;
+  // 초기 로드
+  try { hydrateDashboardJobs(); } catch(e) {}
+  // ns_jobs 변경 시 자동 갱신
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'ns_jobs') { try { hydrateDashboardJobs(); } catch(_){} }
+  });
 
   /* 점포 리스트 tbody 클릭 위임 (데모 행 포함 전체 커버) */
   (function bindStoreListClick() {
