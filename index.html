@@ -2407,12 +2407,23 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <!-- 클라우드 동기화 -->
       <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
       <div class="admin-section">
-        <div class="admin-section-title">☁ 이카운트 동기화 (KV)</div>
+        <div class="admin-section-title">☁ 클라우드 동기화 (Cloudflare KV)</div>
         <div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:12px 14px;font-size:11px;color:#075985;margin-bottom:10px;line-height:1.6">
-          매일 KST 07:00 사무실 PC가 이카운트에서 거래처를 가져와 클라우드(KV)에 올립니다. 이 페이지는 KV에서 점포를 받아 자동 머지합니다.
+          ✅ 직원 화이트리스트는 모든 PC·모바일에서 자동 공유됩니다 (페이지 로드 시 받아옴).<br>
+          🔑 직원 추가/삭제를 클라우드에 반영하려면 아래 <b>동기화 토큰</b>이 필요합니다 (관리자만).
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>🔑 클라우드 동기화 토큰 <span style="font-size:10px;color:var(--gray-400);font-weight:400">— Cloudflare Pages 환경변수 SYNC_SECRET 과 동일한 값</span></label>
+          <div class="api-key-input-wrap">
+            <input type="password" id="adminCloudSyncToken" placeholder="Bearer 토큰 (한 번만 입력하면 됩니다)" autocomplete="off">
+            <button class="api-key-toggle" onclick="(function(){const i=document.getElementById('adminCloudSyncToken');i.type=i.type==='password'?'text':'password';})()">보기</button>
+          </div>
+          <div style="font-size:11px;color:var(--gray-400);margin-top:5px">🔒 토큰은 이 브라우저 localStorage에만 저장됩니다. 직원 추가 시 자동으로 클라우드에 푸시.</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="btn btn-outline btn-sm" onclick="syncFromCloud({toast:true})">🔄 지금 동기화 (KV에서 받기)</button>
+          <button class="btn btn-outline btn-sm" onclick="syncFromCloud({toast:true})">🔄 점포 받기 (KV)</button>
+          <button class="btn btn-outline btn-sm" onclick="pullCloudWhitelist().then(d=>showToast&&showToast(d?'☁ 화이트리스트 동기화됨':'클라우드 비어있음'))">🔄 화이트리스트 받기</button>
+          <button class="btn btn-outline btn-sm" onclick="pushCloudWhitelist({toast:true})">⬆ 화이트리스트 클라우드에 푸시</button>
           <span id="lastSyncLabel" style="font-size:11px;color:var(--gray-400)">아직 동기화 안 됨</span>
         </div>
       </div>
@@ -4234,6 +4245,119 @@ ${text.slice(0, 3000)}`;
     return getAllowedEmails().map(x => x.toLowerCase()).includes(e);
   }
 
+  /* ══════════════════════════════════════════════
+     클라우드 화이트리스트 (Cloudflare KV)
+       - 페이지 로드 시 /api/whitelist GET → 로컬에 머지 (모든 PC/모바일 자동 동기화)
+       - 관리자가 직원 추가/삭제 시 /api/whitelist POST 로 클라우드에 푸시
+       - 동기화 토큰: 관리자가 한 번만 입력 (cloud_sync_token, localStorage)
+  ══════════════════════════════════════════════ */
+  function getCloudSyncToken() {
+    return localStorage.getItem('cloud_sync_token') || '';
+  }
+  function saveCloudSyncToken(token) {
+    if (token) localStorage.setItem('cloud_sync_token', token.trim());
+    else localStorage.removeItem('cloud_sync_token');
+  }
+
+  async function pullCloudWhitelist() {
+    try {
+      const res = await fetch('/api/whitelist', { cache: 'no-store' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const remoteEmails = Array.isArray(data.emails) ? data.emails : [];
+      const remoteUsers = Array.isArray(data.users) ? data.users : [];
+
+      // 로컬 화이트리스트와 머지 (클라우드 우선)
+      const local = getAllowedEmails().map(x => x.toLowerCase());
+      const all = Array.from(new Set([...local, ...remoteEmails.map(x => x.toLowerCase())]));
+      saveAllowedEmails(all);
+
+      // 사용자 정보(이름/직책/전화)도 머지
+      if (remoteUsers.length > 0) {
+        const users = getUsers();
+        const byEmail = new Map(users.map(u => [(u.email || u.id || '').toLowerCase(), u]));
+        remoteUsers.forEach(ru => {
+          const key = (ru.email || '').toLowerCase();
+          if (!key) return;
+          const existing = byEmail.get(key);
+          if (existing) {
+            // 비어있는 필드만 보강 (로컬 변경사항 우선)
+            if (!existing.name)  existing.name  = ru.name;
+            if (!existing.title) existing.title = ru.title;
+            if (!existing.phone) existing.phone = ru.phone;
+            existing.email = key;
+            byEmail.set(key, existing);
+          } else {
+            byEmail.set(key, {
+              id: key, email: key,
+              name: ru.name || key.split('@')[0],
+              title: ru.title || '',
+              phone: ru.phone || '',
+              role: ru.role || 'staff',
+              provider: 'cloud',
+              createdAt: Date.now(),
+            });
+          }
+        });
+        saveUsers(Array.from(byEmail.values()));
+      }
+      return data;
+    } catch (e) {
+      console.warn('[pullCloudWhitelist] failed', e);
+      return null;
+    }
+  }
+  window.pullCloudWhitelist = pullCloudWhitelist;
+
+  async function pushCloudWhitelist(opts) {
+    const token = getCloudSyncToken();
+    if (!token) {
+      if (opts && opts.toast && typeof showToast === 'function') {
+        showToast('⚠ 클라우드 동기화 토큰 미설정 — 로컬에만 저장됨');
+      }
+      return { ok: false, reason: 'no token' };
+    }
+    const emails = getAllowedEmails().map(x => x.toLowerCase());
+    const users = getUsers().map(u => ({
+      email: (u.email || u.id || '').toLowerCase(),
+      name: u.name || '',
+      title: u.title || '',
+      phone: u.phone || '',
+      role: u.role || 'staff',
+    })).filter(u => u.email);
+    try {
+      const res = await fetch('/api/whitelist', {
+        method: 'POST',
+        headers: { 'authorization': 'Bearer ' + token, 'content-type': 'application/json' },
+        body: JSON.stringify({ emails, users }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        if (opts && opts.toast && typeof showToast === 'function') {
+          showToast(`⚠ 클라우드 푸시 실패 (${res.status}): ${txt.slice(0,80)}`);
+        }
+        return { ok: false, status: res.status, error: txt };
+      }
+      const data = await res.json();
+      if (opts && opts.toast && typeof showToast === 'function') {
+        showToast(`☁ 클라우드 동기화 완료 (직원 ${data.users}명, 이메일 ${data.count}개)`);
+      }
+      return { ok: true, ...data };
+    } catch (e) {
+      console.warn('[pushCloudWhitelist] failed', e);
+      if (opts && opts.toast && typeof showToast === 'function') {
+        showToast('⚠ 클라우드 푸시 실패 (네트워크)');
+      }
+      return { ok: false, reason: 'network' };
+    }
+  }
+  window.pushCloudWhitelist = pushCloudWhitelist;
+
+  // 페이지 로드 직후 1회 — 화이트리스트 클라우드에서 받기
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => { try { pullCloudWhitelist(); } catch(e){} }, 800);
+  });
+
   // 이메일/이름으로 로그인 처리 (Google credential 성공 후 또는 dev quick login)
   function loginWithGoogleProfile({ email, name, picture }) {
     const emailLc = (email || '').toLowerCase();
@@ -4333,6 +4457,9 @@ ${text.slice(0, 3000)}`;
     // Google Client ID 로드
     const gcidEl = document.getElementById('adminGoogleClientId');
     if (gcidEl) gcidEl.value = getGoogleClientId();
+    // 클라우드 동기화 토큰 로드
+    const tokEl = document.getElementById('adminCloudSyncToken');
+    if (tokEl) tokEl.value = getCloudSyncToken();
     // 허용 이메일 목록 렌더
     renderAllowedEmailList();
 
@@ -4470,6 +4597,9 @@ ${text.slice(0, 3000)}`;
       try { renderAllowedEmailList(); } catch(e) {}
       try { renderEmployeeList(); } catch(e) {}
     }
+
+    // ☁ 클라우드 자동 동기화 (관리자 토큰 있을 때만)
+    try { pushCloudWhitelist({ toast: true }); } catch(e) {}
   }
   window.addEmployeeFull = addEmployeeFull;
 
@@ -4513,6 +4643,7 @@ ${text.slice(0, 3000)}`;
     try { renderEmployeeList(); } catch(e) {}
     try { renderAllowedEmailList(); } catch(e) {}
     showToast && showToast('🗑 직원 삭제됨');
+    try { pushCloudWhitelist({ toast: true }); } catch(e) {}
   }
   window.removeEmployee = removeEmployee;
 
@@ -4549,6 +4680,7 @@ ${text.slice(0, 3000)}`;
     inp.value = '';
     renderAllowedEmailList();
     showToast && showToast(`✅ ${em} 추가됨`);
+    try { pushCloudWhitelist({ toast: true }); } catch(e) {}
   }
 
   function removeAllowedEmail(idx) {
@@ -4560,6 +4692,7 @@ ${text.slice(0, 3000)}`;
     saveAllowedEmails(list);
     renderAllowedEmailList();
     showToast && showToast('삭제됨');
+    try { pushCloudWhitelist({ toast: true }); } catch(e) {}
   }
 
   function saveAdminSettings() {
@@ -4567,6 +4700,8 @@ ${text.slice(0, 3000)}`;
     if (key) localStorage.setItem('anthropic_api_key', key);
     const gcidEl = document.getElementById('adminGoogleClientId');
     if (gcidEl) setGoogleClientId(gcidEl.value.trim());
+    const tokEl = document.getElementById('adminCloudSyncToken');
+    if (tokEl) saveCloudSyncToken(tokEl.value.trim());
     showToast && showToast('설정이 저장되었습니다.');
     closeModal('adminModal');
   }
