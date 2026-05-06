@@ -6344,21 +6344,56 @@ ${text.slice(0, 3000)}`;
     q = (q || '').trim().toLowerCase();
     const tb = document.getElementById('storeListTbody');
     if (!tb) return 0;
-    let shown = 0;
-    Array.from(tb.querySelectorAll('tr')).forEach(tr => {
-      if (tr.classList.contains('store-detail-row')) return;
-      // 안내 행 (총 N개 등)은 건드리지 않음
-      if (tr.querySelector('td[colspan]') && !q) { tr.style.display = ''; return; }
-      if (tr.querySelector('td[colspan]') &&  q) { tr.style.display = 'none'; return; }
-      const txt = tr.textContent.toLowerCase();
-      const match = !q || txt.includes(q);
-      tr.style.display = match ? '' : 'none';
-      if (match) shown++;
-    });
-    if (opts.toast && (typeof showToast === 'function')) {
-      showToast(q ? `🔍 "${q}" 결과 ${shown}건` : `전체 ${shown}개 점포`);
+
+    // 검색어 비었으면 → 기본 hydrate (최신 200개)로 복원
+    if (!q) {
+      try { if (typeof hydrateSavedStores === 'function') hydrateSavedStores(); } catch(e) {}
+      if (opts.toast && typeof showToast === 'function') {
+        const total = (getStores()||[]).length;
+        showToast(`전체 ${total.toLocaleString()}개 점포`);
+      }
+      return (getStores()||[]).length;
     }
-    return shown;
+
+    // 검색어 있으면 → 전체 점포 데이터에서 매칭 결과만 렌더 (DOM 외부 점포까지 포함)
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const matched = stores.filter(s => {
+      const blob = [
+        s.name, s.code, s.id,
+        s.ceo, s.owner,
+        s.biz, s.bizno,
+        s.tel, s.phone,
+        s.addr, s.address,
+        s.memo, s.van, s.tid, s.status,
+      ].filter(Boolean).join(' | ').toLowerCase();
+      return blob.includes(q);
+    });
+
+    // 렌더 (성능: 최대 500건)
+    tb.innerHTML = '';
+    const renderLimit = 500;
+    matched.slice(0, renderLimit).reverse().forEach(s => {
+      try { if (typeof injectStoreRow === 'function') injectStoreRow(s); } catch(e){}
+    });
+    // 안내 행
+    const info = document.createElement('tr');
+    info.style.color = 'var(--gray-400)';
+    if (matched.length === 0) {
+      info.innerHTML = `<td colspan="10" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">
+        <div style="font-size:24px;margin-bottom:6px">🔍</div>
+        <div><b>"${q}"</b> 검색 결과가 없습니다 (전체 ${stores.length.toLocaleString()}개 중)</div>
+      </td>`;
+    } else {
+      info.innerHTML = `<td colspan="10" style="text-align:center;padding:10px;font-size:11px;background:#F9FAFB">
+        🔍 <b>"${q}"</b> 검색 결과: <b>${matched.length.toLocaleString()}건</b> (전체 ${stores.length.toLocaleString()}개 중)${matched.length > renderLimit ? ` · 상위 ${renderLimit}개 표시` : ''}
+      </td>`;
+    }
+    tb.appendChild(info);
+
+    if (opts.toast && typeof showToast === 'function') {
+      showToast(`🔍 "${q}" 결과 ${matched.length.toLocaleString()}건`);
+    }
+    return matched.length;
   }
 
   function runStoreSearch() {
