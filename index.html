@@ -238,18 +238,19 @@
   .step-line.done { background: var(--success); }
 
   /* ── CALENDAR ── */
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-  .cal-day-header { text-align: center; font-size: 11px; font-weight: 700; color: var(--gray-500); padding: 6px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .cal-day-header { text-align: center; font-size: 13px; font-weight: 700; color: var(--gray-500); padding: 8px; }
   .cal-day {
-    min-height: 80px; background: #fff; border: 1px solid var(--gray-200);
-    border-radius: 8px; padding: 6px; font-size: 12px; color: var(--gray-700);
+    min-height: 120px; background: #fff; border: 1px solid var(--gray-200);
+    border-radius: 8px; padding: 8px; font-size: 14px; color: var(--gray-700);
   }
-  .cal-day.today { border-color: var(--primary); background: var(--primary-light); }
+  .cal-day.today { border-color: var(--primary); background: var(--primary-light); border-width:2px; }
   .cal-day.other-month { background: var(--gray-50); color: var(--gray-300); }
-  .cal-day-num { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .cal-day-num { font-weight: 700; font-size: 16px; margin-bottom: 6px; }
   .cal-event {
-    border-radius: 4px; padding: 2px 5px; font-size: 10.5px; font-weight: 600;
-    margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border-radius: 5px; padding: 3px 7px; font-size: 12.5px; font-weight: 600;
+    margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    line-height: 1.4;
   }
   .cal-event.new { background: #DBEAFE; color: #1D4ED8; }
   .cal-event.replace { background: #D1FAE5; color: #065F46; }
@@ -557,10 +558,10 @@
     .filter-row::-webkit-scrollbar { height: 0; }
 
     /* cal grid */
-    .cal-grid { gap: 2px; }
-    .cal-day { min-height: 56px; padding: 4px; }
+    .cal-grid { gap: 3px; }
+    .cal-day { min-height: 72px; padding: 5px; }
     .cal-event { display:none; }
-    .cal-day-num { font-size:12px; }
+    .cal-day-num { font-size:14px; }
   }
 
   @media (max-width: 480px) {
