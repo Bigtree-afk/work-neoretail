@@ -153,15 +153,33 @@ def call_with_fallback(zone: str, path: str, *, params=None, body=None, timeout=
     raise RuntimeError(f'모든 zone 호스트 실패. last={last}')
 
 
+def call_paths_with_fallback(zone: str, paths, *, params=None, body=None, timeout=30) -> dict:
+    """여러 경로 후보 × 여러 호스트 후보 조합으로 시도."""
+    last = None
+    for path in paths:
+        try:
+            return call_with_fallback(zone, path, params=params, body=body, timeout=timeout)
+        except RuntimeError as e:
+            last = e
+            log(f'  경로 {path} 전체 실패, 다음 경로로...')
+            continue
+    raise RuntimeError(f'모든 경로 실패. last={last}')
+
+
 def login(zone: str, com_code: str, user_id: str, api_cert_key: str) -> str:
     log('OAPI 로그인...')
-    data = call_with_fallback(zone, '/OAPI/V2/OAPILogin/Login', body={
+    body = {
         'COM_CODE': com_code,
         'USER_ID': user_id,
         'API_CERT_KEY': api_cert_key,
         'LAN_TYPE': 'ko-KR',
         'ZONE': zone,
-    })
+    }
+    data = call_paths_with_fallback(
+        zone,
+        ['/OAPI/V2/OAPILogin', '/OAPI/V2/OAPILogin/Login', '/OAPI/V2/Login'],
+        body=body,
+    )
     sid = ((data.get('Data') or {}).get('Datas') or {}).get('SESSION_ID') \
         or (data.get('Data') or {}).get('SESSION_ID') \
         or data.get('SESSION_ID')
@@ -173,8 +191,9 @@ def login(zone: str, com_code: str, user_id: str, api_cert_key: str) -> str:
 
 def fetch_customers(zone: str, session_id: str) -> list[dict]:
     log('거래처(GetBasicCust) 조회...')
-    payload = call_with_fallback(
-        zone, '/OAPI/V2/AccountBasic/GetBasicCust',
+    payload = call_paths_with_fallback(
+        zone,
+        ['/OAPI/V2/AccountBasic/GetBasicCust', '/OAPI/V2/GetBasicCust', '/OAPI/V2/AccountBasic'],
         params={'SESSION_ID': session_id},
         body={'SEARCH_FLAG': '1'},
         timeout=120,
