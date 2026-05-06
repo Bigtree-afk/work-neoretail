@@ -113,17 +113,55 @@ def get_zone(com_code: str) -> str:
     raise RuntimeError(f'모든 Zone 엔드포인트 실패. last={last_err}')
 
 
+def zone_base_urls(zone: str):
+    """Zone-prefixed 후보 base URL 목록 (404 회피용 자동 fallback)."""
+    z = zone or ''
+    return [
+        f'https://oapi{z}.ecounterp.com',
+        f'https://oapi{z.lower()}.ecounterp.com',
+        f'https://oapi{z}.ecount.com',
+        f'https://oapi{z.lower()}.ecount.com',
+        f'https://sboapi{z}.ecounterp.com',
+        f'https://sboapi{z.lower()}.ecounterp.com',
+        f'https://sboapi{z}.ecount.com',
+        f'https://sboapi{z.lower()}.ecount.com',
+    ]
+
+
+def call_with_fallback(zone: str, path: str, *, params=None, body=None, timeout=30) -> dict:
+    """Zone subdomain 후보를 순차 시도. 200 응답이 나오면 반환."""
+    last = None
+    for base in zone_base_urls(zone):
+        url = base + path
+        log(f'시도 -> {url}')
+        try:
+            res = requests.post(url, params=params, json=body, timeout=timeout)
+        except Exception as e:
+            last = f'connection error: {e}'
+            log(f'  실패: {last}')
+            continue
+        log(f'  HTTP {res.status_code}')
+        if res.status_code == 200:
+            txt = res.text
+            log(f'  resp(앞300): {txt[:300]}')
+            try:
+                return res.json()
+            except Exception as e:
+                last = f'json parse: {e}'
+                continue
+        last = f'HTTP {res.status_code}: {res.text[:200]}'
+    raise RuntimeError(f'모든 zone 호스트 실패. last={last}')
+
+
 def login(zone: str, com_code: str, user_id: str, api_cert_key: str) -> str:
     log('OAPI 로그인...')
-    url = f'https://oapi{zone}.ecounterp.com/OAPI/V2/OAPILogin/Login'
-    data = post_json(url, body={
+    data = call_with_fallback(zone, '/OAPI/V2/OAPILogin/Login', body={
         'COM_CODE': com_code,
         'USER_ID': user_id,
         'API_CERT_KEY': api_cert_key,
         'LAN_TYPE': 'ko-KR',
         'ZONE': zone,
     })
-    # SESSION_ID 위치가 응답에 따라 다양함
     sid = ((data.get('Data') or {}).get('Datas') or {}).get('SESSION_ID') \
         or (data.get('Data') or {}).get('SESSION_ID') \
         or data.get('SESSION_ID')
@@ -135,8 +173,12 @@ def login(zone: str, com_code: str, user_id: str, api_cert_key: str) -> str:
 
 def fetch_customers(zone: str, session_id: str) -> list[dict]:
     log('거래처(GetBasicCust) 조회...')
-    url = f'https://oapi{zone}.ecounterp.com/OAPI/V2/AccountBasic/GetBasicCust'
-    payload = post_json(url, params={'SESSION_ID': session_id}, body={'SEARCH_FLAG': '1'}, timeout=120)
+    payload = call_with_fallback(
+        zone, '/OAPI/V2/AccountBasic/GetBasicCust',
+        params={'SESSION_ID': session_id},
+        body={'SEARCH_FLAG': '1'},
+        timeout=120,
+    )
     rows = ((payload.get('Data') or {}).get('Result')) or payload.get('Data') or []
     if isinstance(rows, dict):
         rows = rows.get('Result') or []
