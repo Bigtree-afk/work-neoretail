@@ -4446,8 +4446,50 @@ ${text.slice(0, 3000)}`;
   function openProfileMenu() {
     const state = getAuthState();
     if (!state) return;
-    if (state.role === 'admin') openAdminPage();
+    let menu = document.getElementById('profileDropdown');
+    if (!menu) {
+      menu = document.createElement('div');
+      menu.id = 'profileDropdown';
+      menu.style.cssText = 'position:fixed;top:60px;right:16px;z-index:1000;background:#fff;border:1px solid var(--gray-200);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);min-width:240px;overflow:hidden';
+      document.body.appendChild(menu);
+      // 외부 클릭 시 닫기
+      setTimeout(() => {
+        document.addEventListener('click', _profileMenuOutside, { once: false });
+      }, 0);
+    }
+    const initial = (state.name || state.email || '?').charAt(0).toUpperCase();
+    const isAdmin = state.role === 'admin';
+    menu.innerHTML = `
+      <div style="padding:14px 16px;background:linear-gradient(135deg,#1A1614,#3F3936);color:#FFF8E7">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:40px;height:40px;border-radius:50%;background:${isAdmin?'#EF4444':'#2563EB'};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">${initial}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(state.name||'-')}</div>
+            <div style="font-size:11px;opacity:0.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(state.email||state.id||'')}</div>
+            <div style="font-size:10px;margin-top:3px"><span style="background:${isAdmin?'#EF4444':'#2563EB'};color:#fff;padding:1px 8px;border-radius:8px;font-weight:700">${isAdmin?'관리자':'직원'}</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:6px">
+        ${isAdmin ? `<button onclick="closeProfileMenu();openAdminPage()" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--gray-700);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">⚙️ 관리자 페이지</button>` : ''}
+        <button onclick="closeProfileMenu();doLogout()" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:8px;font-weight:600" onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background=''">🚪 로그아웃</button>
+      </div>
+    `;
+    menu.style.display = '';
   }
+  function closeProfileMenu() {
+    const m = document.getElementById('profileDropdown');
+    if (m) m.style.display = 'none';
+  }
+  function _profileMenuOutside(e) {
+    const m = document.getElementById('profileDropdown');
+    if (!m || m.style.display === 'none') return;
+    const userBlock = document.getElementById('navUserBlock');
+    if (m.contains(e.target) || (userBlock && userBlock.contains(e.target))) return;
+    closeProfileMenu();
+  }
+  window.openProfileMenu = openProfileMenu;
+  window.closeProfileMenu = closeProfileMenu;
 
   /* ── 관리자 페이지 열기 ── */
   function openAdminPage() {
