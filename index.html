@@ -1205,8 +1205,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
               <th style="width:80px">상태</th>
               <th>점포명</th>
               <th>주소</th>
-              <th style="min-width:90px">주요 일정</th>
-              <th>담당</th>
+              <th style="min-width:170px">주요 일정</th>
+              <th style="min-width:140px">매장 담당자</th>
               <th>POS</th>
               <th>진행률</th>
               <th style="width:100px">작업</th>
@@ -5836,43 +5836,44 @@ ${text.slice(0, 3000)}`;
         ? j.equipment.filter(e => /pos|일체형/i.test(e.name||'')).reduce((s,e)=>s+(e.qty||0),0)
         : (j.posCount || j.pos || 0);
       const linkBtn = j.unregistered
-        ? `<button class="btn btn-outline btn-sm" style="color:var(--warning);border-color:var(--warning);font-size:11px;padding:3px 8px" onclick="event.stopPropagation();linkRegisteredStore('${j.id||''}')">가맹점 연결</button>`
-        : (j.storeId ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-600);border-color:var(--gray-400);font-size:11px;padding:3px 8px" onclick="event.stopPropagation();unlinkStore('${j.id||''}')" title="잘못 연결된 가맹점을 해제하고 미등록 상태로 되돌립니다">🔓 연결 해제</button>` : '');
+        ? `<button class="btn btn-outline btn-sm" style="color:var(--warning);border-color:var(--warning);background:#FEF3C7;font-size:13px;padding:8px 14px;font-weight:700;min-width:110px" onclick="event.stopPropagation();linkRegisteredStore('${j.id||''}')">🔗 연결</button>`
+        : (j.storeId ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-700);border-color:var(--gray-400);font-size:13px;padding:8px 14px;font-weight:700;min-width:110px" onclick="event.stopPropagation();unlinkStore('${j.id||''}')" title="잘못 연결된 가맹점을 해제하고 미등록 상태로 되돌립니다">🔓 연결해제</button>` : '');
 
-      // 매장 주요 일정 + 작업 예정일 — compact pills
+      // 매장 주요 일정 — 2 x 2 grid (PC 화면)
       const fmtDate = (s) => (s||'').slice(5,10).replace('-','.');
       const datePill = (icon, label, val, color) => val
-        ? `<div style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;background:${color.bg};color:${color.fg};font-size:10px;font-weight:600;margin:1px" title="${label} ${val}">${icon} ${fmtDate(val)}</div>`
-        : `<div style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;background:#F3F4F6;color:#9CA3AF;font-size:10px;font-weight:500;margin:1px" title="${label} 미정">${icon} —</div>`;
+        ? `<div style="display:flex;align-items:center;gap:3px;padding:3px 6px;border-radius:5px;background:${color.bg};color:${color.fg};font-size:10px;font-weight:600;white-space:nowrap" title="${label} ${val}"><span>${icon}</span><span>${fmtDate(val)}</span></div>`
+        : `<div style="display:flex;align-items:center;gap:3px;padding:3px 6px;border-radius:5px;background:#F3F4F6;color:#9CA3AF;font-size:10px;font-weight:500;white-space:nowrap" title="${label} 미정"><span>${icon}</span><span>—</span></div>`;
       const datesHtml = `
-        <div style="display:flex;flex-direction:column;gap:1px;font-size:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;min-width:160px">
           ${datePill('🗓','작업 예정일', j.date, {bg:'#EFF6FF',fg:'#1D4ED8'})}
           ${datePill('🔧','설치 완료일', j.installDate, {bg:'#FED7AA',fg:'#9A3412'})}
           ${datePill('🌅','가오픈일', j.softOpenDate, {bg:'#FECACA',fg:'#991B1B'})}
           ${datePill('🎉','오픈일', j.openDate, {bg:'#A7F3D0',fg:'#065F46'})}
         </div>`;
 
-      // 담당자 정보
-      const contactHtml = (j.contactName || j.contactPhone)
-        ? `<div style="font-size:10px;color:var(--gray-500);margin-top:2px">
-            ${j.contactName ? `<div>👤 ${esc(j.contactName)}${j.contactRole ? ` <span style="color:var(--gray-400)">${esc(j.contactRole)}</span>` : ''}</div>` : ''}
-            ${j.contactPhone ? `<div>📞 ${esc(j.contactPhone)}</div>` : ''}
+      // 담당 칸 — 매장 담당자 우선 표시 (없으면 엔지니어 표시)
+      const hasContact = j.contactName || j.contactPhone;
+      const contactCellHtml = hasContact
+        ? `<div style="font-size:11px;line-height:1.5">
+            ${j.contactName ? `<div style="font-weight:700">👤 ${esc(j.contactName)}${j.contactRole ? ` <span style="color:var(--gray-500);font-weight:500">${esc(j.contactRole)}</span>` : ''}</div>` : ''}
+            ${j.contactPhone ? `<div style="color:var(--gray-600)"><a href="tel:${esc(j.contactPhone)}" style="color:inherit;text-decoration:none">📞 ${esc(j.contactPhone)}</a></div>` : ''}
+            <div style="font-size:10px;color:var(--gray-400);margin-top:2px">엔지니어: ${eng}</div>
           </div>`
-        : '';
+        : `<div style="font-size:12px">${eng}</div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">매장 담당자 미입력</div>`;
 
       const wf = renderWorkflowRow(j, COLSPAN);
       return `<tr>
         <td><span class="badge ${badgeCls}">${esc(status)}</span></td>
         <td>
           <b>${esc(store)}</b>${unregBadge}${typeBadge}
-          ${contactHtml}
         </td>
         <td style="font-size:11px;color:var(--gray-500)">${esc(addr)}</td>
-        <td style="font-size:11px">${datesHtml}</td>
-        <td>${eng}</td>
+        <td>${datesHtml}</td>
+        <td>${contactCellHtml}</td>
         <td>${posQty || '-'}${posQty ? '대' : ''}</td>
         <td><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100px"><div style="background:var(--primary);height:100%;width:${wfProg}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">${wfProg}%</div></td>
-        <td style="display:flex;gap:4px;flex-wrap:wrap">${linkBtn}<button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 8px" onclick="event.stopPropagation();editNewopen('${j.id||''}')">상세</button></td>
+        <td><div style="display:flex;gap:6px;flex-wrap:wrap;min-width:160px">${linkBtn}<button class="btn btn-primary btn-sm" style="font-size:13px;padding:8px 16px;font-weight:700;min-width:70px" onclick="event.stopPropagation();editNewopen('${j.id||''}')">상세</button></div></td>
       </tr>${wf.pillRow}${wf.detailRows}`;
     }).join('');
     // 모든 변경사항 저장 (workflow 자동 보강 결과)
