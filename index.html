@@ -855,7 +855,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <!-- STAT CARDS -->
       <div class="stat-grid">
         <div class="stat-card blue">
-          <div class="stat-label">이번달 신규개업</div>
+          <div class="stat-label">이번달 신규</div>
           <div class="stat-value" id="statNewOpen">0</div>
           <div class="stat-sub" id="statNewOpenSub">데이터 없음</div>
           <div class="stat-icon">🏪</div>
@@ -887,11 +887,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <div class="section-title" id="dashTodayTitle">📅 오늘 일정</div>
           </div>
           <div style="padding:8px 0" id="dashTodayBody">
-            <div class="sched-row" data-title="K-1마트 안중점 신규개업" data-icon="🏪" data-type="신규개업" data-store="K-1마트 안중점" data-date="4월 20일 09:00" data-engineer="김현장" data-note="POS 5대 + 저울 + 계산대 설치 | 설치 진행중 (4/6단계)"
+            <div class="sched-row" data-title="K-1마트 안중점 신규" data-icon="🏪" data-type="신규" data-store="K-1마트 안중점" data-date="4월 20일 09:00" data-engineer="김현장" data-note="POS 5대 + 저울 + 계산대 설치 | 설치 진행중 (4/6단계)"
               style="padding:12px 18px; border-bottom:1px solid var(--gray-100); display:flex; gap:14px; align-items:flex-start">
               <div style="font-size:12px; font-weight:700; color:var(--primary); width:45px; flex-shrink:0; padding-top:2px">09:00</div>
               <div style="flex:1">
-                <div style="font-size:14px; font-weight:700; margin-bottom:3px">K-1마트 안중점 — 신규개업</div>
+                <div style="font-size:14px; font-weight:700; margin-bottom:3px">K-1마트 안중점 — 신규</div>
                 <div style="font-size:12px; color:var(--gray-400)">POS 5대 + 저울 + 계산대 설치 / 담당: 김현장</div>
               </div>
               <span class="badge badge-blue">설치중</span>
@@ -1125,7 +1125,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <button type="button" onclick="startJobVoiceSearch()" title="음성 검색" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:#F3F4F6;border:1px solid var(--gray-200);border-radius:8px;width:30px;height:30px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center">🎙</button>
         </div>
         <div class="filter-chip active" onclick="filterJobs(this,'전체')">전체</div>
-        <div class="filter-chip" onclick="filterJobs(this,'신규개업')">신규개업</div>
+        <div class="filter-chip" onclick="filterJobs(this,'신규')">신규</div>
         <div class="filter-chip" onclick="filterJobs(this,'POS교체')">POS교체</div>
         <div class="filter-chip" onclick="filterJobs(this,'VAN교체')">VAN교체</div>
         <div class="filter-chip" onclick="filterJobs(this,'AS')">AS</div>
@@ -1162,7 +1162,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <!-- 상단 통계 -->
       <div class="stat-grid" style="margin-bottom:20px">
         <div class="stat-card blue">
-          <div class="stat-label">진행중 신규개업</div>
+          <div class="stat-label">진행중 신규</div>
           <div class="stat-value" id="newopenInProgress">0</div>
           <div class="stat-sub" id="newopenInProgressSub">데이터 없음</div>
           <div class="stat-icon">🏗️</div>
@@ -1189,12 +1189,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
       <!-- 액션 바 -->
       <div class="filter-row" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <div style="font-size:13px;font-weight:700;color:var(--gray-700)">📋 신규개업 진행 현황</div>
+        <div style="font-size:13px;font-weight:700;color:var(--gray-700)">📋 신규 진행 현황</div>
         <button class="filter-chip active" onclick="filterNewopen(this,'all')">전체</button>
         <button class="filter-chip" onclick="filterNewopen(this,'planned')">예정</button>
         <button class="filter-chip" onclick="filterNewopen(this,'progress')">진행중</button>
         <button class="filter-chip" onclick="filterNewopen(this,'done')">완료</button>
-        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openNewopenJob()">＋ 신규개업 등록</button>
+        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openNewopenJob()">＋ 신규 등록</button>
       </div>
 
       <!-- 테이블 -->
@@ -1215,8 +1215,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <tbody id="newopenTbody">
             <tr><td colspan="8" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
               <div style="font-size:36px;margin-bottom:10px">🏗️</div>
-              <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">신규개업 작업이 없습니다</div>
-              <div style="font-size:11px">"+ 신규개업 등록"으로 추가하세요.</div>
+              <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">신규 작업이 없습니다</div>
+              <div style="font-size:11px">"+ 신규 등록"으로 추가하세요.</div>
             </td></tr>
           </tbody>
         </table>
@@ -1332,7 +1332,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div style="font-size:18px; font-weight:800; color:var(--gray-900)">2026년 4월</div>
         <button class="btn btn-outline btn-sm">▶</button>
         <div style="margin-left:auto; display:flex; gap:8px; font-size:12px; font-weight:600">
-          <span style="background:#DBEAFE; color:#1D4ED8; padding:3px 10px; border-radius:10px">신규개업</span>
+          <span style="background:#DBEAFE; color:#1D4ED8; padding:3px 10px; border-radius:10px">신규</span>
           <span style="background:#D1FAE5; color:#065F46; padding:3px 10px; border-radius:10px">POS교체</span>
           <span style="background:#EDE9FE; color:#5B21B6; padding:3px 10px; border-radius:10px">VAN교체</span>
           <span style="background:#FEF3C7; color:#92400E; padding:3px 10px; border-radius:10px">AS</span>
@@ -1566,7 +1566,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <div class="form-group">
             <label>작업 유형</label>
             <select>
-              <option>신규개업</option>
+              <option>신규</option>
               <option>POS 교체</option>
               <option>VAN 교체</option>
               <option>장비 추가</option>
@@ -1801,7 +1801,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div class="form-group" style="margin:0">
           <label>작업 유형</label>
           <select id="jobType">
-            <option>신규개업</option>
+            <option>신규</option>
             <option>신규가맹</option>
             <option>VAN사 변경</option>
             <option>SW 변경</option>
@@ -2055,7 +2055,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <b>오늘 날짜 메시지만</b> 자동으로 필터링됩니다.
         </div>
         <textarea id="linePasteArea" rows="8"
-          placeholder="오후 2:35  김기사&#10;강남 K마트 POS 2번 영수증 안나와요&#10;&#10;오후 2:41  박반장&#10;확인해볼게요&#10;&#10;오후 3:10  김기사&#10;강남 K마트 처리 완료했습니다&#10;&#10;오후 4:20  이부장&#10;내일 오전 10시 안성점 신규개업 설치 있어요. 박기사님 가능하신가요?"
+          placeholder="오후 2:35  김기사&#10;강남 K마트 POS 2번 영수증 안나와요&#10;&#10;오후 2:41  박반장&#10;확인해볼게요&#10;&#10;오후 3:10  김기사&#10;강남 K마트 처리 완료했습니다&#10;&#10;오후 4:20  이부장&#10;내일 오전 10시 안성점 신규 설치 있어요. 박기사님 가능하신가요?"
           style="font-family:monospace;font-size:12.5px;line-height:1.7;resize:vertical;min-height:160px;max-height:280px">
         </textarea>
       </div>
@@ -2943,6 +2943,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     { key:'monitor',    name:'모니터',            variants:['사무용','포스 듀얼'], costPrice:0, salePrice:0 },
     { key:'scale',      name:'전자저울',          variants:['일반','정육'], costPrice:0, salePrice:0 },
     { key:'kbdai',      name:'키보드 다이',       costPrice:0,       salePrice:0       },
+    { key:'checker',    name:'체크기',
+      variants:['K501','K4200','SCS500','K400','P500'],
+      extraToggle:{ label:'구성', options:['세트','단품'] },
+      costPrice:0, salePrice:0 },
+    { key:'hscanner',   name:'핸디스캐너',        costPrice:0,       salePrice:0       },
   ];
 
   /* ── 투입 장비 행 관리 ──
@@ -2968,6 +2973,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         name: def.name,
         variant,
         size: '',
+        extra: def.extraToggle ? def.extraToggle.options[0] : '',
         condition: 'new',
         qty: 0, // 기본 0대 — 필요한 것만 카운트
         costPrice: cost,
@@ -3026,9 +3032,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           ? `<select onchange="onVariantChange(${r.id}, this.value)" style="margin-top:4px;width:100%;padding:5px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px">
               ${def.variants.map(v => `<option value="${v}" ${r.variant===v?'selected':''}>${v}</option>`).join('')}
             </select>` : '';
+        const extraToggle = (def && def.extraToggle)
+          ? `<div style="display:flex;gap:8px;margin-top:4px;font-size:11px">
+              <span style="color:var(--gray-500);font-weight:600">${def.extraToggle.label}:</span>
+              ${def.extraToggle.options.map(o => `<label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer">
+                <input type="radio" name="extra-${r.id}" ${r.extra===o?'checked':''} onchange="onEquipField(${r.id},'extra','${o}')">${o}
+              </label>`).join('')}
+            </div>` : '';
         const sizeInput = (def && def.hasSize)
           ? `<input type="text" placeholder="사이즈 (예: 1800×600)" value="${escAttr(r.size||'')}" oninput="onEquipField(${r.id},'size',this.value)" style="margin-top:4px;width:100%;padding:5px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px">` : '';
-        nameCell = `<div style="font-weight:700;color:${isUnused?'var(--gray-500)':'var(--gray-800)'}">🔒 ${esc(r.name)}</div>${variantSelect}${sizeInput}`;
+        nameCell = `<div style="font-weight:700;color:${isUnused?'var(--gray-500)':'var(--gray-800)'}">🔒 ${esc(r.name)}</div>${variantSelect}${extraToggle}${sizeInput}`;
       } else {
         nameCell = `<input type="text" placeholder="품목명 (직접 입력)" value="${escAttr(r.name)}" oninput="onEquipField(${r.id},'name',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
           <input type="text" placeholder="규격 (선택)" value="${escAttr(r.spec||'')}" oninput="onEquipField(${r.id},'spec',this.value)" style="width:100%;margin-top:4px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px">`;
@@ -3631,13 +3644,13 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
     const contextData = `
 [현재 작업 현황]
-- 이번달 신규개업: 7건 (지난달 대비 +2)
+- 이번달 신규: 7건 (지난달 대비 +2)
 - 진행중 작업: 12건 (오늘 완료 예정 3건)
 - AS 접수: 5건 (48시간 초과 2건 미배정)
 - 장비 재고 부족: 3개 품목
 
 [오늘 일정]
-- 09:00 K-1마트 안중점 신규개업 설치 (POS 5대+저울+계산대 / 담당: 김현장) - 4/6단계 진행중
+- 09:00 K-1마트 안중점 신규 설치 (POS 5대+저울+계산대 / 담당: 김현장) - 4/6단계 진행중
 - 14:00 웰빙마트 신림점 VAN 교체 (KIS→KCP 단말 3대 / 담당: 이기사) - 예정
 - 16:30 ECJ마트 AS 처리 (영수프린터 용지 걸림 / 담당: 박기사)
 
@@ -4885,6 +4898,7 @@ ${text.slice(0, 3000)}`;
           spec: r.spec || '',
           variant: r.variant || '',
           size: r.size || '',
+          extra: r.extra || '',
           fixed: !!r.fixed,
           fixedKey: r.fixedKey || '',
           condition: r.condition || 'new',
@@ -4898,7 +4912,7 @@ ${text.slice(0, 3000)}`;
 
     const job = {
       id: 'JOB-' + Date.now().toString(36).toUpperCase(),
-      type:      (document.getElementById('jobType')     || {}).value || '신규개업',
+      type:      (document.getElementById('jobType')     || {}).value || '신규',
       storeName,
       store: storeName, // alias
       storeId: storeMatch ? storeMatch.id : '',
@@ -5034,7 +5048,7 @@ ${text.slice(0, 3000)}`;
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   function buildJobCardEl(job) {
-    const typeIcon = { '신규개업':'🏪','POS교체':'🔄','VAN교체':'💳','AS':'🔧','기타':'📋' }[job.type] || '📋';
+    const typeIcon = { '신규':'🏪','POS교체':'🔄','VAN교체':'💳','AS':'🔧','기타':'📋' }[job.type] || '📋';
     const card = document.createElement('div');
     card.className = 'job-card';
     card.setAttribute('data-jobtype', job.type || '기타');
@@ -5272,7 +5286,7 @@ ${text.slice(0, 3000)}`;
     '신규가맹':       ['vanGam','posAuth','installPos','installVan','bizDate','openDate'],
     'SW 변경':        ['vanGam','posAuth','installPos','installVan','bizDate','openDate'],
     'VAN사 변경':     ['vanGam','posAuth','installPos','installVan','workDate'],
-    '신규개업':       ['vanGam','posAuth','installPos','installVan','bizDate','openDate'],
+    '신규':           ['vanGam','posAuth','installPos','installVan','bizDate','openDate'],
     '당사매장 인수':  ['vanGam','posAuth','installPos','installVan','bizDate','openDate'],
     'POS 교체':       ['installPos','workDate'],
     '장비 추가':      ['installPos','workDate'],
@@ -5480,8 +5494,8 @@ ${text.slice(0, 3000)}`;
     if (view.length === 0) {
       tb.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
         <div style="font-size:36px;margin-bottom:10px">🏗️</div>
-        <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">신규개업 작업이 없습니다</div>
-        <div style="font-size:11px">"+ 신규개업 등록"으로 추가하세요.</div>
+        <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">신규 작업이 없습니다</div>
+        <div style="font-size:11px">"+ 신규 등록"으로 추가하세요.</div>
       </td></tr>`;
       return;
     }
@@ -5526,7 +5540,7 @@ ${text.slice(0, 3000)}`;
     hydrateNewopen(filter);
   }
   function openNewopenJob() {
-    // 새 작업 모달 열고 유형을 신규개업으로 프리셋
+    // 새 작업 모달 열고 유형을 신규으로 프리셋
     if (typeof showModal === 'function') showModal('newJobModal');
     setTimeout(() => {
       const sel = document.getElementById('jobType');
@@ -5538,8 +5552,112 @@ ${text.slice(0, 3000)}`;
     }, 50);
   }
   function editNewopen(id) {
-    if (typeof showToast === 'function') showToast('상세 보기는 준비 중입니다.');
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const j = jobs.find(x => x.id === id);
+    if (!j) { showToast && showToast('작업을 찾을 수 없습니다'); return; }
+
+    let modal = document.getElementById('newopenDetailModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'newopenDetailModal';
+      modal.className = 'modal-overlay';
+      modal.onclick = (e) => { if (e.target === modal) modal.classList.remove('show'); };
+      modal.innerHTML = `
+        <div class="modal" style="max-width:920px;width:96%">
+          <div class="modal-header">
+            <div class="modal-title" id="newopenDetailTitle">상세</div>
+            <button class="modal-close" onclick="document.getElementById('newopenDetailModal').classList.remove('show')">✕</button>
+          </div>
+          <div class="modal-body" id="newopenDetailBody"></div>
+          <div class="modal-footer" style="justify-content:flex-end">
+            <button class="btn btn-outline" onclick="document.getElementById('newopenDetailModal').classList.remove('show')">닫기</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+    }
+
+    const title = document.getElementById('newopenDetailTitle');
+    const body  = document.getElementById('newopenDetailBody');
+    title.textContent = `📋 ${j.storeName || j.store || '-'} · ${j.type || '-'}`;
+
+    const eq = Array.isArray(j.equipment) ? j.equipment : [];
+    const checked = j.equipmentChecked || {};
+    const totalQty = eq.reduce((s, e) => s + (Number(e.qty) || 0), 0);
+    const installedQty = eq.reduce((s, e, i) => s + (checked[i] ? (Number(e.qty) || 0) : 0), 0);
+    const grandTotal = eq.reduce((s, e) => s + (e.subtotal || (Number(e.qty)||0)*(Number(e.salePrice)||0)), 0);
+
+    const rows = eq.length === 0
+      ? `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">등록된 투입 장비가 없습니다.</td></tr>`
+      : eq.map((e, i) => {
+          const isChk = !!checked[i];
+          const meta = (j.equipmentCheckedBy || {})[i];
+          const tag = (txt, bg, fg) => `<span style="background:${bg};color:${fg};font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px">${esc(txt)}</span>`;
+          const variantTxt = e.variant ? tag(e.variant, '#EFF6FF', '#1D4ED8') : '';
+          const extraTxt   = e.extra   ? tag(e.extra,   '#F3E8FF', '#7E22CE') : '';
+          const sizeTxt    = e.size    ? tag('📐 '+e.size, '#FEF3C7', '#92400E') : '';
+          const condBadge  = e.condition === 'used'
+            ? tag('중고', '#FEE2E2', '#991B1B')
+            : tag('신품', '#D1FAE5', '#065F46');
+          const checkInfo = isChk && meta
+            ? `<div style="font-size:10px;color:var(--success);margin-top:2px">✓ ${esc(meta.name||'-')} · ${meta.at?new Date(meta.at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div>`
+            : '';
+          return `<tr style="${isChk?'background:#F0FDF4':''}">
+            <td style="padding:8px;border-bottom:1px solid var(--gray-100);text-align:center">
+              <input type="checkbox" ${isChk?'checked':''} onchange="toggleEquipChecked('${j.id}',${i},this.checked); editNewopen('${j.id}')" style="width:16px;height:16px;cursor:pointer">
+            </td>
+            <td style="padding:8px;border-bottom:1px solid var(--gray-100)">
+              <div style="font-weight:700">${esc(e.name||'-')}${condBadge}${variantTxt}${extraTxt}${sizeTxt}</div>
+              ${e.spec ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">${esc(e.spec)}</div>` : ''}
+              ${checkInfo}
+            </td>
+            <td style="padding:8px;border-bottom:1px solid var(--gray-100);text-align:right;font-weight:600">${e.qty}대</td>
+            <td style="padding:8px;border-bottom:1px solid var(--gray-100);text-align:right;color:var(--gray-500)">${(Number(e.costPrice)||0).toLocaleString('ko-KR')}</td>
+            <td style="padding:8px;border-bottom:1px solid var(--gray-100);text-align:right">${(Number(e.salePrice)||0).toLocaleString('ko-KR')}</td>
+            <td style="padding:8px;border-bottom:1px solid var(--gray-100);text-align:right;font-weight:700;color:var(--primary)">${((Number(e.qty)||0)*(Number(e.salePrice)||0)).toLocaleString('ko-KR')}</td>
+          </tr>`;
+        }).join('');
+
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;padding:14px;background:#F9FAFB;border-radius:10px;border:1px solid var(--gray-200)">
+        <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">점포명</div><div style="font-weight:700">${esc(j.storeName || j.store || '-')}${j.unregistered ? ' <span style="background:#FEF3C7;color:#92400E;font-size:10px;padding:1px 6px;border-radius:4px">미등록</span>' : ''}</div></div>
+        <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">작업 유형</div><div style="font-weight:700">${esc(j.type || '-')}</div></div>
+        <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">담당</div><div>${esc(j.engineer || j.assignee || '미배정')}</div></div>
+        <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">예정일</div><div>${esc((j.date||j.createdAt||'').slice(0,10))}</div></div>
+        <div style="grid-column:1/-1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">주소</div><div style="font-size:13px">${esc(j.address || '-')}</div></div>
+        ${j.notes ? `<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">비고</div><div style="font-size:13px;white-space:pre-wrap">${esc(j.notes)}</div></div>` : ''}
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 4px">
+        <div style="font-size:13px;font-weight:700;color:var(--gray-700)">📦 설치되어야 할 장비 (${eq.length}종 · 총 ${totalQty}대)</div>
+        <div style="font-size:12px;color:var(--gray-500)">설치 완료: <b style="color:var(--success)">${installedQty}</b> / ${totalQty}대</div>
+      </div>
+
+      <div style="overflow-x:auto;border:1px solid var(--gray-200);border-radius:10px">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead style="background:#F3F4F6">
+            <tr>
+              <th style="padding:10px;width:60px;text-align:center;font-size:11px;font-weight:700">설치</th>
+              <th style="padding:10px;text-align:left;font-size:11px;font-weight:700">품목 / 분류 / 상태</th>
+              <th style="padding:10px;text-align:right;width:60px;font-size:11px;font-weight:700">수량</th>
+              <th style="padding:10px;text-align:right;width:100px;font-size:11px;font-weight:700">입고가</th>
+              <th style="padding:10px;text-align:right;width:100px;font-size:11px;font-weight:700">판매가</th>
+              <th style="padding:10px;text-align:right;width:120px;font-size:11px;font-weight:700">합계</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+          <tfoot>
+            <tr style="background:#F9FAFB;font-weight:700">
+              <td colspan="5" style="padding:10px;text-align:right;color:var(--gray-600)">총 합계</td>
+              <td style="padding:10px;text-align:right;color:var(--primary);font-size:14px">${grandTotal.toLocaleString('ko-KR')}원</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+
+    modal.classList.add('show');
   }
+  window.editNewopen = editNewopen;
 
   /* 미등록 작업 → 등록된 가맹점에 연결 */
   function linkRegisteredStore(jobId) {
@@ -5872,7 +5990,7 @@ ${text.slice(0, 3000)}`;
   ══════════════════════════════════════════════ */
   // 캘린더 이벤트 메타 데이터 (타입→색상·아이콘)
   const CAL_EVENT_META = {
-    'new':     { icon: '🏪', label: '신규개업',  color: '#1D4ED8' },
+    'new':     { icon: '🏪', label: '신규',  color: '#1D4ED8' },
     'replace': { icon: '🖥',  label: 'POS 교체', color: '#065F46' },
     'van':     { icon: '💳', label: 'VAN 교체', color: '#5B21B6' },
     'as':      { icon: '🔧', label: 'AS 처리',  color: '#92400E' },
