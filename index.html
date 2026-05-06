@@ -763,12 +763,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <a class="nav-item active" onclick="showScreen('dashboard')">
       <span class="nav-icon">◆</span> 대시보드
     </a>
-    <a class="nav-item" onclick="showScreen('jobs')">
-      <span class="nav-icon">●</span> 작업 목록
-      <span class="nav-badge">3</span>
+    <a class="nav-item" onclick="showScreen('newopen')">
+      <span class="nav-icon">✚</span> 신규관리
     </a>
     <a class="nav-item" onclick="showScreen('stores')">
       <span class="nav-icon">▣</span> 점포 관리
+    </a>
+    <a class="nav-item" onclick="showScreen('jobs')">
+      <span class="nav-icon">●</span> 작업 목록
     </a>
     <a class="nav-item" onclick="showScreen('calendar')">
       <span class="nav-icon">▤</span> 일정 캘린더
@@ -810,13 +812,15 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   <a class="nav-item active" onclick="showScreen('dashboard'); closeMenu()">
     <span class="nav-icon">◆</span> 대시보드
   </a>
-  <div class="nav-section">업무</div>
-  <a class="nav-item" onclick="showScreen('jobs'); closeMenu()">
-    <span class="nav-icon">●</span> 작업 목록
-    <span class="nav-badge">3</span>
+  <a class="nav-item" onclick="showScreen('newopen'); closeMenu()">
+    <span class="nav-icon">✚</span> 신규관리
   </a>
   <a class="nav-item" onclick="showScreen('stores'); closeMenu()">
     <span class="nav-icon">▣</span> 점포 관리
+  </a>
+  <div class="nav-section">업무</div>
+  <a class="nav-item" onclick="showScreen('jobs'); closeMenu()">
+    <span class="nav-icon">●</span> 작업 목록
   </a>
   <a class="nav-item" onclick="showScreen('calendar'); closeMenu()">
     <span class="nav-icon">▤</span> 일정 캘린더
@@ -1148,6 +1152,74 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- SCREEN: NEW OPEN MANAGEMENT (신규관리)    -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="screen" id="screen-newopen">
+      <!-- 상단 통계 -->
+      <div class="stat-grid" style="margin-bottom:20px">
+        <div class="stat-card blue">
+          <div class="stat-label">진행중 신규개업</div>
+          <div class="stat-value" id="newopenInProgress">0</div>
+          <div class="stat-sub" id="newopenInProgressSub">데이터 없음</div>
+          <div class="stat-icon">🏗️</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">이번달 오픈 예정</div>
+          <div class="stat-value" id="newopenThisMonth">0</div>
+          <div class="stat-sub">예정 일정</div>
+          <div class="stat-icon">📅</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-label">설치 대기</div>
+          <div class="stat-value" id="newopenWaiting">0</div>
+          <div class="stat-sub">담당자 미배정</div>
+          <div class="stat-icon">⏳</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">이번달 완료</div>
+          <div class="stat-value" id="newopenDone">0</div>
+          <div class="stat-sub">개업 완료</div>
+          <div class="stat-icon">✅</div>
+        </div>
+      </div>
+
+      <!-- 액션 바 -->
+      <div class="filter-row" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div style="font-size:13px;font-weight:700;color:var(--gray-700)">📋 신규개업 진행 현황</div>
+        <button class="filter-chip active" onclick="filterNewopen(this,'all')">전체</button>
+        <button class="filter-chip" onclick="filterNewopen(this,'planned')">예정</button>
+        <button class="filter-chip" onclick="filterNewopen(this,'progress')">진행중</button>
+        <button class="filter-chip" onclick="filterNewopen(this,'done')">완료</button>
+        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openNewopenJob()">＋ 신규개업 등록</button>
+      </div>
+
+      <!-- 테이블 -->
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:80px">상태</th>
+              <th>점포명</th>
+              <th>주소</th>
+              <th>예정일</th>
+              <th>담당</th>
+              <th>POS</th>
+              <th>진행률</th>
+              <th style="width:100px">작업</th>
+            </tr>
+          </thead>
+          <tbody id="newopenTbody">
+            <tr><td colspan="8" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+              <div style="font-size:36px;margin-bottom:10px">🏗️</div>
+              <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">신규개업 작업이 없습니다</div>
+              <div style="font-size:11px">"+ 신규개업 등록"으로 추가하세요.</div>
+            </td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -2360,8 +2432,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <script>
   const titles = {
     dashboard: '대시보드',
-    jobs: '작업 목록',
+    newopen: '신규관리',
     stores: '점포 관리',
+    jobs: '작업 목록',
     calendar: '일정 캘린더',
     equipment: '장비 재고',
     quote: '견적 작성'
@@ -2382,6 +2455,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     // 댓글 패널 화면 동기화
     cmCurrentScreen = id;
     if (typeof renderCommentPanel === 'function') renderCommentPanel();
+    // 신규관리 진입 시 데이터 갱신
+    if (id === 'newopen' && typeof hydrateNewopen === 'function') {
+      try { hydrateNewopen('all'); } catch(e) {}
+    }
   }
 
   function showModal(id) {
@@ -4885,6 +4962,97 @@ ${text.slice(0, 3000)}`;
     }
   }
   window.hydrateDashboardJobs = hydrateDashboardJobs;
+
+  /* ── 신규관리 페이지 ── */
+  function isNewopenJob(j) {
+    const t = (j.type || '') + ' ' + (j.title || '');
+    return /신규|개업|오픈|new\s*open/i.test(t);
+  }
+  function hydrateNewopen(filter) {
+    let jobs = [];
+    try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e) {}
+    const items = jobs.filter(isNewopenJob);
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0,10);
+    const ym = todayStr.slice(0,7);
+    const isDone = (j) => (j.status === '완료' || j.status === 'done');
+    // 통계
+    const inProg = items.filter(j => !isDone(j) && (j.status === '진행중' || /설치|진행/i.test(j.status||''))).length;
+    const planned = items.filter(j => !isDone(j) && (j.date||'').slice(0,7) === ym).length;
+    const waiting = items.filter(j => !isDone(j) && !(j.engineer || j.assignee)).length;
+    const doneCnt = items.filter(j => isDone(j) && (j.date||j.createdAt||'').slice(0,7) === ym).length;
+    const setText = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+    setText('newopenInProgress', inProg);
+    setText('newopenInProgressSub', inProg === 0 ? '진행중 작업 없음' : '진행중');
+    setText('newopenThisMonth', planned);
+    setText('newopenWaiting', waiting);
+    setText('newopenDone', doneCnt);
+
+    // 필터링
+    let view = items.slice();
+    if (filter === 'planned')  view = view.filter(j => !isDone(j) && j.status !== '진행중');
+    if (filter === 'progress') view = view.filter(j => !isDone(j) && (j.status === '진행중' || /설치|진행/i.test(j.status||'')));
+    if (filter === 'done')     view = view.filter(isDone);
+    view.sort((a,b)=> new Date(b.date||b.createdAt||0) - new Date(a.date||a.createdAt||0));
+
+    const tb = document.getElementById('newopenTbody');
+    if (!tb) return;
+    if (view.length === 0) {
+      tb.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+        <div style="font-size:36px;margin-bottom:10px">🏗️</div>
+        <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">신규개업 작업이 없습니다</div>
+        <div style="font-size:11px">"+ 신규개업 등록"으로 추가하세요.</div>
+      </td></tr>`;
+      return;
+    }
+    tb.innerHTML = view.map(j => {
+      const status = j.status || '예정';
+      let badgeCls = 'badge-blue';
+      if (isDone(j)) badgeCls = 'badge-green';
+      else if (/진행|설치/i.test(status)) badgeCls = 'badge-amber';
+      const store = j.store || j.storeName || '-';
+      const addr = j.address || '-';
+      const dt = (j.date || j.createdAt || '').slice(0,10);
+      const eng = j.engineer || j.assignee || '<span style="color:var(--danger)">미배정</span>';
+      const pos = j.posCount || j.pos || '-';
+      const prog = j.progress || (isDone(j) ? 100 : 0);
+      return `<tr>
+        <td><span class="badge ${badgeCls}">${esc(status)}</span></td>
+        <td><b>${esc(store)}</b></td>
+        <td style="font-size:11px;color:var(--gray-500)">${esc(addr)}</td>
+        <td style="font-size:11px">${esc(dt)}</td>
+        <td>${eng}</td>
+        <td>${esc(String(pos))}${pos !== '-' ? '대' : ''}</td>
+        <td><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100px"><div style="background:var(--primary);height:100%;width:${prog}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">${prog}%</div></td>
+        <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editNewopen('${j.id||''}')">상세</button></td>
+      </tr>`;
+    }).join('');
+  }
+  function filterNewopen(chip, filter) {
+    chip.parentElement.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    hydrateNewopen(filter);
+  }
+  function openNewopenJob() {
+    // 새 작업 모달 열고 유형을 신규개업으로 프리셋
+    if (typeof showModal === 'function') showModal('newJobModal');
+    setTimeout(() => {
+      const sel = document.getElementById('jobType');
+      if (sel) {
+        for (const opt of sel.options) {
+          if (/신규|개업|오픈/.test(opt.value || opt.textContent)) { sel.value = opt.value || opt.textContent; break; }
+        }
+      }
+    }, 50);
+  }
+  function editNewopen(id) {
+    if (typeof showToast === 'function') showToast('상세 보기는 준비 중입니다.');
+  }
+  window.hydrateNewopen = hydrateNewopen;
+  window.filterNewopen = filterNewopen;
+  window.openNewopenJob = openNewopenJob;
+  window.editNewopen = editNewopen;
+  try { hydrateNewopen('all'); } catch(e) {}
   // 초기 로드
   try { hydrateDashboardJobs(); } catch(e) {}
   // ns_jobs 변경 시 자동 갱신
