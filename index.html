@@ -5213,6 +5213,193 @@ ${text.slice(0, 3000)}`;
   }
   window.hydrateDashboardJobs = hydrateDashboardJobs;
 
+  /* ══════════════════════════════════════════════
+     작업 워크플로 시스템 (작업 유형별 단계 + 진행상태)
+  ══════════════════════════════════════════════ */
+  const STEP_LABELS = {
+    vanGam:     'VAN가맹',
+    posAuth:    'POS인증',
+    installPos: '장비설치(POS)',
+    installVan: '장비설치(VAN)',
+    bizDate:    '영업예정일',
+    openDate:   '오픈예정일',
+    workDate:   '작업예정일',
+  };
+  const WORKFLOW_TEMPLATES = {
+    '신규가맹':       ['vanGam','posAuth','installPos','installVan','bizDate','openDate'],
+    'SW 변경':        ['vanGam','posAuth','installPos','installVan','bizDate','openDate'],
+    'VAN사 변경':     ['vanGam','posAuth','installPos','installVan','workDate'],
+    '신규개업':       ['vanGam','posAuth','installPos','installVan','bizDate','openDate'],
+    '당사매장 인수':  ['vanGam','posAuth','installPos','installVan','bizDate','openDate'],
+    'POS 교체':       ['installPos','workDate'],
+    '장비 추가':      ['installPos','workDate'],
+    'AS 처리':        ['workDate'],
+  };
+  const STATUS_NEXT = { pending:'in_progress', in_progress:'completed', completed:'pending' };
+  const STATUS_LABEL = { pending:'준비중', in_progress:'진행중', completed:'완료' };
+  const STATUS_STYLE = {
+    pending:    'background:#F3F4F6;color:#6B7280;border-color:#E5E7EB',
+    in_progress:'background:#DBEAFE;color:#1D4ED8;border-color:#93C5FD',
+    completed:  'background:#D1FAE5;color:#065F46;border-color:#6EE7B7',
+  };
+
+  function ensureWorkflow(job) {
+    const tpl = WORKFLOW_TEMPLATES[job.type] || ['workDate'];
+    if (!job.workflow || !Array.isArray(job.workflow.steps)) {
+      job.workflow = { steps: tpl.map(k => ({ key: k, status: 'pending', updatedAt: 0, updatedBy: '' })) };
+      return job.workflow;
+    }
+    // 작업 유형 변경 시 누락 단계 보강
+    const have = new Set(job.workflow.steps.map(s => s.key));
+    tpl.forEach(k => {
+      if (!have.has(k)) job.workflow.steps.push({ key: k, status: 'pending', updatedAt: 0, updatedBy: '' });
+    });
+    // 순서 재정렬 (템플릿 순서대로)
+    job.workflow.steps.sort((a,b) => tpl.indexOf(a.key) - tpl.indexOf(b.key));
+    return job.workflow;
+  }
+
+  function recalcJobProgress(job) {
+    const wf = ensureWorkflow(job);
+    const done = wf.steps.filter(s => s.status === 'completed').length;
+    job.progress = Math.round((done / wf.steps.length) * 100);
+    return job.progress;
+  }
+
+  function getCurrentUserName() {
+    try {
+      const auth = JSON.parse(localStorage.getItem('ns_auth') || 'null');
+      return (auth && (auth.name || auth.email)) || '관리자';
+    } catch { return '관리자'; }
+  }
+
+  function cycleStepStatus(jobId, stepKey) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const wf = ensureWorkflow(job);
+    const step = wf.steps.find(s => s.key === stepKey);
+    if (!step) return;
+    step.status = STATUS_NEXT[step.status || 'pending'] || 'pending';
+    step.updatedAt = Date.now();
+    step.updatedBy = getCurrentUserName();
+    recalcJobProgress(job);
+    saveJobs(jobs);
+    try { hydrateNewopen('all'); } catch(e){}
+    try { hydrateDashboardJobs(); } catch(e){}
+  }
+  window.cycleStepStatus = cycleStepStatus;
+
+  function toggleStepDetail(jobId, stepKey) {
+    const id = `wfdetail-${jobId}-${stepKey}`;
+    const el = document.getElementById(id);
+    if (!el) return;
+    const visible = el.style.display !== 'none';
+    // 같은 작업의 다른 detail은 닫음
+    document.querySelectorAll(`[id^="wfdetail-${jobId}-"]`).forEach(e => e.style.display = 'none');
+    el.style.display = visible ? 'none' : '';
+  }
+  window.toggleStepDetail = toggleStepDetail;
+
+  function toggleEquipChecked(jobId, eqIdx, checked) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    if (!job.equipmentChecked) job.equipmentChecked = {};
+    job.equipmentChecked[eqIdx] = !!checked;
+    job.equipmentCheckedBy = job.equipmentCheckedBy || {};
+    job.equipmentCheckedBy[eqIdx] = checked ? { name: getCurrentUserName(), at: Date.now() } : null;
+    saveJobs(jobs);
+    // 부분 업데이트만 (테이블 재렌더 시 펼침이 닫힘 방지 위해)
+    const stat = document.getElementById(`equip-stat-${jobId}`);
+    if (stat && Array.isArray(job.equipment)) {
+      const total = job.equipment.length;
+      const done = Object.values(job.equipmentChecked).filter(Boolean).length;
+      stat.textContent = `${done} / ${total} 설치 완료`;
+    }
+  }
+  window.toggleEquipChecked = toggleEquipChecked;
+
+  function renderWorkflowRow(job, colspan) {
+    const wf = ensureWorkflow(job);
+    const pills = wf.steps.map(s => {
+      const lbl = STEP_LABELS[s.key] || s.key;
+      const sty = STATUS_STYLE[s.status || 'pending'];
+      const stat = STATUS_LABEL[s.status || 'pending'];
+      const isInstall = (s.key === 'installPos' || s.key === 'installVan');
+      const expandIcon = isInstall ? ' ▾' : '';
+      const onclick = isInstall
+        ? `onclick="event.stopPropagation();toggleStepDetail('${job.id}','${s.key}')"`
+        : `onclick="event.stopPropagation();cycleStepStatus('${job.id}','${s.key}')"`;
+      const updated = s.updatedAt ? `<div style="font-size:9px;color:var(--gray-400);margin-top:2px">${s.updatedBy||'-'} · ${new Date(s.updatedAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>` : '';
+      const cycleBtn = isInstall
+        ? `<button onclick="event.stopPropagation();cycleStepStatus('${job.id}','${s.key}')" style="margin-left:4px;padding:2px 6px;background:${stat==='완료'?'#D1FAE5':stat==='진행중'?'#DBEAFE':'#F3F4F6'};border:none;border-radius:3px;font-size:9px;cursor:pointer">${stat}</button>`
+        : '';
+      return `<div ${onclick} style="cursor:pointer;border:1px solid;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:600;${sty};text-align:center;min-width:100px" title="클릭: ${isInstall?'장비 펼침':'상태 변경'}">
+        <div style="font-size:11px;font-weight:700">${esc(lbl)}${expandIcon}</div>
+        <div style="font-size:10px;margin-top:2px">${stat}${cycleBtn}</div>
+        ${updated}
+      </div>`;
+    }).join('');
+
+    // 장비설치 펼침 영역들
+    const equipDetails = wf.steps.filter(s => s.key === 'installPos' || s.key === 'installVan').map(s => {
+      const filterFn = s.key === 'installVan'
+        ? (e) => /van|단말|카드/i.test(e.name||'') || /van|단말|카드/i.test(e.spec||'')
+        : (e) => !/van|단말|카드/i.test(e.name||'') && !/van|단말|카드/i.test(e.spec||'');
+      const items = (Array.isArray(job.equipment) ? job.equipment : []).filter(filterFn);
+      const equipChecked = job.equipmentChecked || {};
+      const total = items.length;
+      const done = items.filter((_, i) => {
+        const realIdx = (job.equipment || []).indexOf(items[i]);
+        return equipChecked[realIdx];
+      }).length;
+      const rows = items.length === 0
+        ? `<tr><td colspan="5" style="padding:10px;text-align:center;color:var(--gray-400);font-size:11px">해당 장비가 없습니다.</td></tr>`
+        : items.map((it, i) => {
+            const realIdx = (job.equipment || []).indexOf(it);
+            const checked = !!equipChecked[realIdx];
+            const meta = (job.equipmentCheckedBy || {})[realIdx];
+            const checkedInfo = checked && meta ? `<div style="font-size:10px;color:var(--success)">✓ ${meta.name||'-'} · ${meta.at?new Date(meta.at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div>` : '';
+            return `<tr style="${checked?'background:#F0FDF4':''}">
+              <td style="padding:6px 8px;border-bottom:1px solid var(--gray-100);text-align:center">
+                <input type="checkbox" ${checked?'checked':''} onchange="toggleEquipChecked('${job.id}',${realIdx},this.checked)" style="width:16px;height:16px;cursor:pointer">
+              </td>
+              <td style="padding:6px 8px;border-bottom:1px solid var(--gray-100);font-weight:600">${esc(it.name||'-')}${it.condition==='used'?' <span style="background:#FEF3C7;color:#92400E;font-size:9px;padding:1px 5px;border-radius:3px">중고</span>':''}</td>
+              <td style="padding:6px 8px;border-bottom:1px solid var(--gray-100);font-size:11px;color:var(--gray-500)">${esc(it.spec||'-')}</td>
+              <td style="padding:6px 8px;border-bottom:1px solid var(--gray-100);text-align:right;font-weight:600">${it.qty}대</td>
+              <td style="padding:6px 8px;border-bottom:1px solid var(--gray-100);font-size:10px">${checkedInfo}</td>
+            </tr>`;
+          }).join('');
+      return `<tr id="wfdetail-${job.id}-${s.key}" style="display:none;background:#FAFAFA">
+        <td colspan="${colspan}" style="padding:14px 18px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:12px;font-weight:700;color:var(--gray-700)">📦 ${STEP_LABELS[s.key]} 체크리스트</div>
+            <div style="font-size:11px;color:var(--gray-500)" id="equip-stat-${job.id}">${done} / ${total} 설치 완료</div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden">
+            <thead style="background:#F3F4F6">
+              <tr>
+                <th style="padding:6px;width:40px;text-align:center;font-size:11px">설치</th>
+                <th style="padding:6px;text-align:left;font-size:11px">품목</th>
+                <th style="padding:6px;text-align:left;font-size:11px">규격</th>
+                <th style="padding:6px;text-align:right;font-size:11px;width:60px">수량</th>
+                <th style="padding:6px;text-align:left;font-size:11px;width:140px">확인자/시각</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </td>
+      </tr>`;
+    }).join('');
+
+    return {
+      pillRow: `<tr style="background:#FCFCFD"><td colspan="${colspan}" style="padding:10px 18px"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">${pills}</div></td></tr>`,
+      detailRows: equipDetails,
+    };
+  }
+  window.renderWorkflowRow = renderWorkflowRow;
+
   /* ── 신규관리 페이지 ── */
   function isNewopenJob(j) {
     const t = (j.type || '') + ' ' + (j.title || '');
@@ -5255,34 +5442,40 @@ ${text.slice(0, 3000)}`;
       </td></tr>`;
       return;
     }
+    const COLSPAN = 8;
     tb.innerHTML = view.map(j => {
+      // 자동 진행률 계산 (워크플로 기반)
+      const wfProg = recalcJobProgress(j);
       const status = j.status || '예정';
       let badgeCls = 'badge-blue';
       if (isDone(j)) badgeCls = 'badge-green';
-      else if (/진행|설치/i.test(status)) badgeCls = 'badge-amber';
+      else if (/진행|설치/i.test(status) || wfProg > 0) badgeCls = 'badge-amber';
       const store = j.store || j.storeName || '-';
       const unregBadge = j.unregistered ? `<span style="margin-left:6px;background:#FEF3C7;color:#92400E;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700">미등록</span>` : '';
+      const typeBadge = `<span style="margin-left:6px;background:#EFF6FF;color:#1D4ED8;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700">${esc(j.type||'-')}</span>`;
       const addr = j.address || '-';
       const dt = (j.date || j.createdAt || '').slice(0,10);
       const eng = j.engineer || j.assignee || '<span style="color:var(--danger)">미배정</span>';
       const posQty = (j.equipment && Array.isArray(j.equipment))
         ? j.equipment.filter(e => /pos|일체형/i.test(e.name||'')).reduce((s,e)=>s+(e.qty||0),0)
         : (j.posCount || j.pos || 0);
-      const prog = j.progress || (isDone(j) ? 100 : 0);
       const linkBtn = j.unregistered
-        ? `<button class="btn btn-outline btn-sm" style="color:var(--warning);border-color:var(--warning)" onclick="event.stopPropagation();linkRegisteredStore('${j.id||''}')">가맹점 연결</button>`
+        ? `<button class="btn btn-outline btn-sm" style="color:var(--warning);border-color:var(--warning);font-size:11px;padding:3px 8px" onclick="event.stopPropagation();linkRegisteredStore('${j.id||''}')">가맹점 연결</button>`
         : '';
+      const wf = renderWorkflowRow(j, COLSPAN);
       return `<tr>
         <td><span class="badge ${badgeCls}">${esc(status)}</span></td>
-        <td><b>${esc(store)}</b>${unregBadge}</td>
+        <td><b>${esc(store)}</b>${unregBadge}${typeBadge}</td>
         <td style="font-size:11px;color:var(--gray-500)">${esc(addr)}</td>
         <td style="font-size:11px">${esc(dt)}</td>
         <td>${eng}</td>
         <td>${posQty || '-'}${posQty ? '대' : ''}</td>
-        <td><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100px"><div style="background:var(--primary);height:100%;width:${prog}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">${prog}%</div></td>
-        <td style="display:flex;gap:4px">${linkBtn}<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editNewopen('${j.id||''}')">상세</button></td>
-      </tr>`;
+        <td><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100px"><div style="background:var(--primary);height:100%;width:${wfProg}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">${wfProg}%</div></td>
+        <td style="display:flex;gap:4px">${linkBtn}<button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 8px" onclick="event.stopPropagation();editNewopen('${j.id||''}')">상세</button></td>
+      </tr>${wf.pillRow}${wf.detailRows}`;
     }).join('');
+    // 모든 변경사항 저장 (workflow 자동 보강 결과)
+    saveJobs(jobs);
   }
   function filterNewopen(chip, filter) {
     chip.parentElement.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
