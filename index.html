@@ -2348,6 +2348,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <button class="btn btn-outline btn-sm" onclick="doLogout()" style="color:var(--danger);border-color:var(--danger)">🚪 로그아웃</button>
       </div>
 
+      <!-- 클라우드 동기화 -->
+      <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+      <div class="admin-section">
+        <div class="admin-section-title">☁ 이카운트 동기화 (KV)</div>
+        <div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:12px 14px;font-size:11px;color:#075985;margin-bottom:10px;line-height:1.6">
+          매일 KST 07:00 사무실 PC가 이카운트에서 거래처를 가져와 클라우드(KV)에 올립니다. 이 페이지는 KV에서 점포를 받아 자동 머지합니다.
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="syncFromCloud({toast:true})">🔄 지금 동기화 (KV에서 받기)</button>
+          <span id="lastSyncLabel" style="font-size:11px;color:var(--gray-400)">아직 동기화 안 됨</span>
+        </div>
+      </div>
+
       <!-- 데이터 초기화 (위험구역) -->
       <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
       <div class="admin-section">
@@ -2430,6 +2443,66 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 </div>
 
 <script>
+  /* ══════════════════════════════════════════════
+     클라우드 KV 동기화 (Cloudflare Pages Functions)
+     - 페이지 로드 시 /api/stores 에서 받아 ns_stores 와 머지
+     - 관리자 "🔄 지금 동기화" 버튼이 다시 호출
+  ══════════════════════════════════════════════ */
+  async function syncFromCloud(opts) {
+    opts = opts || {};
+    try {
+      const res = await fetch('/api/stores', { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const remote = Array.isArray(data.stores) ? data.stores : [];
+      const meta = data.meta || {};
+      // 빈 응답이면 머지 생략
+      if (remote.length > 0) {
+        // id / biz / code / name 우선순위로 키 결정해 중복 제거
+        const local = (typeof getStores === 'function') ? (getStores() || []) : [];
+        const keyOf = (s) => s.id || s.biz || s.code || s.name || JSON.stringify(s);
+        const map = new Map();
+        // 로컬 먼저 (사용자 직접 입력 우선)
+        local.forEach(s => map.set(keyOf(s), s));
+        // 원격으로 보강 (없는 것만 추가)
+        remote.forEach(s => {
+          const k = keyOf(s);
+          if (!map.has(k)) map.set(k, s);
+        });
+        const merged = Array.from(map.values());
+        if (typeof saveStores === 'function') saveStores(merged);
+        if (typeof hydrateSavedStores === 'function') hydrateSavedStores();
+      }
+      // 마지막 동기화 시각 표시
+      const lbl = document.getElementById('lastSyncLabel');
+      if (lbl) {
+        if (meta.syncedAt) {
+          const dt = new Date(meta.syncedAt);
+          lbl.textContent = `마지막 동기화: ${dt.toLocaleString('ko-KR')} · ${meta.count || 0}건 (${meta.source || '-'})`;
+          lbl.style.color = 'var(--gray-500)';
+        } else {
+          lbl.textContent = '아직 동기화된 데이터가 없습니다.';
+          lbl.style.color = 'var(--gray-400)';
+        }
+      }
+      if (opts.toast && typeof showToast === 'function') {
+        showToast(`✅ 클라우드에서 ${remote.length}건 동기화`);
+      }
+      return { ok: true, count: remote.length, meta };
+    } catch (e) {
+      console.warn('[syncFromCloud] error', e);
+      if (opts.toast && typeof showToast === 'function') {
+        showToast('⚠ 동기화 실패: ' + (e.message || e));
+      }
+      return { ok: false, error: String(e) };
+    }
+  }
+  window.syncFromCloud = syncFromCloud;
+  // 페이지 로드 직후 1회 자동 동기화 (조용히)
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => syncFromCloud({ toast: false }), 600);
+  });
+
   const titles = {
     dashboard: '대시보드',
     newopen: '신규관리',
