@@ -1386,77 +1386,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             </tr>
           </thead>
           <tbody id="storeListTbody">
-            <tr onclick="toggleStoreDetail(this)" style="font-weight:600;background:#EFF6FF">
-              <td style="color:var(--gray-400);font-size:11px">EC-10286</td>
-              <td><b>K-1마트 안중점</b></td>
-              <td style="font-family:monospace;font-size:11px">102-86-01482</td>
-              <td>김○○</td>
-              <td style="font-size:11px;color:var(--gray-500)">031-000-0000</td>
-              <td style="font-size:11px;color:var(--gray-500)">경기 평택시 안중읍...</td>
-              <td><span class="badge badge-purple">KCP</span></td>
-              <td>
-                <div class="pos-kiosk-badge">
-                  <span class="pk-chip" style="background:#DBEAFE;color:#1D4ED8">POS 5</span>
-                  <span class="pk-chip" style="background:#EDE9FE;color:#5B21B6">KIO 0</span>
-                </div>
-              </td>
-              <td style="font-size:11px">김현장</td>
-              <td><span class="badge badge-green">거래중</span></td>
-            </tr>
-            <tr>
-              <td style="color:var(--gray-400);font-size:11px">EC-10301</td>
-              <td><b>웰빙마트 고양점</b></td>
-              <td style="font-family:monospace;font-size:11px">134-22-98712</td>
-              <td>이○○</td>
-              <td style="font-size:11px;color:var(--gray-500)">031-900-0000</td>
-              <td style="font-size:11px;color:var(--gray-500)">경기 고양시 일산동구...</td>
-              <td><span class="badge badge-blue">KSNET</span></td>
-              <td>
-                <div class="pos-kiosk-badge">
-                  <span class="pk-chip" style="background:#DBEAFE;color:#1D4ED8">POS 3</span>
-                  <span class="pk-chip" style="background:#EDE9FE;color:#5B21B6">KIO 1</span>
-                </div>
-              </td>
-              <td style="font-size:11px">이기사</td>
-              <td><span class="badge badge-amber">신규예정</span></td>
-            </tr>
-            <tr>
-              <td style="color:var(--gray-400);font-size:11px">EC-10188</td>
-              <td><b>365할인마트 광적</b></td>
-              <td style="font-family:monospace;font-size:11px">211-45-67234</td>
-              <td>박○○</td>
-              <td style="font-size:11px;color:var(--gray-500)">031-871-0000</td>
-              <td style="font-size:11px;color:var(--gray-500)">경기 양주시 광적면...</td>
-              <td><span class="badge badge-green">KICC</span></td>
-              <td>
-                <div class="pos-kiosk-badge">
-                  <span class="pk-chip" style="background:#DBEAFE;color:#1D4ED8">POS 4</span>
-                  <span class="pk-chip" style="background:#EDE9FE;color:#5B21B6">KIO 0</span>
-                </div>
-              </td>
-              <td style="font-size:11px">박기사</td>
-              <td><span class="badge badge-green">거래중</span></td>
-            </tr>
-            <tr>
-              <td style="color:var(--gray-400);font-size:11px">EC-10255</td>
-              <td><b>가평1번가마트</b></td>
-              <td style="font-family:monospace;font-size:11px">305-12-44561</td>
-              <td>최○○</td>
-              <td style="font-size:11px;color:var(--gray-500)">031-582-0000</td>
-              <td style="font-size:11px;color:var(--gray-500)">경기 가평군 가평읍...</td>
-              <td><span class="badge badge-purple">KCP</span></td>
-              <td>
-                <div class="pos-kiosk-badge">
-                  <span class="pk-chip" style="background:#DBEAFE;color:#1D4ED8">POS 2</span>
-                  <span class="pk-chip" style="background:#EDE9FE;color:#5B21B6">KIO 0</span>
-                </div>
-              </td>
-              <td style="font-size:11px">이기사</td>
-              <td><span class="badge badge-red" style="background:#FEE2E2;color:#991B1B">AS중</span></td>
-            </tr>
-            <tr style="color:var(--gray-400)">
-              <td colspan="10" style="text-align:center;padding:10px;font-size:11px">
-                … 34개 점포 더보기
+            <tr id="storeListEmptyRow">
+              <td colspan="10" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+                <div style="font-size:36px;margin-bottom:10px">🏪</div>
+                <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">등록된 점포가 없습니다</div>
+                <div style="font-size:11px">상단 "엑셀 일괄 업로드"로 점포를 등록하세요.</div>
               </td>
             </tr>
           </tbody>
@@ -1467,14 +1401,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <div class="detail-header">
         <div class="store-avatar">🏪</div>
         <div class="store-info" style="flex:1">
-          <h2 id="detailStoreName">K-1마트 안중점</h2>
-          <p id="detailStoreMeta">경기도 평택시 안중읍 안중로 123 | 대표: 김○○ | 031-000-0000</p>
-          <div class="store-tags" id="detailStoreTags">
-            <span class="badge badge-green">거래중</span>
-            <span class="badge badge-blue">POS 5대</span>
-            <span class="badge badge-purple">KCP VAN</span>
-            <span class="badge badge-gray">2022.03 개업</span>
-          </div>
+          <h2 id="detailStoreName" style="color:var(--gray-400)">점포를 선택하세요</h2>
+          <p id="detailStoreMeta" style="color:var(--gray-400)">상단 목록에서 점포를 클릭하면 상세 정보가 표시됩니다.</p>
+          <div class="store-tags" id="detailStoreTags"></div>
         </div>
         <div style="display:flex; gap:8px; flex-shrink:0">
           <button class="btn btn-outline btn-sm">📝 편집</button>
@@ -1491,12 +1420,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <table>
             <thead><tr><th>장비</th><th>모델</th><th>수량</th><th>설치일</th><th>상태</th></tr></thead>
             <tbody id="detailEquipTbody">
-              <tr><td><b>POS 일체형</b></td><td style="color:var(--gray-400)">Intel N5095</td><td>5대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-green">정상</span></td></tr>
-              <tr><td><b>서버 PC</b></td><td style="color:var(--gray-400)">Ryzen5 4650G</td><td>1대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-green">정상</span></td></tr>
-              <tr><td><b>고정스캐너</b></td><td style="color:var(--gray-400)">마젤란 8100</td><td>2대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-green">정상</span></td></tr>
-              <tr><td><b>전자저울</b></td><td style="color:var(--gray-400)">SM-100</td><td>3대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-green">정상</span></td></tr>
-              <tr><td><b>영수프린터</b></td><td style="color:var(--gray-400)">SRP-330</td><td>5대</td><td style="color:var(--gray-400)">2022.03</td><td><span class="badge badge-amber">1대 노후</span></td></tr>
-              <tr><td><b>카드단말</b></td><td style="color:var(--gray-400)">N100</td><td>5대</td><td style="color:var(--gray-400)">2024.06</td><td><span class="badge badge-green">정상</span></td></tr>
+              <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">점포를 선택하면 설치 장비 정보가 표시됩니다.</td></tr>
             </tbody>
           </table>
         </div>
@@ -1508,37 +1432,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </div>
           <div style="padding:16px 18px">
             <div class="timeline" id="detailHistoryTimeline">
-              <div class="tl-item">
-                <div class="tl-dot done">✓</div>
-                <div class="tl-content">
-                  <div class="tl-title">신규개업 — POS 5대 설치</div>
-                  <div class="tl-date">2022.03.15 | 김현장</div>
-                  <div class="tl-desc">K-1마트 안중점 오픈. POS 5대 + 서버 + 저울 3대 + 스캐너 2대 설치 완료.</div>
-                </div>
-              </div>
-              <div class="tl-item">
-                <div class="tl-dot done">✓</div>
-                <div class="tl-content">
-                  <div class="tl-title">VAN 교체 — KIS → KCP</div>
-                  <div class="tl-date">2024.06.08 | 이기사</div>
-                  <div class="tl-desc">VAN사 변경 요청으로 카드단말 5대 KCP N100으로 교체.</div>
-                </div>
-              </div>
-              <div class="tl-item">
-                <div class="tl-dot done">✓</div>
-                <div class="tl-content">
-                  <div class="tl-title">AS — 스캐너 1번 인식 불량</div>
-                  <div class="tl-date">2025.02.20 | 박기사</div>
-                  <div class="tl-desc">마젤란 8100 유리면 교체 처리. 부품비 35,000원.</div>
-                </div>
-              </div>
-              <div class="tl-item">
-                <div class="tl-dot current">!</div>
-                <div class="tl-content">
-                  <div class="tl-title">영수프린터 교체 검토중</div>
-                  <div class="tl-date">2026.04.20 접수</div>
-                  <div class="tl-desc">3번 계산대 SRP-330 용지걸림 반복. 교체 or 수리 결정 필요.</div>
-                </div>
+              <div style="padding:24px 8px;text-align:center;color:var(--gray-400);font-size:12px">
+                <div style="font-size:28px;margin-bottom:8px">📭</div>
+                <div>점포를 선택하면 작업 이력이 표시됩니다.</div>
               </div>
             </div>
           </div>
@@ -5053,8 +4949,14 @@ ${text.slice(0, 3000)}`;
           tb.appendChild(countRow);
         }
       } else {
-        // 저장된 점포가 없으면 데모 행 유지
-        stores.slice().reverse().forEach(s => injectStoreRow(s));
+        // 저장된 점포가 없으면 빈 상태 메시지 유지
+        tb.innerHTML = `<tr id="storeListEmptyRow">
+          <td colspan="10" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+            <div style="font-size:36px;margin-bottom:10px">🏪</div>
+            <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">등록된 점포가 없습니다</div>
+            <div style="font-size:11px">상단 "엑셀 일괄 업로드"로 점포를 등록하세요.</div>
+          </td>
+        </tr>`;
       }
     } catch(e) { console.warn('hydrateSavedStores error', e); }
   }
