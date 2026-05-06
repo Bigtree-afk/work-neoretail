@@ -6028,7 +6028,8 @@ ${text.slice(0, 3000)}`;
     }
     panel.innerHTML = matches.slice(0, 100).map((s) => {
       const tagBiz = s.biz || s.bizno ? `<span style="font-family:monospace;font-size:11px;color:var(--gray-500);margin-left:6px">${esc(s.biz || s.bizno)}</span>` : '';
-      return `<div onclick="confirmLinkStore('${esc((s.id||'').replace(/'/g,'\\\\\\'')).replace(/"/g,'&quot;')}')" style="padding:10px 14px;border-bottom:1px solid var(--gray-100);cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+      const sidAttr = String(s.id || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      return `<div data-sid="${sidAttr}" onclick="confirmLinkStore(this.getAttribute('data-sid'))" style="padding:10px 14px;border-bottom:1px solid var(--gray-100);cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
         <div style="font-size:13px;font-weight:700;color:var(--gray-800)">${esc(s.name||'-')}${tagBiz}</div>
         <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
           ${s.ceo||s.owner ? `대표 ${esc(s.ceo || s.owner)}` : ''}
