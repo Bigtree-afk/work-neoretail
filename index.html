@@ -2275,6 +2275,29 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <!-- 직원 목록 -->
       <div class="admin-section">
         <div class="admin-section-title">등록 직원 관리</div>
+
+        <!-- 직원 추가 폼 -->
+        <div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:12px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:700;color:#075985;margin-bottom:8px">+ 직원 추가</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <input type="text" id="newEmpName" placeholder="이름 (예: 홍길동)" autocomplete="off" style="padding:8px 10px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px">
+            <input type="text" id="newEmpRole" placeholder="직책 (예: 대표/팀장/기사)" autocomplete="off" list="empRoleList" style="padding:8px 10px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px">
+          </div>
+          <datalist id="empRoleList">
+            <option value="대표"><option value="이사"><option value="부장"><option value="팀장">
+            <option value="과장"><option value="대리"><option value="주임"><option value="사원">
+            <option value="실장"><option value="기사"><option value="사장"><option value="관리자">
+          </datalist>
+          <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:8px;margin-bottom:8px">
+            <input type="tel" id="newEmpPhone" placeholder="010-0000-0000" autocomplete="off" style="padding:8px 10px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px">
+            <input type="email" id="newEmpEmail" placeholder="구글 이메일 (필수, 로그인용)" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();addEmployeeFull();}" style="padding:8px 10px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px">
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn btn-primary btn-sm" onclick="addEmployeeFull()" style="padding:8px 18px;font-size:13px;font-weight:700">+ 직원 등록</button>
+            <span style="font-size:11px;color:var(--gray-500)">📌 이메일은 필수 — 화이트리스트에 자동 등록됩니다</span>
+          </div>
+        </div>
+
         <div id="adminEmployeeList"></div>
       </div>
 
@@ -4313,23 +4336,8 @@ ${text.slice(0, 3000)}`;
     // 허용 이메일 목록 렌더
     renderAllowedEmailList();
 
-    // 직원 목록 렌더
-    const listEl = document.getElementById('adminEmployeeList');
-    const users = getUsers();
-    const allPeople = [
-      ...APPROVED_EMPLOYEES.map(e => ({ id: e.id, name: e.name, role: e.role === '관리자' ? 'admin' : 'staff', color: e.color, source: 'preset' })),
-      ...users.map(u => ({ id: u.id, name: u.name, role: u.role, source: 'user' }))
-    ];
-    listEl.innerHTML = allPeople.map(p => `
-      <div class="admin-employee-row">
-        <div class="avatar-sm" style="background:${p.color || (p.role==='admin'?'#EF4444':'#2563EB')}">${p.name.charAt(0)}</div>
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:700">${p.name}</div>
-          <div style="font-size:11px;color:var(--gray-400)">${p.id}</div>
-        </div>
-        <span class="admin-badge ${p.role==='admin'?'admin':'staff'}">${p.role==='admin'?'관리자':'직원'}</span>
-      </div>
-    `).join('');
+    // 직원 목록 렌더 (이름/직책/전화/이메일 통합)
+    try { renderEmployeeList(); } catch(e) {}
 
     showModal('adminModal');
   }
@@ -4393,6 +4401,120 @@ ${text.slice(0, 3000)}`;
     }
     showToast && showToast('✅ 기존 직원 데이터 삭제됨');
   }
+
+  /* 직원 전체 정보 추가 (이름/직책/전화/이메일) — 한 번에 등록 */
+  function addEmployeeFull() {
+    const nameEl  = document.getElementById('newEmpName');
+    const roleEl  = document.getElementById('newEmpRole');
+    const phoneEl = document.getElementById('newEmpPhone');
+    const emailEl = document.getElementById('newEmpEmail');
+    const name  = (nameEl?.value  || '').trim();
+    const role  = (roleEl?.value  || '').trim();
+    const phone = (phoneEl?.value || '').trim();
+    const email = (emailEl?.value || '').trim().toLowerCase();
+
+    // 이메일 필수
+    if (!email || !email.includes('@') || !email.includes('.')) {
+      showToast && showToast('올바른 이메일을 입력하세요. (로그인용 필수)');
+      emailEl?.focus();
+      return;
+    }
+    if (!name) {
+      showToast && showToast('이름을 입력하세요.');
+      nameEl?.focus();
+      return;
+    }
+
+    // 1) ns_users 에 풀 정보 저장
+    const users = getUsers();
+    const existing = users.find(u => (u.id || '').toLowerCase() === email || (u.email || '').toLowerCase() === email);
+    if (existing) {
+      // 기존 사용자 정보 업데이트
+      existing.name = name;
+      existing.role = existing.role || (role || 'staff');
+      existing.title = role || existing.title || '';
+      existing.phone = phone || existing.phone || '';
+      existing.email = email;
+      existing.updatedAt = Date.now();
+    } else {
+      users.push({
+        id: email,
+        email,
+        name,
+        title: role,
+        role: 'staff',
+        phone,
+        provider: 'manual',
+        createdAt: Date.now(),
+      });
+    }
+    saveUsers(users);
+
+    // 2) 화이트리스트에 이메일 자동 등록
+    const allowed = getAllowedEmails();
+    if (!allowed.map(x => x.toLowerCase()).includes(email)) {
+      allowed.push(email);
+      saveAllowedEmails(allowed);
+    }
+
+    // 3) 입력란 초기화 + 목록 갱신
+    if (nameEl)  nameEl.value  = '';
+    if (roleEl)  roleEl.value  = '';
+    if (phoneEl) phoneEl.value = '';
+    if (emailEl) emailEl.value = '';
+
+    showToast && showToast(`✅ ${name} (${email}) 직원 등록됨`);
+
+    // 직원 목록 + 화이트리스트 즉시 갱신
+    if (typeof openAdminPage === 'function') {
+      try { renderAllowedEmailList(); } catch(e) {}
+      try { renderEmployeeList(); } catch(e) {}
+    }
+  }
+  window.addEmployeeFull = addEmployeeFull;
+
+  /* 직원 목록 렌더 (이름/직책/전화/이메일) */
+  function renderEmployeeList() {
+    const listEl = document.getElementById('adminEmployeeList');
+    if (!listEl) return;
+    const users = getUsers();
+    const presets = (typeof APPROVED_EMPLOYEES !== 'undefined') ? APPROVED_EMPLOYEES : [];
+    const allPeople = [
+      ...presets.map(e => ({ id: e.id, name: e.name, title: e.role, role: e.role === '관리자' ? 'admin' : 'staff', color: e.color, phone: '', email: e.id, source: 'preset' })),
+      ...users.map(u => ({ id: u.id, name: u.name, title: u.title || '', role: u.role || 'staff', phone: u.phone || '', email: u.email || u.id, source: 'user' }))
+    ];
+    if (allPeople.length === 0) {
+      listEl.innerHTML = '<div style="padding:14px;text-align:center;color:var(--gray-400);font-size:12px;background:#FAFAFA;border-radius:8px">등록된 사용자가 없습니다.</div>';
+      return;
+    }
+    listEl.innerHTML = allPeople.map((p, idx) => `
+      <div class="admin-employee-row" style="padding:10px 12px">
+        <div class="avatar-sm" style="background:${p.color || (p.role==='admin'?'#EF4444':'#2563EB')}">${(p.name||'?').charAt(0)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700">${esc(p.name||'-')}${p.title ? ` <span style="font-size:11px;color:var(--gray-500);font-weight:500">${esc(p.title)}</span>` : ''}</div>
+          <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
+            ${p.email ? `📧 ${esc(p.email)}` : ''}
+            ${p.phone ? ` · 📞 ${esc(p.phone)}` : ''}
+          </div>
+        </div>
+        <span class="admin-badge ${p.role==='admin'?'admin':'staff'}">${p.role==='admin'?'관리자':'직원'}</span>
+        ${p.source === 'user' ? `<button class="btn btn-outline btn-sm" style="color:#EF4444;border-color:#FCA5A5;padding:3px 10px;font-size:11px;margin-left:6px" onclick="removeEmployee('${esc(p.id)}')">삭제</button>` : ''}
+      </div>
+    `).join('');
+  }
+  window.renderEmployeeList = renderEmployeeList;
+
+  function removeEmployee(id) {
+    if (!confirm('이 직원을 삭제하시겠습니까? (이메일 화이트리스트에서도 제거됩니다)')) return;
+    const users = getUsers().filter(u => u.id !== id);
+    saveUsers(users);
+    const allowed = getAllowedEmails().filter(e => e.toLowerCase() !== (id || '').toLowerCase());
+    saveAllowedEmails(allowed);
+    try { renderEmployeeList(); } catch(e) {}
+    try { renderAllowedEmailList(); } catch(e) {}
+    showToast && showToast('🗑 직원 삭제됨');
+  }
+  window.removeEmployee = removeEmployee;
 
   function renderAllowedEmailList() {
     const el = document.getElementById('allowedEmailList');
