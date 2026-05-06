@@ -38,14 +38,18 @@ export async function onRequestPost({ request, env }) {
     role:  String(u?.role  || 'staff').trim(),
   })).filter(u => u.email) : [];
 
+  // Google Client ID 도 함께 저장 (공개 정보 — 클라이언트 식별자)
+  const googleClientId = String(body?.googleClientId || '').trim();
+
   const payload = {
     emails,
     users,
+    googleClientId,
     updatedAt: new Date().toISOString(),
   };
   await env.STORES_KV.put('whitelist', JSON.stringify(payload));
 
-  return json({ ok: true, count: emails.length, users: users.length }, 200);
+  return json({ ok: true, count: emails.length, users: users.length, googleClientId: !!googleClientId }, 200);
 }
 
 function json(obj, status = 200) {

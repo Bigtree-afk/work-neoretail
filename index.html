@@ -4267,6 +4267,13 @@ ${text.slice(0, 3000)}`;
       const remoteEmails = Array.isArray(data.emails) ? data.emails : [];
       const remoteUsers = Array.isArray(data.users) ? data.users : [];
 
+      // Google Client ID 동기화 — 로컬에 없으면 클라우드 값으로 채움
+      if (data.googleClientId && !getGoogleClientId()) {
+        setGoogleClientId(data.googleClientId);
+        // GIS 라이브러리 이미 로드됐으면 즉시 버튼 갱신
+        try { if (typeof initGoogleSignIn === 'function') initGoogleSignIn(); } catch(e) {}
+      }
+
       // 로컬 화이트리스트와 머지 (클라우드 우선)
       const local = getAllowedEmails().map(x => x.toLowerCase());
       const all = Array.from(new Set([...local, ...remoteEmails.map(x => x.toLowerCase())]));
@@ -4325,11 +4332,12 @@ ${text.slice(0, 3000)}`;
       phone: u.phone || '',
       role: u.role || 'staff',
     })).filter(u => u.email);
+    const googleClientId = getGoogleClientId();
     try {
       const res = await fetch('/api/whitelist', {
         method: 'POST',
         headers: { 'authorization': 'Bearer ' + token, 'content-type': 'application/json' },
-        body: JSON.stringify({ emails, users }),
+        body: JSON.stringify({ emails, users, googleClientId }),
       });
       if (!res.ok) {
         const txt = await res.text();
@@ -4745,6 +4753,8 @@ ${text.slice(0, 3000)}`;
     const tokEl = document.getElementById('adminCloudSyncToken');
     if (tokEl) saveCloudSyncToken(tokEl.value.trim());
     showToast && showToast('설정이 저장되었습니다.');
+    // 클라우드에도 Google Client ID + 화이트리스트 동기화
+    try { pushCloudWhitelist({ toast: false }); } catch(e) {}
     closeModal('adminModal');
   }
 
