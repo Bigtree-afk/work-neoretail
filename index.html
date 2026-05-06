@@ -2570,6 +2570,22 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div class="admin-section-title">계정</div>
         <button class="btn btn-outline btn-sm" onclick="doLogout()" style="color:var(--danger);border-color:var(--danger)">🚪 로그아웃</button>
       </div>
+
+      <!-- 데이터 초기화 (위험구역) -->
+      <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+      <div class="admin-section">
+        <div class="admin-section-title" style="color:var(--danger)">⚠ 데이터 초기화 (위험)</div>
+        <div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:12px 14px;font-size:11px;color:#991B1B;margin-bottom:10px">
+          테스트로 입력한 점포 · 작업 · 직원 · 이메일 화이트리스트 데이터를 모두 삭제합니다.<br>
+          <strong>이 작업은 되돌릴 수 없습니다.</strong> 삭제 후 페이지가 새로고침됩니다.
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="resetTestData('stores')" style="color:var(--danger);border-color:var(--danger)">🗑 점포만 초기화</button>
+          <button class="btn btn-outline btn-sm" onclick="resetTestData('jobs')" style="color:var(--danger);border-color:var(--danger)">🗑 작업만 초기화</button>
+          <button class="btn btn-outline btn-sm" onclick="resetTestData('users')" style="color:var(--danger);border-color:var(--danger)">🗑 직원/이메일</button>
+          <button class="btn btn-primary btn-sm" onclick="resetTestData('all')" style="background:var(--danger);border-color:var(--danger)">🗑 전체 데이터 초기화</button>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('adminModal')">닫기</button>
@@ -3126,6 +3142,40 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     alert(`🗑 ${cnt.toLocaleString()}개 점포를 모두 삭제했습니다. 페이지를 새로고침합니다.`);
     setTimeout(() => { location.reload(); }, 200);
   }
+
+  /* ── 테스트 데이터 초기화 ── */
+  function resetTestData(scope) {
+    const KEYS = {
+      stores: ['ns_stores'],
+      jobs:   ['ns_jobs'],
+      users:  ['ns_users', 'ns_allowed_emails'],
+      all:    ['ns_stores', 'ns_jobs', 'ns_users', 'ns_allowed_emails'],
+    };
+    const labels = { stores:'점포', jobs:'작업', users:'직원/이메일', all:'전체 데이터' };
+    const targets = KEYS[scope] || KEYS.all;
+    const label = labels[scope] || '데이터';
+    // 현재 카운트
+    const counts = {};
+    targets.forEach(k => {
+      try {
+        const v = localStorage.getItem(k);
+        if (!v) { counts[k] = 0; return; }
+        const arr = JSON.parse(v);
+        counts[k] = Array.isArray(arr) ? arr.length : (v ? 1 : 0);
+      } catch(e) { counts[k] = 0; }
+    });
+    const summary = targets.map(k => {
+      const friendly = { ns_stores:'점포', ns_jobs:'작업', ns_users:'직원', ns_allowed_emails:'허용 이메일' }[k] || k;
+      return `· ${friendly}: ${counts[k].toLocaleString()}건`;
+    }).join('\n');
+    if (!confirm(`${label}을(를) 모두 삭제합니다.\n\n${summary}\n\n이 작업은 되돌릴 수 없으며, 삭제 후 페이지가 새로고침됩니다.\n\n계속하시겠습니까?`)) return;
+    // 한 번 더 확인 (전체일 때)
+    if (scope === 'all' && !confirm('정말 모든 데이터를 삭제하시겠습니까? 마지막 확인입니다.')) return;
+    targets.forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+    alert(`✅ ${label} 초기화 완료. 페이지를 새로고침합니다.`);
+    setTimeout(() => { location.reload(); }, 200);
+  }
+  window.resetTestData = resetTestData;
 
   /* ── 엑셀 업로드 (실제 파일 + 진행 애니메이션) ── */
   function handleExcelFile(inputOrEvent) {
