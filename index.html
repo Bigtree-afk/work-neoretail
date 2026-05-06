@@ -1332,11 +1332,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div style="font-size:18px; font-weight:800; color:var(--gray-900)" id="calMonthLabel">— 년 — 월</div>
         <button class="btn btn-outline btn-sm" onclick="moveCalMonth(1)">▶</button>
         <button class="btn btn-outline btn-sm" onclick="moveCalMonth(0)" style="margin-left:8px;font-size:11px">오늘</button>
-        <div style="margin-left:auto; display:flex; gap:8px; font-size:12px; font-weight:600">
-          <span style="background:#DBEAFE; color:#1D4ED8; padding:3px 10px; border-radius:10px">신규</span>
-          <span style="background:#D1FAE5; color:#065F46; padding:3px 10px; border-radius:10px">POS교체</span>
-          <span style="background:#EDE9FE; color:#5B21B6; padding:3px 10px; border-radius:10px">VAN</span>
-          <span style="background:#FEF3C7; color:#92400E; padding:3px 10px; border-radius:10px">AS</span>
+        <div style="margin-left:auto; display:flex; gap:6px; font-size:11px; font-weight:600;flex-wrap:wrap">
+          <span style="background:#DBEAFE; color:#1D4ED8; padding:3px 8px; border-radius:10px">신규</span>
+          <span style="background:#D1FAE5; color:#065F46; padding:3px 8px; border-radius:10px">POS교체</span>
+          <span style="background:#EDE9FE; color:#5B21B6; padding:3px 8px; border-radius:10px">VAN</span>
+          <span style="background:#FEF3C7; color:#92400E; padding:3px 8px; border-radius:10px">AS</span>
+          <span style="background:#FED7AA; color:#9A3412; padding:3px 8px; border-radius:10px">🔧 설치완료</span>
+          <span style="background:#FECACA; color:#991B1B; padding:3px 8px; border-radius:10px">🌅 가오픈</span>
+          <span style="background:#A7F3D0; color:#065F46; padding:3px 8px; border-radius:10px">🎉 오픈</span>
         </div>
       </div>
 
@@ -1813,6 +1816,36 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <div class="voice-input-wrap">
             <input type="text" id="jobAddressInput" placeholder="도로명 주소">
             <button class="voice-btn mobile-only" onclick="startVoiceInput('jobAddressInput', this)" title="음성으로 주소 입력">🎙</button>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin:0;grid-column:1/-1">
+          <label style="display:flex;align-items:center;gap:6px">👤 매장 담당자 <span style="font-size:10px;color:var(--gray-400);font-weight:400">미정이면 비워두세요 — 상세에서 수정 가능</span></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div>
+              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">이름</div>
+              <input type="text" id="jobContactName" placeholder="예: 홍길동" autocomplete="off" style="width:100%">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">직책</div>
+              <input type="text" id="jobContactRole" placeholder="예: 점장 / 사장 / 매니저" autocomplete="off" list="contactRoleList" style="width:100%">
+              <datalist id="contactRoleList">
+                <option value="사장">
+                <option value="대표">
+                <option value="점장">
+                <option value="부점장">
+                <option value="매니저">
+                <option value="실장">
+                <option value="주임">
+                <option value="과장">
+                <option value="팀장">
+                <option value="담당">
+              </datalist>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">연락처</div>
+              <input type="tel" id="jobContactPhone" placeholder="010-0000-0000" autocomplete="off" style="width:100%">
+            </div>
           </div>
         </div>
       </div>
@@ -5088,6 +5121,9 @@ ${text.slice(0, 3000)}`;
       softOpenDate: (document.getElementById('jobSoftOpenDate')  || {}).value || '',
       openDate:     (document.getElementById('jobOpenDate')      || {}).value || '',
       address:   (document.getElementById('jobAddressInput') || {}).value?.trim() || '',
+      contactName:  (document.getElementById('jobContactName')  || {}).value?.trim() || '',
+      contactRole:  (document.getElementById('jobContactRole')  || {}).value?.trim() || '',
+      contactPhone: (document.getElementById('jobContactPhone') || {}).value?.trim() || '',
       notes:     (document.getElementById('jobNotes')    || {}).value?.trim() || '',
       equipment,
       equipTotal,
@@ -5113,7 +5149,7 @@ ${text.slice(0, 3000)}`;
     if (notesEl) notesEl.value = '';
     const addrEl = document.getElementById('jobAddressInput');
     if (addrEl) addrEl.value = '';
-    ['jobInstallDate','jobSoftOpenDate','jobOpenDate'].forEach(id => {
+    ['jobInstallDate','jobSoftOpenDate','jobOpenDate','jobContactName','jobContactRole','jobContactPhone'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
@@ -5466,18 +5502,29 @@ ${text.slice(0, 3000)}`;
     const lastDate = new Date(year, month + 1, 0).getDate();
     const prevLastDate = new Date(year, month, 0).getDate();
 
-    // 작업 날짜별 그룹
+    // 작업 날짜별 그룹 (작업예정일 + 매장 주요 일정 3종)
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const byDate = {};
-    jobs.forEach(j => {
-      const d = (j.date || '').slice(0, 10);
+    const pushEvent = (date, j, kind) => {
+      const d = (date || '').slice(0, 10);
       if (!d) return;
-      (byDate[d] = byDate[d] || []).push(j);
+      (byDate[d] = byDate[d] || []).push({ ...j, _kind: kind });
+    };
+    jobs.forEach(j => {
+      pushEvent(j.date,         j, 'work');
+      pushEvent(j.installDate,  j, 'install');
+      pushEvent(j.softOpenDate, j, 'soft');
+      pushEvent(j.openDate,     j, 'open');
     });
 
     const today = new Date().toISOString().slice(0, 10);
 
-    const eventStyle = (type) => {
+    const eventStyle = (kind, type) => {
+      // 매장 주요 일정 우선
+      if (kind === 'install') return 'background:#FED7AA;color:#9A3412'; // 주황
+      if (kind === 'soft')    return 'background:#FECACA;color:#991B1B'; // 분홍/빨강
+      if (kind === 'open')    return 'background:#A7F3D0;color:#065F46;font-weight:800'; // 진한 초록
+      // 작업 유형별
       const t = type || '';
       if (/AS/i.test(t))           return 'background:#FEF3C7;color:#92400E';
       if (/VAN/.test(t))           return 'background:#EDE9FE;color:#5B21B6';
@@ -5485,6 +5532,8 @@ ${text.slice(0, 3000)}`;
       if (/신규|개업|가맹|SW/.test(t))  return 'background:#DBEAFE;color:#1D4ED8';
       return 'background:#F3F4F6;color:#374151';
     };
+    const kindIcon = (kind) => ({ install:'🔧', soft:'🌅', open:'🎉' })[kind] || '';
+    const kindLabel = (kind) => ({ install:'설치완료', soft:'가오픈', open:'오픈' })[kind] || '';
 
     // 이전 달 끝 날짜 (회색)
     for (let i = firstDayWeekday - 1; i >= 0; i--) {
@@ -5500,11 +5549,18 @@ ${text.slice(0, 3000)}`;
       const dayJobs = byDate[dateStr] || [];
       const cell = document.createElement('div');
       cell.className = 'cal-day' + (isToday ? ' today' : '');
-      const events = dayJobs.slice(0, 3).map(j => {
-        const label = `${(j.store || j.storeName || '-').slice(0, 8)} ${(j.type || '').slice(0, 6)}`;
-        return `<div class="cal-event" style="${eventStyle(j.type)};cursor:pointer" title="${esc(j.store||j.storeName||'')} · ${esc(j.type||'')} · 담당 ${esc(j.engineer||'미배정')}" onclick="event.stopPropagation();editNewopen('${j.id}')">${esc(label)}</div>`;
+      const events = dayJobs.slice(0, 4).map(j => {
+        const kind = j._kind || 'work';
+        const icon = kindIcon(kind);
+        const klabel = kindLabel(kind);
+        const storeName = (j.store || j.storeName || '-').slice(0, 8);
+        const label = kind === 'work'
+          ? `${storeName} ${(j.type || '').slice(0, 6)}`
+          : `${icon} ${storeName} ${klabel}`;
+        const tip = `${j.store||j.storeName||''} · ${kind==='work'?(j.type||''):klabel} · 담당 ${j.engineer||'미배정'}`;
+        return `<div class="cal-event" style="${eventStyle(kind, j.type)};cursor:pointer" title="${esc(tip)}" onclick="event.stopPropagation();editNewopen('${j.id}')">${esc(label)}</div>`;
       }).join('');
-      const more = dayJobs.length > 3 ? `<div style="font-size:10px;color:var(--gray-400);text-align:center;margin-top:2px">+${dayJobs.length - 3}건</div>` : '';
+      const more = dayJobs.length > 4 ? `<div style="font-size:10px;color:var(--gray-400);text-align:center;margin-top:2px">+${dayJobs.length - 4}건</div>` : '';
       cell.innerHTML = `<div class="cal-day-num"${isToday?' style="color:var(--primary)"':''}>${day}</div>${events}${more}`;
       grid.appendChild(cell);
     }
@@ -5915,6 +5971,23 @@ ${text.slice(0, 3000)}`;
           </div>
         </div>
         <div style="grid-column:1/-1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">주소</div><div style="font-size:13px">${esc(j.address || '-')}</div></div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">👤 매장 담당자 <span style="font-size:10px;color:var(--gray-400)">— 입력 즉시 자동 저장</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;background:#fff;padding:10px;border:1px solid var(--gray-200);border-radius:8px">
+            <div>
+              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">이름</div>
+              <input type="text" value="${esc(j.contactName||'')}" placeholder="홍길동" onchange="updateJobContact('${j.id}','contactName',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">직책</div>
+              <input type="text" value="${esc(j.contactRole||'')}" placeholder="점장 / 사장 등" list="contactRoleList" onchange="updateJobContact('${j.id}','contactRole',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">연락처</div>
+              <input type="tel" value="${esc(j.contactPhone||'')}" placeholder="010-0000-0000" onchange="updateJobContact('${j.id}','contactPhone',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
+            </div>
+          </div>
+        </div>
         ${j.notes ? `<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">비고</div><div style="font-size:13px;white-space:pre-wrap">${esc(j.notes)}</div></div>` : ''}
       </div>
 
@@ -5967,6 +6040,21 @@ ${text.slice(0, 3000)}`;
     try { renderCalendar(); } catch(e) {}
   }
   window.updateJobDate = updateJobDate;
+
+  /* 매장 담당자 필드 업데이트 (상세 모달) */
+  function updateJobContact(jobId, field, value) {
+    if (!['contactName','contactRole','contactPhone'].includes(field)) return;
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    job[field] = (value || '').trim();
+    saveJobs(jobs);
+    if (typeof showToast === 'function') {
+      const labels = { contactName:'담당자 이름', contactRole:'직책', contactPhone:'연락처' };
+      showToast(`✅ ${labels[field]} 저장됨`);
+    }
+  }
+  window.updateJobContact = updateJobContact;
 
   /* 잘못 연결된 작업 → 연결 해제 (미등록 상태로 되돌림) */
   function unlinkStore(jobId) {
