@@ -1851,30 +1851,29 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <button type="button" class="btn btn-outline btn-sm" onclick="addEquipRow()" style="padding:4px 12px;font-size:11px">＋ 행 추가</button>
         </div>
         <div style="overflow-x:auto">
-          <table id="equipTable" style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px;background:#fff;border-radius:8px;overflow:hidden">
+          <table id="equipTable" style="width:100%;border-collapse:collapse;font-size:12px;min-width:780px;background:#fff;border-radius:8px;overflow:hidden">
             <thead>
               <tr style="background:#F3F4F6;color:var(--gray-700);font-weight:700">
-                <th style="padding:8px 6px;text-align:left;border-bottom:1px solid var(--gray-200);min-width:180px">품목</th>
-                <th style="padding:8px 6px;text-align:left;border-bottom:1px solid var(--gray-200);min-width:120px">규격</th>
-                <th style="padding:8px 6px;text-align:center;border-bottom:1px solid var(--gray-200);width:90px">상태</th>
-                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:60px">수량</th>
-                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:100px">입고가</th>
-                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:100px">판매가</th>
-                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:110px">합계(판매)</th>
+                <th style="padding:8px 6px;text-align:left;border-bottom:1px solid var(--gray-200);min-width:240px">품목 / 분류</th>
+                <th style="padding:8px 6px;text-align:center;border-bottom:1px solid var(--gray-200);width:100px">상태</th>
+                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:70px">수량</th>
+                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:110px">입고가</th>
+                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:110px">판매가</th>
+                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:120px">합계(판매)</th>
                 <th style="padding:8px 6px;width:36px;border-bottom:1px solid var(--gray-200)"></th>
               </tr>
             </thead>
             <tbody id="equipTbody"></tbody>
             <tfoot>
               <tr style="background:#F9FAFB;font-weight:700">
-                <td colspan="6" style="padding:10px;text-align:right;color:var(--gray-600)">합계 (판매가 × 수량)</td>
+                <td colspan="5" style="padding:10px;text-align:right;color:var(--gray-600)">합계 (판매가 × 수량)</td>
                 <td id="equipTotal" style="padding:10px;text-align:right;color:var(--primary);font-weight:800">0</td>
                 <td></td>
               </tr>
             </tfoot>
           </table>
         </div>
-        <div style="margin-top:6px;font-size:11px;color:var(--gray-400)">품목 드롭다운에서 선택 시 단가 자동입력 · 직접 입력도 가능 · 행 추가 무제한</div>
+        <div style="margin-top:6px;font-size:11px;color:var(--gray-400)">🔒 고정 품목은 수량 0으로 두면 미투입 처리 · 분류/사이즈 옵션 있는 품목은 드롭다운에서 선택 · 추가 품목은 "＋ 행 추가"로 무제한</div>
       </div>
 
       <div class="form-group" style="margin-top:14px;margin-bottom:0">
@@ -2924,78 +2923,124 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   }
 
   /* ── 당구공 선택기 ── */
-  /* ── 투입 장비 카탈로그 ── */
-  const EQUIP_CATALOG = [
-    { name:'서버PC',                  spec:'PC',           costPrice:650000,  salePrice:850000  },
-    { name:'클라이언트PC',             spec:'PC',           costPrice:480000,  salePrice:650000  },
-    { name:'계산대조립본체',           spec:'PC',           costPrice:360000,  salePrice:550000  },
-    { name:'일체형POS',                spec:'라이센스포함', costPrice:495000,  salePrice:1100000 },
-    { name:'모니터(24인치)',           spec:'X2405EW',      costPrice:98000,   salePrice:240000  },
-    { name:'모니터(17인치)',           spec:'17인치',       costPrice:118000,  salePrice:190000  },
-    { name:'신)일반키보드(GNTM220610107)', spec:'K120',     costPrice:12000,   salePrice:25000   },
-    { name:'신)GNTM)마우스',           spec:'M100R',        costPrice:5500,    salePrice:20000   },
-    { name:'써지오(멀티탭)',           spec:'6구',          costPrice:4700,    salePrice:10000   },
-    { name:'정품라이센스(윈도우10)',   spec:'윈도우10',     costPrice:200000,  salePrice:250000  },
-    { name:'핸드터미널 930',           spec:'930',          costPrice:300000,  salePrice:650000  },
-    { name:'핸드터미널 거치대',        spec:'I/O박스',      costPrice:40000,   salePrice:120000  },
-    { name:'핸드터미널 930 거치대(수직형)', spec:'수직형',  costPrice:80000,   salePrice:200000  },
-    { name:'핸드터미널 케이블',        spec:'케이블',       costPrice:25000,   salePrice:60000   },
-    { name:'핸드터미널 아답터',        spec:'아답터',       costPrice:10000,   salePrice:30000   },
-    { name:'핸드터미널 DT-970',        spec:'DT-970',       costPrice:480000,  salePrice:800000  },
-    { name:'핸드터미널 970 거치대',    spec:'거치대',       costPrice:100000,  salePrice:200000  },
-    { name:'신)사무실용모니터',        spec:'36인치',       costPrice:0,       salePrice:0       },
-    { name:'하나시스 일체형17인치',    spec:'MICUS30',      costPrice:530000,  salePrice:1100000 },
-    { name:'하나시스 요식업포스(세트)', spec:'17인치',      costPrice:700000,  salePrice:0       },
-    { name:'하나시스 요식업세트(15인치)', spec:'MICUS20',   costPrice:680000,  salePrice:0       },
-    { name:'정품라이센스(윈도우7)',    spec:'윈도우7',      costPrice:164000,  salePrice:200000  },
+  /* ── 고정 투입 장비 정의 (변형 옵션 포함) ── */
+  // costPriceBy/salePriceBy: 변형(variant)별 단가가 다른 경우 사용
+  // hasSize: 사이즈 입력 칸 표시 (포스 다이 등)
+  const FIXED_EQUIPMENT = [
+    { key:'server',     name:'서버PC',           costPrice:650000,  salePrice:850000  },
+    { key:'client',     name:'클라이언트PC',      costPrice:480000,  salePrice:650000  },
+    { key:'allinone',   name:'일체형포스',        variants:['유통','외식'], costPrice:495000, salePrice:1100000 },
+    { key:'kiosk',      name:'키오스크',          variants:['유통','외식'], costPrice:0,     salePrice:1800000 },
+    { key:'fscanner',   name:'고정스캐너',        costPrice:0,       salePrice:0       },
+    { key:'rprinter',   name:'포스프린터',        variants:['시리얼','패러럴'], costPrice:0, salePrice:0 },
+    { key:'plukey',     name:'PLU키보드',         costPrice:0,       salePrice:0       },
+    { key:'handy',      name:'핸디터미널',        variants:['930','970'],
+      costPriceBy:{'930':300000,'970':480000}, salePriceBy:{'930':650000,'970':800000} },
+    { key:'handystand', name:'핸디터미널거치대',   variants:['수직형','I/O박스'],
+      costPriceBy:{'수직형':80000,'I/O박스':40000}, salePriceBy:{'수직형':200000,'I/O박스':120000} },
+    { key:'lprinter',   name:'라벨프린터',        costPrice:0,       salePrice:0       },
+    { key:'posdai',     name:'포스 다이',         variants:['전동','무전동'], hasSize:true, costPrice:0, salePrice:0 },
+    { key:'monitor',    name:'모니터',            variants:['사무용','포스 듀얼'], costPrice:0, salePrice:0 },
+    { key:'scale',      name:'전자저울',          variants:['일반','정육'], costPrice:0, salePrice:0 },
+    { key:'kbdai',      name:'키보드 다이',       costPrice:0,       salePrice:0       },
   ];
 
-  /* ── 투입 장비 행 관리 ── */
-  let equipRows = []; // 각 행: {name, spec, condition:'new'|'used', qty, costPrice, salePrice}
+  /* ── 투입 장비 행 관리 ──
+     행은 { id, fixed:true, fixedKey, name, variant, size, condition, qty, costPrice, salePrice }
+     또는  { id, fixed:false, name, spec, condition, qty, costPrice, salePrice } */
+  let equipRows = [];
   let equipRowSeq = 0;
 
   function fmt(n) { return (Number(n) || 0).toLocaleString('ko-KR'); }
 
-  function buildBallSelectors() { // 외부 호출 호환용 (기존 함수명 유지)
+  function buildBallSelectors() { // 호환용 이름 유지
     equipRows = [];
     equipRowSeq = 0;
-    addEquipRow();
-    addEquipRow();
-    addEquipRow();
+    // 고정 품목을 먼저 깔아둠
+    FIXED_EQUIPMENT.forEach(def => {
+      const variant = def.variants ? def.variants[0] : '';
+      const cost = def.costPriceBy ? (def.costPriceBy[variant] || 0) : (def.costPrice || 0);
+      const sale = def.salePriceBy ? (def.salePriceBy[variant] || 0) : (def.salePrice || 0);
+      equipRows.push({
+        id: ++equipRowSeq,
+        fixed: true,
+        fixedKey: def.key,
+        name: def.name,
+        variant,
+        size: '',
+        condition: 'new',
+        qty: 0, // 기본 0대 — 필요한 것만 카운트
+        costPrice: cost,
+        salePrice: sale,
+      });
+    });
+    renderEquipTable();
   }
 
   function addEquipRow() {
-    const id = ++equipRowSeq;
-    equipRows.push({ id, name:'', spec:'', condition:'new', qty:1, costPrice:0, salePrice:0 });
+    equipRows.push({
+      id: ++equipRowSeq,
+      fixed: false,
+      name:'', spec:'', condition:'new', qty:1, costPrice:0, salePrice:0,
+    });
     renderEquipTable();
   }
 
   function removeEquipRow(id) {
-    equipRows = equipRows.filter(r => r.id !== id);
-    if (equipRows.length === 0) addEquipRow();
+    const r = equipRows.find(x => x.id === id);
+    if (r && r.fixed) return; // 고정 행은 삭제 불가
+    equipRows = equipRows.filter(x => x.id !== id);
     renderEquipTable();
   }
+
+  function getFixedDef(key) { return FIXED_EQUIPMENT.find(d => d.key === key); }
+
+  function onVariantChange(id, val) {
+    const r = equipRows.find(x => x.id === id);
+    if (!r) return;
+    r.variant = val;
+    const def = getFixedDef(r.fixedKey);
+    if (def) {
+      if (def.costPriceBy) r.costPrice = def.costPriceBy[val] || 0;
+      if (def.salePriceBy) r.salePrice = def.salePriceBy[val] || 0;
+    }
+    renderEquipTable();
+  }
+  window.onVariantChange = onVariantChange;
 
   function renderEquipTable() {
     const tb = document.getElementById('equipTbody');
     if (!tb) return;
-    const opts = ['<option value="">— 선택 또는 직접 입력 —</option>']
-      .concat(EQUIP_CATALOG.map((it, i) => `<option value="${i}">${it.name} · ${it.spec}</option>`))
-      .concat(['<option value="custom">＋ 직접 입력 (커스텀)</option>'])
-      .join('');
-    tb.innerHTML = equipRows.map(r => {
+    const fixedRows = equipRows.filter(r => r.fixed);
+    const customRows = equipRows.filter(r => !r.fixed);
+
+    function rowHTML(r) {
       const total = (Number(r.qty) || 0) * (Number(r.salePrice) || 0);
-      return `<tr data-row="${r.id}">
-        <td style="padding:6px;border-bottom:1px solid var(--gray-100)">
-          <select onchange="onEquipPick(${r.id}, this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
-            ${opts}
-          </select>
-          <input type="text" placeholder="품목명 (직접 입력)" value="${escAttr(r.name)}" oninput="onEquipField(${r.id},'name',this.value)" style="width:100%;margin-top:4px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
-        </td>
-        <td style="padding:6px;border-bottom:1px solid var(--gray-100)">
-          <input type="text" placeholder="규격" value="${escAttr(r.spec)}" oninput="onEquipField(${r.id},'spec',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
-        </td>
-        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:center">
+      const isUnused = (Number(r.qty) || 0) === 0;
+      const def = r.fixed ? getFixedDef(r.fixedKey) : null;
+
+      // 품목 셀
+      let nameCell;
+      if (r.fixed) {
+        const variantSelect = (def && def.variants)
+          ? `<select onchange="onVariantChange(${r.id}, this.value)" style="margin-top:4px;width:100%;padding:5px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px">
+              ${def.variants.map(v => `<option value="${v}" ${r.variant===v?'selected':''}>${v}</option>`).join('')}
+            </select>` : '';
+        const sizeInput = (def && def.hasSize)
+          ? `<input type="text" placeholder="사이즈 (예: 1800×600)" value="${escAttr(r.size||'')}" oninput="onEquipField(${r.id},'size',this.value)" style="margin-top:4px;width:100%;padding:5px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px">` : '';
+        nameCell = `<div style="font-weight:700;color:${isUnused?'var(--gray-500)':'var(--gray-800)'}">🔒 ${esc(r.name)}</div>${variantSelect}${sizeInput}`;
+      } else {
+        nameCell = `<input type="text" placeholder="품목명 (직접 입력)" value="${escAttr(r.name)}" oninput="onEquipField(${r.id},'name',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
+          <input type="text" placeholder="규격 (선택)" value="${escAttr(r.spec||'')}" oninput="onEquipField(${r.id},'spec',this.value)" style="width:100%;margin-top:4px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px">`;
+      }
+
+      const removeBtn = r.fixed
+        ? '<span style="font-size:12px;color:var(--gray-300)" title="고정 품목은 삭제 불가">🔒</span>'
+        : `<button type="button" onclick="removeEquipRow(${r.id})" title="행 삭제" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button>`;
+
+      return `<tr data-row="${r.id}" style="${isUnused?'background:#FAFAFA':''}">
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);vertical-align:top">${nameCell}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:center;vertical-align:top">
           <label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;margin-right:4px">
             <input type="radio" name="cond-${r.id}" ${r.condition==='new'?'checked':''} onchange="onEquipField(${r.id},'condition','new')">신품
           </label>
@@ -3003,21 +3048,31 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <input type="radio" name="cond-${r.id}" ${r.condition==='used'?'checked':''} onchange="onEquipField(${r.id},'condition','used')"><span style="color:var(--warning);font-weight:600">중고</span>
           </label>
         </td>
-        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right">
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right;vertical-align:top">
           <input type="number" min="0" step="1" value="${r.qty}" oninput="onEquipField(${r.id},'qty',this.value)" style="width:60px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;text-align:right">
         </td>
-        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right">
-          <input type="number" min="0" step="100" value="${r.costPrice}" oninput="onEquipField(${r.id},'costPrice',this.value)" style="width:90px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;text-align:right">
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right;vertical-align:top">
+          <input type="number" min="0" step="100" value="${r.costPrice}" oninput="onEquipField(${r.id},'costPrice',this.value)" style="width:100px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;text-align:right">
         </td>
-        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right">
-          <input type="number" min="0" step="100" value="${r.salePrice}" oninput="onEquipField(${r.id},'salePrice',this.value)" style="width:90px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;text-align:right">
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right;vertical-align:top">
+          <input type="number" min="0" step="100" value="${r.salePrice}" oninput="onEquipField(${r.id},'salePrice',this.value)" style="width:100px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;text-align:right">
         </td>
-        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right;font-weight:700;color:var(--primary)">${fmt(total)}</td>
-        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:center">
-          <button type="button" onclick="removeEquipRow(${r.id})" title="행 삭제" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button>
-        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right;font-weight:700;color:var(--primary);vertical-align:top">${fmt(total)}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:center;vertical-align:top">${removeBtn}</td>
       </tr>`;
-    }).join('');
+    }
+
+    let html = '';
+    if (fixedRows.length) {
+      html += `<tr style="background:#EFF6FF"><td colspan="7" style="padding:8px 12px;font-size:11px;font-weight:700;color:#1D4ED8">🔒 고정 품목 (수량만 입력)</td></tr>`;
+      html += fixedRows.map(rowHTML).join('');
+    }
+    if (customRows.length) {
+      html += `<tr style="background:#FEF3C7"><td colspan="7" style="padding:8px 12px;font-size:11px;font-weight:700;color:#92400E">＋ 추가 품목 (수기 입력)</td></tr>`;
+      html += customRows.map(rowHTML).join('');
+    }
+    tb.innerHTML = html;
+
     // 합계
     const grand = equipRows.reduce((s, r) => s + (Number(r.qty)||0) * (Number(r.salePrice)||0), 0);
     const totalEl = document.getElementById('equipTotal');
@@ -3025,23 +3080,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     updateJobSummary();
   }
 
-  function onEquipPick(id, val) {
-    const r = equipRows.find(x => x.id === id);
-    if (!r) return;
-    if (val === '' || val === 'custom') {
-      // 비움 또는 커스텀 — 사용자가 직접 입력
-      if (val === '') { r.name=''; r.spec=''; r.costPrice=0; r.salePrice=0; }
-      renderEquipTable();
-      return;
-    }
-    const it = EQUIP_CATALOG[parseInt(val,10)];
-    if (!it) return;
-    r.name = it.name;
-    r.spec = it.spec;
-    r.costPrice = it.costPrice;
-    r.salePrice = it.salePrice;
-    renderEquipTable();
-  }
+  function onEquipPick() {} // legacy
 
   function onEquipField(id, field, val) {
     const r = equipRows.find(x => x.id === id);
@@ -4839,11 +4878,15 @@ ${text.slice(0, 3000)}`;
     const storeMatch = jobStoreUnregistered ? null
       : (getStores() || []).find(s => (s.name || '').trim() === storeName) || null;
 
-    // 투입 장비 행 정리 (이름 비어있는 행 제외)
+    // 투입 장비 행 정리 (수량 0인 행 제외, 이름 빈 행 제외)
     const equipment = (typeof equipRows !== 'undefined' && Array.isArray(equipRows))
       ? equipRows.filter(r => r.name && (Number(r.qty) || 0) > 0).map(r => ({
           name: r.name,
           spec: r.spec || '',
+          variant: r.variant || '',
+          size: r.size || '',
+          fixed: !!r.fixed,
+          fixedKey: r.fixedKey || '',
           condition: r.condition || 'new',
           qty: Number(r.qty) || 0,
           costPrice: Number(r.costPrice) || 0,
