@@ -1328,18 +1328,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <!-- ═══════════════════════════════════════ -->
     <div class="screen" id="screen-calendar">
       <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px">
-        <button class="btn btn-outline btn-sm">◀</button>
-        <div style="font-size:18px; font-weight:800; color:var(--gray-900)">2026년 4월</div>
-        <button class="btn btn-outline btn-sm">▶</button>
+        <button class="btn btn-outline btn-sm" onclick="moveCalMonth(-1)">◀</button>
+        <div style="font-size:18px; font-weight:800; color:var(--gray-900)" id="calMonthLabel">— 년 — 월</div>
+        <button class="btn btn-outline btn-sm" onclick="moveCalMonth(1)">▶</button>
+        <button class="btn btn-outline btn-sm" onclick="moveCalMonth(0)" style="margin-left:8px;font-size:11px">오늘</button>
         <div style="margin-left:auto; display:flex; gap:8px; font-size:12px; font-weight:600">
           <span style="background:#DBEAFE; color:#1D4ED8; padding:3px 10px; border-radius:10px">신규</span>
           <span style="background:#D1FAE5; color:#065F46; padding:3px 10px; border-radius:10px">POS교체</span>
-          <span style="background:#EDE9FE; color:#5B21B6; padding:3px 10px; border-radius:10px">VAN교체</span>
+          <span style="background:#EDE9FE; color:#5B21B6; padding:3px 10px; border-radius:10px">VAN</span>
           <span style="background:#FEF3C7; color:#92400E; padding:3px 10px; border-radius:10px">AS</span>
         </div>
       </div>
 
-      <div class="cal-grid">
+      <div class="cal-grid" id="calGrid">
         <div class="cal-day-header">일</div>
         <div class="cal-day-header">월</div>
         <div class="cal-day-header">화</div>
@@ -1347,51 +1348,6 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div class="cal-day-header">목</div>
         <div class="cal-day-header">금</div>
         <div class="cal-day-header">토</div>
-        <!-- Row 1 -->
-        <div class="cal-day other-month"><div class="cal-day-num">30</div></div>
-        <div class="cal-day other-month"><div class="cal-day-num">31</div></div>
-        <div class="cal-day"><div class="cal-day-num">1</div></div>
-        <div class="cal-day"><div class="cal-day-num">2</div></div>
-        <div class="cal-day"><div class="cal-day-num">3</div></div>
-        <div class="cal-day"><div class="cal-day-num">4</div></div>
-        <div class="cal-day"><div class="cal-day-num">5</div></div>
-        <!-- Row 2 -->
-        <div class="cal-day"><div class="cal-day-num">6</div></div>
-        <div class="cal-day"><div class="cal-day-num">7</div><div class="cal-event new">K-1 안중 신규</div></div>
-        <div class="cal-day"><div class="cal-day-num">8</div></div>
-        <div class="cal-day"><div class="cal-day-num">9</div><div class="cal-event replace">웰빙마트 POS</div></div>
-        <div class="cal-day"><div class="cal-day-num">10</div></div>
-        <div class="cal-day"><div class="cal-day-num">11</div></div>
-        <div class="cal-day"><div class="cal-day-num">12</div></div>
-        <!-- Row 3 -->
-        <div class="cal-day"><div class="cal-day-num">13</div></div>
-        <div class="cal-day"><div class="cal-day-num">14</div><div class="cal-event new">SK마트 강화</div></div>
-        <div class="cal-day"><div class="cal-day-num">15</div><div class="cal-event as">가락마트 AS</div></div>
-        <div class="cal-day"><div class="cal-day-num">16</div><div class="cal-event van">L-마트 VAN</div></div>
-        <div class="cal-day"><div class="cal-day-num">17</div></div>
-        <div class="cal-day"><div class="cal-day-num">18</div><div class="cal-event new">365할인마트</div></div>
-        <div class="cal-day"><div class="cal-day-num">19</div></div>
-        <!-- Row 4 -->
-        <div class="cal-day today">
-          <div class="cal-day-num" style="color:var(--primary)">20</div>
-          <div class="cal-event new">K-1 안중점</div>
-          <div class="cal-event van">웰빙마트 VAN</div>
-          <div class="cal-event as">ECJ마트 AS</div>
-        </div>
-        <div class="cal-day"><div class="cal-day-num">21</div></div>
-        <div class="cal-day"><div class="cal-day-num">22</div><div class="cal-event van">365마트 VAN</div></div>
-        <div class="cal-day"><div class="cal-day-num">23</div><div class="cal-event replace">웰빙마트 설치</div></div>
-        <div class="cal-day"><div class="cal-day-num">24</div></div>
-        <div class="cal-day"><div class="cal-day-num">25</div></div>
-        <div class="cal-day"><div class="cal-day-num">26</div></div>
-        <!-- Row 5 -->
-        <div class="cal-day"><div class="cal-day-num">27</div></div>
-        <div class="cal-day"><div class="cal-day-num">28</div></div>
-        <div class="cal-day"><div class="cal-day-num">29</div></div>
-        <div class="cal-day"><div class="cal-day-num">30</div></div>
-        <div class="cal-day other-month"><div class="cal-day-num">1</div></div>
-        <div class="cal-day other-month"><div class="cal-day-num">2</div></div>
-        <div class="cal-day other-month"><div class="cal-day-num">3</div></div>
       </div>
     </div>
 
@@ -2575,6 +2531,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     // 신규관리 진입 시 데이터 갱신
     if (id === 'newopen' && typeof hydrateNewopen === 'function') {
       try { hydrateNewopen('all'); } catch(e) {}
+    }
+    // 일정 캘린더 진입 시 갱신
+    if (id === 'calendar' && typeof renderCalendar === 'function') {
+      try { renderCalendar(); } catch(e) {}
     }
   }
 
@@ -5398,11 +5358,14 @@ ${text.slice(0, 3000)}`;
             <span class="badge badge-blue">${esc(j.status||'예정')}</span>
           </div>`;
         }).join('');
-      } else if (jobs.length === 0) {
-        // 데이터 자체가 비어있으면 빈 상태 표시 (데모 행 모두 제거)
+      } else {
+        // 항상 빈 상태로 교체 (데모 잔존 방지)
+        const msg = jobs.length === 0
+          ? '등록된 일정이 없습니다.'
+          : '오늘 예정된 일정이 없습니다.';
         todayBody.innerHTML = `<div style="padding:30px 20px;text-align:center;color:var(--gray-400);font-size:12px">
           <div style="font-size:28px;margin-bottom:8px">📭</div>
-          <div>등록된 일정이 없습니다.</div>
+          <div>${msg}</div>
           <div style="margin-top:4px;font-size:11px">"+ 작업 등록"으로 추가하세요.</div>
         </div>`;
       }
@@ -5422,7 +5385,7 @@ ${text.slice(0, 3000)}`;
             <td style="color:var(--gray-400)">${esc((j.date||j.createdAt||'').slice(5,10).replace('-','.'))}</td>
             <td>${esc(j.engineer || j.assignee || '-')}</td>
           </tr>`).join('');
-      } else if (jobs.length === 0) {
+      } else {
         recentBody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">완료된 작업이 없습니다.</td></tr>`;
       }
     }
@@ -5435,7 +5398,9 @@ ${text.slice(0, 3000)}`;
         const done = (j.status === '완료' || j.status === 'done');
         return /as|에이에스/i.test(t) && !done;
       });
-      if (asJobs.length > 0) {
+      if (asJobs.length === 0) {
+        asBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">미처리 AS가 없습니다.</td></tr>`;
+      } else {
         asBody.innerHTML = asJobs.map(j => {
           const recv = (j.date || j.createdAt || '').slice(5,10).replace('-','.');
           const hours = j.createdAt ? Math.round((Date.now() - new Date(j.createdAt).getTime())/3600000) : 0;
@@ -5451,12 +5416,98 @@ ${text.slice(0, 3000)}`;
             <td><span class="badge badge-amber">${esc(j.status || '접수')}</span></td>
           </tr>`;
         }).join('');
-      } else if (jobs.length === 0) {
-        asBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">미처리 AS가 없습니다.</td></tr>`;
       }
     }
   }
   window.hydrateDashboardJobs = hydrateDashboardJobs;
+
+  /* ══════════════════════════════════════════════
+     일정 캘린더 (ns_jobs 기반 동적 렌더)
+  ══════════════════════════════════════════════ */
+  const _calState = { year: new Date().getFullYear(), month: new Date().getMonth() };
+
+  function renderCalendar() {
+    const grid = document.getElementById('calGrid');
+    const label = document.getElementById('calMonthLabel');
+    if (!grid || !label) return;
+    const { year, month } = _calState;
+    label.textContent = `${year}년 ${month + 1}월`;
+
+    // 헤더 7개 유지하고 나머지 비움
+    const headers = Array.from(grid.querySelectorAll('.cal-day-header'));
+    grid.innerHTML = '';
+    headers.forEach(h => grid.appendChild(h));
+
+    const firstDayWeekday = new Date(year, month, 1).getDay();
+    const lastDate = new Date(year, month + 1, 0).getDate();
+    const prevLastDate = new Date(year, month, 0).getDate();
+
+    // 작업 날짜별 그룹
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const byDate = {};
+    jobs.forEach(j => {
+      const d = (j.date || '').slice(0, 10);
+      if (!d) return;
+      (byDate[d] = byDate[d] || []).push(j);
+    });
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    const eventStyle = (type) => {
+      const t = type || '';
+      if (/AS/i.test(t))           return 'background:#FEF3C7;color:#92400E';
+      if (/VAN/.test(t))           return 'background:#EDE9FE;color:#5B21B6';
+      if (/POS.*교체|장비.*추가/.test(t)) return 'background:#D1FAE5;color:#065F46';
+      if (/신규|개업|가맹|SW/.test(t))  return 'background:#DBEAFE;color:#1D4ED8';
+      return 'background:#F3F4F6;color:#374151';
+    };
+
+    // 이전 달 끝 날짜 (회색)
+    for (let i = firstDayWeekday - 1; i >= 0; i--) {
+      const d = document.createElement('div');
+      d.className = 'cal-day other-month';
+      d.innerHTML = `<div class="cal-day-num">${prevLastDate - i}</div>`;
+      grid.appendChild(d);
+    }
+    // 이번 달
+    for (let day = 1; day <= lastDate; day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const isToday = dateStr === today;
+      const dayJobs = byDate[dateStr] || [];
+      const cell = document.createElement('div');
+      cell.className = 'cal-day' + (isToday ? ' today' : '');
+      const events = dayJobs.slice(0, 3).map(j => {
+        const label = `${(j.store || j.storeName || '-').slice(0, 8)} ${(j.type || '').slice(0, 6)}`;
+        return `<div class="cal-event" style="${eventStyle(j.type)};cursor:pointer" title="${esc(j.store||j.storeName||'')} · ${esc(j.type||'')} · 담당 ${esc(j.engineer||'미배정')}" onclick="event.stopPropagation();editNewopen('${j.id}')">${esc(label)}</div>`;
+      }).join('');
+      const more = dayJobs.length > 3 ? `<div style="font-size:10px;color:var(--gray-400);text-align:center;margin-top:2px">+${dayJobs.length - 3}건</div>` : '';
+      cell.innerHTML = `<div class="cal-day-num"${isToday?' style="color:var(--primary)"':''}>${day}</div>${events}${more}`;
+      grid.appendChild(cell);
+    }
+    // 다음 달 시작 (6주 채우기)
+    const totalCells = firstDayWeekday + lastDate;
+    const trailing = (7 - (totalCells % 7)) % 7;
+    for (let i = 1; i <= trailing; i++) {
+      const d = document.createElement('div');
+      d.className = 'cal-day other-month';
+      d.innerHTML = `<div class="cal-day-num">${i}</div>`;
+      grid.appendChild(d);
+    }
+  }
+  window.renderCalendar = renderCalendar;
+
+  function moveCalMonth(delta) {
+    if (delta === 0) {
+      _calState.year = new Date().getFullYear();
+      _calState.month = new Date().getMonth();
+    } else {
+      _calState.month += delta;
+      if (_calState.month < 0) { _calState.month = 11; _calState.year--; }
+      else if (_calState.month > 11) { _calState.month = 0; _calState.year++; }
+    }
+    renderCalendar();
+  }
+  window.moveCalMonth = moveCalMonth;
 
   /* ══════════════════════════════════════════════
      작업 워크플로 시스템 (작업 유형별 단계 + 진행상태)
