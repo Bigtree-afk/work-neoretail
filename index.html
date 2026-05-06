@@ -1230,7 +1230,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <div class="filter-row" style="margin-bottom:16px">
         <div class="search-bar" style="flex:0 0 320px;position:relative">
           <span class="search-icon" onclick="runStoreSearch()" style="cursor:pointer" title="검색">🔍</span>
-          <input type="text" id="storeSearchInput" placeholder="점포명, 사업자번호, 대표자 검색..." onkeydown="if(event.key==='Enter'){event.preventDefault();runStoreSearch();}" style="padding-right:40px">
+          <input type="text" id="storeSearchInput" placeholder="점포명·사업자번호·대표자·전화·주소 (2자 이상 즉시 검색)" autocomplete="off" oninput="onStoreSearchInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();runStoreSearch();}" style="padding-right:40px">
           <button type="button" id="storeMicBtn" onclick="startStoreVoiceSearch()" title="음성 검색" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:#F3F4F6;border:1px solid var(--gray-200);border-radius:8px;width:30px;height:30px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center">🎙</button>
         </div>
         <div class="filter-chip active" onclick="filterStoresByStatus(this,'전체')">전체</div>
@@ -6092,20 +6092,52 @@ ${text.slice(0, 3000)}`;
     try { rec.start(); } catch {}
   }
 
-  function runStoreSearch() {
-    const q = (document.getElementById('storeSearchInput')?.value || '').trim().toLowerCase();
+  function applyStoreFilter(q, opts) {
+    opts = opts || {};
+    q = (q || '').trim().toLowerCase();
     const tb = document.getElementById('storeListTbody');
-    if (!tb) return;
+    if (!tb) return 0;
     let shown = 0;
     Array.from(tb.querySelectorAll('tr')).forEach(tr => {
-      if (tr.classList.contains('store-detail-row')) return; // 상세 행은 건드리지 않음
+      if (tr.classList.contains('store-detail-row')) return;
+      // 안내 행 (총 N개 등)은 건드리지 않음
+      if (tr.querySelector('td[colspan]') && !q) { tr.style.display = ''; return; }
+      if (tr.querySelector('td[colspan]') &&  q) { tr.style.display = 'none'; return; }
       const txt = tr.textContent.toLowerCase();
       const match = !q || txt.includes(q);
       tr.style.display = match ? '' : 'none';
       if (match) shown++;
     });
-    showToast && showToast(q ? `🔍 "${q}" 결과 ${shown}건` : `전체 ${shown}개 점포`);
+    if (opts.toast && (typeof showToast === 'function')) {
+      showToast(q ? `🔍 "${q}" 결과 ${shown}건` : `전체 ${shown}개 점포`);
+    }
+    return shown;
   }
+
+  function runStoreSearch() {
+    const q = document.getElementById('storeSearchInput')?.value || '';
+    applyStoreFilter(q, { toast: true });
+  }
+
+  /* 라이브 검색 — 2자 이상 입력 시 즉시 필터 (debounce 120ms) */
+  let _storeSearchTimer = null;
+  function onStoreSearchInput(val) {
+    if (_storeSearchTimer) clearTimeout(_storeSearchTimer);
+    const q = (val || '').trim();
+    if (q.length === 0) {
+      // 비우면 전체 표시 (즉시)
+      applyStoreFilter('', { toast: false });
+      return;
+    }
+    if (q.length < 2) {
+      // 1글자는 너무 광범위하므로 무시 (성능)
+      return;
+    }
+    _storeSearchTimer = setTimeout(() => {
+      applyStoreFilter(q, { toast: false });
+    }, 120);
+  }
+  window.onStoreSearchInput = onStoreSearchInput;
 
   function startStoreVoiceSearch() {
     const inp = document.getElementById('storeSearchInput');
