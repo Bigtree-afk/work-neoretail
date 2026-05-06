@@ -1802,19 +1802,28 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <label>작업 유형</label>
           <select id="jobType">
             <option>신규개업</option>
+            <option>신규가맹</option>
+            <option>VAN사 변경</option>
+            <option>SW 변경</option>
+            <option>당사매장 인수</option>
             <option>POS 교체</option>
-            <option>VAN 교체</option>
             <option>장비 추가</option>
             <option>AS 처리</option>
           </select>
         </div>
         <div class="form-group" style="margin:0;position:relative">
-          <label>점포명 <span style="font-size:10px;color:var(--gray-400);font-weight:400">🔍 검색</span></label>
+          <label>점포명
+            <span style="font-size:10px;color:var(--gray-400);font-weight:400">🔍 검색</span>
+            <button type="button" onclick="toggleUnregisteredStore()" id="unregBtn" style="float:right;background:none;border:1px solid var(--gray-300);color:var(--gray-500);font-size:10px;padding:2px 8px;border-radius:6px;cursor:pointer;font-weight:600">+ 미등록 가맹점</button>
+          </label>
           <div style="position:relative">
             <input type="text" id="jobStoreName" placeholder="점포명을 입력해 검색..." autocomplete="off" oninput="runJobStoreSearch()" onfocus="runJobStoreSearch()" onblur="setTimeout(()=>{const p=document.getElementById('jobStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px">
             <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--gray-400);pointer-events:none">🔍</span>
           </div>
           <div id="jobStoreResults" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;margin-top:4px"></div>
+          <div id="unregNotice" style="display:none;margin-top:6px;padding:6px 10px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;font-size:11px;color:#92400E">
+            ⚠ 미등록 가맹점 모드 — 점포명/주소를 직접 입력하고 나중에 등록되면 "가맹점 연결" 버튼으로 정식 매핑하세요.
+          </div>
         </div>
         <div class="form-group" style="margin:0">
           <label>담당 엔지니어 <span style="font-size:10px;color:var(--gray-400);font-weight:400">· 등록 직원만</span></label>
@@ -1835,19 +1844,37 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
-      <!-- 당구공 장비 수량 선택기 -->
+      <!-- 투입 장비 (카탈로그 + 커스텀 행) -->
       <div style="background:var(--gray-50);border-radius:12px;padding:16px 20px;border:1px solid var(--gray-200)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:13px;font-weight:700;color:var(--gray-700)">🎱 투입 장비 수량 선택</div>
-          <div style="display:flex;gap:12px;font-size:11px;color:var(--gray-400);align-items:center;flex-wrap:wrap">
-            <span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#D1D5DB;flex-shrink:0"></span>0 = 미투입</span>
-            <span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FBBF24,#D97706);flex-shrink:0"></span>솔리드 1–8</span>
-            <span style="display:inline-flex;align-items:center;gap:5px;position:relative"><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#60A5FA,#1D4ED8);overflow:hidden;flex-shrink:0;position:relative"><span style="display:block;position:absolute;left:0;right:0;top:35%;height:30%;background:rgba(255,255,255,0.75)"></span></span>스트라이프 9–15</span>
-          </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:13px;font-weight:700;color:var(--gray-700)">📦 투입 장비</div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="addEquipRow()" style="padding:4px 12px;font-size:11px">＋ 행 추가</button>
         </div>
-        <div id="ball-selectors">
-          <!-- 장비별 당구공 선택 행 (JS로 생성) -->
+        <div style="overflow-x:auto">
+          <table id="equipTable" style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px;background:#fff;border-radius:8px;overflow:hidden">
+            <thead>
+              <tr style="background:#F3F4F6;color:var(--gray-700);font-weight:700">
+                <th style="padding:8px 6px;text-align:left;border-bottom:1px solid var(--gray-200);min-width:180px">품목</th>
+                <th style="padding:8px 6px;text-align:left;border-bottom:1px solid var(--gray-200);min-width:120px">규격</th>
+                <th style="padding:8px 6px;text-align:center;border-bottom:1px solid var(--gray-200);width:90px">상태</th>
+                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:60px">수량</th>
+                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:100px">입고가</th>
+                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:100px">판매가</th>
+                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:110px">합계(판매)</th>
+                <th style="padding:8px 6px;width:36px;border-bottom:1px solid var(--gray-200)"></th>
+              </tr>
+            </thead>
+            <tbody id="equipTbody"></tbody>
+            <tfoot>
+              <tr style="background:#F9FAFB;font-weight:700">
+                <td colspan="6" style="padding:10px;text-align:right;color:var(--gray-600)">합계 (판매가 × 수량)</td>
+                <td id="equipTotal" style="padding:10px;text-align:right;color:var(--primary);font-weight:800">0</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
+        <div style="margin-top:6px;font-size:11px;color:var(--gray-400)">품목 드롭다운에서 선택 시 단가 자동입력 · 직접 입력도 가능 · 행 추가 무제한</div>
       </div>
 
       <div class="form-group" style="margin-top:14px;margin-bottom:0">
@@ -2897,84 +2924,165 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   }
 
   /* ── 당구공 선택기 ── */
-  const equipList = [
-    { key:'pos',    label:'POS 일체형',   sub:'계산대 본체' },
-    { key:'kiosk',  label:'키오스크',      sub:'셀프 계산대' },
-    { key:'server', label:'서버 PC',       sub:'백오피스 서버' },
-    { key:'scanner_f',label:'고정스캐너',  sub:'마젤란/LS류' },
-    { key:'scanner_h',label:'핸드스캐너',  sub:'바코드 핸드' },
-    { key:'scale',  label:'전자저울',      sub:'SM-100 등' },
-    { key:'printer_r',label:'영수프린터',  sub:'SRP-330 등' },
-    { key:'printer_l',label:'라벨프린터',  sub:'바코드 라벨' },
-    { key:'card_w', label:'카드단말(유선)', sub:'N100 등' },
-    { key:'card_m', label:'카드단말(무선)', sub:'포터블' },
-    { key:'display',label:'고객용 화면',   sub:'2nd Display' },
-    { key:'drawer', label:'현금서랍',      sub:'APG 등' },
-    { key:'ups',    label:'UPS',           sub:'무정전전원' },
-    { key:'etc',    label:'기타 장비',     sub:'' },
+  /* ── 투입 장비 카탈로그 ── */
+  const EQUIP_CATALOG = [
+    { name:'서버PC',                  spec:'PC',           costPrice:650000,  salePrice:850000  },
+    { name:'클라이언트PC',             spec:'PC',           costPrice:480000,  salePrice:650000  },
+    { name:'계산대조립본체',           spec:'PC',           costPrice:360000,  salePrice:550000  },
+    { name:'일체형POS',                spec:'라이센스포함', costPrice:495000,  salePrice:1100000 },
+    { name:'모니터(24인치)',           spec:'X2405EW',      costPrice:98000,   salePrice:240000  },
+    { name:'모니터(17인치)',           spec:'17인치',       costPrice:118000,  salePrice:190000  },
+    { name:'신)일반키보드(GNTM220610107)', spec:'K120',     costPrice:12000,   salePrice:25000   },
+    { name:'신)GNTM)마우스',           spec:'M100R',        costPrice:5500,    salePrice:20000   },
+    { name:'써지오(멀티탭)',           spec:'6구',          costPrice:4700,    salePrice:10000   },
+    { name:'정품라이센스(윈도우10)',   spec:'윈도우10',     costPrice:200000,  salePrice:250000  },
+    { name:'핸드터미널 930',           spec:'930',          costPrice:300000,  salePrice:650000  },
+    { name:'핸드터미널 거치대',        spec:'I/O박스',      costPrice:40000,   salePrice:120000  },
+    { name:'핸드터미널 930 거치대(수직형)', spec:'수직형',  costPrice:80000,   salePrice:200000  },
+    { name:'핸드터미널 케이블',        spec:'케이블',       costPrice:25000,   salePrice:60000   },
+    { name:'핸드터미널 아답터',        spec:'아답터',       costPrice:10000,   salePrice:30000   },
+    { name:'핸드터미널 DT-970',        spec:'DT-970',       costPrice:480000,  salePrice:800000  },
+    { name:'핸드터미널 970 거치대',    spec:'거치대',       costPrice:100000,  salePrice:200000  },
+    { name:'신)사무실용모니터',        spec:'36인치',       costPrice:0,       salePrice:0       },
+    { name:'하나시스 일체형17인치',    spec:'MICUS30',      costPrice:530000,  salePrice:1100000 },
+    { name:'하나시스 요식업포스(세트)', spec:'17인치',      costPrice:700000,  salePrice:0       },
+    { name:'하나시스 요식업세트(15인치)', spec:'MICUS20',   costPrice:680000,  salePrice:0       },
+    { name:'정품라이센스(윈도우7)',    spec:'윈도우7',      costPrice:164000,  salePrice:200000  },
   ];
-  const ballState = {};
 
-  function buildBallSelectors() {
-    const container = document.getElementById('ball-selectors');
-    if (!container) return;
-    container.innerHTML = '';
-    equipList.forEach(eq => {
-      ballState[eq.key] = 0;
-      const row = document.createElement('div');
-      row.className = 'ball-selector-row';
-      let ballsHtml = '';
-      for (let i = 0; i <= 5; i++) {
-        ballsHtml += `<div class="ball b${i}${i===0?' selected':''}" data-key="${eq.key}" data-val="${i}" onclick="selectBall(this,'${eq.key}',${i})">${i}</div>`;
-      }
-      // 직접 입력 박스 (6대 이상)
-      ballsHtml += `<div style="display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:4px 8px;border:1px dashed var(--gray-300);border-radius:6px;background:#fff">
-        <span style="font-size:10px;color:var(--gray-500);font-weight:600">직접</span>
-        <input type="number" min="0" max="999" id="custom-${eq.key}" placeholder="0" onchange="setCustomBall('${eq.key}', this.value)" oninput="setCustomBall('${eq.key}', this.value)" style="width:56px;padding:4px 6px;border:1px solid var(--gray-200);border-radius:4px;font-size:13px;font-weight:700;text-align:center">
-        <span style="font-size:10px;color:var(--gray-500)">대</span>
-      </div>`;
-      row.innerHTML = `
-        <div class="ball-label">${eq.label}<small>${eq.sub}</small></div>
-        <div class="balls" id="balls-${eq.key}" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">${ballsHtml}</div>
-        <div class="ball-count-badge" id="cnt-${eq.key}">—</div>
-      `;
-      container.appendChild(row);
-    });
+  /* ── 투입 장비 행 관리 ── */
+  let equipRows = []; // 각 행: {name, spec, condition:'new'|'used', qty, costPrice, salePrice}
+  let equipRowSeq = 0;
+
+  function fmt(n) { return (Number(n) || 0).toLocaleString('ko-KR'); }
+
+  function buildBallSelectors() { // 외부 호출 호환용 (기존 함수명 유지)
+    equipRows = [];
+    equipRowSeq = 0;
+    addEquipRow();
+    addEquipRow();
+    addEquipRow();
   }
 
-  function selectBall(el, key, val) {
-    // 같은 장비 행의 모든 볼 선택 해제
-    document.querySelectorAll(`#balls-${key} .ball`).forEach(b => b.classList.remove('selected'));
-    el.classList.add('selected');
-    ballState[key] = val;
-    const cnt = document.getElementById('cnt-' + key);
-    if (cnt) cnt.textContent = val > 0 ? val + '대' : '—';
-    // 직접 입력 박스 초기화
-    const customInp = document.getElementById('custom-' + key);
-    if (customInp) customInp.value = '';
+  function addEquipRow() {
+    const id = ++equipRowSeq;
+    equipRows.push({ id, name:'', spec:'', condition:'new', qty:1, costPrice:0, salePrice:0 });
+    renderEquipTable();
+  }
+
+  function removeEquipRow(id) {
+    equipRows = equipRows.filter(r => r.id !== id);
+    if (equipRows.length === 0) addEquipRow();
+    renderEquipTable();
+  }
+
+  function renderEquipTable() {
+    const tb = document.getElementById('equipTbody');
+    if (!tb) return;
+    const opts = ['<option value="">— 선택 또는 직접 입력 —</option>']
+      .concat(EQUIP_CATALOG.map((it, i) => `<option value="${i}">${it.name} · ${it.spec}</option>`))
+      .concat(['<option value="custom">＋ 직접 입력 (커스텀)</option>'])
+      .join('');
+    tb.innerHTML = equipRows.map(r => {
+      const total = (Number(r.qty) || 0) * (Number(r.salePrice) || 0);
+      return `<tr data-row="${r.id}">
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100)">
+          <select onchange="onEquipPick(${r.id}, this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
+            ${opts}
+          </select>
+          <input type="text" placeholder="품목명 (직접 입력)" value="${escAttr(r.name)}" oninput="onEquipField(${r.id},'name',this.value)" style="width:100%;margin-top:4px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100)">
+          <input type="text" placeholder="규격" value="${escAttr(r.spec)}" oninput="onEquipField(${r.id},'spec',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:center">
+          <label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;margin-right:4px">
+            <input type="radio" name="cond-${r.id}" ${r.condition==='new'?'checked':''} onchange="onEquipField(${r.id},'condition','new')">신품
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;cursor:pointer">
+            <input type="radio" name="cond-${r.id}" ${r.condition==='used'?'checked':''} onchange="onEquipField(${r.id},'condition','used')"><span style="color:var(--warning);font-weight:600">중고</span>
+          </label>
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right">
+          <input type="number" min="0" step="1" value="${r.qty}" oninput="onEquipField(${r.id},'qty',this.value)" style="width:60px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;text-align:right">
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right">
+          <input type="number" min="0" step="100" value="${r.costPrice}" oninput="onEquipField(${r.id},'costPrice',this.value)" style="width:90px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;text-align:right">
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right">
+          <input type="number" min="0" step="100" value="${r.salePrice}" oninput="onEquipField(${r.id},'salePrice',this.value)" style="width:90px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;text-align:right">
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right;font-weight:700;color:var(--primary)">${fmt(total)}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:center">
+          <button type="button" onclick="removeEquipRow(${r.id})" title="행 삭제" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button>
+        </td>
+      </tr>`;
+    }).join('');
+    // 합계
+    const grand = equipRows.reduce((s, r) => s + (Number(r.qty)||0) * (Number(r.salePrice)||0), 0);
+    const totalEl = document.getElementById('equipTotal');
+    if (totalEl) totalEl.textContent = fmt(grand) + ' 원';
     updateJobSummary();
   }
 
-  function setCustomBall(key, raw) {
-    const v = Math.max(0, Math.min(999, parseInt(raw, 10) || 0));
-    // 볼 선택 해제
-    document.querySelectorAll(`#balls-${key} .ball`).forEach(b => b.classList.remove('selected'));
-    ballState[key] = v;
-    const cnt = document.getElementById('cnt-' + key);
-    if (cnt) cnt.textContent = v > 0 ? v + '대' : '—';
+  function onEquipPick(id, val) {
+    const r = equipRows.find(x => x.id === id);
+    if (!r) return;
+    if (val === '' || val === 'custom') {
+      // 비움 또는 커스텀 — 사용자가 직접 입력
+      if (val === '') { r.name=''; r.spec=''; r.costPrice=0; r.salePrice=0; }
+      renderEquipTable();
+      return;
+    }
+    const it = EQUIP_CATALOG[parseInt(val,10)];
+    if (!it) return;
+    r.name = it.name;
+    r.spec = it.spec;
+    r.costPrice = it.costPrice;
+    r.salePrice = it.salePrice;
+    renderEquipTable();
+  }
+
+  function onEquipField(id, field, val) {
+    const r = equipRows.find(x => x.id === id);
+    if (!r) return;
+    if (['qty','costPrice','salePrice'].includes(field)) {
+      r[field] = Math.max(0, parseInt(val, 10) || 0);
+    } else {
+      r[field] = val;
+    }
+    // 합계만 다시 계산 (포커스 보존을 위해 전체 재렌더는 피함)
+    const tr = document.querySelector(`#equipTbody tr[data-row="${id}"]`);
+    if (tr) {
+      const totalCell = tr.children[6];
+      if (totalCell) totalCell.textContent = fmt((Number(r.qty)||0) * (Number(r.salePrice)||0));
+    }
+    const grand = equipRows.reduce((s, x) => s + (Number(x.qty)||0) * (Number(x.salePrice)||0), 0);
+    const totalEl = document.getElementById('equipTotal');
+    if (totalEl) totalEl.textContent = fmt(grand) + ' 원';
     updateJobSummary();
   }
 
   function updateJobSummary() {
-    const parts = [];
-    equipList.forEach(eq => {
-      if (ballState[eq.key] > 0) parts.push(`${eq.label} ${ballState[eq.key]}대`);
-    });
+    const filled = equipRows.filter(r => r.name && r.qty > 0);
     const el = document.getElementById('job-equip-summary');
-    if (el) el.textContent = parts.length ? '📦 ' + parts.join(' · ') : '장비 미선택';
+    if (!el) return;
+    if (filled.length === 0) { el.textContent = '장비 미선택'; return; }
+    const grand = filled.reduce((s, r) => s + (Number(r.qty)||0) * (Number(r.salePrice)||0), 0);
+    const previewItems = filled.slice(0, 3).map(r => `${r.name}${r.condition==='used'?'(중고)':''} ${r.qty}`).join(' · ');
+    const more = filled.length > 3 ? ` 외 ${filled.length - 3}` : '';
+    el.textContent = `📦 ${previewItems}${more} · 합계 ${fmt(grand)}원`;
   }
 
-  // 당구공 초기화는 showModal 함수에 통합됨
+  // 호환 alias (기존 코드가 호출 가능)
+  window.selectBall = function(){};
+  window.setCustomBall = function(){};
+  window.addEquipRow = addEquipRow;
+  window.removeEquipRow = removeEquipRow;
+  window.onEquipPick = onEquipPick;
+  window.onEquipField = onEquipField;
+
+  function escAttr(s) { return String(s||'').replace(/"/g,'&quot;'); }
 
   /* ── 등록된 점포 (중복 체크용 시뮬레이션 데이터) ── */
   const registeredStores = new Set([
@@ -4684,18 +4792,80 @@ ${text.slice(0, 3000)}`;
   /* ══════════════════════════════════════════════
      작업 등록 저장
   ══════════════════════════════════════════════ */
+  /* 미등록 가맹점 모드 토글 */
+  let jobStoreUnregistered = false;
+  function toggleUnregisteredStore() {
+    jobStoreUnregistered = !jobStoreUnregistered;
+    const btn = document.getElementById('unregBtn');
+    const notice = document.getElementById('unregNotice');
+    const inp = document.getElementById('jobStoreName');
+    if (jobStoreUnregistered) {
+      if (btn) {
+        btn.textContent = '✓ 미등록 가맹점';
+        btn.style.background = '#FEF3C7';
+        btn.style.color = '#92400E';
+        btn.style.borderColor = '#FCD34D';
+      }
+      if (notice) notice.style.display = 'block';
+      if (inp) {
+        inp.placeholder = '미등록 가맹점명 직접 입력...';
+        inp.removeAttribute('oninput');
+        inp.removeAttribute('onfocus');
+      }
+      const panel = document.getElementById('jobStoreResults');
+      if (panel) panel.style.display = 'none';
+    } else {
+      if (btn) {
+        btn.textContent = '+ 미등록 가맹점';
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+      }
+      if (notice) notice.style.display = 'none';
+      if (inp) {
+        inp.placeholder = '점포명을 입력해 검색...';
+        inp.setAttribute('oninput', 'runJobStoreSearch()');
+        inp.setAttribute('onfocus', 'runJobStoreSearch()');
+      }
+    }
+  }
+  window.toggleUnregisteredStore = toggleUnregisteredStore;
+
   function saveNewJob() {
     const storeName = (document.getElementById('jobStoreName') || {}).value?.trim();
     if (!storeName) { showToast('점포명을 입력하세요'); document.getElementById('jobStoreName')?.focus(); return; }
+
+    // 등록된 점포 매칭 (미등록 모드면 강제로 unregistered:true)
+    const storeMatch = jobStoreUnregistered ? null
+      : (getStores() || []).find(s => (s.name || '').trim() === storeName) || null;
+
+    // 투입 장비 행 정리 (이름 비어있는 행 제외)
+    const equipment = (typeof equipRows !== 'undefined' && Array.isArray(equipRows))
+      ? equipRows.filter(r => r.name && (Number(r.qty) || 0) > 0).map(r => ({
+          name: r.name,
+          spec: r.spec || '',
+          condition: r.condition || 'new',
+          qty: Number(r.qty) || 0,
+          costPrice: Number(r.costPrice) || 0,
+          salePrice: Number(r.salePrice) || 0,
+          subtotal: (Number(r.qty)||0) * (Number(r.salePrice)||0),
+        }))
+      : [];
+    const equipTotal = equipment.reduce((s, e) => s + (e.subtotal || 0), 0);
 
     const job = {
       id: 'JOB-' + Date.now().toString(36).toUpperCase(),
       type:      (document.getElementById('jobType')     || {}).value || '신규개업',
       storeName,
+      store: storeName, // alias
+      storeId: storeMatch ? storeMatch.id : '',
+      unregistered: jobStoreUnregistered || !storeMatch,
       engineer:  (document.getElementById('jobEngineer') || {}).value || '',
       date:      (document.getElementById('jobDate')     || {}).value || '',
       address:   (document.getElementById('jobAddressInput') || {}).value?.trim() || '',
       notes:     (document.getElementById('jobNotes')    || {}).value?.trim() || '',
+      equipment,
+      equipTotal,
       status:    '진행중',
       createdAt: Date.now()
     };
@@ -4705,7 +4875,11 @@ ${text.slice(0, 3000)}`;
     saveJobs(jobs);
 
     closeModal('newJobModal');
-    showToast(`✅ ${storeName} 작업이 등록되었습니다`);
+    showToast(`✅ ${storeName} 작업이 등록되었습니다${job.unregistered ? ' (미등록 가맹점)' : ''}`);
+
+    // 대시보드/신규관리 갱신
+    try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
+    try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
 
     // 입력 필드 초기화
     const storeEl = document.getElementById('jobStoreName');
@@ -4714,6 +4888,9 @@ ${text.slice(0, 3000)}`;
     if (notesEl) notesEl.value = '';
     const addrEl = document.getElementById('jobAddressInput');
     if (addrEl) addrEl.value = '';
+    if (jobStoreUnregistered) toggleUnregisteredStore(); // 모드 초기화
+    // 장비 테이블 초기화
+    if (typeof buildBallSelectors === 'function') buildBallSelectors();
   }
 
   /* 점포 datalist 채우기 (모달 열릴 때도 호출) */
@@ -5084,20 +5261,26 @@ ${text.slice(0, 3000)}`;
       if (isDone(j)) badgeCls = 'badge-green';
       else if (/진행|설치/i.test(status)) badgeCls = 'badge-amber';
       const store = j.store || j.storeName || '-';
+      const unregBadge = j.unregistered ? `<span style="margin-left:6px;background:#FEF3C7;color:#92400E;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700">미등록</span>` : '';
       const addr = j.address || '-';
       const dt = (j.date || j.createdAt || '').slice(0,10);
       const eng = j.engineer || j.assignee || '<span style="color:var(--danger)">미배정</span>';
-      const pos = j.posCount || j.pos || '-';
+      const posQty = (j.equipment && Array.isArray(j.equipment))
+        ? j.equipment.filter(e => /pos|일체형/i.test(e.name||'')).reduce((s,e)=>s+(e.qty||0),0)
+        : (j.posCount || j.pos || 0);
       const prog = j.progress || (isDone(j) ? 100 : 0);
+      const linkBtn = j.unregistered
+        ? `<button class="btn btn-outline btn-sm" style="color:var(--warning);border-color:var(--warning)" onclick="event.stopPropagation();linkRegisteredStore('${j.id||''}')">가맹점 연결</button>`
+        : '';
       return `<tr>
         <td><span class="badge ${badgeCls}">${esc(status)}</span></td>
-        <td><b>${esc(store)}</b></td>
+        <td><b>${esc(store)}</b>${unregBadge}</td>
         <td style="font-size:11px;color:var(--gray-500)">${esc(addr)}</td>
         <td style="font-size:11px">${esc(dt)}</td>
         <td>${eng}</td>
-        <td>${esc(String(pos))}${pos !== '-' ? '대' : ''}</td>
+        <td>${posQty || '-'}${posQty ? '대' : ''}</td>
         <td><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100px"><div style="background:var(--primary);height:100%;width:${prog}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">${prog}%</div></td>
-        <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editNewopen('${j.id||''}')">상세</button></td>
+        <td style="display:flex;gap:4px">${linkBtn}<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editNewopen('${j.id||''}')">상세</button></td>
       </tr>`;
     }).join('');
   }
@@ -5121,6 +5304,41 @@ ${text.slice(0, 3000)}`;
   function editNewopen(id) {
     if (typeof showToast === 'function') showToast('상세 보기는 준비 중입니다.');
   }
+
+  /* 미등록 작업 → 등록된 가맹점에 연결 */
+  function linkRegisteredStore(jobId) {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) { showToast && showToast('작업을 찾을 수 없습니다'); return; }
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    if (stores.length === 0) {
+      alert('먼저 점포를 등록(엑셀 업로드)해야 연결할 수 있습니다.');
+      return;
+    }
+    // 점포명 키워드로 후보 추리기 (포함 검색)
+    const q = (job.storeName || '').toLowerCase();
+    const candidates = stores
+      .map(s => ({ s, score: ((s.name||'').toLowerCase().includes(q.slice(0,4)) ? 1 : 0) }))
+      .sort((a,b) => b.score - a.score)
+      .slice(0, 100);
+    const list = candidates.map((c,i) => `${i+1}. ${c.s.name} (${c.s.biz || c.s.code || c.s.id})`).join('\n');
+    const pickRaw = prompt(`"${job.storeName}"을(를) 등록된 가맹점과 연결합니다.\n\n번호를 입력하세요 (1~${candidates.length}):\n\n${list.slice(0, 1500)}`);
+    if (!pickRaw) return;
+    const idx = parseInt(pickRaw, 10) - 1;
+    const picked = candidates[idx];
+    if (!picked) { alert('잘못된 번호입니다.'); return; }
+    job.storeId = picked.s.id;
+    job.storeName = picked.s.name;
+    job.store = picked.s.name;
+    job.address = job.address || picked.s.addr || picked.s.address || '';
+    job.unregistered = false;
+    job.linkedAt = Date.now();
+    saveJobs(jobs);
+    showToast && showToast(`✅ ${picked.s.name} (으)로 연결됨`);
+    try { hydrateNewopen('all'); } catch(e){}
+    try { hydrateDashboardJobs(); } catch(e){}
+  }
+  window.linkRegisteredStore = linkRegisteredStore;
   window.hydrateNewopen = hydrateNewopen;
   window.filterNewopen = filterNewopen;
   window.openNewopenJob = openNewopenJob;
