@@ -1205,7 +1205,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
               <th style="width:80px">상태</th>
               <th>점포명</th>
               <th>주소</th>
-              <th>예정일</th>
+              <th style="min-width:90px">주요 일정</th>
               <th>담당</th>
               <th>POS</th>
               <th>진행률</th>
@@ -5838,16 +5838,41 @@ ${text.slice(0, 3000)}`;
       const linkBtn = j.unregistered
         ? `<button class="btn btn-outline btn-sm" style="color:var(--warning);border-color:var(--warning);font-size:11px;padding:3px 8px" onclick="event.stopPropagation();linkRegisteredStore('${j.id||''}')">가맹점 연결</button>`
         : (j.storeId ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-600);border-color:var(--gray-400);font-size:11px;padding:3px 8px" onclick="event.stopPropagation();unlinkStore('${j.id||''}')" title="잘못 연결된 가맹점을 해제하고 미등록 상태로 되돌립니다">🔓 연결 해제</button>` : '');
+
+      // 매장 주요 일정 + 작업 예정일 — compact pills
+      const fmtDate = (s) => (s||'').slice(5,10).replace('-','.');
+      const datePill = (icon, label, val, color) => val
+        ? `<div style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;background:${color.bg};color:${color.fg};font-size:10px;font-weight:600;margin:1px" title="${label} ${val}">${icon} ${fmtDate(val)}</div>`
+        : `<div style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;background:#F3F4F6;color:#9CA3AF;font-size:10px;font-weight:500;margin:1px" title="${label} 미정">${icon} —</div>`;
+      const datesHtml = `
+        <div style="display:flex;flex-direction:column;gap:1px;font-size:10px">
+          ${datePill('🗓','작업 예정일', j.date, {bg:'#EFF6FF',fg:'#1D4ED8'})}
+          ${datePill('🔧','설치 완료일', j.installDate, {bg:'#FED7AA',fg:'#9A3412'})}
+          ${datePill('🌅','가오픈일', j.softOpenDate, {bg:'#FECACA',fg:'#991B1B'})}
+          ${datePill('🎉','오픈일', j.openDate, {bg:'#A7F3D0',fg:'#065F46'})}
+        </div>`;
+
+      // 담당자 정보
+      const contactHtml = (j.contactName || j.contactPhone)
+        ? `<div style="font-size:10px;color:var(--gray-500);margin-top:2px">
+            ${j.contactName ? `<div>👤 ${esc(j.contactName)}${j.contactRole ? ` <span style="color:var(--gray-400)">${esc(j.contactRole)}</span>` : ''}</div>` : ''}
+            ${j.contactPhone ? `<div>📞 ${esc(j.contactPhone)}</div>` : ''}
+          </div>`
+        : '';
+
       const wf = renderWorkflowRow(j, COLSPAN);
       return `<tr>
         <td><span class="badge ${badgeCls}">${esc(status)}</span></td>
-        <td><b>${esc(store)}</b>${unregBadge}${typeBadge}</td>
+        <td>
+          <b>${esc(store)}</b>${unregBadge}${typeBadge}
+          ${contactHtml}
+        </td>
         <td style="font-size:11px;color:var(--gray-500)">${esc(addr)}</td>
-        <td style="font-size:11px">${esc(dt)}</td>
+        <td style="font-size:11px">${datesHtml}</td>
         <td>${eng}</td>
         <td>${posQty || '-'}${posQty ? '대' : ''}</td>
         <td><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100px"><div style="background:var(--primary);height:100%;width:${wfProg}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">${wfProg}%</div></td>
-        <td style="display:flex;gap:4px">${linkBtn}<button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 8px" onclick="event.stopPropagation();editNewopen('${j.id||''}')">상세</button></td>
+        <td style="display:flex;gap:4px;flex-wrap:wrap">${linkBtn}<button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 8px" onclick="event.stopPropagation();editNewopen('${j.id||''}')">상세</button></td>
       </tr>${wf.pillRow}${wf.detailRows}`;
     }).join('');
     // 모든 변경사항 저장 (workflow 자동 보강 결과)
