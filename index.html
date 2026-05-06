@@ -2581,7 +2581,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-outline btn-sm" onclick="resetTestData('stores')" style="color:var(--danger);border-color:var(--danger)">🗑 점포만 초기화</button>
-          <button class="btn btn-outline btn-sm" onclick="resetTestData('jobs')" style="color:var(--danger);border-color:var(--danger)">🗑 작업만 초기화</button>
+          <button class="btn btn-outline btn-sm" onclick="resetTestData('jobs')" style="color:var(--danger);border-color:var(--danger)">🗑 일정·작업·AS</button>
           <button class="btn btn-outline btn-sm" onclick="resetTestData('users')" style="color:var(--danger);border-color:var(--danger)">🗑 직원/이메일</button>
           <button class="btn btn-primary btn-sm" onclick="resetTestData('all')" style="background:var(--danger);border-color:var(--danger)">🗑 전체 데이터 초기화</button>
         </div>
@@ -3147,11 +3147,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   function resetTestData(scope) {
     const KEYS = {
       stores: ['ns_stores'],
-      jobs:   ['ns_jobs'],
+      jobs:   ['ns_jobs', 'ns_comments'],
       users:  ['ns_users', 'ns_allowed_emails'],
-      all:    ['ns_stores', 'ns_jobs', 'ns_users', 'ns_allowed_emails'],
+      all:    ['ns_stores', 'ns_jobs', 'ns_comments', 'ns_users', 'ns_allowed_emails'],
     };
-    const labels = { stores:'점포', jobs:'작업', users:'직원/이메일', all:'전체 데이터' };
+    const labels = { stores:'점포', jobs:'일정/작업/AS', users:'직원/이메일', all:'전체 데이터' };
     const targets = KEYS[scope] || KEYS.all;
     const label = labels[scope] || '데이터';
     // 현재 카운트
@@ -3165,7 +3165,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       } catch(e) { counts[k] = 0; }
     });
     const summary = targets.map(k => {
-      const friendly = { ns_stores:'점포', ns_jobs:'작업', ns_users:'직원', ns_allowed_emails:'허용 이메일' }[k] || k;
+      const friendly = { ns_stores:'점포', ns_jobs:'일정/작업/AS', ns_comments:'작업 댓글', ns_users:'직원', ns_allowed_emails:'허용 이메일' }[k] || k;
       return `· ${friendly}: ${counts[k].toLocaleString()}건`;
     }).join('\n');
     if (!confirm(`${label}을(를) 모두 삭제합니다.\n\n${summary}\n\n이 작업은 되돌릴 수 없으며, 삭제 후 페이지가 새로고침됩니다.\n\n계속하시겠습니까?`)) return;
