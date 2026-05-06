@@ -852,26 +852,26 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <div class="stat-grid">
         <div class="stat-card blue">
           <div class="stat-label">이번달 신규개업</div>
-          <div class="stat-value">7</div>
-          <div class="stat-sub">지난달 대비 +2건</div>
+          <div class="stat-value" id="statNewOpen">0</div>
+          <div class="stat-sub" id="statNewOpenSub">데이터 없음</div>
           <div class="stat-icon">🏪</div>
         </div>
         <div class="stat-card green">
           <div class="stat-label">진행중 작업</div>
-          <div class="stat-value">12</div>
-          <div class="stat-sub">오늘 완료 예정 3건</div>
+          <div class="stat-value" id="statInProgress">0</div>
+          <div class="stat-sub" id="statInProgressSub">등록된 작업 없음</div>
           <div class="stat-icon">⚙️</div>
         </div>
         <div class="stat-card amber">
           <div class="stat-label">AS 접수</div>
-          <div class="stat-value">5</div>
-          <div class="stat-sub">48시간 초과 2건 ⚠️</div>
+          <div class="stat-value" id="statAsCount">0</div>
+          <div class="stat-sub" id="statAsCountSub">접수 내역 없음</div>
           <div class="stat-icon">🔧</div>
         </div>
         <div class="stat-card red">
           <div class="stat-label">장비 재고 부족</div>
-          <div class="stat-value">3</div>
-          <div class="stat-sub">발주 필요 품목</div>
+          <div class="stat-value" id="statStockLow">0</div>
+          <div class="stat-sub" id="statStockLowSub">데이터 없음</div>
           <div class="stat-icon">📦</div>
         </div>
       </div>
@@ -1633,23 +1633,23 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <div class="stat-grid" style="margin-bottom:24px">
         <div class="stat-card blue">
           <div class="stat-label">전체 품목</div>
-          <div class="stat-value">24</div>
-          <div class="stat-sub">카테고리 6개</div>
+          <div class="stat-value">0</div>
+          <div class="stat-sub">등록된 품목 없음</div>
         </div>
         <div class="stat-card green">
           <div class="stat-label">재고 정상</div>
-          <div class="stat-value">18</div>
-          <div class="stat-sub">품목</div>
+          <div class="stat-value">0</div>
+          <div class="stat-sub">-</div>
         </div>
         <div class="stat-card amber">
           <div class="stat-label">재고 부족</div>
-          <div class="stat-value">3</div>
-          <div class="stat-sub">발주 권장</div>
+          <div class="stat-value">0</div>
+          <div class="stat-sub">-</div>
         </div>
         <div class="stat-card red">
           <div class="stat-label">재고 없음</div>
-          <div class="stat-value">3</div>
-          <div class="stat-sub">즉시 발주 필요</div>
+          <div class="stat-value">0</div>
+          <div class="stat-sub">-</div>
         </div>
       </div>
 
@@ -5067,6 +5067,29 @@ ${text.slice(0, 3000)}`;
     try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e) {}
     const today = new Date();
     const todayStr = today.toISOString().slice(0,10);
+    const ym = todayStr.slice(0,7); // YYYY-MM
+
+    /* ── 상단 통계 카드 ── */
+    const isDone = (j) => (j.status === '완료' || j.status === 'done');
+    const newOpenThisMonth = jobs.filter(j => /신규|개업|오픈/.test(j.type||'') && (j.date||j.createdAt||'').slice(0,7) === ym).length;
+    const inProgress = jobs.filter(j => !isDone(j)).length;
+    const asCount = jobs.filter(j => /as|에이에스/i.test(j.type||'') && !isDone(j)).length;
+    const asOver48 = jobs.filter(j => {
+      if (!/as|에이에스/i.test(j.type||'') || isDone(j)) return false;
+      const ts = j.createdAt ? new Date(j.createdAt).getTime() : 0;
+      return ts && (Date.now() - ts) > 48*3600*1000;
+    }).length;
+    const todoneToday = jobs.filter(j => (j.date||'').slice(0,10) === todayStr && !isDone(j)).length;
+
+    const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    setText('statNewOpen', newOpenThisMonth);
+    setText('statNewOpenSub', newOpenThisMonth === 0 ? '이번달 신규 없음' : '이번달 ' + newOpenThisMonth + '건');
+    setText('statInProgress', inProgress);
+    setText('statInProgressSub', inProgress === 0 ? '등록된 작업 없음' : '오늘 예정 ' + todoneToday + '건');
+    setText('statAsCount', asCount);
+    setText('statAsCountSub', asCount === 0 ? '접수 내역 없음' : (asOver48 > 0 ? `48시간 초과 ${asOver48}건 ⚠️` : '정상 처리 중'));
+    setText('statStockLow', 0);
+    setText('statStockLowSub', '데이터 없음');
 
     // 오늘 일정
     const todayBody = document.getElementById('dashTodayBody');
