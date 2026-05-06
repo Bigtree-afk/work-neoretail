@@ -5878,7 +5878,9 @@ ${text.slice(0, 3000)}`;
   }
   window.unlinkStore = unlinkStore;
 
-  /* 미등록 작업 → 등록된 가맹점에 연결 */
+  /* 미등록 작업 → 등록된 가맹점에 연결 (모달 UI) */
+  let _linkContextJobId = null;
+
   function linkRegisteredStore(jobId) {
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const job = jobs.find(j => j.id === jobId);
@@ -5888,34 +5890,131 @@ ${text.slice(0, 3000)}`;
       alert('먼저 점포를 등록(엑셀 업로드)해야 연결할 수 있습니다.');
       return;
     }
-    // 점포명 키워드로 후보 추리기 (포함 검색)
-    const q = (job.storeName || '').toLowerCase();
-    const candidates = stores
-      .map(s => ({ s, score: ((s.name||'').toLowerCase().includes(q.slice(0,4)) ? 1 : 0) }))
-      .sort((a,b) => b.score - a.score)
-      .slice(0, 100);
-    const list = candidates.map((c,i) => `${i+1}. ${c.s.name} (${c.s.biz || c.s.code || c.s.id})`).join('\n');
-    const pickRaw = prompt(`"${job.storeName}"을(를) 등록된 가맹점과 연결합니다.\n\n번호를 입력하세요 (1~${candidates.length}):\n\n${list.slice(0, 1500)}`);
-    if (!pickRaw) return;
-    const idx = parseInt(pickRaw, 10) - 1;
-    const picked = candidates[idx];
-    if (!picked) { alert('잘못된 번호입니다.'); return; }
-    // 원래 입력했던 이름 보존 (연결 해제 시 복원용)
+    _linkContextJobId = jobId;
+    let modal = document.getElementById('linkStoreModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'linkStoreModal';
+      modal.className = 'modal-overlay';
+      modal.onclick = (e) => { if (e.target === modal) modal.classList.remove('show'); };
+      modal.innerHTML = `
+        <div class="modal" style="max-width:640px;width:96%">
+          <div class="modal-header">
+            <div class="modal-title">🔗 가맹점 연결</div>
+            <button class="modal-close" onclick="document.getElementById('linkStoreModal').classList.remove('show')">✕</button>
+          </div>
+          <div class="modal-body">
+            <div id="linkStoreCurrentInfo" style="margin-bottom:14px;padding:10px 14px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:12px;color:#92400E"></div>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <input type="text" id="linkStoreSearchInput" placeholder="점포명·사업자번호·대표자 검색" autocomplete="off"
+                     oninput="onLinkStoreInput(this.value)"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();runLinkStoreSearch();}"
+                     style="flex:1;padding:10px 12px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px">
+              <button class="btn btn-primary btn-sm" onclick="runLinkStoreSearch()" style="padding:8px 18px">🔍 조회</button>
+            </div>
+            <div style="font-size:11px;color:var(--gray-400);margin-bottom:6px" id="linkStoreCountLabel">검색어를 입력하고 조회 또는 2자 이상 입력 시 자동 검색</div>
+            <div id="linkStoreResults" style="max-height:360px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px"></div>
+          </div>
+          <div class="modal-footer" style="justify-content:flex-end">
+            <button class="btn btn-outline" onclick="document.getElementById('linkStoreModal').classList.remove('show')">취소</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+    }
+    // 현재 작업 정보 표시 + 검색어 프리필
+    document.getElementById('linkStoreCurrentInfo').innerHTML =
+      `<b>현재 미등록 매장:</b> ${esc(job.storeName || '-')} ${job.address ? `· <span style="color:#78350F">${esc(j_addr(job))}</span>` : ''}`;
+    const inp = document.getElementById('linkStoreSearchInput');
+    if (inp) {
+      inp.value = job.storeName || '';
+      // 결과 초기화 (프리필된 키워드로 자동 1회 검색)
+      runLinkStoreSearch();
+      setTimeout(() => inp.focus(), 100);
+    }
+    modal.classList.add('show');
+  }
+  window.linkRegisteredStore = linkRegisteredStore;
+
+  function j_addr(job) { return job.address || ''; }
+
+  let _linkSearchTimer = null;
+  function onLinkStoreInput(val) {
+    if (_linkSearchTimer) clearTimeout(_linkSearchTimer);
+    const q = (val || '').trim();
+    if (q.length === 0) {
+      document.getElementById('linkStoreResults').innerHTML = '';
+      document.getElementById('linkStoreCountLabel').textContent = '검색어를 입력하세요.';
+      return;
+    }
+    if (q.length < 2) {
+      document.getElementById('linkStoreCountLabel').textContent = '2자 이상 입력하면 자동 검색됩니다.';
+      return;
+    }
+    _linkSearchTimer = setTimeout(runLinkStoreSearch, 150);
+  }
+  window.onLinkStoreInput = onLinkStoreInput;
+
+  function runLinkStoreSearch() {
+    const q = (document.getElementById('linkStoreSearchInput')?.value || '').trim().toLowerCase();
+    const stores = getStores() || [];
+    const panel = document.getElementById('linkStoreResults');
+    const lbl = document.getElementById('linkStoreCountLabel');
+    if (!panel) return;
+    if (!q) {
+      panel.innerHTML = '';
+      if (lbl) lbl.textContent = '검색어를 입력하세요.';
+      return;
+    }
+    const matches = stores.filter(s => {
+      const blob = [s.name, s.ceo, s.owner, s.biz, s.bizno, s.tel, s.addr, s.address, s.code]
+        .filter(Boolean).join('|').toLowerCase();
+      return blob.includes(q);
+    });
+    if (lbl) lbl.textContent = `검색 결과: ${matches.length.toLocaleString()}건${matches.length > 100 ? ' (상위 100건만 표시)' : ''}`;
+    if (matches.length === 0) {
+      panel.innerHTML = `<div style="padding:24px;text-align:center;color:var(--gray-400);font-size:12px">일치하는 점포가 없습니다.<br><span style="font-size:11px">검색어를 줄여서 다시 시도해 보세요.</span></div>`;
+      return;
+    }
+    panel.innerHTML = matches.slice(0, 100).map((s) => {
+      const tagBiz = s.biz || s.bizno ? `<span style="font-family:monospace;font-size:11px;color:var(--gray-500);margin-left:6px">${esc(s.biz || s.bizno)}</span>` : '';
+      return `<div onclick="confirmLinkStore('${esc((s.id||'').replace(/'/g,'\\\\\\'')).replace(/"/g,'&quot;')}')" style="padding:10px 14px;border-bottom:1px solid var(--gray-100);cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+        <div style="font-size:13px;font-weight:700;color:var(--gray-800)">${esc(s.name||'-')}${tagBiz}</div>
+        <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
+          ${s.ceo||s.owner ? `대표 ${esc(s.ceo || s.owner)}` : ''}
+          ${s.tel ? ` · ${esc(s.tel)}` : ''}
+        </div>
+        ${s.addr || s.address ? `<div style="font-size:11px;color:var(--gray-400);margin-top:2px">${esc(s.addr || s.address)}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+  window.runLinkStoreSearch = runLinkStoreSearch;
+
+  function confirmLinkStore(storeId) {
+    const jobId = _linkContextJobId;
+    if (!jobId) return;
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const picked = (getStores() || []).find(s => s.id === storeId);
+    if (!picked) { showToast && showToast('선택한 점포를 찾을 수 없습니다'); return; }
+    if (!confirm(`"${job.storeName||'-'}" → "${picked.name}" 으로 연결합니다.\n\n주소도 비어있으면 자동으로 채워집니다. 계속하시겠습니까?`)) return;
     if (!job.originalStoreName) {
       job.originalStoreName = job.storeName || job.store || '';
     }
-    job.storeId = picked.s.id;
-    job.storeName = picked.s.name;
-    job.store = picked.s.name;
-    job.address = job.address || picked.s.addr || picked.s.address || '';
+    job.storeId = picked.id;
+    job.storeName = picked.name;
+    job.store = picked.name;
+    job.address = job.address || picked.addr || picked.address || '';
     job.unregistered = false;
     job.linkedAt = Date.now();
     saveJobs(jobs);
-    showToast && showToast(`✅ ${picked.s.name} (으)로 연결됨`);
+    document.getElementById('linkStoreModal').classList.remove('show');
+    _linkContextJobId = null;
+    showToast && showToast(`✅ ${picked.name} 으로 연결됨`);
     try { hydrateNewopen('all'); } catch(e){}
     try { hydrateDashboardJobs(); } catch(e){}
   }
-  window.linkRegisteredStore = linkRegisteredStore;
+  window.confirmLinkStore = confirmLinkStore;
   window.hydrateNewopen = hydrateNewopen;
   window.filterNewopen = filterNewopen;
   window.openNewopenJob = openNewopenJob;
