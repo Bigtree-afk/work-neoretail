@@ -2387,6 +2387,24 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
+      <!-- 자동 백업 / 복원 -->
+      <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+      <div class="admin-section">
+        <div class="admin-section-title">💾 자동 백업 (브라우저 로컬)</div>
+        <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px 14px;font-size:11px;color:#166534;margin-bottom:10px;line-height:1.6">
+          데이터 변경 시 10초 후 자동 스냅샷 · 페이지 로드 시 24시간 초과면 자동 백업 · 최근 14개 시점 보관 · 시점별 복원 가능
+        </div>
+        <div id="backupStatusBox" style="background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;margin-bottom:10px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-outline btn-sm" onclick="exportBackupFile()">📥 JSON 파일로 내보내기</button>
+          <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0">
+            📤 JSON 파일 복원
+            <input type="file" accept="application/json" onchange="importBackupFile(this)" style="display:none">
+          </label>
+          <button class="btn btn-outline btn-sm" onclick="(function(){const s=createSnapshot();pushSnapshot(s);if(typeof showToast==='function')showToast('💾 지금 스냅샷 저장됨');})()">💾 지금 백업</button>
+        </div>
+      </div>
+
       <!-- 데이터 초기화 (위험구역) -->
       <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
       <div class="admin-section">
@@ -2564,6 +2582,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     document.getElementById(id).classList.add('show');
     if (id === 'lineImportModal') initLineImportModal();
     if (id === 'newJobModal') { buildBallSelectors(); populateStoreNameList(); }
+    if (id === 'adminModal') { try { renderBackupStatus(); } catch(e){} }
   }
 
   function closeModal(id) {
@@ -4787,6 +4806,7 @@ ${text.slice(0, 3000)}`;
   }
   function saveStores(arr) {
     localStorage.setItem('ns_stores', JSON.stringify(arr));
+    scheduleAutoBackup();
   }
 
   /* ══════════════════════════════════════════════
@@ -4797,7 +4817,175 @@ ${text.slice(0, 3000)}`;
   }
   function saveJobs(arr) {
     localStorage.setItem('ns_jobs', JSON.stringify(arr));
+    scheduleAutoBackup();
   }
+
+  /* ══════════════════════════════════════════════
+     자동 백업 시스템
+       - localStorage `ns_backups`: 최근 14개 롤링 스냅샷
+       - 페이지 로드 시 마지막 백업 24시간 초과면 자동 1회
+       - saveJobs/saveStores 시 디바운스 백업 (10초 모아서 1회)
+       - 관리자 페이지에서 JSON 내보내기 / 복원 / 시점 복구
+  ══════════════════════════════════════════════ */
+  const BACKUP_KEY = 'ns_backups';
+  const BACKUP_MAX = 14;
+  let _backupTimer = null;
+
+  function getBackups() {
+    try { return JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]'); } catch { return []; }
+  }
+  function saveBackups(arr) {
+    try { localStorage.setItem(BACKUP_KEY, JSON.stringify(arr)); } catch (e) {
+      // quota 초과 시 가장 오래된 것부터 삭제하며 재시도
+      while (arr.length > 1) {
+        arr.shift();
+        try { localStorage.setItem(BACKUP_KEY, JSON.stringify(arr)); return; } catch(_){}
+      }
+      console.warn('백업 저장 실패: quota 초과');
+    }
+  }
+
+  function createSnapshot() {
+    return {
+      ts: Date.now(),
+      version: 1,
+      stores:        JSON.parse(localStorage.getItem('ns_stores')         || '[]'),
+      jobs:          JSON.parse(localStorage.getItem('ns_jobs')           || '[]'),
+      users:         JSON.parse(localStorage.getItem('ns_users')          || '[]'),
+      allowedEmails: JSON.parse(localStorage.getItem('ns_allowed_emails') || '[]'),
+      comments:      JSON.parse(localStorage.getItem('ns_comments')       || '{}'),
+    };
+  }
+
+  function pushSnapshot(snap) {
+    const arr = getBackups();
+    // 동일 분 단위 중복 방지
+    const last = arr[arr.length - 1];
+    if (last && Math.abs(snap.ts - last.ts) < 60_000) {
+      arr[arr.length - 1] = snap;
+    } else {
+      arr.push(snap);
+    }
+    while (arr.length > BACKUP_MAX) arr.shift();
+    saveBackups(arr);
+    renderBackupStatus();
+  }
+
+  function scheduleAutoBackup(delayMs) {
+    delayMs = (typeof delayMs === 'number') ? delayMs : 10_000;
+    if (_backupTimer) clearTimeout(_backupTimer);
+    _backupTimer = setTimeout(() => { pushSnapshot(createSnapshot()); }, delayMs);
+  }
+
+  function ensureDailyBackup() {
+    const arr = getBackups();
+    const last = arr[arr.length - 1];
+    const day = 24 * 60 * 60 * 1000;
+    if (!last || (Date.now() - last.ts) > day) {
+      pushSnapshot(createSnapshot());
+    }
+  }
+
+  function exportBackupFile() {
+    const snap = createSnapshot();
+    const blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const ts = new Date(snap.ts).toISOString().replace(/[:T]/g,'-').slice(0,16);
+    a.href = url;
+    a.download = `neoretail-backup-${ts}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+    // 내보낸 시점도 스냅샷으로 기록
+    pushSnapshot(snap);
+    if (typeof showToast === 'function') showToast('📥 백업 파일 다운로드 완료');
+  }
+  window.exportBackupFile = exportBackupFile;
+
+  function importBackupFile(input) {
+    const file = input?.files?.[0];
+    if (!file) return;
+    if (!confirm('백업 JSON을 불러와 현재 데이터를 덮어씁니다.\n\n복원 직전 자동 스냅샷을 만들고 진행합니다. 계속하시겠습니까?')) {
+      input.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const snap = JSON.parse(String(e.target.result || '{}'));
+        if (typeof snap !== 'object' || snap == null) throw new Error('형식 오류');
+        // 복원 직전 자동 스냅샷
+        pushSnapshot(createSnapshot());
+        // 복원
+        if (Array.isArray(snap.stores))        localStorage.setItem('ns_stores',         JSON.stringify(snap.stores));
+        if (Array.isArray(snap.jobs))          localStorage.setItem('ns_jobs',           JSON.stringify(snap.jobs));
+        if (Array.isArray(snap.users))         localStorage.setItem('ns_users',          JSON.stringify(snap.users));
+        if (Array.isArray(snap.allowedEmails)) localStorage.setItem('ns_allowed_emails', JSON.stringify(snap.allowedEmails));
+        if (snap.comments && typeof snap.comments === 'object') {
+          localStorage.setItem('ns_comments', JSON.stringify(snap.comments));
+        }
+        alert('✅ 복원 완료. 페이지를 새로고침합니다.');
+        setTimeout(() => location.reload(), 200);
+      } catch (err) {
+        alert('복원 실패: ' + (err.message || err));
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+    input.value = '';
+  }
+  window.importBackupFile = importBackupFile;
+
+  function restoreSnapshot(idx) {
+    const arr = getBackups();
+    const snap = arr[idx];
+    if (!snap) return;
+    if (!confirm(`${new Date(snap.ts).toLocaleString('ko-KR')} 시점으로 복원합니다.\n복원 직전 현재 상태도 자동 백업됩니다. 계속하시겠습니까?`)) return;
+    pushSnapshot(createSnapshot());
+    if (Array.isArray(snap.stores))        localStorage.setItem('ns_stores',         JSON.stringify(snap.stores));
+    if (Array.isArray(snap.jobs))          localStorage.setItem('ns_jobs',           JSON.stringify(snap.jobs));
+    if (Array.isArray(snap.users))         localStorage.setItem('ns_users',          JSON.stringify(snap.users));
+    if (Array.isArray(snap.allowedEmails)) localStorage.setItem('ns_allowed_emails', JSON.stringify(snap.allowedEmails));
+    if (snap.comments && typeof snap.comments === 'object') {
+      localStorage.setItem('ns_comments', JSON.stringify(snap.comments));
+    }
+    alert('✅ 복원 완료. 페이지를 새로고침합니다.');
+    setTimeout(() => location.reload(), 200);
+  }
+  window.restoreSnapshot = restoreSnapshot;
+
+  function renderBackupStatus() {
+    const wrap = document.getElementById('backupStatusBox');
+    if (!wrap) return;
+    const arr = getBackups();
+    const last = arr[arr.length - 1];
+    const lastTxt = last
+      ? `마지막 자동 백업: <b>${new Date(last.ts).toLocaleString('ko-KR')}</b> · 점포 ${(last.stores||[]).length.toLocaleString()}건 · 작업 ${(last.jobs||[]).length.toLocaleString()}건`
+      : '아직 백업이 없습니다.';
+    const list = arr.slice().reverse().map((s, i) => {
+      const realIdx = arr.length - 1 - i;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--gray-100);font-size:11px">
+        <div>
+          <b>${new Date(s.ts).toLocaleString('ko-KR')}</b>
+          <span style="color:var(--gray-400);margin-left:8px">점포 ${(s.stores||[]).length} · 작업 ${(s.jobs||[]).length} · 직원 ${(s.users||[]).length}</span>
+        </div>
+        <button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px" onclick="restoreSnapshot(${realIdx})">복원</button>
+      </div>`;
+    }).join('') || '<div style="padding:12px;text-align:center;color:var(--gray-400);font-size:11px">백업 없음</div>';
+    wrap.innerHTML = `
+      <div style="font-size:11px;color:var(--gray-600);margin-bottom:6px">${lastTxt}</div>
+      <details style="margin-top:8px">
+        <summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--gray-700);padding:4px 0">📜 최근 ${arr.length}개 자동 백업 시점 목록</summary>
+        <div style="margin-top:6px;max-height:240px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px">${list}</div>
+      </details>
+    `;
+  }
+  window.renderBackupStatus = renderBackupStatus;
+
+  // 페이지 로드 시 일일 백업 보장
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => { try { ensureDailyBackup(); renderBackupStatus(); } catch(e){} }, 1000);
+  });
 
   /* ══════════════════════════════════════════════
      점포 등록 저장
