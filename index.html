@@ -1210,7 +1210,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
               <th style="min-width:140px">매장 담당자</th>
               <th>POS</th>
               <th>진행률</th>
-              <th style="width:100px">작업</th>
+              <th style="width:80px">연결</th>
             </tr>
           </thead>
           <tbody id="newopenTbody">
@@ -6204,17 +6204,18 @@ ${text.slice(0, 3000)}`;
         : `<div style="font-size:12px">${eng}</div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">매장 담당자 미입력</div>`;
 
       const wf = renderWorkflowRow(j, COLSPAN);
+      const openDetailAttr = `onclick="editNewopen('${j.id||''}')" title="클릭하여 상세 보기" style="cursor:pointer"`;
       return `<tr>
         <td><span class="badge ${badgeCls}">${esc(status)}</span></td>
-        <td>
-          <b>${esc(store)}</b>${unregBadge}${typeBadge}
+        <td ${openDetailAttr}>
+          <b style="text-decoration:underline;text-decoration-color:transparent;transition:text-decoration-color .15s" onmouseover="this.style.textDecorationColor='currentColor'" onmouseout="this.style.textDecorationColor='transparent'">${esc(store)}</b>${unregBadge}${typeBadge}
         </td>
-        <td style="font-size:11px;color:var(--gray-500)">${esc(addr)}</td>
+        <td style="font-size:11px;color:var(--gray-500)" ${openDetailAttr}>${esc(addr)}</td>
         <td>${datesHtml}</td>
         <td>${contactCellHtml}</td>
         <td>${posQty || '-'}${posQty ? '대' : ''}</td>
         <td><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100px"><div style="background:var(--primary);height:100%;width:${wfProg}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">${wfProg}%</div></td>
-        <td><div style="display:flex;gap:6px;flex-wrap:wrap;min-width:160px">${linkBtn}<button class="btn btn-primary btn-sm" style="font-size:13px;padding:8px 16px;font-weight:700;min-width:70px" onclick="event.stopPropagation();editNewopen('${j.id||''}')">상세</button></div></td>
+        <td>${linkBtn || ''}</td>
       </tr>${wf.pillRow}${wf.detailRows}`;
       } catch(err) {
         try { console.error('[hydrateNewopen] row render error for job', j && j.id, err); } catch(e){}
