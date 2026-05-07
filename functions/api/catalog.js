@@ -28,16 +28,29 @@ export async function onRequestPost({ request, env }) {
   const raw = Array.isArray(body?.items) ? body.items : [];
   if (raw.length > 1000) return text('too many items', 413);
 
-  const items = raw.map(it => ({
-    id:        String(it?.id || '').trim(),
-    category:  String(it?.category || '').trim(),
-    name:      String(it?.name || '').trim(),
-    variants:  Array.isArray(it?.variants)
-                 ? it.variants.map(v => String(v||'').trim()).filter(Boolean).slice(0, 20)
-                 : [],
-    costPrice: Math.max(0, Math.round(Number(it?.costPrice)||0)),
-    salePrice: Math.max(0, Math.round(Number(it?.salePrice)||0)),
-  })).filter(it => it.id && it.name);
+  const items = raw.map(it => {
+    const out = {
+      id:        String(it?.id || '').trim(),
+      category:  String(it?.category || '').trim(),
+      name:      String(it?.name || '').trim(),
+      costPrice: Math.max(0, Math.round(Number(it?.costPrice)||0)),
+      salePrice: Math.max(0, Math.round(Number(it?.salePrice)||0)),
+    };
+    // 신스키마: options = [{label, choices:[]}, ...]
+    if (Array.isArray(it?.options) && it.options.length > 0) {
+      out.options = it.options.slice(0, 10).map(g => ({
+        label: String(g?.label||'옵션').trim() || '옵션',
+        choices: Array.isArray(g?.choices)
+          ? g.choices.map(c => String(c||'').trim()).filter(Boolean).slice(0, 30)
+          : [],
+      })).filter(g => g.choices.length > 0);
+    }
+    // 구스키마(호환): variants 도 함께 저장
+    if (Array.isArray(it?.variants) && it.variants.length > 0 && !out.options) {
+      out.variants = it.variants.map(v => String(v||'').trim()).filter(Boolean).slice(0, 20);
+    }
+    return out;
+  }).filter(it => it.id && it.name);
 
   const payload = {
     items,

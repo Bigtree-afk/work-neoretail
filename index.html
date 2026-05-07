@@ -2463,7 +2463,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
               <tr>
                 <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;width:120px">장비구분</th>
                 <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;width:160px">장비명</th>
-                <th style="padding:8px;text-align:left;font-size:11px;font-weight:700">옵션 (쉼표 구분)</th>
+                <th style="padding:8px;text-align:left;font-size:11px;font-weight:700">옵션 단계</th>
                 <th style="padding:8px;text-align:right;font-size:11px;font-weight:700;width:110px">원가</th>
                 <th style="padding:8px;text-align:right;font-size:11px;font-weight:700;width:110px">판매가</th>
                 <th style="padding:8px;text-align:center;font-size:11px;font-weight:700;width:50px">삭제</th>
@@ -2523,7 +2523,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <tr>
               <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;width:120px">장비구분</th>
               <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;width:180px">장비명</th>
-              <th style="padding:10px;text-align:left;font-size:11px;font-weight:700">옵션 (쉼표 구분)</th>
+              <th style="padding:10px;text-align:left;font-size:11px;font-weight:700">옵션 단계</th>
               <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;width:120px">원가</th>
               <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;width:120px">판매가</th>
               <th style="padding:10px;text-align:center;font-size:11px;font-weight:700;width:50px">삭제</th>
@@ -3131,7 +3131,13 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     { id:'eq-handystand-v',category:'주변기기', name:'핸디거치대 수직형', variants:[],                      costPrice:80000,  salePrice:200000 },
     { id:'eq-handystand-i',category:'주변기기', name:'핸디거치대 I/O박스',variants:[],                      costPrice:40000,  salePrice:120000 },
     { id:'eq-lprinter',    category:'주변기기', name:'라벨프린터',        variants:[],                      costPrice:0,      salePrice:0 },
-    { id:'eq-posdai',      category:'가구',    name:'포스 다이',         variants:['전동','무전동'],        costPrice:0,      salePrice:0 },
+    { id:'eq-posdai',      category:'가구',    name:'포스 다이',
+      options:[
+        { label:'손잡이 방향', choices:['좌타','우타'] },
+        { label:'길이(mm)',    choices:['1500','1800','2000','2300','2500'] },
+        { label:'형태',        choices:['일자','ㄱ자'] },
+        { label:'동력',        choices:['전동','무전동'] },
+      ], costPrice:0, salePrice:0 },
     { id:'eq-monitor',     category:'주변기기', name:'모니터',            variants:['사무용','포스 듀얼'],   costPrice:0,      salePrice:0 },
     { id:'eq-scale',       category:'주변기기', name:'전자저울',          variants:['일반','정육'],          costPrice:0,      salePrice:0 },
     { id:'eq-kbdai',       category:'가구',    name:'키보드 다이',       variants:[],                      costPrice:0,      salePrice:0 },
@@ -3142,6 +3148,22 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     { id:'eq-checker-p500', category:'체크기', name:'체크기 P500',       variants:['세트','단품'],          costPrice:0,      salePrice:0 },
     { id:'eq-hscanner',    category:'주변기기', name:'핸디스캐너',        variants:[],                      costPrice:0,      salePrice:0 },
   ];
+  // 카탈로그 항목의 옵션 그룹 배열을 안전하게 반환
+  // 신스키마: item.options = [{label, choices:[...]}, ...]
+  // 구스키마: item.variants = ['A','B'] → 자동 변환 (1단계 그룹 '옵션')
+  function normalizeCatalogOptions(item) {
+    if (!item) return [];
+    if (Array.isArray(item.options) && item.options.length > 0) {
+      return item.options.map(g => ({
+        label: String(g.label||'옵션').trim() || '옵션',
+        choices: Array.isArray(g.choices) ? g.choices.map(c => String(c||'').trim()).filter(Boolean) : [],
+      })).filter(g => g.choices.length > 0);
+    }
+    if (Array.isArray(item.variants) && item.variants.length > 0) {
+      return [{ label:'옵션', choices: item.variants.slice() }];
+    }
+    return [];
+  }
   function getEquipmentCatalog() {
     try {
       const v = JSON.parse(localStorage.getItem('ns_equipment_catalog') || 'null');
@@ -3198,6 +3220,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   window.getEquipmentCatalog = getEquipmentCatalog;
 
   /* 카탈로그 CRUD — 모든 사용자 접근 가능 (마이페이지) */
+  let catalogExpandedIdx = -1; // 옵션 편집 패널 펼친 행
   function renderCatalogAdmin() {
     const tbodies = document.querySelectorAll('.js-catalog-tbody');
     if (!tbodies.length) return;
@@ -3207,22 +3230,103 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       html = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">등록된 장비가 없습니다. 우측 상단 [+ 장비 추가] 버튼을 눌러 추가하세요.</td></tr>`;
     } else {
       const inputSty = 'padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff;width:100%';
-      html = list.map((it, i) => `
-        <tr>
-          <td style="padding:5px"><input type="text" value="${esc(it.category||'')}" placeholder="POS / 컴퓨터 / 주변기기..." onchange="updateCatalogField(${i},'category',this.value)" style="${inputSty}"></td>
-          <td style="padding:5px"><input type="text" value="${esc(it.name||'')}" placeholder="장비명" onchange="updateCatalogField(${i},'name',this.value)" style="${inputSty}"></td>
-          <td style="padding:5px"><input type="text" value="${esc((it.variants||[]).join(', '))}" placeholder="옵션 (쉼표로 구분, 예: 유통, 외식)" onchange="updateCatalogField(${i},'variants',this.value)" style="${inputSty}"></td>
-          <td style="padding:5px"><input type="number" min="0" value="${Number(it.costPrice)||0}" onchange="updateCatalogField(${i},'costPrice',this.value)" style="${inputSty};text-align:right"></td>
-          <td style="padding:5px"><input type="number" min="0" value="${Number(it.salePrice)||0}" onchange="updateCatalogField(${i},'salePrice',this.value)" style="${inputSty};text-align:right"></td>
-          <td style="padding:5px;text-align:center">
-            <button title="삭제" onclick="if(confirm('이 장비 품목을 삭제하시겠습니까?'))removeCatalogItem(${i})" style="background:none;border:1px solid var(--gray-200);border-radius:5px;padding:5px 9px;cursor:pointer;font-size:13px;color:var(--danger)">×</button>
-          </td>
-        </tr>
-      `).join('');
+      html = list.map((it, i) => {
+        const opts = normalizeCatalogOptions(it);
+        const groupCount = opts.length;
+        const totalChoices = opts.reduce((s,g)=>s+g.choices.length,0);
+        const optBtnLabel = groupCount === 0
+          ? '+ 옵션 그룹'
+          : `${groupCount}단계 / ${totalChoices}항목`;
+        const isExpanded = catalogExpandedIdx === i;
+        const mainRow = `
+          <tr>
+            <td style="padding:5px"><input type="text" value="${esc(it.category||'')}" placeholder="POS / 컴퓨터 / 주변기기..." onchange="updateCatalogField(${i},'category',this.value)" style="${inputSty}"></td>
+            <td style="padding:5px"><input type="text" value="${esc(it.name||'')}" placeholder="장비명" onchange="updateCatalogField(${i},'name',this.value)" style="${inputSty}"></td>
+            <td style="padding:5px;text-align:center">
+              <button onclick="toggleCatalogExpand(${i})" style="background:${isExpanded?'#DBEAFE':'#F3F4F6'};color:${isExpanded?'#1D4ED8':'var(--gray-700)'};border:1px solid ${isExpanded?'#93C5FD':'var(--gray-200)'};border-radius:5px;padding:5px 10px;cursor:pointer;font-size:11px;font-weight:600;width:100%">${isExpanded?'▼':'▶'} ${optBtnLabel}</button>
+            </td>
+            <td style="padding:5px"><input type="number" min="0" value="${Number(it.costPrice)||0}" onchange="updateCatalogField(${i},'costPrice',this.value)" style="${inputSty};text-align:right"></td>
+            <td style="padding:5px"><input type="number" min="0" value="${Number(it.salePrice)||0}" onchange="updateCatalogField(${i},'salePrice',this.value)" style="${inputSty};text-align:right"></td>
+            <td style="padding:5px;text-align:center">
+              <button title="삭제" onclick="if(confirm('이 장비 품목을 삭제하시겠습니까?'))removeCatalogItem(${i})" style="background:none;border:1px solid var(--gray-200);border-radius:5px;padding:5px 9px;cursor:pointer;font-size:13px;color:var(--danger)">×</button>
+            </td>
+          </tr>`;
+        if (!isExpanded) return mainRow;
+        // 옵션 편집 패널
+        const optsHtml = opts.length === 0
+          ? `<div style="text-align:center;padding:14px;color:var(--gray-400);font-size:12px">등록된 옵션 그룹이 없습니다. 아래 [+ 옵션 그룹 추가] 를 눌러 시작하세요.</div>`
+          : opts.map((g, gi) => `
+              <div style="display:grid;grid-template-columns:140px 1fr 36px;gap:6px;align-items:center;background:#fff;padding:6px;border:1px solid var(--gray-200);border-radius:6px">
+                <div style="display:flex;align-items:center;gap:4px">
+                  <span style="background:#1D4ED8;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">${gi+1}단계</span>
+                  <input type="text" value="${esc(g.label||'')}" placeholder="옵션 이름" onchange="updateOptionGroup(${i},${gi},'label',this.value)" style="${inputSty};flex:1">
+                </div>
+                <input type="text" value="${esc((g.choices||[]).join(', '))}" placeholder="선택지 (쉼표로 구분, 예: 1500, 1800, 2000)" onchange="updateOptionGroup(${i},${gi},'choices',this.value)" style="${inputSty}">
+                <button title="이 옵션 그룹 삭제" onclick="removeOptionGroup(${i},${gi})" style="background:none;border:1px solid var(--gray-200);border-radius:5px;padding:5px;cursor:pointer;font-size:13px;color:var(--danger)">×</button>
+              </div>
+            `).join('');
+        const expandRow = `
+          <tr style="background:#F8FAFC">
+            <td colspan="6" style="padding:10px 18px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <div style="font-size:12px;font-weight:700;color:var(--gray-700)">📐 옵션 단계 — 위에서 아래 순서로 사용자가 선택</div>
+                <button onclick="addOptionGroup(${i})" class="btn btn-primary btn-sm" style="font-size:11px;padding:4px 10px;font-weight:700">+ 옵션 그룹 추가</button>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:5px">${optsHtml}</div>
+            </td>
+          </tr>`;
+        return mainRow + expandRow;
+      }).join('');
     }
     tbodies.forEach(tb => { tb.innerHTML = html; });
   }
   window.renderCatalogAdmin = renderCatalogAdmin;
+  function toggleCatalogExpand(i) {
+    catalogExpandedIdx = (catalogExpandedIdx === i) ? -1 : i;
+    renderCatalogAdmin();
+  }
+  window.toggleCatalogExpand = toggleCatalogExpand;
+  function addOptionGroup(i) {
+    const list = getEquipmentCatalog();
+    if (i < 0 || i >= list.length) return;
+    const cur = normalizeCatalogOptions(list[i]).slice();
+    cur.push({ label:`옵션${cur.length+1}`, choices:[] });
+    list[i].options = cur;
+    delete list[i].variants; // 마이그레이션 후 구필드 제거
+    saveEquipmentCatalog(list);
+    catalogExpandedIdx = i; // 펼친 상태 유지
+    renderCatalogAdmin();
+  }
+  window.addOptionGroup = addOptionGroup;
+  function removeOptionGroup(i, gi) {
+    const list = getEquipmentCatalog();
+    if (i < 0 || i >= list.length) return;
+    const cur = normalizeCatalogOptions(list[i]).slice();
+    if (gi < 0 || gi >= cur.length) return;
+    cur.splice(gi, 1);
+    list[i].options = cur;
+    delete list[i].variants;
+    saveEquipmentCatalog(list);
+    catalogExpandedIdx = i;
+    renderCatalogAdmin();
+  }
+  window.removeOptionGroup = removeOptionGroup;
+  function updateOptionGroup(i, gi, field, value) {
+    const list = getEquipmentCatalog();
+    if (i < 0 || i >= list.length) return;
+    const cur = normalizeCatalogOptions(list[i]).slice();
+    if (gi < 0 || gi >= cur.length) return;
+    if (field === 'label') {
+      cur[gi].label = String(value||'').trim() || `옵션${gi+1}`;
+    } else if (field === 'choices') {
+      cur[gi].choices = String(value||'').split(',').map(s => s.trim()).filter(Boolean);
+    }
+    list[i].options = cur;
+    delete list[i].variants;
+    saveEquipmentCatalog(list);
+    // 입력 즉시 재렌더는 안 함 (포커스 유지)
+  }
+  window.updateOptionGroup = updateOptionGroup;
 
   function addCatalogItem() {
     const list = getEquipmentCatalog();
@@ -6544,7 +6648,10 @@ ${text.slice(0, 3000)}`;
           const isChk = !!checked[i];
           const meta = (j.equipmentCheckedBy || {})[i];
           const tag = (txt, bg, fg) => `<span style="background:${bg};color:${fg};font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px">${esc(txt)}</span>`;
-          const variantTxt = e.variant ? tag(e.variant, '#EFF6FF', '#1D4ED8') : '';
+          // 다중 옵션 우선, 없으면 구버전 variant
+          const variantTxt = (e.options && Object.keys(e.options).length > 0)
+            ? Object.entries(e.options).map(([k,v]) => tag(`${k}: ${v}`, '#EFF6FF', '#1D4ED8')).join('')
+            : (e.variant ? tag(e.variant, '#EFF6FF', '#1D4ED8') : '');
           const extraTxt   = e.extra   ? tag(e.extra,   '#F3E8FF', '#7E22CE') : '';
           const sizeTxt    = e.size    ? tag('📐 '+e.size, '#FEF3C7', '#92400E') : '';
           const condBadge  = e.condition === 'used'
@@ -6695,14 +6802,15 @@ ${text.slice(0, 3000)}`;
                 ${groups[cat].map(def => {
                   const dcost = Number(def.costPrice)||0;
                   const dsale = Number(def.salePrice)||0;
-                  const variantSel = (def.variants && def.variants.length) ? `
-                    <select id="pick-variant-${def.id}" onchange="onPickerVariantChange('${def.id}')" style="${inputSty}">
-                      ${def.variants.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}
-                    </select>` : '';
+                  const opts = normalizeCatalogOptions(def);
+                  const optionSelects = opts.map((g, gi) => `
+                    <select id="pick-opt-${def.id}-${gi}" data-label="${esc(g.label)}" onchange="onPickerSubChange('${def.id}')" style="${inputSty}" title="${esc(g.label)}">
+                      ${g.choices.map(c => `<option value="${esc(c)}">${esc(g.label)}: ${esc(c)}</option>`).join('')}
+                    </select>`).join('');
                   return `
                     <div style="background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                       <div style="font-weight:700;font-size:13px;min-width:140px">${esc(def.name)}</div>
-                      ${variantSel}
+                      ${optionSelects}
                       <select id="pick-cond-${def.id}" style="${inputSty}">
                         <option value="new">신품</option>
                         <option value="used">중고</option>
@@ -6792,9 +6900,18 @@ ${text.slice(0, 3000)}`;
       if (!def) return;
       const qty = Math.max(0, Math.round(Number(get(`pick-qty-${fixedKey}`)) || 0));
       if (qty <= 0) { if (typeof showToast === 'function') showToast('수량을 1 이상 입력하세요'); return; }
+      // 다단계 옵션 — 모든 그룹 선택값 수집
+      const optDefs = normalizeCatalogOptions(def);
+      const selectedOpts = {};
+      optDefs.forEach((g, gi) => {
+        const v = get(`pick-opt-${fixedKey}-${gi}`);
+        if (v) selectedOpts[g.label] = v;
+      });
+      const variantTxt = Object.values(selectedOpts).join(' / ');
       newItem = {
         name: def.name,
-        variant:   (def.variants && def.variants.length) ? get(`pick-variant-${fixedKey}`) : '',
+        options:   selectedOpts,             // 다중 옵션 (구조)
+        variant:   variantTxt,                // 표시/검색용 호환 — 슬래시 join
         condition: get(`pick-cond-${fixedKey}`) || 'new',
         qty,
         costPrice: Math.max(0, Math.round(Number(get(`pick-cost-${fixedKey}`))||0)),
