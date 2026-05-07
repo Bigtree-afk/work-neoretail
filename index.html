@@ -4292,14 +4292,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
     const body = document.getElementById('aiAnalysisBody');
     const loading = document.getElementById('aiReanalysisLoading');
-    const btn = document.getElementById('aiReanalysisBtn');
+    const btn = document.getElementById('aiReanalysisBtn'); // 없을 수 있음 (관리자 페이지에서만 존재)
     const pf = document.getElementById('dashProgressFill');
 
-    body.style.display = 'none';
-    loading.style.display = '';
-    btn.disabled = true;
-    pf.style.animation = 'none'; void pf.offsetWidth;
-    pf.style.animation = 'progress-bar 8s ease forwards';
+    if (body) body.style.display = 'none';
+    if (loading) loading.style.display = '';
+    if (btn) btn.disabled = true;
+    if (pf) {
+      pf.style.animation = 'none'; void pf.offsetWidth;
+      pf.style.animation = 'progress-bar 8s ease forwards';
+    }
 
     const contextData = `
 [현재 작업 현황]
@@ -4357,19 +4359,23 @@ ${contextData}
 
       renderAnalysisResult(result);
 
-      // 버튼 비활성화
-      btn.disabled = true;
-      btn.style.opacity = '0.5';
-      btn.style.cursor = 'not-allowed';
-      btn.title = '오늘 분석 완료. 내일 다시 사용 가능합니다.';
+      // 버튼 비활성화 (요소 있을 때만)
+      if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+        btn.title = '오늘 분석 완료. 내일 다시 사용 가능합니다.';
+      }
 
     } catch(e) {
-      showToast('❌ 분석 오류: ' + e.message.slice(0, 80));
+      console.error('[runDashboardAnalysis]', e);
+      showToast('❌ 분석 오류: ' + (e && e.message ? e.message.slice(0, 100) : String(e).slice(0,100)));
+    } finally {
+      // 어떤 경우에도 loading 은 반드시 숨김 — 무한 분석중 상태 방지
+      if (loading) loading.style.display = 'none';
+      if (body) body.style.display = '';
+      if (btn) btn.disabled = !canRunAnalysis();
     }
-
-    loading.style.display = 'none';
-    body.style.display = '';
-    btn.disabled = !canRunAnalysis();
   }
 
   function renderAnalysisResult(result) {
