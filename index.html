@@ -6141,6 +6141,8 @@ ${text.slice(0, 3000)}`;
 
     const tb = document.getElementById('newopenTbody');
     if (!tb) return;
+    // 디버그: 진단 정보 콘솔 출력
+    try { console.log('[hydrateNewopen]', {totalJobs: jobs.length, newopenItems: items.length, viewAfterFilter: view.length, filter: filter||'all'}); } catch(e){}
     if (view.length === 0) {
       tb.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
         <div style="font-size:36px;margin-bottom:10px">🏗️</div>
@@ -6151,6 +6153,7 @@ ${text.slice(0, 3000)}`;
     }
     const COLSPAN = 8;
     tb.innerHTML = view.map(j => {
+      try {
       // 자동 진행률 계산 (워크플로 기반)
       const wfProg = recalcJobProgress(j);
       const status = j.status || '예정';
@@ -6206,6 +6209,10 @@ ${text.slice(0, 3000)}`;
         <td><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100px"><div style="background:var(--primary);height:100%;width:${wfProg}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">${wfProg}%</div></td>
         <td><div style="display:flex;gap:6px;flex-wrap:wrap;min-width:160px">${linkBtn}<button class="btn btn-primary btn-sm" style="font-size:13px;padding:8px 16px;font-weight:700;min-width:70px" onclick="event.stopPropagation();editNewopen('${j.id||''}')">상세</button></div></td>
       </tr>${wf.pillRow}${wf.detailRows}`;
+      } catch(err) {
+        try { console.error('[hydrateNewopen] row render error for job', j && j.id, err); } catch(e){}
+        return `<tr><td colspan="8" style="padding:12px;background:#FEF2F2;color:#991B1B;font-size:12px">⚠️ 렌더링 에러 — ${esc(j&&j.id||'?')} / ${esc(j&&j.store||j&&j.storeName||'?')} : ${esc(String(err&&err.message||err))}</td></tr>`;
+      }
     }).join('');
     // 모든 변경사항 저장 (workflow 자동 보강 결과)
     saveJobs(jobs);
