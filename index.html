@@ -6030,7 +6030,9 @@ ${text.slice(0, 3000)}`;
   }
   window.toggleEquipChecked = toggleEquipChecked;
 
-  function renderWorkflowRow(job, colspan) {
+  function renderWorkflowRow(job, colspan, groupBg) {
+    // groupBg: 같은 작업의 모든 보조 행에 같은 배경색 적용 (신규관리 그룹 구분용)
+    const bg = groupBg || '#FCFCFD';
     const wf = ensureWorkflow(job);
     const pills = wf.steps.map(s => {
       const lbl = STEP_LABELS[s.key] || s.key;
@@ -6081,7 +6083,7 @@ ${text.slice(0, 3000)}`;
               <td style="padding:6px 8px;border-bottom:1px solid var(--gray-100);font-size:10px">${checkedInfo}</td>
             </tr>`;
           }).join('');
-      return `<tr id="wfdetail-${job.id}-${s.key}" style="display:none;background:#FAFAFA">
+      return `<tr id="wfdetail-${job.id}-${s.key}" style="display:none;background:${bg}">
         <td colspan="${colspan}" style="padding:14px 18px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
             <div style="font-size:12px;font-weight:700;color:var(--gray-700)">📦 ${STEP_LABELS[s.key]} 체크리스트</div>
@@ -6104,7 +6106,7 @@ ${text.slice(0, 3000)}`;
     }).join('');
 
     return {
-      pillRow: `<tr style="background:#FCFCFD"><td colspan="${colspan}" style="padding:10px 18px"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">${pills}</div></td></tr>`,
+      pillRow: `<tr style="background:${bg}"><td colspan="${colspan}" style="padding:10px 18px"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">${pills}</div></td></tr>`,
       detailRows: equipDetails,
     };
   }
@@ -6155,8 +6157,11 @@ ${text.slice(0, 3000)}`;
       return;
     }
     const COLSPAN = 8;
-    tb.innerHTML = view.map(j => {
+    tb.innerHTML = view.map((j, idx) => {
       try {
+        // 그룹 구분 — 매장별 배경색 번갈아 적용 (홀짝)
+        const groupBg = (idx % 2 === 0) ? '#FFFFFF' : '#F1F5F9';
+        const groupBorderTop = idx === 0 ? '' : 'border-top:3px solid #E2E8F0;';
       // 자동 진행률 계산 (워크플로 기반)
       const wfProg = recalcJobProgress(j);
       const status = j.status || '예정';
@@ -6199,19 +6204,20 @@ ${text.slice(0, 3000)}`;
           </div>`
         : `<div style="font-size:12px">${eng}</div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">매장 담당자 미입력</div>`;
 
-      const wf = renderWorkflowRow(j, COLSPAN);
+      const wf = renderWorkflowRow(j, COLSPAN, groupBg);
       const openDetailAttr = `onclick="editNewopen('${j.id||''}')" title="클릭하여 상세 보기" style="cursor:pointer"`;
-      return `<tr>
-        <td><span class="badge ${badgeCls}">${esc(status)}</span></td>
-        <td ${openDetailAttr}>
+      const cellBg = `background:${groupBg};${groupBorderTop}`;
+      return `<tr style="background:${groupBg}">
+        <td style="${cellBg}"><span class="badge ${badgeCls}">${esc(status)}</span></td>
+        <td style="${cellBg}" ${openDetailAttr}>
           <b style="text-decoration:underline;text-decoration-color:transparent;transition:text-decoration-color .15s" onmouseover="this.style.textDecorationColor='currentColor'" onmouseout="this.style.textDecorationColor='transparent'">${esc(store)}</b>${unregBadge}${typeBadge}
         </td>
-        <td style="font-size:11px;color:var(--gray-500)" ${openDetailAttr}>${esc(addr)}</td>
-        <td>${datesHtml}</td>
-        <td>${contactCellHtml}</td>
-        <td style="text-align:center;font-weight:600">${posQty ? posQty + '대' : '<span style="color:var(--gray-300)">—</span>'}</td>
-        <td><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100%"><div style="background:var(--primary);height:100%;width:${wfProg}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px;text-align:right">${wfProg}%</div></td>
-        <td style="text-align:center">${linkBtn || '<span style="color:var(--gray-300);font-size:11px">—</span>'}</td>
+        <td style="font-size:11px;color:var(--gray-500);${cellBg}" ${openDetailAttr}>${esc(addr)}</td>
+        <td style="${cellBg}">${datesHtml}</td>
+        <td style="${cellBg}">${contactCellHtml}</td>
+        <td style="text-align:center;font-weight:600;${cellBg}">${posQty ? posQty + '대' : '<span style="color:var(--gray-300)">—</span>'}</td>
+        <td style="${cellBg}"><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100%"><div style="background:var(--primary);height:100%;width:${wfProg}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px;text-align:right">${wfProg}%</div></td>
+        <td style="text-align:center;${cellBg}">${linkBtn || '<span style="color:var(--gray-300);font-size:11px">—</span>'}</td>
       </tr>${wf.pillRow}${wf.detailRows}`;
       } catch(err) {
         try { console.error('[hydrateNewopen] row render error for job', j && j.id, err); } catch(e){}
