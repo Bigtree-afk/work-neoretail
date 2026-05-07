@@ -270,6 +270,8 @@
 
   /* ── MODAL ── */
   .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(2px); z-index: 200; display: none; align-items: center; justify-content: center; }
+  /* 상담 등록 모드: 입고가 칸 숨김 (판매가만 노출) */
+  body.consult-mode .js-cost-col { display: none !important; }
   .modal-overlay.show { display: flex; }
   .modal { background: #FFF8E7; border-radius: 12px; box-shadow: 6px 6px 0 #1A1614; width: 560px; max-height: 85vh; overflow-y: auto; }
   .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
@@ -1835,7 +1837,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
         <div class="form-group" style="margin:0">
           <label>작업 유형</label>
-          <select id="jobType">
+          <select id="jobType" onchange="applyJobTypeMode()">
             <option>상담</option>
             <option>신규</option>
             <option>신규가맹</option>
@@ -1936,7 +1938,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
                 <th style="padding:8px 6px;text-align:left;border-bottom:1px solid var(--gray-200);min-width:240px">품목 / 분류</th>
                 <th style="padding:8px 6px;text-align:center;border-bottom:1px solid var(--gray-200);width:100px">상태</th>
                 <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:70px">수량</th>
-                <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:110px">입고가</th>
+                <th class="js-cost-col" style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:110px">입고가</th>
                 <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:110px">판매가</th>
                 <th style="padding:8px 6px;text-align:right;border-bottom:1px solid var(--gray-200);width:120px">합계(판매)</th>
                 <th style="padding:8px 6px;width:36px;border-bottom:1px solid var(--gray-200)"></th>
@@ -3545,27 +3547,52 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   function buildBallSelectors() { // 호환용 이름 유지
     equipRows = [];
     equipRowSeq = 0;
-    // 고정 품목을 먼저 깔아둠
-    FIXED_EQUIPMENT.forEach(def => {
-      const variant = def.variants ? def.variants[0] : '';
-      const cost = def.costPriceBy ? (def.costPriceBy[variant] || 0) : (def.costPrice || 0);
-      const sale = def.salePriceBy ? (def.salePriceBy[variant] || 0) : (def.salePrice || 0);
-      equipRows.push({
-        id: ++equipRowSeq,
-        fixed: true,
-        fixedKey: def.key,
-        name: def.name,
-        variant,
-        size: '',
-        extra: def.extraToggle ? def.extraToggle.options[0] : '',
-        condition: 'new',
-        qty: 0, // 기본 0대 — 필요한 것만 카운트
-        costPrice: cost,
-        salePrice: sale,
+    // 1순위: 사용자 카탈로그 (마이페이지에서 추가/수정한 항목)
+    let catalog = [];
+    try { catalog = (typeof getEquipmentCatalog === 'function') ? getEquipmentCatalog() : []; } catch(e){}
+    if (Array.isArray(catalog) && catalog.length > 0) {
+      catalog.forEach(def => {
+        const opts = (typeof normalizeCatalogOptions === 'function') ? normalizeCatalogOptions(def) : [];
+        // 옵션 그룹별 첫 번째 선택지를 기본값으로
+        const optionValues = {};
+        opts.forEach(g => { if (g.choices.length > 0) optionValues[g.label] = g.choices[0]; });
+        equipRows.push({
+          id: ++equipRowSeq,
+          fixed: true,
+          fixedKey: def.id || def.name,    // 카탈로그 id
+          catalog: true,                    // 카탈로그 기반 행 표시
+          name: def.name,
+          category: def.category || '',
+          options: opts,                    // [{label, choices:[...]}] — 렌더용
+          optionValues,                     // {label: 선택값} — 사용자 선택
+          condition: 'new',
+          qty: 0,
+          costPrice: Number(def.costPrice)||0,
+          salePrice: Number(def.salePrice)||0,
+        });
       });
-    });
+    } else {
+      // Fallback: 카탈로그 비었으면 기존 FIXED_EQUIPMENT 사용
+      FIXED_EQUIPMENT.forEach(def => {
+        const variant = def.variants ? def.variants[0] : '';
+        const cost = def.costPriceBy ? (def.costPriceBy[variant] || 0) : (def.costPrice || 0);
+        const sale = def.salePriceBy ? (def.salePriceBy[variant] || 0) : (def.salePrice || 0);
+        equipRows.push({
+          id: ++equipRowSeq, fixed: true, fixedKey: def.key, name: def.name,
+          variant, size: '', extra: def.extraToggle ? def.extraToggle.options[0] : '',
+          condition: 'new', qty: 0, costPrice: cost, salePrice: sale,
+        });
+      });
+    }
     renderEquipTable();
   }
+  // 카탈로그 행에서 옵션 그룹 select 변경
+  function onEquipOptionChange(rowId, label, value) {
+    const r = equipRows.find(x => x.id === rowId);
+    if (!r || !r.optionValues) return;
+    r.optionValues[label] = value;
+  }
+  window.onEquipOptionChange = onEquipOptionChange;
 
   function addEquipRow() {
     equipRows.push({
@@ -3611,7 +3638,18 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
       // 품목 셀
       let nameCell;
-      if (r.fixed) {
+      if (r.fixed && r.catalog) {
+        // 카탈로그 기반 행 — 옵션 그룹별 select 자동 렌더
+        const optionSelects = (r.options||[]).map(g => `
+          <div style="margin-top:4px">
+            <select onchange="onEquipOptionChange(${r.id}, '${(g.label||'').replace(/'/g,"\\'")}', this.value)" style="width:100%;padding:5px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px">
+              ${g.choices.map(c => `<option value="${escAttr(c)}" ${r.optionValues[g.label]===c?'selected':''}>${esc(g.label)}: ${esc(c)}</option>`).join('')}
+            </select>
+          </div>`).join('');
+        const catBadge = r.category ? `<span style="background:#E5E7EB;color:#374151;font-size:9px;padding:1px 6px;border-radius:4px;margin-left:6px;font-weight:600">${esc(r.category)}</span>` : '';
+        nameCell = `<div style="font-weight:700;color:${isUnused?'var(--gray-500)':'var(--gray-800)'}">${esc(r.name)}${catBadge}</div>${optionSelects}`;
+      } else if (r.fixed) {
+        // 레거시 FIXED_EQUIPMENT 행 — fallback 경로
         const variantSelect = (def && def.variants)
           ? `<select onchange="onVariantChange(${r.id}, this.value)" style="margin-top:4px;width:100%;padding:5px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px">
               ${def.variants.map(v => `<option value="${v}" ${r.variant===v?'selected':''}>${v}</option>`).join('')}
@@ -3648,7 +3686,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right;vertical-align:top">
           <input type="number" min="0" step="1" value="${r.qty}" oninput="onEquipField(${r.id},'qty',this.value)" style="width:60px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;text-align:right">
         </td>
-        <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right;vertical-align:top">
+        <td class="js-cost-col" style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right;vertical-align:top">
           <input type="number" min="0" step="100" value="${r.costPrice}" oninput="onEquipField(${r.id},'costPrice',this.value)" style="width:100px;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;text-align:right">
         </td>
         <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right;vertical-align:top">
@@ -6007,20 +6045,26 @@ ${text.slice(0, 3000)}`;
 
     // 투입 장비 행 정리 (수량 0인 행 제외, 이름 빈 행 제외)
     const equipment = (typeof equipRows !== 'undefined' && Array.isArray(equipRows))
-      ? equipRows.filter(r => r.name && (Number(r.qty) || 0) > 0).map(r => ({
-          name: r.name,
-          spec: r.spec || '',
-          variant: r.variant || '',
-          size: r.size || '',
-          extra: r.extra || '',
-          fixed: !!r.fixed,
-          fixedKey: r.fixedKey || '',
-          condition: r.condition || 'new',
-          qty: Number(r.qty) || 0,
-          costPrice: Number(r.costPrice) || 0,
-          salePrice: Number(r.salePrice) || 0,
-          subtotal: (Number(r.qty)||0) * (Number(r.salePrice)||0),
-        }))
+      ? equipRows.filter(r => r.name && (Number(r.qty) || 0) > 0).map(r => {
+          // 카탈로그 행이면 optionValues 객체 사용, 레거시면 variant 문자열
+          const opts = r.optionValues && Object.keys(r.optionValues).length > 0 ? r.optionValues : null;
+          const variantStr = opts ? Object.values(opts).join(' / ') : (r.variant || '');
+          return {
+            name: r.name,
+            spec: r.spec || '',
+            options: opts,                  // 다중 옵션 객체 (카탈로그)
+            variant: variantStr,             // 표시/검색 호환
+            size: r.size || '',
+            extra: r.extra || '',
+            fixed: !!r.fixed,
+            fixedKey: r.fixedKey || '',
+            condition: r.condition || 'new',
+            qty: Number(r.qty) || 0,
+            costPrice: Number(r.costPrice) || 0,
+            salePrice: Number(r.salePrice) || 0,
+            subtotal: (Number(r.qty)||0) * (Number(r.salePrice)||0),
+          };
+        })
       : [];
     const equipTotal = equipment.reduce((s, e) => s + (e.subtotal || 0), 0);
 
@@ -6836,12 +6880,20 @@ ${text.slice(0, 3000)}`;
       const sel = document.getElementById('jobType');
       if (sel) {
         for (const opt of sel.options) {
-          if (/신규|개업|오픈/.test(opt.value || opt.textContent)) { sel.value = opt.value || opt.textContent; break; }
+          if (/신규|개업|오픈/.test(opt.value || opt.textContent) && !/상담/.test(opt.value||opt.textContent)) { sel.value = opt.value || opt.textContent; break; }
         }
       }
+      applyJobTypeMode();
     }, 50);
   }
   window.openNewopenJob = openNewopenJob;
+
+  // 작업 유형에 따라 모달 모드 토글 (상담일 때 입고가 숨김)
+  function applyJobTypeMode() {
+    const t = (document.getElementById('jobType')||{}).value || '';
+    document.body.classList.toggle('consult-mode', t === '상담');
+  }
+  window.applyJobTypeMode = applyJobTypeMode;
 
   /* ── 상담 등록 / 조회 / 전환 ──
      상담은 newJobModal 을 그대로 활용 — type='상담' 만 preset, 장비/일정/담당자 모두 동일 입력
@@ -6856,6 +6908,8 @@ ${text.slice(0, 3000)}`;
           if (opt.value === '상담' || opt.textContent === '상담') { sel.value = opt.value || opt.textContent; break; }
         }
       }
+      // 상담 모드 적용 (입고가 숨김)
+      applyJobTypeMode();
       // 상담은 보통 미등록 매장이므로 자동으로 미등록 모드 ON
       if (typeof jobStoreUnregistered !== 'undefined' && !jobStoreUnregistered) {
         if (typeof toggleUnregisteredStore === 'function') toggleUnregisteredStore();
