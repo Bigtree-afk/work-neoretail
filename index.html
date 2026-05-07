@@ -2887,8 +2887,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   const CLAUDE_MODEL = 'claude-sonnet-4-5';
 
-  function getApiKey() { return localStorage.getItem('neo_api_key') || ''; }
-  function saveApiKey(key) { localStorage.setItem('neo_api_key', key.trim()); }
+  function getApiKey() {
+    // 구버전 키('anthropic_api_key')가 있으면 자동 마이그레이션 → 'neo_api_key'
+    const v = localStorage.getItem('neo_api_key') || localStorage.getItem('anthropic_api_key') || '';
+    if (v && !localStorage.getItem('neo_api_key')) {
+      localStorage.setItem('neo_api_key', v);
+      try { localStorage.removeItem('anthropic_api_key'); } catch(e){}
+    }
+    return v;
+  }
+  function saveApiKey(key) { localStorage.setItem('neo_api_key', String(key||'').trim()); }
 
   async function callClaude(messages, maxTokens = 1500) {
     const apiKey = getApiKey();
@@ -5314,13 +5322,17 @@ ${text.slice(0, 3000)}`;
   }
 
   function saveAdminSettings() {
+    // API 키 저장 — getApiKey() 가 읽는 키와 동일한 'neo_api_key' 로 저장 (이전엔 'anthropic_api_key' 로 저장해 모달 재오픈 시 사라져 보였음)
     const key = document.getElementById('adminApiKey').value.trim();
-    if (key) localStorage.setItem('anthropic_api_key', key);
+    if (key) saveApiKey(key);
+    // 구버전 키 'anthropic_api_key' 도 함께 정리 (혼동 방지)
+    try { localStorage.removeItem('anthropic_api_key'); } catch(e){}
+
     const gcidEl = document.getElementById('adminGoogleClientId');
     if (gcidEl) setGoogleClientId(gcidEl.value.trim());
     const tokEl = document.getElementById('adminCloudSyncToken');
     if (tokEl) saveCloudSyncToken(tokEl.value.trim());
-    showToast && showToast('설정이 저장되었습니다.');
+    showToast && showToast('✅ 설정이 저장되었습니다.');
     // 클라우드에도 Google Client ID + 화이트리스트 동기화
     try { pushCloudWhitelist({ toast: false }); } catch(e) {}
     closeModal('adminModal');
