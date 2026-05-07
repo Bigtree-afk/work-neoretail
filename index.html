@@ -1210,6 +1210,25 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <button class="btn btn-primary btn-sm" onclick="openNewopenJob()">＋ 신규 등록</button>
       </div>
 
+      <!-- 이번주 + 다음주 미니 캘린더 -->
+      <div class="card" id="newopenMiniCal" style="margin-bottom:16px;padding:14px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:13px;font-weight:700;color:var(--gray-700)">📅 이번주 + 다음주 일정</div>
+          <div style="font-size:10px;color:var(--gray-400)">🔧 설치예정 · 🌅 가오픈 · 🎉 오픈 — 작업 클릭 시 매장 상세</div>
+        </div>
+        <!-- 요일 헤더 -->
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px">
+          <div style="font-size:10px;font-weight:700;text-align:center;color:var(--danger);padding:3px 0">일</div>
+          <div style="font-size:10px;font-weight:700;text-align:center;color:var(--gray-600);padding:3px 0">월</div>
+          <div style="font-size:10px;font-weight:700;text-align:center;color:var(--gray-600);padding:3px 0">화</div>
+          <div style="font-size:10px;font-weight:700;text-align:center;color:var(--gray-600);padding:3px 0">수</div>
+          <div style="font-size:10px;font-weight:700;text-align:center;color:var(--gray-600);padding:3px 0">목</div>
+          <div style="font-size:10px;font-weight:700;text-align:center;color:var(--gray-600);padding:3px 0">금</div>
+          <div style="font-size:10px;font-weight:700;text-align:center;color:var(--primary);padding:3px 0">토</div>
+        </div>
+        <div id="newopenMiniCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px"></div>
+      </div>
+
       <!-- 테이블 -->
       <div class="card">
         <table>
@@ -2806,6 +2825,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     // 신규관리 진입 시 데이터 갱신
     if (id === 'newopen' && typeof hydrateNewopen === 'function') {
       try { hydrateNewopen('all'); } catch(e) {}
+      try { if (typeof renderNewopenMiniCal === 'function') renderNewopenMiniCal(); } catch(e) {}
     }
     // 상담 조회 진입 시 데이터 갱신
     if (id === 'consult' && typeof hydrateConsult === 'function') {
@@ -6768,6 +6788,71 @@ ${text.slice(0, 3000)}`;
   }
   window.renderWorkflowRow = renderWorkflowRow;
 
+  /* 신규관리 상단 — 이번주 + 다음주 2주 미니 캘린더 */
+  function renderNewopenMiniCal() {
+    const grid = document.getElementById('newopenMiniCalGrid');
+    if (!grid) return;
+    // 이번 주의 일요일 0:00 부터 14일치 셀 생성
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const start = new Date(today);
+    start.setDate(today.getDate() - today.getDay()); // 일요일로 이동
+
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    // 날짜별 이벤트 매핑
+    const byDate = {};
+    const push = (dateStr, j, kind) => {
+      const d = (dateStr||'').slice(0,10);
+      if (!d) return;
+      (byDate[d] = byDate[d] || []).push({ j, kind });
+    };
+    jobs.forEach(j => {
+      // 신규/상담 모두 보이게
+      push(j.installDate, j, 'install');
+      push(j.softOpenDate, j, 'soft');
+      push(j.openDate, j, 'open');
+    });
+    const kindIcon  = { install:'🔧', soft:'🌅', open:'🎉' };
+    const kindColor = { install:{bg:'#FED7AA',fg:'#9A3412'}, soft:{bg:'#FECACA',fg:'#991B1B'}, open:{bg:'#A7F3D0',fg:'#065F46'} };
+    const kindLabel = { install:'설치', soft:'가오픈', open:'오픈' };
+
+    const cells = [];
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      const isToday = (d.getTime() === today.getTime());
+      const dow = d.getDay();
+      const events = byDate[dateStr] || [];
+      const dayColor = dow === 0 ? '#DC2626' : (dow === 6 ? '#1D4ED8' : 'var(--gray-700)');
+      const isCurrentWeek = (i < 7);
+      const weekLabel = (i === 0) ? `<span style="font-size:9px;color:var(--gray-400);margin-left:4px">이번주</span>` :
+                        (i === 7) ? `<span style="font-size:9px;color:var(--gray-400);margin-left:4px">다음주</span>` : '';
+      const eventsHtml = events.map(({j, kind}) => {
+        const c = kindColor[kind];
+        const store = esc(j.storeName || j.store || '-');
+        return `<div onclick="event.stopPropagation();editNewopen('${j.id}')"
+                  title="${esc(j.storeName||j.store||'')} · ${kindLabel[kind]}"
+                  style="background:${c.bg};color:${c.fg};font-size:10px;padding:3px 5px;border-radius:4px;font-weight:700;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2">
+                  <span>${kindIcon[kind]}</span> ${store}
+                </div>`;
+      }).join('');
+      cells.push(`
+        <div style="background:${isToday?'#FEF9C3':'#fff'};border:${isToday?'2px solid #F59E0B':'1px solid var(--gray-200)'};border-radius:6px;padding:6px;min-height:90px;display:flex;flex-direction:column;gap:3px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:12px;font-weight:700;color:${dayColor}">${d.getDate()}</span>
+            ${weekLabel}
+          </div>
+          ${eventsHtml || '<div style="flex:1"></div>'}
+        </div>`);
+    }
+    grid.innerHTML = cells.join('');
+  }
+  window.renderNewopenMiniCal = renderNewopenMiniCal;
+
   /* ── 신규관리 페이지 ── */
   function isNewopenJob(j) {
     if (!j) return false;
@@ -6889,6 +6974,8 @@ ${text.slice(0, 3000)}`;
     }).join('');
     // 모든 변경사항 저장 (workflow 자동 보강 결과)
     saveJobs(jobs);
+    // 미니 캘린더도 함께 갱신
+    try { renderNewopenMiniCal(); } catch(e){}
   }
   function filterNewopen(chip, filter) {
     chip.parentElement.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
