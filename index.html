@@ -2657,6 +2657,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     setTimeout(() => {
       syncFromCloud({ toast: false });
       try { if (typeof syncCatalogFromCloud === 'function') syncCatalogFromCloud(); } catch(e){}
+      // 작업 클라우드 동기화 — 다른 PC 가 만든 신규관리 작업도 받아옴
+      if (typeof syncJobsFromCloud === 'function') {
+        syncJobsFromCloud().then(() => {
+          try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
+          try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
+          try { if (typeof renderCalendar === 'function') renderCalendar(); } catch(e){}
+        });
+      }
       try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
       try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
       try { if (typeof hydrateSavedStores === 'function') hydrateSavedStores(); } catch(e){}
@@ -5566,7 +5574,58 @@ ${text.slice(0, 3000)}`;
   function saveJobs(arr) {
     localStorage.setItem('ns_jobs', JSON.stringify(arr));
     scheduleAutoBackup();
+    schedulePushJobsToCloud();
   }
+  // 클라우드 ↔ 로컬 작업 동기화 — 다른 PC/모바일도 동일 작업 보이도록
+  async function syncJobsFromCloud() {
+    try {
+      const res = await fetch('/api/jobs', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data?.jobs) && data.jobs.length > 0) {
+        // 로컬과 머지: id 기준, 양쪽 합집합 (cloud 우선 — 다른 기기에서 변경한 내용 반영)
+        const local = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
+        const byId = new Map();
+        local.forEach(j => { if (j && j.id) byId.set(j.id, j); });
+        data.jobs.forEach(j => { if (j && j.id) byId.set(j.id, j); }); // 클라우드가 우선
+        const merged = Array.from(byId.values());
+        localStorage.setItem('ns_jobs', JSON.stringify(merged));
+      }
+    } catch(e) { /* 네트워크 실패 무시 */ }
+  }
+  window.syncJobsFromCloud = syncJobsFromCloud;
+  let _pushJobsTimer = null;
+  function schedulePushJobsToCloud() {
+    if (_pushJobsTimer) clearTimeout(_pushJobsTimer);
+    _pushJobsTimer = setTimeout(() => { pushJobsToCloud(); }, 1500); // 1.5초 디바운스
+  }
+  async function pushJobsToCloud(opts) {
+    const token = (typeof getCloudSyncToken === 'function') ? getCloudSyncToken() : (localStorage.getItem('cloud_sync_token')||'');
+    if (!token) {
+      if (opts && opts.toast && typeof showToast === 'function') showToast('⚠ 클라우드 동기화 토큰 미설정 — 로컬에만 저장됨');
+      return { ok:false, reason:'no token' };
+    }
+    const jobs = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
+    try {
+      const res = await fetch('/api/jobs', {
+        method:'POST',
+        headers:{ 'authorization':'Bearer '+token, 'content-type':'application/json' },
+        body: JSON.stringify({ jobs }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        if (opts && opts.toast && typeof showToast === 'function') showToast(`⚠ 작업 클라우드 푸시 실패 (${res.status}): ${txt.slice(0,80)}`);
+        return { ok:false, status:res.status };
+      }
+      const data = await res.json();
+      if (opts && opts.toast && typeof showToast === 'function') showToast(`☁ 작업 클라우드 동기화 완료 (${data.count}건)`);
+      return { ok:true, ...data };
+    } catch(e) {
+      if (opts && opts.toast && typeof showToast === 'function') showToast('⚠ 작업 클라우드 푸시 실패 (네트워크)');
+      return { ok:false, error:String(e) };
+    }
+  }
+  window.pushJobsToCloud = pushJobsToCloud;
   // 작업 일정일 — j.date 만 사용. 날짜 미정(null/빈값)은 빈 문자열 반환.
   // 일정이 확정되지 않은 작업이 많으므로 createdAt 으로 자동 fallback 하지 않는다
   // (그렇지 않으면 "이번달 작업" 카운트에 등록만 한 미정 작업이 잡혀버림)
