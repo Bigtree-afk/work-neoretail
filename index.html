@@ -1041,86 +1041,24 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </table>
       </div>
 
-      <!-- AI 점검 분석 패널 -->
-      <div class="card" style="margin-top:20px; border:1.5px solid #6366F1; overflow:visible" id="aiAnalysisCard">
-        <div style="padding:14px 18px; border-bottom:1px solid #E0E7FF; background:linear-gradient(135deg,#EEF2FF 0%,#F5F3FF 100%); display:flex; align-items:center; justify-content:space-between; border-radius:10px 10px 0 0">
+      <!-- 신규/상담 현황 요약 패널 -->
+      <div class="card" style="margin-top:20px; border:1.5px solid #1D4ED8; overflow:visible" id="aiAnalysisCard">
+        <div style="padding:14px 18px; border-bottom:1px solid #DBEAFE; background:linear-gradient(135deg,#EFF6FF 0%,#F0F9FF 100%); display:flex; align-items:center; justify-content:space-between; border-radius:10px 10px 0 0">
           <div style="display:flex; align-items:center; gap:10px">
-            <div style="width:30px; height:30px; background:linear-gradient(135deg,#6366F1,#8B5CF6); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:15px">✦</div>
+            <div style="width:30px; height:30px; background:linear-gradient(135deg,#1D4ED8,#3B82F6); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:15px;color:#fff">📋</div>
             <div>
-              <div style="font-size:13px; font-weight:800; color:#3730A3">AI 작업 점검 분석</div>
-              <div style="font-size:11px; color:#6366F1; font-weight:500" id="aiAnalysisTime">Claude Sonnet • 샘플 데이터</div>
+              <div style="font-size:13px; font-weight:800; color:#1E3A8A">신규관리 / 상담 조회 현황</div>
+              <div style="font-size:11px; color:#1D4ED8; font-weight:500">실제 등록 데이터 기반 — 클릭 시 상세</div>
             </div>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <span id="aiAutoScheduleBadge" style="font-size:11px;color:#6366F1;background:#EEF2FF;padding:4px 10px;border-radius:8px;font-weight:600">🕛 매일 자정 자동 분석</span>
-            <span style="font-size:10px;color:var(--gray-400)">재분석은 관리자 페이지에서</span>
           </div>
         </div>
-
-        <!-- 재분석 중 상태 (숨김) -->
-        <div id="aiReanalysisLoading" style="display:none;padding:24px;text-align:center">
-          <div style="font-size:28px;animation:pulse-dot 1s infinite;margin-bottom:8px">✦</div>
-          <div style="font-size:13px;font-weight:700;color:#6366F1">Claude Sonnet 분석 중…</div>
-          <div style="font-size:11px;color:var(--gray-400);margin-top:4px">작업·AS·재고 현황을 종합 분석합니다</div>
-          <div class="progress-track" style="margin-top:12px;max-width:300px;margin-left:auto;margin-right:auto">
-            <div id="dashProgressFill" class="progress-fill"></div>
+        <div style="padding:18px 22px">
+          <div id="neoSummaryStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">
+            <!-- runtime -->
           </div>
-        </div>
-
-        <!-- 분석 결과 영역 -->
-        <div id="aiAnalysisBody" style="padding:18px 22px">
-
-          <!-- 샘플 배너 -->
-          <div id="sampleDataBanner" style="display:flex;align-items:center;gap:8px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:11px;color:#92400E">
-            <span style="font-size:14px">📌</span>
-            <span><b>샘플 데이터</b>입니다. 직원 교육용으로 제공됩니다. 실제 운영 전 <b>🗑 초기화</b>로 삭제하세요.</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" id="neoSummaryColumns">
+            <!-- 신규 진행중 / 상담 진행중 두 컬럼 -->
           </div>
-
-          <!-- 요약 줄 -->
-          <div id="aiSummaryBox" style="background:#F5F3FF; border-left:3px solid #6366F1; padding:10px 14px; border-radius:0 6px 6px 0; margin-bottom:14px; font-size:13px; color:#3730A3; font-weight:600; line-height:1.6">
-            현재 진행 중인 12개 작업 중 즉각적인 조치가 필요한 <span style="color:#EF4444">위험 2건</span>, 주의가 필요한 <span style="color:#F59E0B">주의 3건</span>이 식별되었습니다.
-          </div>
-
-          <!-- 분석 항목들 -->
-          <div id="aiAnalysisItems" style="display:flex; flex-direction:column; gap:10px">
-
-            <div class="ai-item" style="display:flex; gap:12px; align-items:flex-start; padding:12px 14px; background:#FEF2F2; border-radius:8px; border:1px solid #FECACA">
-              <div style="flex-shrink:0; width:22px; height:22px; background:#EF4444; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; font-weight:800; margin-top:1px">!</div>
-              <div style="font-size:13px; color:#7F1D1D; line-height:1.65">
-                <b>[위험] 가평1번가마트 AS 72시간 초과 — 담당자 미배정 상태</b>가 지속되고 있어 고객 불만 및 계약 신뢰도 하락이 우려됩니다. 바코드 스캐너 교체 부품(마젤란 8100 유리면)은 현재 재고에 있으므로 즉시 담당 엔지니어를 배정하고 오늘 오후 중 방문 일정을 확정해야 합니다.
-              </div>
-            </div>
-
-            <div class="ai-item" style="display:flex; gap:12px; align-items:flex-start; padding:12px 14px; background:#FEF2F2; border-radius:8px; border:1px solid #FECACA">
-              <div style="flex-shrink:0; width:22px; height:22px; background:#EF4444; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; font-weight:800; margin-top:1px">!</div>
-              <div style="font-size:13px; color:#7F1D1D; line-height:1.65">
-                <b>[위험] 서버용 PC 신품(Intel i7-11세대) 재고 소진 — 4/23 예정 웰빙마트 신림점 POS 교체</b>에 서버 PC가 포함될 경우 설치 일정을 맞추기 어렵습니다. 현재 납기 7일 소요 예상이므로 오늘 바로 발주 확인이 필요하며, 중고 Ryzen5 대체 투입 가능 여부를 점포측과 사전 협의해야 합니다.
-              </div>
-            </div>
-
-            <div class="ai-item" style="display:flex; gap:12px; align-items:flex-start; padding:12px 14px; background:#FFFBEB; border-radius:8px; border:1px solid #FDE68A">
-              <div style="flex-shrink:0; width:22px; height:22px; background:#F59E0B; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; font-weight:800; margin-top:1px">△</div>
-              <div style="font-size:13px; color:#78350F; line-height:1.65">
-                <b>[주의] K-1마트 안중점 오늘 설치 4/6단계 진행 중 — 바코드프린터(SRP-770 II) 재고 없음</b> 상태입니다. 해당 점포 견적에 바코드프린터가 포함되어 있다면 현장 설치 전 반드시 재고 여부를 재확인하고, 포함되지 않은 경우 점검 항목에서 제외 처리가 필요합니다.
-              </div>
-            </div>
-
-            <div class="ai-item" style="display:flex; gap:12px; align-items:flex-start; padding:12px 14px; background:#FFFBEB; border-radius:8px; border:1px solid #FDE68A">
-              <div style="flex-shrink:0; width:22px; height:22px; background:#F59E0B; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; font-weight:800; margin-top:1px">△</div>
-              <div style="font-size:13px; color:#78350F; line-height:1.65">
-                <b>[주의] 365할인마트 광적 VAN 교체(KIS→KCP) 4/22 예정 — KCP 측 가맹점 변경 신청 완료 여부 미확인</b>입니다. VAN사 승인 없이 단말 교체를 진행하면 결제 오류가 발생하므로, 방문 전날(4/21)까지 KCP 담당자에게 개통 가능 여부를 확인해야 합니다.
-              </div>
-            </div>
-
-            <div class="ai-item" style="display:flex; gap:12px; align-items:flex-start; padding:12px 14px; background:#FFFBEB; border-radius:8px; border:1px solid #FDE68A">
-              <div style="flex-shrink:0; width:22px; height:22px; background:#F59E0B; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; font-weight:800; margin-top:1px">△</div>
-              <div style="font-size:13px; color:#78350F; line-height:1.65">
-                <b>[주의] K-1마트 안중점 영수프린터(SRP-330) 1대 노후 이력 — K-마트 인덕원 전자저울 영점 오류 동시 AS 접수</b>로 오늘 이기사·박기사 두 팀의 이동 동선이 겹칩니다. 일정 충돌 없이 처리 가능한지 확인 후 필요시 우선순위를 재조정하세요.
-              </div>
-            </div>
-
-          </div>
-
         </div>
       </div>
 
@@ -2771,6 +2709,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   window.syncFromCloud = syncFromCloud;
   // 페이지 로드 직후 1회 자동 동기화 + 모든 위젯 강제 재렌더 (데모 잔존 방지)
   document.addEventListener('DOMContentLoaded', () => {
+    // 기존 AI 분석 결과(샘플 위험/주의 항목) 정리 — 의미없는 데이터 제거
+    try {
+      localStorage.removeItem('neo_analysis_result');
+      localStorage.removeItem('neo_analysis_date');
+    } catch(e){}
     setTimeout(() => {
       syncFromCloud({ toast: false });
       try { if (typeof syncCatalogFromCloud === 'function') syncCatalogFromCloud(); } catch(e){}
@@ -6406,6 +6349,9 @@ ${text.slice(0, 3000)}`;
     setText('statStockLow', 0);
     setText('statStockLowSub', '데이터 없음');
 
+    // 신규/상담 현황 요약 (AI 분석 패널 자리)
+    try { renderNeoSummary(); } catch(e){}
+
     // 오늘 일정 — 설치예정일/가오픈일/오픈일 중 오늘인 작업
     const todayBody = document.getElementById('dashTodayBody');
     if (todayBody) {
@@ -6793,6 +6739,104 @@ ${text.slice(0, 3000)}`;
     };
   }
   window.renderWorkflowRow = renderWorkflowRow;
+
+  /* 대시보드 신규/상담 현황 요약 — AI 분석 자리 차지 */
+  function renderNeoSummary() {
+    const statsEl = document.getElementById('neoSummaryStats');
+    const colsEl  = document.getElementById('neoSummaryColumns');
+    if (!statsEl && !colsEl) return;
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const isDone = (j) => (j.status === '완료' || j.status === 'done');
+    const today = new Date().toISOString().slice(0,10);
+    const ym = today.slice(0,7);
+
+    const newopen = jobs.filter(j => j && j.type !== '상담' && /신규|개업|오픈/.test(j.type||''));
+    const consult = jobs.filter(j => j && j.type === '상담');
+
+    const newopenActive = newopen.filter(j => !isDone(j));
+    const consultActive = consult.filter(j => j.status === '상담중');
+    const consultWon = consult.filter(j => j.status === '납품성공').length;
+    const consultLost = consult.filter(j => j.status === '납품실패').length;
+    const openThisMonth = newopen.filter(j => (j.openDate||'').slice(0,7) === ym).length;
+    const installSoon = newopen.filter(j => {
+      const d = (j.installDate||'').slice(0,10);
+      if (!d) return false;
+      return d >= today && d <= addDays(today, 14);
+    }).length;
+
+    if (statsEl) {
+      const card = (label, value, sub, color) => `
+        <div style="background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;border-top:3px solid ${color}">
+          <div style="font-size:10px;color:var(--gray-500);font-weight:600">${label}</div>
+          <div style="font-size:20px;font-weight:800;color:${color};margin-top:2px">${value}</div>
+          <div style="font-size:10px;color:var(--gray-400);margin-top:2px">${sub}</div>
+        </div>`;
+      statsEl.innerHTML =
+        card('신규 진행중', newopenActive.length, '완료/취소 제외', '#1D4ED8') +
+        card('이번달 오픈 예정', openThisMonth, '오픈일 기준', '#16A34A') +
+        card('14일 내 설치', installSoon, '설치예정일 기준', '#F59E0B') +
+        card('상담 진행중', consultActive.length, '결정 대기', '#7C3AED') +
+        card('상담 결정', consultWon, '신규 전환됨', '#059669') +
+        card('상담 실패', consultLost, '누적', '#DC2626');
+    }
+
+    if (colsEl) {
+      // 컬럼 1: 신규 진행중 (최근 5건)
+      const topNew = newopenActive.slice().sort((a,b) =>
+        new Date(a.openDate||a.installDate||a.softOpenDate||a.createdAt||0) -
+        new Date(b.openDate||b.installDate||b.softOpenDate||b.createdAt||0)
+      ).slice(0, 6);
+      // 컬럼 2: 상담 진행중 (최근 5건, consultDate 기준 최신)
+      const topConsult = consultActive.slice().sort((a,b) =>
+        (b.consultDate || (b.createdAt||0)) > (a.consultDate || (a.createdAt||0)) ? 1 : -1
+      ).slice(0, 6);
+
+      const fmtItem = (j, kind) => {
+        const store = esc(j.storeName || j.store || '-');
+        const dateLabel = kind === 'new'
+          ? (j.openDate ? `🎉 ${j.openDate.slice(5,10)}` : (j.installDate ? `🔧 ${j.installDate.slice(5,10)}` : '일정 미정'))
+          : (j.consultDate ? `💬 ${j.consultDate.slice(5,10)}` : '상담중');
+        const eqCount = Array.isArray(j.equipment) ? j.equipment.filter(e => (Number(e.qty)||0)>0).length : 0;
+        const eqTxt = eqCount > 0 ? `<span style="background:#DBEAFE;color:#1D4ED8;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;margin-left:4px">${eqCount}품목</span>` : '';
+        return `<div onclick="editNewopen('${j.id}')" style="padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;background:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;transition:background .12s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='#fff'">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${store}${eqTxt}</div>
+            <div style="font-size:10px;color:var(--gray-500);margin-top:1px">${esc(j.type||'-')}${j.contactName ? ' · '+esc(j.contactName) : ''}</div>
+          </div>
+          <div style="font-size:11px;color:var(--gray-600);font-weight:600;white-space:nowrap">${dateLabel}</div>
+        </div>`;
+      };
+
+      const newColHtml = topNew.length === 0
+        ? `<div style="text-align:center;padding:18px;color:var(--gray-400);font-size:12px">진행중인 신규 작업이 없습니다</div>`
+        : topNew.map(j => fmtItem(j, 'new')).join('');
+      const consultColHtml = topConsult.length === 0
+        ? `<div style="text-align:center;padding:18px;color:var(--gray-400);font-size:12px">진행중인 상담이 없습니다</div>`
+        : topConsult.map(j => fmtItem(j, 'consult')).join('');
+
+      colsEl.innerHTML = `
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--gray-700);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+            <span>📦 신규 진행중 (${newopenActive.length}건, 가까운 일정 순)</span>
+            <a onclick="showScreen('newopen')" style="font-size:10px;color:#1D4ED8;cursor:pointer;font-weight:600">신규관리 →</a>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px">${newColHtml}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--gray-700);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+            <span>💬 상담 진행중 (${consultActive.length}건, 최근순)</span>
+            <a onclick="showScreen('consult')" style="font-size:10px;color:#7C3AED;cursor:pointer;font-weight:600">상담조회 →</a>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px">${consultColHtml}</div>
+        </div>`;
+    }
+  }
+  function addDays(yyyymmdd, n) {
+    const d = new Date(yyyymmdd);
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0,10);
+  }
+  window.renderNeoSummary = renderNeoSummary;
 
   /* 신규관리 상단 — 이번주 + 다음주 2주 미니 캘린더 */
   function renderNewopenMiniCal() {
