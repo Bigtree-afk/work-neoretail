@@ -7185,7 +7185,12 @@ ${text.slice(0, 3000)}`;
             </div>
           </div>
         </div>
-        <div style="grid-column:1/-1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">주소</div><div style="font-size:13px">${esc(j.address || '-')}</div></div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;display:flex;align-items:center;gap:6px">
+            📍 주소 <span style="font-size:10px;color:var(--gray-400)">— 입력 즉시 자동 저장</span>
+          </div>
+          <input type="text" value="${esc(j.address||'')}" placeholder="도로명 주소를 입력하세요" onchange="updateJobAddress('${j.id}',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;background:#fff">
+        </div>
         <div style="grid-column:1/-1">
           <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between">
             <span>👤 매장 담당자 <span style="font-size:10px;color:var(--gray-400)">— ⭐별표를 클릭해 대표 연락망을 지정하세요. 메인 화면에는 대표만 노출됩니다.</span></span>
@@ -7467,6 +7472,18 @@ ${text.slice(0, 3000)}`;
     try { renderCalendar(); } catch(e) {}
   }
   window.updateJobDate = updateJobDate;
+
+  /* 작업 주소 업데이트 (상세 모달에서 직접 수정) */
+  function updateJobAddress(jobId, value) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    job.address = (value || '').trim();
+    saveJobs(jobs);
+    if (typeof showToast === 'function') showToast('✅ 주소 저장됨');
+    try { hydrateNewopen('all'); } catch(e){}
+  }
+  window.updateJobAddress = updateJobAddress;
 
   /* 매장 담당자 필드 업데이트 (상세 모달) — 단일 필드 (구버전 호환) */
   function updateJobContact(jobId, field, value) {
