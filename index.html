@@ -5160,6 +5160,18 @@ ${text.slice(0, 3000)}`;
     localStorage.setItem('ns_jobs', JSON.stringify(arr));
     scheduleAutoBackup();
   }
+  // 작업의 날짜 필드를 안전하게 문자열로 — j.date(string) 우선, 없으면 j.createdAt(number/string) ISO 변환
+  function jobDateStr(j) {
+    if (!j) return '';
+    if (j.date) return String(j.date);
+    if (j.createdAt != null) {
+      if (typeof j.createdAt === 'number') {
+        try { return new Date(j.createdAt).toISOString(); } catch(e){ return ''; }
+      }
+      return String(j.createdAt);
+    }
+    return '';
+  }
 
   /* ══════════════════════════════════════════════
      자동 백업 시스템
@@ -5705,7 +5717,7 @@ ${text.slice(0, 3000)}`;
 
     /* ── 상단 통계 카드 ── */
     const isDone = (j) => (j.status === '완료' || j.status === 'done');
-    const newOpenThisMonth = jobs.filter(j => /신규|개업|오픈/.test(j.type||'') && (j.date||j.createdAt||'').slice(0,7) === ym).length;
+    const newOpenThisMonth = jobs.filter(j => /신규|개업|오픈/.test(j.type||'') && jobDateStr(j).slice(0,7) === ym).length;
     const inProgress = jobs.filter(j => !isDone(j)).length;
     const asCount = jobs.filter(j => /as|에이에스/i.test(j.type||'') && !isDone(j)).length;
     const asOver48 = jobs.filter(j => {
@@ -5773,7 +5785,7 @@ ${text.slice(0, 3000)}`;
           <tr>
             <td><b>${esc(j.store || j.storeName || '-')}</b></td>
             <td><span class="badge badge-blue">${esc(j.type || '작업')}</span></td>
-            <td style="color:var(--gray-400)">${esc((j.date||j.createdAt||'').slice(5,10).replace('-','.'))}</td>
+            <td style="color:var(--gray-400)">${esc(jobDateStr(j).slice(5,10).replace('-','.'))}</td>
             <td>${esc(j.engineer || j.assignee || '-')}</td>
           </tr>`).join('');
       } else {
@@ -5793,7 +5805,7 @@ ${text.slice(0, 3000)}`;
         asBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">미처리 AS가 없습니다.</td></tr>`;
       } else {
         asBody.innerHTML = asJobs.map(j => {
-          const recv = (j.date || j.createdAt || '').slice(5,10).replace('-','.');
+          const recv = jobDateStr(j).slice(5,10).replace('-','.');
           const hours = j.createdAt ? Math.round((Date.now() - new Date(j.createdAt).getTime())/3600000) : 0;
           const elapsedTxt = hours >= 72 ? `<span style="color:var(--danger);font-weight:700">${hours}시간</span>`
                             : hours >= 48 ? `<span style="color:var(--warning);font-weight:700">${hours}시간</span>`
@@ -6124,7 +6136,7 @@ ${text.slice(0, 3000)}`;
     const inProg = items.filter(j => !isDone(j) && (j.status === '진행중' || /설치|진행/i.test(j.status||''))).length;
     const planned = items.filter(j => !isDone(j) && (j.date||'').slice(0,7) === ym).length;
     const waiting = items.filter(j => !isDone(j) && !(j.engineer || j.assignee)).length;
-    const doneCnt = items.filter(j => isDone(j) && (j.date||j.createdAt||'').slice(0,7) === ym).length;
+    const doneCnt = items.filter(j => isDone(j) && jobDateStr(j).slice(0,7) === ym).length;
     const setText = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
     setText('newopenInProgress', inProg);
     setText('newopenInProgressSub', inProg === 0 ? '진행중 작업 없음' : '진행중');
@@ -6164,7 +6176,7 @@ ${text.slice(0, 3000)}`;
       const unregBadge = j.unregistered ? `<span style="margin-left:6px;background:#FEF3C7;color:#92400E;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700">미등록</span>` : '';
       const typeBadge = `<span style="margin-left:6px;background:#EFF6FF;color:#1D4ED8;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700">${esc(j.type||'-')}</span>`;
       const addr = j.address || '-';
-      const dt = (j.date || j.createdAt || '').slice(0,10);
+      const dt = jobDateStr(j).slice(0,10);
       const eng = j.engineer || j.assignee || '<span style="color:var(--danger)">미배정</span>';
       const posQty = (j.equipment && Array.isArray(j.equipment))
         ? j.equipment.filter(e => /pos|일체형/i.test(e.name||'')).reduce((s,e)=>s+(e.qty||0),0)
