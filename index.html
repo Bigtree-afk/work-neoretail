@@ -6180,16 +6180,18 @@ ${text.slice(0, 3000)}`;
         ? `<button class="btn btn-outline btn-sm" style="color:var(--warning);border-color:var(--warning);background:#FEF3C7;font-size:12px;padding:6px 10px;font-weight:700;white-space:nowrap" onclick="event.stopPropagation();linkRegisteredStore('${j.id||''}')">🔗 연결</button>`
         : (j.storeId ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-700);border-color:var(--gray-400);font-size:12px;padding:6px 10px;font-weight:700;white-space:nowrap" onclick="event.stopPropagation();unlinkStore('${j.id||''}')" title="잘못 연결된 가맹점을 해제하고 미등록 상태로 되돌립니다">🔓 해제</button>` : '');
 
-      // 매장 주요 일정 — 2 x 2 grid (PC 화면)
+      // 매장 주요 일정 — 2줄 (1줄: 설치 / 2줄: 가오픈 + 오픈)
       const fmtDate = (s) => (s||'').slice(5,10).replace('-','.');
-      const datePill = (icon, label, val, color) => val
-        ? `<div style="display:flex;align-items:center;gap:3px;padding:3px 6px;border-radius:5px;background:${color.bg};color:${color.fg};font-size:10px;font-weight:600;white-space:nowrap" title="${label} ${val}"><span>${icon}</span><span>${fmtDate(val)}</span></div>`
-        : `<div style="display:flex;align-items:center;gap:3px;padding:3px 6px;border-radius:5px;background:#F3F4F6;color:#9CA3AF;font-size:10px;font-weight:500;white-space:nowrap" title="${label} 미정"><span>${icon}</span><span>—</span></div>`;
+      const datePill = (label, val, color) => val
+        ? `<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;background:${color.bg};color:${color.fg};font-size:11px;font-weight:700;white-space:nowrap" title="${label} ${val}"><span style="font-weight:600">${label}</span><span>${fmtDate(val)}</span></div>`
+        : `<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;background:#F3F4F6;color:#9CA3AF;font-size:11px;font-weight:500;white-space:nowrap" title="${label} 미정"><span style="font-weight:600">${label}</span><span>—</span></div>`;
       const datesHtml = `
-        <div style="display:flex;flex-direction:column;gap:3px;min-width:120px">
-          ${datePill('🔧','설치 예정일', j.installDate, {bg:'#FED7AA',fg:'#9A3412'})}
-          ${datePill('🌅','가오픈일',    j.softOpenDate, {bg:'#FECACA',fg:'#991B1B'})}
-          ${datePill('🎉','오픈일',      j.openDate,     {bg:'#A7F3D0',fg:'#065F46'})}
+        <div style="display:flex;flex-direction:column;gap:4px;min-width:170px">
+          <div>${datePill('설치',   j.installDate,  {bg:'#FED7AA',fg:'#9A3412'})}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            ${datePill('가오픈', j.softOpenDate, {bg:'#FECACA',fg:'#991B1B'})}
+            ${datePill('오픈',   j.openDate,     {bg:'#A7F3D0',fg:'#065F46'})}
+          </div>
         </div>`;
 
       // 담당 칸 — 매장 담당자 우선 표시 (없으면 엔지니어 표시)
