@@ -6124,11 +6124,13 @@ ${text.slice(0, 3000)}`;
     const todayStr = today.toISOString().slice(0,10);
     const ym = todayStr.slice(0,7);
     const isDone = (j) => (j.status === '완료' || j.status === 'done');
-    // 통계
+    // 통계 — 미등록(미연결) 매장 작업도 동일하게 포함됨 (isNewopenJob 은 type 만 검사)
     const inProg = items.filter(j => !isDone(j) && (j.status === '진행중' || /설치|진행/i.test(j.status||''))).length;
-    const planned = items.filter(j => !isDone(j) && (j.date||'').slice(0,7) === ym).length;
+    // 이번달 오픈 예정 = openDate 가 이번달인 작업 (등록/미등록 관계없이)
+    const planned = items.filter(j => !isDone(j) && (j.openDate||'').slice(0,7) === ym).length;
     const waiting = items.filter(j => !isDone(j) && !(j.engineer || j.assignee)).length;
-    const doneCnt = items.filter(j => isDone(j) && jobDateStr(j).slice(0,7) === ym).length;
+    // 이번달 완료 = openDate 가 이번달인 완료 작업 (없으면 installDate 로 fallback)
+    const doneCnt = items.filter(j => isDone(j) && ((j.openDate||j.installDate||'').slice(0,7) === ym)).length;
     const setText = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
     setText('newopenInProgress', inProg);
     setText('newopenInProgressSub', inProg === 0 ? '진행중 작업 없음' : '진행중');
