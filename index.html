@@ -272,6 +272,9 @@
   .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(2px); z-index: 200; display: none; align-items: center; justify-content: center; }
   /* 상담 등록 모드: 입고가 칸 숨김 (판매가만 노출) */
   body.consult-mode .js-cost-col { display: none !important; }
+  /* 상담 등록 전용 필드 (상담일 등) */
+  .js-consult-only { display: none; }
+  body.consult-mode .js-consult-only { display: block !important; }
   .modal-overlay.show { display: flex; }
   .modal { background: #FFF8E7; border-radius: 12px; box-shadow: 6px 6px 0 #1A1614; width: 560px; max-height: 85vh; overflow-y: auto; }
   .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
@@ -1278,7 +1281,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
               <th style="min-width:200px">매장명</th>
               <th style="min-width:200px">담당자/연락처</th>
               <th>상담 메모</th>
-              <th style="width:110px">등록일</th>
+              <th style="width:110px">상담일</th>
               <th style="width:240px;text-align:center">처리</th>
             </tr>
           </thead>
@@ -1868,6 +1871,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <select id="jobEngineer">
             <option value="">담당자 선택...</option>
           </select>
+        </div>
+        <!-- 상담일 (상담 등록 모드 전용) -->
+        <div class="form-group js-consult-only" style="margin:0;grid-column:1/-1;display:none">
+          <label style="display:flex;align-items:center;gap:6px">💬 상담일 <span style="font-size:10px;color:var(--gray-400);font-weight:400">기본: 오늘 — 필요시 수정</span></label>
+          <input type="date" id="jobConsultDate" style="width:100%">
         </div>
         <div class="form-group" style="margin:0;grid-column:1/-1">
           <label style="display:flex;align-items:center;gap:6px">📌 매장 주요 일정 <span style="font-size:10px;color:var(--gray-400);font-weight:400">미정이면 비워두세요 — 나중에 상세에서 수정 가능</span></label>
@@ -6078,6 +6086,7 @@ ${text.slice(0, 3000)}`;
       storeId: storeMatch ? storeMatch.id : '',
       unregistered: jobStoreUnregistered || !storeMatch,
       engineer:  (document.getElementById('jobEngineer') || {}).value || '',
+      consultDate:  (document.getElementById('jobConsultDate')   || {}).value || '',
       installDate:  (document.getElementById('jobInstallDate')   || {}).value || '',
       softOpenDate: (document.getElementById('jobSoftOpenDate')  || {}).value || '',
       openDate:     (document.getElementById('jobOpenDate')      || {}).value || '',
@@ -6111,7 +6120,7 @@ ${text.slice(0, 3000)}`;
     if (notesEl) notesEl.value = '';
     const addrEl = document.getElementById('jobAddressInput');
     if (addrEl) addrEl.value = '';
-    ['jobInstallDate','jobSoftOpenDate','jobOpenDate','jobContactName','jobContactRole','jobContactPhone'].forEach(id => {
+    ['jobConsultDate','jobInstallDate','jobSoftOpenDate','jobOpenDate','jobContactName','jobContactRole','jobContactPhone'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
@@ -6908,8 +6917,17 @@ ${text.slice(0, 3000)}`;
           if (opt.value === '상담' || opt.textContent === '상담') { sel.value = opt.value || opt.textContent; break; }
         }
       }
-      // 상담 모드 적용 (입고가 숨김)
+      // 상담 모드 적용 (입고가 숨김 + 상담일 노출)
       applyJobTypeMode();
+      // 상담일 기본값 = 오늘
+      const cdEl = document.getElementById('jobConsultDate');
+      if (cdEl) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth()+1).padStart(2,'0');
+        const dd = String(today.getDate()).padStart(2,'0');
+        cdEl.value = `${yyyy}-${mm}-${dd}`;
+      }
       // 상담은 보통 미등록 매장이므로 자동으로 미등록 모드 ON
       if (typeof jobStoreUnregistered !== 'undefined' && !jobStoreUnregistered) {
         if (typeof toggleUnregisteredStore === 'function') toggleUnregisteredStore();
@@ -6963,7 +6981,10 @@ ${text.slice(0, 3000)}`;
         ? `<div style="font-size:12px"><b>${esc(j.contactName||'-')}</b></div>
            ${j.contactPhone ? `<div style="font-size:11px;color:var(--gray-500)"><a href="tel:${esc(j.contactPhone)}" style="color:inherit;text-decoration:none">📞 ${esc(j.contactPhone)}</a></div>` : ''}`
         : `<span style="color:var(--gray-400);font-size:11px">미입력</span>`;
-      const created = j.createdAt ? new Date(j.createdAt).toLocaleDateString('ko-KR') : '-';
+      // 상담일 우선, 없으면 등록일 (createdAt) 표시
+      const created = j.consultDate
+        ? new Date(j.consultDate).toLocaleDateString('ko-KR')
+        : (j.createdAt ? new Date(j.createdAt).toLocaleDateString('ko-KR') : '-');
       const actions = j.status === '상담중'
         ? `<button class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 10px;font-weight:700" onclick="convertConsultToNewopen('${j.id}')">→ 신규 전환</button>
            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px;color:var(--danger);border-color:var(--danger)" onclick="markConsultLost('${j.id}')">✕ 납품 실패</button>`
