@@ -5160,17 +5160,12 @@ ${text.slice(0, 3000)}`;
     localStorage.setItem('ns_jobs', JSON.stringify(arr));
     scheduleAutoBackup();
   }
-  // 작업의 날짜 필드를 안전하게 문자열로 — j.date(string) 우선, 없으면 j.createdAt(number/string) ISO 변환
+  // 작업 일정일 — j.date 만 사용. 날짜 미정(null/빈값)은 빈 문자열 반환.
+  // 일정이 확정되지 않은 작업이 많으므로 createdAt 으로 자동 fallback 하지 않는다
+  // (그렇지 않으면 "이번달 작업" 카운트에 등록만 한 미정 작업이 잡혀버림)
   function jobDateStr(j) {
-    if (!j) return '';
-    if (j.date) return String(j.date);
-    if (j.createdAt != null) {
-      if (typeof j.createdAt === 'number') {
-        try { return new Date(j.createdAt).toISOString(); } catch(e){ return ''; }
-      }
-      return String(j.createdAt);
-    }
-    return '';
+    if (!j || !j.date) return '';
+    return String(j.date);
   }
 
   /* ══════════════════════════════════════════════
@@ -5785,7 +5780,7 @@ ${text.slice(0, 3000)}`;
           <tr>
             <td><b>${esc(j.store || j.storeName || '-')}</b></td>
             <td><span class="badge badge-blue">${esc(j.type || '작업')}</span></td>
-            <td style="color:var(--gray-400)">${esc(jobDateStr(j).slice(5,10).replace('-','.'))}</td>
+            <td style="color:var(--gray-400)">${esc(jobDateStr(j).slice(5,10).replace('-','.') || '—')}</td>
             <td>${esc(j.engineer || j.assignee || '-')}</td>
           </tr>`).join('');
       } else {
@@ -5805,7 +5800,7 @@ ${text.slice(0, 3000)}`;
         asBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">미처리 AS가 없습니다.</td></tr>`;
       } else {
         asBody.innerHTML = asJobs.map(j => {
-          const recv = jobDateStr(j).slice(5,10).replace('-','.');
+          const recv = jobDateStr(j).slice(5,10).replace('-','.') || '미정';
           const hours = j.createdAt ? Math.round((Date.now() - new Date(j.createdAt).getTime())/3600000) : 0;
           const elapsedTxt = hours >= 72 ? `<span style="color:var(--danger);font-weight:700">${hours}시간</span>`
                             : hours >= 48 ? `<span style="color:var(--warning);font-weight:700">${hours}시간</span>`
