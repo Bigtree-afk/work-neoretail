@@ -1203,14 +1203,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <table>
           <thead>
             <tr>
-              <th style="width:80px">상태</th>
-              <th>점포명</th>
-              <th>주소</th>
-              <th style="min-width:170px">주요 일정</th>
-              <th style="min-width:140px">매장 담당자</th>
-              <th>POS</th>
-              <th>진행률</th>
-              <th style="width:80px">연결</th>
+              <th style="width:70px">상태</th>
+              <th style="min-width:200px">점포명</th>
+              <th style="min-width:220px">주소</th>
+              <th style="width:180px">주요 일정</th>
+              <th style="width:160px">매장 담당자</th>
+              <th style="width:60px;text-align:center">POS</th>
+              <th style="width:110px">진행률</th>
+              <th style="width:120px;text-align:center">연결</th>
             </tr>
           </thead>
           <tbody id="newopenTbody">
@@ -6177,8 +6177,8 @@ ${text.slice(0, 3000)}`;
         ? j.equipment.filter(e => /pos|일체형/i.test(e.name||'')).reduce((s,e)=>s+(e.qty||0),0)
         : (j.posCount || j.pos || 0);
       const linkBtn = j.unregistered
-        ? `<button class="btn btn-outline btn-sm" style="color:var(--warning);border-color:var(--warning);background:#FEF3C7;font-size:13px;padding:8px 14px;font-weight:700;min-width:110px" onclick="event.stopPropagation();linkRegisteredStore('${j.id||''}')">🔗 연결</button>`
-        : (j.storeId ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-700);border-color:var(--gray-400);font-size:13px;padding:8px 14px;font-weight:700;min-width:110px" onclick="event.stopPropagation();unlinkStore('${j.id||''}')" title="잘못 연결된 가맹점을 해제하고 미등록 상태로 되돌립니다">🔓 연결해제</button>` : '');
+        ? `<button class="btn btn-outline btn-sm" style="color:var(--warning);border-color:var(--warning);background:#FEF3C7;font-size:12px;padding:6px 10px;font-weight:700;white-space:nowrap" onclick="event.stopPropagation();linkRegisteredStore('${j.id||''}')">🔗 연결</button>`
+        : (j.storeId ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-700);border-color:var(--gray-400);font-size:12px;padding:6px 10px;font-weight:700;white-space:nowrap" onclick="event.stopPropagation();unlinkStore('${j.id||''}')" title="잘못 연결된 가맹점을 해제하고 미등록 상태로 되돌립니다">🔓 해제</button>` : '');
 
       // 매장 주요 일정 — 2 x 2 grid (PC 화면)
       const fmtDate = (s) => (s||'').slice(5,10).replace('-','.');
@@ -6213,9 +6213,9 @@ ${text.slice(0, 3000)}`;
         <td style="font-size:11px;color:var(--gray-500)" ${openDetailAttr}>${esc(addr)}</td>
         <td>${datesHtml}</td>
         <td>${contactCellHtml}</td>
-        <td>${posQty || '-'}${posQty ? '대' : ''}</td>
-        <td><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100px"><div style="background:var(--primary);height:100%;width:${wfProg}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">${wfProg}%</div></td>
-        <td>${linkBtn || ''}</td>
+        <td style="text-align:center;font-weight:600">${posQty ? posQty + '대' : '<span style="color:var(--gray-300)">—</span>'}</td>
+        <td><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100%"><div style="background:var(--primary);height:100%;width:${wfProg}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px;text-align:right">${wfProg}%</div></td>
+        <td style="text-align:center">${linkBtn || '<span style="color:var(--gray-300);font-size:11px">—</span>'}</td>
       </tr>${wf.pillRow}${wf.detailRows}`;
       } catch(err) {
         try { console.error('[hydrateNewopen] row render error for job', j && j.id, err); } catch(e){}
