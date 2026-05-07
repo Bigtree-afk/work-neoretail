@@ -767,6 +767,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <a class="nav-item" onclick="showScreen('newopen')">
       <span class="nav-icon">✚</span> 신규관리
     </a>
+    <a class="nav-item" onclick="showScreen('consult')">
+      <span class="nav-icon">💬</span> 상담 조회
+    </a>
     <a class="nav-item" onclick="showScreen('stores')">
       <span class="nav-icon">▣</span> 점포 관리
     </a>
@@ -815,6 +818,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   </a>
   <a class="nav-item" onclick="showScreen('newopen'); closeMenu()">
     <span class="nav-icon">✚</span> 신규관리
+  </a>
+  <a class="nav-item" onclick="showScreen('consult'); closeMenu()">
+    <span class="nav-icon">💬</span> 상담 조회
   </a>
   <a class="nav-item" onclick="showScreen('stores'); closeMenu()">
     <span class="nav-icon">▣</span> 점포 관리
@@ -1195,7 +1201,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <button class="filter-chip" onclick="filterNewopen(this,'planned')">예정</button>
         <button class="filter-chip" onclick="filterNewopen(this,'progress')">진행중</button>
         <button class="filter-chip" onclick="filterNewopen(this,'done')">완료</button>
-        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openNewopenJob()">＋ 신규 등록</button>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openConsultJob()" title="상담 단계 매장 등록 — 납품 결정 시 신규로 전환">＋ 상담 등록</button>
+        <button class="btn btn-primary btn-sm" onclick="openNewopenJob()">＋ 신규 등록</button>
       </div>
 
       <!-- 테이블 -->
@@ -1218,6 +1225,66 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
               <div style="font-size:36px;margin-bottom:10px">🏗️</div>
               <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">신규 작업이 없습니다</div>
               <div style="font-size:11px">"+ 신규 등록"으로 추가하세요.</div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- SCREEN: CONSULT (상담 조회)              -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="screen" id="screen-consult">
+      <!-- 상단 통계 카드 -->
+      <div class="stats-grid" style="margin-bottom:16px">
+        <div class="stat-card">
+          <div class="stat-label">상담 진행중</div>
+          <div class="stat-value" id="consultActiveCount">0</div>
+          <div class="stat-sub">결정 대기</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">납품 결정 (신규 전환됨)</div>
+          <div class="stat-value" id="consultWonCount">0</div>
+          <div class="stat-sub">성공 누적</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">납품 실패</div>
+          <div class="stat-value" id="consultLostCount">0</div>
+          <div class="stat-sub">상담 종료</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">전체 상담</div>
+          <div class="stat-value" id="consultTotalCount">0</div>
+          <div class="stat-sub">누적 건수</div>
+        </div>
+      </div>
+      <!-- 액션 바 -->
+      <div class="filter-row" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div style="font-size:13px;font-weight:700;color:var(--gray-700)">💬 상담 진행 현황</div>
+        <button class="filter-chip active" onclick="filterConsult(this,'active')">상담중</button>
+        <button class="filter-chip" onclick="filterConsult(this,'won')">납품 결정</button>
+        <button class="filter-chip" onclick="filterConsult(this,'lost')">납품 실패</button>
+        <button class="filter-chip" onclick="filterConsult(this,'all')">전체</button>
+        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openConsultJob()">＋ 상담 등록</button>
+      </div>
+      <!-- 테이블 -->
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:80px">상태</th>
+              <th style="min-width:200px">매장명</th>
+              <th style="min-width:200px">담당자/연락처</th>
+              <th>상담 메모</th>
+              <th style="width:110px">등록일</th>
+              <th style="width:240px;text-align:center">처리</th>
+            </tr>
+          </thead>
+          <tbody id="consultTbody">
+            <tr><td colspan="6" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+              <div style="font-size:36px;margin-bottom:10px">💬</div>
+              <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">상담 내역이 없습니다</div>
+              <div style="font-size:11px">"+ 상담 등록"으로 추가하세요.</div>
             </td></tr>
           </tbody>
         </table>
@@ -2498,6 +2565,47 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   </div>
 </div>
 
+<!-- MODAL: 상담 등록 -->
+<div class="modal-overlay" id="consultJobModal" onclick="if(event.target===this)closeModal('consultJobModal')">
+  <div class="modal" style="max-width:600px;background:#fff">
+    <div class="modal-header">
+      <div class="modal-title">💬 상담 등록</div>
+      <button class="modal-close" onclick="closeModal('consultJobModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 12px;font-size:11px;color:#92400E;margin-bottom:14px">
+        💡 상담 단계의 매장입니다. 납품 결정 시 [신규 전환] 버튼으로 신규관리로 옮길 수 있고, 실패 시 [납품 실패]로 닫을 수 있습니다.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group" style="margin:0;grid-column:1/-1">
+          <label>매장명 <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="consultStoreName" placeholder="예: 새벽마트 안양점" autocomplete="off">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>담당자 이름</label>
+          <input type="text" id="consultContactName" placeholder="예: 김사장" autocomplete="off">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>담당자 연락처</label>
+          <input type="tel" id="consultContactPhone" placeholder="010-0000-0000" autocomplete="off">
+        </div>
+        <div class="form-group" style="margin:0;grid-column:1/-1">
+          <label>주소 (선택)</label>
+          <input type="text" id="consultAddress" placeholder="상담 매장 주소" autocomplete="off">
+        </div>
+        <div class="form-group" style="margin:0;grid-column:1/-1">
+          <label>상담 메모</label>
+          <textarea id="consultNotes" rows="4" placeholder="상담 내용, 요구사항, 견적 안내 등" style="resize:vertical"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('consultJobModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveConsultJob()">상담 등록</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: 마이페이지 (모든 사용자) — 장비 품목 관리 -->
 <div class="modal-overlay" id="myPageModal" onclick="if(event.target===this)closeModal('myPageModal')">
   <div class="modal" style="max-width:1100px;width:95vw;max-height:90vh;display:flex;flex-direction:column;background:#fff">
@@ -2693,6 +2801,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   const titles = {
     dashboard: '대시보드',
     newopen: '신규관리',
+    consult: '상담 조회',
     stores: '점포 관리',
     jobs: '작업 목록',
     calendar: '일정 캘린더',
@@ -2718,6 +2827,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     // 신규관리 진입 시 데이터 갱신
     if (id === 'newopen' && typeof hydrateNewopen === 'function') {
       try { hydrateNewopen('all'); } catch(e) {}
+    }
+    // 상담 조회 진입 시 데이터 갱신
+    if (id === 'consult' && typeof hydrateConsult === 'function') {
+      try { hydrateConsult('active'); } catch(e) {}
     }
     // 일정 캘린더 진입 시 갱신
     if (id === 'calendar' && typeof renderCalendar === 'function') {
@@ -6619,6 +6732,8 @@ ${text.slice(0, 3000)}`;
 
   /* ── 신규관리 페이지 ── */
   function isNewopenJob(j) {
+    if (!j) return false;
+    if (j.type === '상담') return false; // 상담은 신규관리에서 제외
     const t = (j.type || '') + ' ' + (j.title || '');
     return /신규|개업|오픈|new\s*open/i.test(t);
   }
@@ -6754,6 +6869,183 @@ ${text.slice(0, 3000)}`;
       }
     }, 50);
   }
+  window.openNewopenJob = openNewopenJob;
+
+  /* ── 상담 등록 / 조회 / 전환 ── */
+  function openConsultJob() {
+    // 입력 필드 초기화
+    ['consultStoreName','consultContactName','consultContactPhone','consultAddress','consultNotes'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    if (typeof showModal === 'function') showModal('consultJobModal');
+    setTimeout(() => { const f = document.getElementById('consultStoreName'); if (f) f.focus(); }, 80);
+  }
+  window.openConsultJob = openConsultJob;
+
+  function saveConsultJob() {
+    const storeName = (document.getElementById('consultStoreName')||{}).value?.trim() || '';
+    if (!storeName) {
+      if (typeof showToast === 'function') showToast('매장명을 입력하세요');
+      const f = document.getElementById('consultStoreName'); if (f) f.focus();
+      return;
+    }
+    const contactName = (document.getElementById('consultContactName')||{}).value?.trim() || '';
+    const contactPhone = (document.getElementById('consultContactPhone')||{}).value?.trim() || '';
+    const address = (document.getElementById('consultAddress')||{}).value?.trim() || '';
+    const notes = (document.getElementById('consultNotes')||{}).value?.trim() || '';
+    const job = {
+      id: 'JOB-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase(),
+      type: '상담',
+      status: '상담중',
+      storeName, store: storeName,
+      storeId: '',
+      unregistered: true,
+      address,
+      contactName, contactPhone,
+      contacts: (contactName || contactPhone) ? [{ name: contactName, role:'', phone: contactPhone, primary:true }] : [],
+      notes,
+      equipment: [],
+      createdAt: Date.now(),
+      installDate:'', softOpenDate:'', openDate:'',
+    };
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    jobs.push(job);
+    saveJobs(jobs);
+    closeModal('consultJobModal');
+    if (typeof showToast === 'function') showToast(`✅ 상담 등록 완료: ${storeName}`);
+    try { hydrateConsult('active'); } catch(e){}
+    try { hydrateDashboardJobs(); } catch(e){}
+  }
+  window.saveConsultJob = saveConsultJob;
+
+  function isConsultJob(j) { return j && j.type === '상담'; }
+
+  function hydrateConsult(filter) {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const all = jobs.filter(isConsultJob);
+    const active = all.filter(j => j.status === '상담중');
+    const won    = all.filter(j => j.status === '납품성공');
+    const lost   = all.filter(j => j.status === '납품실패');
+
+    const setText = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+    setText('consultActiveCount', active.length);
+    setText('consultWonCount',    won.length);
+    setText('consultLostCount',   lost.length);
+    setText('consultTotalCount',  all.length);
+
+    let view;
+    if (filter === 'won')        view = won;
+    else if (filter === 'lost')  view = lost;
+    else if (filter === 'all')   view = all;
+    else                          view = active;
+
+    view = view.slice().sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+
+    const tb = document.getElementById('consultTbody');
+    if (!tb) return;
+    if (view.length === 0) {
+      tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+        <div style="font-size:36px;margin-bottom:10px">💬</div>
+        <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">해당 상담이 없습니다</div>
+        <div style="font-size:11px">필터를 변경하거나 [+ 상담 등록] 으로 추가하세요.</div>
+      </td></tr>`;
+      return;
+    }
+    tb.innerHTML = view.map(j => {
+      const badge = j.status === '상담중'
+        ? `<span class="badge badge-blue">상담중</span>`
+        : j.status === '납품성공'
+          ? `<span class="badge badge-green">납품 결정</span>`
+          : `<span class="badge" style="background:#FEE2E2;color:#991B1B">납품 실패</span>`;
+      const contactHtml = (j.contactName || j.contactPhone)
+        ? `<div style="font-size:12px"><b>${esc(j.contactName||'-')}</b></div>
+           ${j.contactPhone ? `<div style="font-size:11px;color:var(--gray-500)"><a href="tel:${esc(j.contactPhone)}" style="color:inherit;text-decoration:none">📞 ${esc(j.contactPhone)}</a></div>` : ''}`
+        : `<span style="color:var(--gray-400);font-size:11px">미입력</span>`;
+      const created = j.createdAt ? new Date(j.createdAt).toLocaleDateString('ko-KR') : '-';
+      const actions = j.status === '상담중'
+        ? `<button class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 10px;font-weight:700" onclick="convertConsultToNewopen('${j.id}')">→ 신규 전환</button>
+           <button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px;color:var(--danger);border-color:var(--danger)" onclick="markConsultLost('${j.id}')">✕ 납품 실패</button>`
+        : j.status === '납품실패'
+          ? `<button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="reopenConsult('${j.id}')">↻ 상담 재개</button>
+             <button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px;color:var(--danger);border-color:var(--danger)" onclick="deleteConsult('${j.id}')">🗑 삭제</button>`
+          : `<span style="font-size:11px;color:var(--gray-500)">신규관리에서 진행</span>`;
+      return `<tr>
+        <td>${badge}</td>
+        <td><b>${esc(j.storeName || j.store || '-')}</b></td>
+        <td>${contactHtml}</td>
+        <td style="font-size:12px;color:var(--gray-600);white-space:pre-wrap;max-width:340px">${esc(j.notes||'')}</td>
+        <td style="font-size:11px;color:var(--gray-500)">${created}</td>
+        <td style="text-align:center"><div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap">${actions}</div></td>
+      </tr>`;
+    }).join('');
+  }
+  window.hydrateConsult = hydrateConsult;
+
+  function filterConsult(chip, f) {
+    chip.parentElement.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    hydrateConsult(f);
+  }
+  window.filterConsult = filterConsult;
+
+  function convertConsultToNewopen(jobId) {
+    if (!confirm('이 상담을 신규로 전환하시겠습니까?\n\n신규관리 페이지에서 상세 정보(장비/일정/담당자)를 추가로 입력할 수 있습니다.')) return;
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const j = jobs.find(x => x.id === jobId);
+    if (!j) return;
+    j.type = '신규';
+    j.status = '예정';
+    j.convertedFromConsult = true;
+    j.convertedAt = Date.now();
+    saveJobs(jobs);
+    if (typeof showToast === 'function') showToast(`✅ 신규 전환 완료: ${j.storeName||j.store||''}`);
+    // 상담 페이지에서 사라지고 신규관리로 이동 — 사용자에게 화면 안내
+    try { hydrateConsult('active'); } catch(e){}
+    try { hydrateNewopen('all'); } catch(e){}
+    if (confirm('신규관리 페이지로 이동해 상세 정보를 입력하시겠습니까?')) {
+      if (typeof showScreen === 'function') showScreen('newopen');
+      // 해당 작업 상세 자동 열기
+      setTimeout(() => { try { editNewopen(jobId); } catch(e){} }, 200);
+    }
+  }
+  window.convertConsultToNewopen = convertConsultToNewopen;
+
+  function markConsultLost(jobId) {
+    if (!confirm('이 상담을 납품 실패로 표시하시겠습니까?')) return;
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const j = jobs.find(x => x.id === jobId);
+    if (!j) return;
+    j.status = '납품실패';
+    j.lostAt = Date.now();
+    saveJobs(jobs);
+    if (typeof showToast === 'function') showToast('🛑 납품 실패로 표시됨');
+    try { hydrateConsult('active'); } catch(e){}
+  }
+  window.markConsultLost = markConsultLost;
+
+  function reopenConsult(jobId) {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const j = jobs.find(x => x.id === jobId);
+    if (!j) return;
+    j.status = '상담중';
+    delete j.lostAt;
+    saveJobs(jobs);
+    if (typeof showToast === 'function') showToast('↻ 상담 재개됨');
+    try { hydrateConsult('active'); } catch(e){}
+  }
+  window.reopenConsult = reopenConsult;
+
+  function deleteConsult(jobId) {
+    if (!confirm('이 상담 기록을 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const idx = jobs.findIndex(x => x.id === jobId);
+    if (idx < 0) return;
+    jobs.splice(idx, 1);
+    saveJobs(jobs);
+    if (typeof showToast === 'function') showToast('🗑 삭제됨');
+    try { hydrateConsult('lost'); } catch(e){}
+  }
+  window.deleteConsult = deleteConsult;
   function editNewopen(id) {
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const j = jobs.find(x => x.id === id);
