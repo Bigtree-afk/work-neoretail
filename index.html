@@ -5673,20 +5673,16 @@ ${text.slice(0, 3000)}`;
       if (!tb) return;
       // 저장된 점포가 있으면 하드코딩된 데모 행을 모두 치우고 실제 데이터로 교체
       if (stores.length > 0) {
+        // 등록순(createdAt) 내림차순 — 최근 등록 매장이 가장 위
+        const sorted = [...stores].sort((a,b) => (Number(b.createdAt)||0) - (Number(a.createdAt)||0));
         tb.innerHTML = '';
-        stores.slice().reverse().forEach(s => injectStoreRow(s));
+        const showCount = Math.min(sorted.length, 200);
+        sorted.slice(0, showCount).forEach(s => injectStoreRow(s));
         // 점포 개수 표시
         const countRow = document.createElement('tr');
         countRow.style.color = 'var(--gray-400)';
-        countRow.innerHTML = `<td colspan="10" style="text-align:center;padding:10px;font-size:11px;background:#F9FAFB">총 ${stores.length.toLocaleString()}개 점포 · 최신 ${Math.min(stores.length, 200).toLocaleString()}개 표시</td>`;
-        // 너무 많으면 상위 200개만 렌더 (성능)
-        if (stores.length > 200) {
-          tb.innerHTML = '';
-          stores.slice(-200).reverse().forEach(s => injectStoreRow(s));
-          tb.appendChild(countRow);
-        } else {
-          tb.appendChild(countRow);
-        }
+        countRow.innerHTML = `<td colspan="10" style="text-align:center;padding:10px;font-size:11px;background:#F9FAFB">총 ${stores.length.toLocaleString()}개 점포 · 최신 ${showCount.toLocaleString()}개 표시</td>`;
+        tb.appendChild(countRow);
       } else {
         // 저장된 점포가 없으면 빈 상태 메시지 유지
         tb.innerHTML = `<tr id="storeListEmptyRow">
@@ -6829,10 +6825,11 @@ ${text.slice(0, 3000)}`;
       return blob.includes(q);
     });
 
-    // 렌더 (성능: 최대 500건)
+    // 렌더 (성능: 최대 500건) — 등록순(createdAt) 내림차순 정렬, 최근 등록이 가장 위
+    matched.sort((a,b) => (Number(b.createdAt)||0) - (Number(a.createdAt)||0));
     tb.innerHTML = '';
     const renderLimit = 500;
-    matched.slice(0, renderLimit).reverse().forEach(s => {
+    matched.slice(0, renderLimit).forEach(s => {
       try { if (typeof injectStoreRow === 'function') injectStoreRow(s); } catch(e){}
     });
     // 안내 행
