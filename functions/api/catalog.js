@@ -36,8 +36,13 @@ export async function onRequestPost({ request, env }) {
       costPrice: Math.max(0, Math.round(Number(it?.costPrice)||0)),
       salePrice: Math.max(0, Math.round(Number(it?.salePrice)||0)),
     };
-    // 신스키마: options = [{label, choices:[]}, ...]
-    if (Array.isArray(it?.options) && it.options.length > 0) {
+    // 신스키마(권장): optionsText — 단순 텍스트 (한 줄 = 한 단계)
+    if (typeof it?.optionsText === 'string' && it.optionsText.trim()) {
+      // 5KB 상한
+      out.optionsText = String(it.optionsText).slice(0, 5000);
+    }
+    // 구스키마(호환): options = [{label, choices:[]}, ...]
+    else if (Array.isArray(it?.options) && it.options.length > 0) {
       out.options = it.options.slice(0, 10).map(g => ({
         label: String(g?.label||'옵션').trim() || '옵션',
         choices: Array.isArray(g?.choices)
@@ -45,8 +50,8 @@ export async function onRequestPost({ request, env }) {
           : [],
       })).filter(g => g.choices.length > 0);
     }
-    // 구스키마(호환): variants 도 함께 저장
-    if (Array.isArray(it?.variants) && it.variants.length > 0 && !out.options) {
+    // 구스키마(호환): variants
+    else if (Array.isArray(it?.variants) && it.variants.length > 0) {
       out.variants = it.variants.map(v => String(v||'').trim()).filter(Boolean).slice(0, 20);
     }
     return out;

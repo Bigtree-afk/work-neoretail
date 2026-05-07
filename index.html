@@ -3148,11 +3148,37 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     { id:'eq-checker-p500', category:'체크기', name:'체크기 P500',       variants:['세트','단품'],          costPrice:0,      salePrice:0 },
     { id:'eq-hscanner',    category:'주변기기', name:'핸디스캐너',        variants:[],                      costPrice:0,      salePrice:0 },
   ];
-  // 카탈로그 항목의 옵션 그룹 배열을 안전하게 반환
-  // 신스키마: item.options = [{label, choices:[...]}, ...]
-  // 구스키마: item.variants = ['A','B'] → 자동 변환 (1단계 그룹 '옵션')
+  // 옵션 저장 포맷: 단일 텍스트 — 한 줄 = 한 단계, 형식 "이름: 선택1, 선택2, ..."
+  function parseOptionsText(text) {
+    if (!text) return [];
+    return String(text).split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(line => {
+        // 첫 ':' 또는 ':' 기준 분리
+        const m = line.match(/^([^:：]+)[:：](.*)$/);
+        if (!m) return null;
+        const label = m[1].trim();
+        const choices = m[2].split(/[,，]/).map(s => s.trim()).filter(Boolean);
+        if (!label || choices.length === 0) return null;
+        return { label, choices };
+      }).filter(Boolean);
+  }
+  function serializeOptionsToText(options) {
+    return (options||[]).map(g => {
+      const label = String(g.label||'').trim();
+      const choices = (g.choices||[]).map(c => String(c||'').trim()).filter(Boolean);
+      if (!label || choices.length === 0) return null;
+      return `${label}: ${choices.join(', ')}`;
+    }).filter(Boolean).join('\n');
+  }
+  // 카탈로그 항목의 옵션 그룹 배열 — 모든 스키마 자동 정상화
+  // 우선순위: optionsText (텍스트) > options[] > variants[]
   function normalizeCatalogOptions(item) {
     if (!item) return [];
+    if (typeof item.optionsText === 'string' && item.optionsText.trim()) {
+      return parseOptionsText(item.optionsText);
+    }
     if (Array.isArray(item.options) && item.options.length > 0) {
       return item.options.map(g => ({
         label: String(g.label||'옵션').trim() || '옵션',
@@ -3163,6 +3189,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       return [{ label:'옵션', choices: item.variants.slice() }];
     }
     return [];
+  }
+  // 항목의 현재 옵션 텍스트 표현 — 편집창에 띄울 값
+  function getOptionsText(item) {
+    if (!item) return '';
+    if (typeof item.optionsText === 'string') return item.optionsText;
+    return serializeOptionsToText(normalizeCatalogOptions(item));
   }
   function getEquipmentCatalog() {
     try {
@@ -3221,24 +3253,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   /* 카탈로그 CRUD — 모든 사용자 접근 가능 (마이페이지) */
   let catalogExpandedIdx = -1; // 옵션 편집 패널 펼친 행
-  let catalogDraft = null;     // { idx, options:[{label, choices:[]}, ...] } — 편집 중인 임시 상태
-  // 빈 그룹 (label 또는 choices 비어있음) 제거
-  function _cleanCatalogGroups(groups) {
-    return (groups||[]).map(g => ({
-      label:   String(g.label||'').trim(),
-      choices: (g.choices||[]).map(c => String(c||'').trim()).filter(Boolean),
-    })).filter(g => g.label && g.choices.length > 0);
-  }
-  // 드래프트 → 실제 카탈로그 저장 (정리 후)
-  function commitCatalogDraft() {
-    if (!catalogDraft) return;
-    const list = getEquipmentCatalog();
-    const i = catalogDraft.idx;
-    if (i < 0 || i >= list.length) return;
-    list[i].options = _cleanCatalogGroups(catalogDraft.options);
-    delete list[i].variants;
-    saveEquipmentCatalog(list);
-  }
+  let catalogDraftText = '';   // 편집 중인 옵션 텍스트 (단일 문자열)
   function renderCatalogAdmin() {
     const tbodies = document.querySelectorAll('.js-catalog-tbody');
     if (!tbodies.length) return;
@@ -3270,33 +3285,39 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             </td>
           </tr>`;
         if (!isExpanded) return mainRow;
-        // 편집 중일 때는 드래프트(transient) 사용, 아니면 저장된 옵션
-        const editing = (catalogDraft && catalogDraft.idx === i) ? catalogDraft.options : opts;
-        const renderGroup = (g, gi) => {
-          const choicesText = (g.choices||[]).join('\n');
-          return `
-            <div style="background:#fff;padding:12px 14px;border:1px solid var(--gray-300);border-radius:8px;display:flex;flex-direction:column;gap:10px">
-              <div style="display:flex;align-items:center;gap:10px">
-                <span style="background:#1D4ED8;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;white-space:nowrap">${gi+1}단계</span>
-                <input type="text" value="${esc(g.label||'')}" placeholder="옵션 이름 (예: 손잡이 방향)" oninput="updateDraftGroupLabel(${gi},this.value)" style="flex:1;padding:7px 10px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px;background:#fff;font-weight:600">
-                <button title="이 단계 삭제" onclick="removeDraftGroup(${gi})" style="background:#fff;border:1px solid var(--gray-300);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:11px;color:var(--danger);font-weight:600">× 단계 삭제</button>
+        // 편집 중이면 드래프트 텍스트, 아니면 항목의 현재 텍스트
+        const curText = (catalogExpandedIdx === i) ? catalogDraftText : getOptionsText(it);
+        // 미리보기 — 텍스트를 파싱해 보여줌 (단계별로)
+        const preview = parseOptionsText(curText);
+        const previewHtml = preview.length === 0
+          ? `<div style="font-size:11px;color:var(--gray-400);padding:8px;background:#fff;border-radius:6px;border:1px dashed var(--gray-300);text-align:center">옵션 단계가 없습니다 — 좌측 입력칸에 추가하세요</div>`
+          : preview.map((g, gi) => `
+              <div style="background:#fff;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="background:#1D4ED8;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap">${gi+1}단계</span>
+                <span style="font-weight:700;font-size:12px;color:var(--gray-700);min-width:90px">${esc(g.label)}</span>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1">
+                  ${g.choices.map(c => `<span style="background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;border-radius:10px;padding:2px 8px;font-size:10px;font-weight:600">${esc(c)}</span>`).join('')}
+                </div>
+                <span style="font-size:10px;color:var(--gray-400)">(${g.choices.length})</span>
               </div>
-              <div style="display:flex;flex-direction:column;gap:4px">
-                <div style="font-size:11px;color:var(--gray-500);font-weight:600">선택지 (한 줄에 하나씩 입력)</div>
-                <textarea oninput="updateDraftGroupChoices(${gi},this.value)" placeholder="예시:&#10;1500&#10;1800&#10;2000&#10;2300&#10;2500" rows="${Math.max(3, (g.choices||[]).length+1)}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px;background:#fff;font-family:inherit;resize:vertical;line-height:1.6">${esc(choicesText)}</textarea>
-              </div>
-            </div>`;
-        };
-        const groupsHtml = editing.length === 0
-          ? `<div style="text-align:center;padding:24px;color:var(--gray-500);font-size:13px;background:#fff;border-radius:8px;border:1px dashed var(--gray-300)">옵션 단계가 없습니다 — 아래 [+ 옵션 단계 추가] 를 눌러 시작하세요</div>`
-          : editing.map(renderGroup).join('');
+            `).join('');
         const expandRow = `
           <tr style="background:#F1F5F9">
             <td colspan="6" style="padding:16px 22px">
-              <div style="background:#1D4ED8;color:#fff;padding:8px 14px;border-radius:6px;margin-bottom:12px;font-size:12px;font-weight:700">📐 옵션 단계 편집 — 위에서 아래 순서로 사용자가 선택합니다. 빈 단계는 저장 시 자동 삭제됩니다.</div>
-              <div style="display:flex;flex-direction:column;gap:10px">${groupsHtml}</div>
+              <div style="background:#1D4ED8;color:#fff;padding:10px 14px;border-radius:6px;margin-bottom:12px;font-size:12px;font-weight:700">
+                📐 옵션 단계 편집 — 한 줄에 한 단계, <code style="background:rgba(255,255,255,.2);padding:1px 6px;border-radius:3px">옵션이름: 선택1, 선택2, 선택3</code> 형식으로 입력하세요. 빈 줄은 무시됩니다.
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-size:11px;color:var(--gray-600);font-weight:600">✏️ 입력</div>
+                  <textarea oninput="updateDraftOptionsText(this.value,${i})" placeholder="예시:&#10;손잡이 방향: 좌타, 우타&#10;길이(mm): 1500, 1800, 2000, 2300, 2500&#10;형태: 일자, ㄱ자&#10;동력: 전동, 무전동" rows="${Math.max(6, curText.split(/\\r?\\n/).length + 1)}" style="width:100%;padding:10px 12px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px;background:#fff;font-family:'Pretendard',monospace,sans-serif;resize:vertical;line-height:1.7">${esc(curText)}</textarea>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-size:11px;color:var(--gray-600);font-weight:600">👁️ 미리보기 (저장 후 사용자에게 보이는 모습)</div>
+                  <div style="display:flex;flex-direction:column;gap:4px;background:#F9FAFB;padding:8px;border-radius:6px;min-height:160px">${previewHtml}</div>
+                </div>
+              </div>
               <div style="margin-top:14px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap">
-                <button onclick="addDraftGroup()" class="btn btn-outline" style="font-size:13px;padding:9px 20px;font-weight:700;border:2px dashed var(--primary);color:var(--primary)">+ ${editing.length === 0 ? '첫 번째' : (editing.length+1)+'번째'} 옵션 단계 추가</button>
                 <button onclick="saveCatalogOptions(${i})" class="btn btn-primary" style="font-size:13px;padding:9px 24px;font-weight:700">✓ 저장하고 닫기</button>
                 <button onclick="cancelCatalogOptions()" class="btn btn-outline" style="font-size:13px;padding:9px 20px;font-weight:600;color:var(--gray-600)">취소</button>
               </div>
@@ -3309,76 +3330,63 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   }
   window.renderCatalogAdmin = renderCatalogAdmin;
   function toggleCatalogExpand(i) {
-    if (catalogExpandedIdx === i) {
-      // 같은 행 다시 클릭 → 저장하고 닫기
-      saveCatalogOptions(i);
-      return;
-    }
-    // 다른 행이 열려있었다면 먼저 저장
-    if (catalogDraft) commitCatalogDraft();
+    if (catalogExpandedIdx === i) { saveCatalogOptions(i); return; }
     catalogExpandedIdx = i;
     const list = getEquipmentCatalog();
-    // 드래프트 초기화 — 저장된 옵션을 깊은 복사 (수정해도 원본 영향 X)
-    const cur = normalizeCatalogOptions(list[i]).map(g => ({
-      label: g.label,
-      choices: (g.choices||[]).slice(),
-    }));
-    catalogDraft = { idx: i, options: cur };
+    catalogDraftText = getOptionsText(list[i]);
     renderCatalogAdmin();
+    // 미리보기 갱신을 위한 textarea oninput 디바운스 핸들러는 별도 — 여기서는 초기 1회 렌더만
   }
   window.toggleCatalogExpand = toggleCatalogExpand;
 
-  function saveCatalogOptions(i) {
-    if (!catalogDraft || catalogDraft.idx !== i) {
-      catalogExpandedIdx = -1;
+  // textarea 입력 — 드래프트 갱신, 미리보기는 디바운스로 갱신
+  let _previewDebounce = null;
+  function updateDraftOptionsText(value, i) {
+    catalogDraftText = String(value||'');
+    if (_previewDebounce) clearTimeout(_previewDebounce);
+    _previewDebounce = setTimeout(() => {
+      // 미리보기 영역만 갱신 (textarea 포커스 유지 위해 부분 렌더)
+      const tr = document.querySelector('.js-catalog-tbody');
+      if (!tr) return;
+      // 단순화: 전체 카탈로그 재렌더 — textarea 는 자동으로 다시 그려지지만 포커스 유지를 위해
+      // 현재 textarea 의 selectionStart/End 를 보존
+      const ta = document.activeElement;
+      const sel = (ta && ta.tagName === 'TEXTAREA') ? { s: ta.selectionStart, e: ta.selectionEnd } : null;
       renderCatalogAdmin();
-      return;
-    }
-    commitCatalogDraft();
+      if (sel) {
+        const ta2 = document.querySelector(`tr[style*="F1F5F9"] textarea`);
+        if (ta2) {
+          ta2.focus();
+          try { ta2.setSelectionRange(sel.s, sel.e); } catch(e){}
+        }
+      }
+    }, 350); // 350ms 디바운스 — 입력 중에는 재렌더 X
+  }
+  window.updateDraftOptionsText = updateDraftOptionsText;
+
+  function saveCatalogOptions(i) {
+    const list = getEquipmentCatalog();
+    if (i < 0 || i >= list.length) { catalogExpandedIdx = -1; renderCatalogAdmin(); return; }
+    // 텍스트 → 정상화된 텍스트로 재직렬화 (빈 단계 자동 정리)
+    const parsed = parseOptionsText(catalogDraftText);
+    list[i].optionsText = serializeOptionsToText(parsed);
+    // 구버전 필드 정리 (혼동 방지)
+    delete list[i].options;
+    delete list[i].variants;
+    saveEquipmentCatalog(list);
     catalogExpandedIdx = -1;
-    catalogDraft = null;
+    catalogDraftText = '';
     renderCatalogAdmin();
-    if (typeof showToast === 'function') showToast('✅ 옵션 저장됨');
+    if (typeof showToast === 'function') showToast(`✅ ${parsed.length}단계 옵션 저장됨`);
   }
   window.saveCatalogOptions = saveCatalogOptions;
 
   function cancelCatalogOptions() {
     catalogExpandedIdx = -1;
-    catalogDraft = null;
+    catalogDraftText = '';
     renderCatalogAdmin();
   }
   window.cancelCatalogOptions = cancelCatalogOptions;
-
-  function addDraftGroup() {
-    if (!catalogDraft) return;
-    catalogDraft.options.push({ label:'', choices:[] });
-    renderCatalogAdmin();
-  }
-  window.addDraftGroup = addDraftGroup;
-
-  function removeDraftGroup(gi) {
-    if (!catalogDraft) return;
-    if (gi < 0 || gi >= catalogDraft.options.length) return;
-    catalogDraft.options.splice(gi, 1);
-    renderCatalogAdmin();
-  }
-  window.removeDraftGroup = removeDraftGroup;
-
-  // 입력 중에는 re-render 하지 않음 (포커스 유지) — 드래프트만 갱신
-  function updateDraftGroupLabel(gi, value) {
-    if (!catalogDraft) return;
-    if (gi < 0 || gi >= catalogDraft.options.length) return;
-    catalogDraft.options[gi].label = String(value||'');
-  }
-  window.updateDraftGroupLabel = updateDraftGroupLabel;
-
-  function updateDraftGroupChoices(gi, value) {
-    if (!catalogDraft) return;
-    if (gi < 0 || gi >= catalogDraft.options.length) return;
-    // 한 줄에 하나씩 — 빈 줄은 입력 도중이므로 보존, 저장 시 trim
-    catalogDraft.options[gi].choices = String(value||'').split(/\r?\n/);
-  }
-  window.updateDraftGroupChoices = updateDraftGroupChoices;
 
   function addCatalogItem() {
     const list = getEquipmentCatalog();
