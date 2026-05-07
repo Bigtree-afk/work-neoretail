@@ -2583,9 +2583,22 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     }
   }
   window.syncFromCloud = syncFromCloud;
-  // 페이지 로드 직후 1회 자동 동기화 (조용히)
+  // 페이지 로드 직후 1회 자동 동기화 + 모든 위젯 강제 재렌더 (데모 잔존 방지)
   document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => syncFromCloud({ toast: false }), 600);
+    setTimeout(() => {
+      syncFromCloud({ toast: false });
+      try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
+      try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
+      try { if (typeof hydrateSavedStores === 'function') hydrateSavedStores(); } catch(e){}
+      try { if (typeof renderCalendar === 'function') renderCalendar(); } catch(e){}
+    }, 600);
+  });
+  // 추가 보강: window load 이벤트에서도 한 번 더
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
+      try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
+    }, 100);
   });
 
   const titles = {
@@ -2620,6 +2633,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     // 일정 캘린더 진입 시 갱신
     if (id === 'calendar' && typeof renderCalendar === 'function') {
       try { renderCalendar(); } catch(e) {}
+    }
+    // 대시보드 진입 시 데이터 갱신 (데모 HTML 잔존 방지)
+    if (id === 'dashboard' && typeof hydrateDashboardJobs === 'function') {
+      try { hydrateDashboardJobs(); } catch(e) {}
+    }
+    // 점포관리 진입 시 갱신
+    if (id === 'stores' && typeof hydrateSavedStores === 'function') {
+      try { hydrateSavedStores(); } catch(e) {}
     }
   }
 
