@@ -16,10 +16,9 @@ export async function onRequestGet({ env }) {
 
 export async function onRequestPost({ request, env }) {
   if (!env.STORES_KV) return text('KV not bound', 500);
-  if (!env.SYNC_SECRET) return text('SYNC_SECRET not set', 500);
-
-  const auth = request.headers.get('authorization') || '';
-  if (auth !== `Bearer ${env.SYNC_SECRET}`) return text('unauthorized', 401);
+  // 인증 제거 — 내부 사용자 모두 직접 클라우드 저장
+  // (앱 자체는 화이트리스트로 로그인 게이트 → 외부에서 URL 만 알아도 직접 호출은 가능하나
+  //  내부 운영 도구라 단순화 우선)
 
   let body;
   try { body = await request.json(); }

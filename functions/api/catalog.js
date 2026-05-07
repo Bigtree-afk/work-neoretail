@@ -16,10 +16,7 @@ export async function onRequestGet({ env }) {
 
 export async function onRequestPost({ request, env }) {
   if (!env.STORES_KV) return text('KV not bound', 500);
-  if (!env.SYNC_SECRET) return text('SYNC_SECRET not set', 500);
-
-  const auth = request.headers.get('authorization') || '';
-  if (auth !== `Bearer ${env.SYNC_SECRET}`) return text('unauthorized', 401);
+  // 인증 제거 — 내부 사용자 모두 직접 클라우드 저장 (단순화)
 
   let body;
   try { body = await request.json(); }

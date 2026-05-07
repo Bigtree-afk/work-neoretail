@@ -3235,19 +3235,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       }
     } catch(e) { /* 네트워크 실패 무시 — 로컬 기본값 사용 */ }
   }
-  // 로컬 → 클라우드 푸시 (관리자 토큰 필요)
+  // 로컬 → 클라우드 푸시 (인증 없음 — 누구나 저장 가능)
   async function pushCatalogToCloud(items, opts) {
-    const token = (typeof getCloudSyncToken === 'function') ? getCloudSyncToken() : (localStorage.getItem('cloud_sync_token')||'');
-    if (!token) {
-      if (opts && opts.toast && typeof showToast === 'function') {
-        showToast('⚠ 클라우드 동기화 토큰 미설정 — 로컬에만 저장됨');
-      }
-      return { ok:false, reason:'no token' };
-    }
     try {
       const res = await fetch('/api/catalog', {
         method:'POST',
-        headers:{ 'authorization':'Bearer ' + token, 'content-type':'application/json' },
+        headers:{ 'content-type':'application/json' },
         body: JSON.stringify({ items }),
       });
       if (!res.ok) {
@@ -5600,13 +5593,9 @@ ${text.slice(0, 3000)}`;
       cloud.forEach(j => { if (j && j.id) byId.set(j.id, j); });
       const merged = Array.from(byId.values());
       localStorage.setItem('ns_jobs', JSON.stringify(merged));
-      // 로컬에 클라우드보다 많거나 다른 항목이 있으면 즉시 클라우드에 푸시 (토큰 있을 때만)
-      // → 처음 동기화 시 admin PC 에서 자동으로 모든 작업을 클라우드에 올려줌
+      // 로컬이 클라우드보다 많으면 즉시 푸시 → 새 작업 자동 전파
       if (merged.length > cloud.length) {
-        const token = (typeof getCloudSyncToken === 'function') ? getCloudSyncToken() : (localStorage.getItem('cloud_sync_token')||'');
-        if (token) {
-          schedulePushJobsToCloud();
-        }
+        schedulePushJobsToCloud();
       }
     } catch(e) { /* 네트워크 실패 무시 */ }
   }
@@ -5617,16 +5606,11 @@ ${text.slice(0, 3000)}`;
     _pushJobsTimer = setTimeout(() => { pushJobsToCloud(); }, 1500); // 1.5초 디바운스
   }
   async function pushJobsToCloud(opts) {
-    const token = (typeof getCloudSyncToken === 'function') ? getCloudSyncToken() : (localStorage.getItem('cloud_sync_token')||'');
-    if (!token) {
-      if (opts && opts.toast && typeof showToast === 'function') showToast('⚠ 클라우드 동기화 토큰 미설정 — 로컬에만 저장됨');
-      return { ok:false, reason:'no token' };
-    }
     const jobs = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
     try {
       const res = await fetch('/api/jobs', {
         method:'POST',
-        headers:{ 'authorization':'Bearer '+token, 'content-type':'application/json' },
+        headers:{ 'content-type':'application/json' },
         body: JSON.stringify({ jobs }),
       });
       if (!res.ok) {
