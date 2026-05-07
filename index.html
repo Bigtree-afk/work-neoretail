@@ -1236,7 +1236,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <!-- ═══════════════════════════════════════ -->
     <div class="screen" id="screen-consult">
       <!-- 상단 통계 카드 -->
-      <div class="stats-grid" style="margin-bottom:16px">
+      <div class="stat-grid" style="margin-bottom:16px">
         <div class="stat-card">
           <div class="stat-label">상담 진행중</div>
           <div class="stat-value" id="consultActiveCount">0</div>
@@ -1346,47 +1346,55 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </table>
       </div>
 
-      <!-- 점포 상세 뷰 -->
-      <div class="detail-header">
-        <div class="store-avatar">🏪</div>
-        <div class="store-info" style="flex:1">
-          <h2 id="detailStoreName" style="color:var(--gray-400)">점포를 선택하세요</h2>
-          <p id="detailStoreMeta" style="color:var(--gray-400)">상단 목록에서 점포를 클릭하면 상세 정보가 표시됩니다.</p>
-          <div class="store-tags" id="detailStoreTags"></div>
-        </div>
-        <div style="display:flex; gap:8px; flex-shrink:0">
-          <button class="btn btn-outline btn-sm">📝 편집</button>
-          <button class="btn btn-primary btn-sm">+ 작업 등록</button>
-        </div>
-      </div>
+    </div>
 
-      <div class="grid-2">
-        <!-- 설치 장비 현황 -->
-        <div class="card">
-          <div style="padding:14px 18px; border-bottom:1px solid var(--gray-100)">
-            <div class="section-title">🖥️ 설치 장비 현황</div>
-          </div>
-          <table>
-            <thead><tr><th>장비</th><th>모델</th><th>수량</th><th>설치일</th><th>상태</th></tr></thead>
-            <tbody id="detailEquipTbody">
-              <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">점포를 선택하면 설치 장비 정보가 표시됩니다.</td></tr>
-            </tbody>
-          </table>
+    <!-- MODAL: 점포 상세 (점포관리에서 매장 클릭 시) -->
+    <div class="modal-overlay" id="storeDetailModal" onclick="if(event.target===this)closeModal('storeDetailModal')">
+      <div class="modal" style="max-width:1100px;width:95vw;max-height:90vh;display:flex;flex-direction:column;background:#fff">
+        <div class="modal-header">
+          <div class="modal-title">🏪 점포 상세</div>
+          <button class="modal-close" onclick="closeModal('storeDetailModal')">✕</button>
         </div>
-
-        <!-- 작업 이력 타임라인 -->
-        <div class="card">
-          <div style="padding:14px 18px; border-bottom:1px solid var(--gray-100)">
-            <div class="section-title">📋 작업 이력</div>
+        <div class="modal-body" style="overflow-y:auto;flex:1">
+          <div class="detail-header">
+            <div class="store-avatar">🏪</div>
+            <div class="store-info" style="flex:1">
+              <h2 id="detailStoreName" style="color:var(--gray-400)">점포 정보</h2>
+              <p id="detailStoreMeta" style="color:var(--gray-400)">-</p>
+              <div class="store-tags" id="detailStoreTags"></div>
+            </div>
           </div>
-          <div style="padding:16px 18px">
-            <div class="timeline" id="detailHistoryTimeline">
-              <div style="padding:24px 8px;text-align:center;color:var(--gray-400);font-size:12px">
-                <div style="font-size:28px;margin-bottom:8px">📭</div>
-                <div>점포를 선택하면 작업 이력이 표시됩니다.</div>
+          <div class="grid-2" style="margin-top:14px">
+            <!-- 설치 장비 현황 -->
+            <div class="card">
+              <div style="padding:14px 18px; border-bottom:1px solid var(--gray-100)">
+                <div class="section-title">🖥️ 설치 장비 현황</div>
+              </div>
+              <table>
+                <thead><tr><th>장비</th><th>모델</th><th>수량</th><th>설치일</th><th>상태</th></tr></thead>
+                <tbody id="detailEquipTbody">
+                  <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">점포를 선택하면 설치 장비 정보가 표시됩니다.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <!-- 작업 이력 타임라인 -->
+            <div class="card">
+              <div style="padding:14px 18px; border-bottom:1px solid var(--gray-100)">
+                <div class="section-title">📋 작업 이력</div>
+              </div>
+              <div style="padding:16px 18px">
+                <div class="timeline" id="detailHistoryTimeline">
+                  <div style="padding:24px 8px;text-align:center;color:var(--gray-400);font-size:12px">
+                    <div style="font-size:28px;margin-bottom:8px">📭</div>
+                    <div>점포를 선택하면 작업 이력이 표시됩니다.</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('storeDetailModal')">닫기</button>
         </div>
       </div>
     </div>
@@ -7889,13 +7897,8 @@ ${text.slice(0, 3000)}`;
       }
     }
 
-    // 상세 뷰로 부드럽게 스크롤
-    try {
-      const dh = document.querySelector('.detail-header');
-      if (dh) dh.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch(e) {}
-
-    showToast && showToast(`📌 ${displayName}`);
+    // 상세 모달로 표시 (스크롤 대신 팝업)
+    if (typeof showModal === 'function') showModal('storeDetailModal');
   };
 
   /* ══════════════════════════════════════════════
