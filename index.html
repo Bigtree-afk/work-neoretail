@@ -5703,7 +5703,8 @@ ${text.slice(0, 3000)}`;
 
     /* ── 상단 통계 카드 ── */
     const isDone = (j) => (j.status === '완료' || j.status === 'done');
-    const newOpenThisMonth = jobs.filter(j => /신규|개업|오픈/.test(j.type||'') && jobDateStr(j).slice(0,7) === ym).length;
+    // 이번달 신규 = 신규 작업 중 openDate 가 이번달 (등록/미등록 무관)
+    const newOpenThisMonth = jobs.filter(j => /신규|개업|오픈/.test(j.type||'') && (j.openDate||'').slice(0,7) === ym).length;
     const inProgress = jobs.filter(j => !isDone(j)).length;
     const asCount = jobs.filter(j => /as|에이에스/i.test(j.type||'') && !isDone(j)).length;
     const asOver48 = jobs.filter(j => {
@@ -5711,7 +5712,11 @@ ${text.slice(0, 3000)}`;
       const ts = j.createdAt ? new Date(j.createdAt).getTime() : 0;
       return ts && (Date.now() - ts) > 48*3600*1000;
     }).length;
-    const todoneToday = jobs.filter(j => (j.date||'').slice(0,10) === todayStr && !isDone(j)).length;
+    // 오늘 예정 = 설치/가오픈/오픈 중 오늘인 미완료 작업
+    const todoneToday = jobs.filter(j => {
+      if (isDone(j)) return false;
+      return [j.installDate, j.softOpenDate, j.openDate].some(d => (d||'').slice(0,10) === todayStr);
+    }).length;
 
     const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
     setText('statNewOpen', newOpenThisMonth);
