@@ -6194,12 +6194,14 @@ ${text.slice(0, 3000)}`;
           </div>
         </div>`;
 
-      // 담당 칸 — 매장 담당자 우선 표시 (없으면 엔지니어 표시)
-      const hasContact = j.contactName || j.contactPhone;
-      const contactCellHtml = hasContact
+      // 담당 칸 — 대표 담당자(primary)만 노출, 다른 담당자가 더 있으면 +N 배지
+      const _contactsArr = getJobContacts(j);
+      const _primary = getPrimaryContact(j);
+      const _moreCount = Math.max(0, _contactsArr.length - 1);
+      const contactCellHtml = _primary && (_primary.name || _primary.phone)
         ? `<div style="font-size:11px;line-height:1.5">
-            ${j.contactName ? `<div style="font-weight:700">👤 ${esc(j.contactName)}${j.contactRole ? ` <span style="color:var(--gray-500);font-weight:500">${esc(j.contactRole)}</span>` : ''}</div>` : ''}
-            ${j.contactPhone ? `<div style="color:var(--gray-600)"><a href="tel:${esc(j.contactPhone)}" style="color:inherit;text-decoration:none">📞 ${esc(j.contactPhone)}</a></div>` : ''}
+            ${_primary.name ? `<div style="font-weight:700">⭐ ${esc(_primary.name)}${_primary.role ? ` <span style="color:var(--gray-500);font-weight:500">${esc(_primary.role)}</span>` : ''}${_moreCount > 0 ? ` <span style="background:#EFF6FF;color:#1D4ED8;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:2px">+${_moreCount}</span>` : ''}</div>` : ''}
+            ${_primary.phone ? `<div style="color:var(--gray-600)"><a href="tel:${esc(_primary.phone)}" style="color:inherit;text-decoration:none">📞 ${esc(_primary.phone)}</a></div>` : ''}
             <div style="font-size:10px;color:var(--gray-400);margin-top:2px">엔지니어: ${eng}</div>
           </div>`
         : `<div style="font-size:12px">${eng}</div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">매장 담당자 미입력</div>`;
@@ -6343,20 +6345,25 @@ ${text.slice(0, 3000)}`;
         </div>
         <div style="grid-column:1/-1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">주소</div><div style="font-size:13px">${esc(j.address || '-')}</div></div>
         <div style="grid-column:1/-1">
-          <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">👤 매장 담당자 <span style="font-size:10px;color:var(--gray-400)">— 입력 즉시 자동 저장</span></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;background:#fff;padding:10px;border:1px solid var(--gray-200);border-radius:8px">
-            <div>
-              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">이름</div>
-              <input type="text" value="${esc(j.contactName||'')}" placeholder="홍길동" onchange="updateJobContact('${j.id}','contactName',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
-            </div>
-            <div>
-              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">직책</div>
-              <input type="text" value="${esc(j.contactRole||'')}" placeholder="점장 / 사장 등" list="contactRoleList" onchange="updateJobContact('${j.id}','contactRole',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
-            </div>
-            <div>
-              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">연락처</div>
-              <input type="tel" value="${esc(j.contactPhone||'')}" placeholder="010-0000-0000" onchange="updateJobContact('${j.id}','contactPhone',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
-            </div>
+          <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between">
+            <span>👤 매장 담당자 <span style="font-size:10px;color:var(--gray-400)">— ⭐별표를 클릭해 대표 연락망을 지정하세요. 메인 화면에는 대표만 노출됩니다.</span></span>
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 10px;font-weight:700" onclick="addJobContact('${j.id}')">+ 담당자 추가</button>
+          </div>
+          <div style="background:#fff;padding:10px;border:1px solid var(--gray-200);border-radius:8px;display:flex;flex-direction:column;gap:6px">
+            ${(() => {
+              const list = getJobContacts(j);
+              if (list.length === 0) {
+                return `<div style="text-align:center;color:var(--gray-400);font-size:12px;padding:14px">담당자가 없습니다. 우측 상단 [+ 담당자 추가] 버튼을 누르세요.</div>`;
+              }
+              return list.map((c, idx) => `
+                <div style="display:grid;grid-template-columns:36px 1fr 1fr 1fr 36px;gap:6px;align-items:center">
+                  <button title="${c.primary?'대표 연락망':'대표로 지정'}" onclick="setPrimaryContact('${j.id}',${idx})" style="background:none;border:1px solid ${c.primary?'#F59E0B':'var(--gray-200)'};border-radius:6px;padding:6px;cursor:pointer;font-size:14px;color:${c.primary?'#F59E0B':'var(--gray-300)'}">${c.primary?'★':'☆'}</button>
+                  <input type="text" value="${esc(c.name||'')}" placeholder="홍길동" onchange="updateJobContactAt('${j.id}',${idx},'name',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
+                  <input type="text" value="${esc(c.role||'')}" placeholder="점장 / 사장 등" list="contactRoleList" onchange="updateJobContactAt('${j.id}',${idx},'role',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
+                  <input type="tel" value="${esc(c.phone||'')}" placeholder="010-0000-0000" onchange="updateJobContactAt('${j.id}',${idx},'phone',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
+                  <button title="삭제" onclick="if(confirm('이 담당자를 삭제하시겠습니까?'))removeJobContact('${j.id}',${idx})" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:6px;cursor:pointer;font-size:13px;color:var(--danger)">×</button>
+                </div>`).join('');
+            })()}
           </div>
         </div>
         ${j.notes ? `<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">비고</div><div style="font-size:13px;white-space:pre-wrap">${esc(j.notes)}</div></div>` : ''}
@@ -6412,7 +6419,7 @@ ${text.slice(0, 3000)}`;
   }
   window.updateJobDate = updateJobDate;
 
-  /* 매장 담당자 필드 업데이트 (상세 모달) */
+  /* 매장 담당자 필드 업데이트 (상세 모달) — 단일 필드 (구버전 호환) */
   function updateJobContact(jobId, field, value) {
     if (!['contactName','contactRole','contactPhone'].includes(field)) return;
     const jobs = getJobs();
@@ -6426,6 +6433,95 @@ ${text.slice(0, 3000)}`;
     }
   }
   window.updateJobContact = updateJobContact;
+
+  /* ── 매장 담당자 다중 관리 ── */
+  // 작업의 담당자 배열을 안전하게 반환 (구버전 단일 필드는 자동 마이그레이션)
+  function getJobContacts(j) {
+    if (!j) return [];
+    if (Array.isArray(j.contacts) && j.contacts.length > 0) return j.contacts;
+    // 구버전 호환: contactName/Role/Phone 이 있으면 1개짜리 배열로 변환 (저장은 안 함, 읽기만)
+    if (j.contactName || j.contactPhone || j.contactRole) {
+      return [{ name: j.contactName||'', role: j.contactRole||'', phone: j.contactPhone||'', primary: true }];
+    }
+    return [];
+  }
+  // 대표 담당자 — primary === true 인 첫 번째, 없으면 배열 첫 번째
+  function getPrimaryContact(j) {
+    const list = getJobContacts(j);
+    return list.find(c => c.primary) || list[0] || null;
+  }
+  // 작업의 담당자 배열을 정상화하여 저장 (한 명도 없으면 빈 배열)
+  function _writeJobContacts(job, list) {
+    job.contacts = list.map(c => ({
+      name:  String(c.name||'').trim(),
+      role:  String(c.role||'').trim(),
+      phone: String(c.phone||'').trim(),
+      primary: !!c.primary,
+    }));
+    // primary 정확히 1개 보장 (있으면 첫 primary 만 유지, 없으면 첫 번째를 primary 로)
+    let firstPri = -1;
+    job.contacts.forEach((c, i) => {
+      if (c.primary && firstPri === -1) firstPri = i;
+      else c.primary = false;
+    });
+    if (firstPri === -1 && job.contacts.length > 0) job.contacts[0].primary = true;
+    // 구버전 단일 필드는 대표값으로 동기화 (외부 화면 호환)
+    const p = job.contacts.find(c => c.primary) || job.contacts[0] || null;
+    job.contactName  = p ? p.name  : '';
+    job.contactRole  = p ? p.role  : '';
+    job.contactPhone = p ? p.phone : '';
+  }
+  function addJobContact(jobId) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const list = getJobContacts(job).slice();
+    list.push({ name:'', role:'', phone:'', primary: list.length === 0 });
+    _writeJobContacts(job, list);
+    saveJobs(jobs);
+    try { editNewopen(jobId); } catch(e){}
+    try { hydrateNewopen('all'); } catch(e){}
+  }
+  window.addJobContact = addJobContact;
+  function removeJobContact(jobId, idx) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const list = getJobContacts(job).slice();
+    if (idx < 0 || idx >= list.length) return;
+    list.splice(idx, 1);
+    _writeJobContacts(job, list);
+    saveJobs(jobs);
+    try { editNewopen(jobId); } catch(e){}
+    try { hydrateNewopen('all'); } catch(e){}
+  }
+  window.removeJobContact = removeJobContact;
+  function setPrimaryContact(jobId, idx) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const list = getJobContacts(job).slice();
+    list.forEach((c, i) => c.primary = (i === idx));
+    _writeJobContacts(job, list);
+    saveJobs(jobs);
+    try { editNewopen(jobId); } catch(e){}
+    try { hydrateNewopen('all'); } catch(e){}
+    if (typeof showToast === 'function') showToast('⭐ 대표 연락망 변경됨');
+  }
+  window.setPrimaryContact = setPrimaryContact;
+  function updateJobContactAt(jobId, idx, field, value) {
+    if (!['name','role','phone'].includes(field)) return;
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const list = getJobContacts(job).slice();
+    if (idx < 0 || idx >= list.length) return;
+    list[idx] = { ...list[idx], [field]: (value||'').trim() };
+    _writeJobContacts(job, list);
+    saveJobs(jobs);
+    try { hydrateNewopen('all'); } catch(e){}
+  }
+  window.updateJobContactAt = updateJobContactAt;
 
   /* 잘못 연결된 작업 → 연결 해제 (미등록 상태로 되돌림) */
   function unlinkStore(jobId) {
