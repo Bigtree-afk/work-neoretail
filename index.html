@@ -3252,27 +3252,43 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             </td>
           </tr>`;
         if (!isExpanded) return mainRow;
-        // 옵션 편집 패널
+        // 옵션 편집 패널 — 각 그룹은 [라벨 + 칩 리스트 + 새 선택지 input]
+        const renderGroup = (g, gi) => {
+          const chips = (g.choices||[]).map((c, ci) => `
+            <span style="display:inline-flex;align-items:center;gap:4px;background:#EFF6FF;color:#1D4ED8;border:1px solid #93C5FD;border-radius:14px;padding:3px 4px 3px 10px;font-size:11px;font-weight:600">
+              ${esc(c)}
+              <button title="삭제" onclick="removeOptionChoice(${i},${gi},${ci})" style="background:#1D4ED8;color:#fff;border:none;border-radius:50%;width:16px;height:16px;cursor:pointer;font-size:10px;line-height:1;padding:0">×</button>
+            </span>`).join(' ');
+          const addInputId = `opt-add-${i}-${gi}`;
+          return `
+            <div style="background:#fff;padding:10px 12px;border:1px solid var(--gray-200);border-radius:8px;display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="background:#1D4ED8;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap">${gi+1}단계</span>
+                <input type="text" value="${esc(g.label||'')}" placeholder="옵션 이름 (예: 손잡이 방향, 길이, 형태)" onchange="updateOptionGroup(${i},${gi},'label',this.value)" style="${inputSty};flex:1;font-weight:600">
+                <button title="이 옵션 그룹 삭제" onclick="if(confirm('이 옵션 단계를 삭제하시겠습니까?'))removeOptionGroup(${i},${gi})" style="background:none;border:1px solid var(--gray-200);border-radius:5px;padding:5px 9px;cursor:pointer;font-size:13px;color:var(--danger)">× 단계 삭제</button>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:28px;padding:4px;background:#F9FAFB;border-radius:6px">
+                ${chips || `<span style="font-size:11px;color:var(--gray-400);padding:4px 8px">선택지가 없습니다 — 우측 입력칸에서 추가</span>`}
+              </div>
+              <div style="display:flex;gap:6px">
+                <input type="text" id="${addInputId}" placeholder="새 선택지 입력 후 Enter 또는 [추가]" onkeydown="if(event.key==='Enter'){event.preventDefault();addOptionChoice(${i},${gi},this.value);this.value='';this.focus();}" style="${inputSty};flex:1">
+                <button onclick="(function(){var el=document.getElementById('${addInputId}');addOptionChoice(${i},${gi},el.value);el.value='';el.focus();})()" class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 12px;font-weight:700;white-space:nowrap">+ 추가</button>
+              </div>
+            </div>`;
+        };
         const optsHtml = opts.length === 0
-          ? `<div style="text-align:center;padding:14px;color:var(--gray-400);font-size:12px">등록된 옵션 그룹이 없습니다. 아래 [+ 옵션 그룹 추가] 를 눌러 시작하세요.</div>`
-          : opts.map((g, gi) => `
-              <div style="display:grid;grid-template-columns:140px 1fr 36px;gap:6px;align-items:center;background:#fff;padding:6px;border:1px solid var(--gray-200);border-radius:6px">
-                <div style="display:flex;align-items:center;gap:4px">
-                  <span style="background:#1D4ED8;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">${gi+1}단계</span>
-                  <input type="text" value="${esc(g.label||'')}" placeholder="옵션 이름" onchange="updateOptionGroup(${i},${gi},'label',this.value)" style="${inputSty};flex:1">
-                </div>
-                <input type="text" value="${esc((g.choices||[]).join(', '))}" placeholder="선택지 (쉼표로 구분, 예: 1500, 1800, 2000)" onchange="updateOptionGroup(${i},${gi},'choices',this.value)" style="${inputSty}">
-                <button title="이 옵션 그룹 삭제" onclick="removeOptionGroup(${i},${gi})" style="background:none;border:1px solid var(--gray-200);border-radius:5px;padding:5px;cursor:pointer;font-size:13px;color:var(--danger)">×</button>
-              </div>
-            `).join('');
+          ? `<div style="text-align:center;padding:18px;color:var(--gray-400);font-size:12px;background:#fff;border-radius:8px;border:1px dashed var(--gray-300)">등록된 옵션 단계가 없습니다 — 아래 [+ 다음 옵션 단계 추가] 를 눌러 시작하세요</div>`
+          : opts.map(renderGroup).join('');
         const expandRow = `
-          <tr style="background:#F8FAFC">
-            <td colspan="6" style="padding:10px 18px">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                <div style="font-size:12px;font-weight:700;color:var(--gray-700)">📐 옵션 단계 — 위에서 아래 순서로 사용자가 선택</div>
-                <button onclick="addOptionGroup(${i})" class="btn btn-primary btn-sm" style="font-size:11px;padding:4px 10px;font-weight:700">+ 옵션 그룹 추가</button>
+          <tr style="background:#F1F5F9">
+            <td colspan="6" style="padding:14px 18px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+                <div style="font-size:12px;font-weight:700;color:var(--gray-700)">📐 옵션 단계 — 위에서 아래 순서로 사용자가 선택합니다</div>
               </div>
-              <div style="display:flex;flex-direction:column;gap:5px">${optsHtml}</div>
+              <div style="display:flex;flex-direction:column;gap:8px">${optsHtml}</div>
+              <div style="margin-top:10px;text-align:center">
+                <button onclick="addOptionGroup(${i})" class="btn btn-primary" style="font-size:12px;padding:8px 18px;font-weight:700">+ ${opts.length === 0 ? '첫 번째' : (opts.length+1)+'번째'} 옵션 단계 추가</button>
+              </div>
             </td>
           </tr>`;
         return mainRow + expandRow;
@@ -3327,6 +3343,50 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     // 입력 즉시 재렌더는 안 함 (포커스 유지)
   }
   window.updateOptionGroup = updateOptionGroup;
+
+  function addOptionChoice(i, gi, value) {
+    const v = String(value||'').trim();
+    if (!v) { if (typeof showToast === 'function') showToast('선택지를 입력하세요'); return; }
+    const list = getEquipmentCatalog();
+    if (i < 0 || i >= list.length) return;
+    const cur = normalizeCatalogOptions(list[i]).slice();
+    if (gi < 0 || gi >= cur.length) return;
+    const choices = (cur[gi].choices||[]).slice();
+    if (choices.includes(v)) {
+      if (typeof showToast === 'function') showToast(`이미 등록된 선택지입니다: ${v}`);
+      return;
+    }
+    choices.push(v);
+    cur[gi] = { ...cur[gi], choices };
+    list[i].options = cur;
+    delete list[i].variants;
+    saveEquipmentCatalog(list);
+    catalogExpandedIdx = i;
+    renderCatalogAdmin();
+    // 입력란에 포커스 복귀 (rendered 후)
+    setTimeout(() => {
+      const el = document.getElementById(`opt-add-${i}-${gi}`);
+      if (el) el.focus();
+    }, 30);
+  }
+  window.addOptionChoice = addOptionChoice;
+
+  function removeOptionChoice(i, gi, ci) {
+    const list = getEquipmentCatalog();
+    if (i < 0 || i >= list.length) return;
+    const cur = normalizeCatalogOptions(list[i]).slice();
+    if (gi < 0 || gi >= cur.length) return;
+    const choices = (cur[gi].choices||[]).slice();
+    if (ci < 0 || ci >= choices.length) return;
+    choices.splice(ci, 1);
+    cur[gi] = { ...cur[gi], choices };
+    list[i].options = cur;
+    delete list[i].variants;
+    saveEquipmentCatalog(list);
+    catalogExpandedIdx = i;
+    renderCatalogAdmin();
+  }
+  window.removeOptionChoice = removeOptionChoice;
 
   function addCatalogItem() {
     const list = getEquipmentCatalog();
