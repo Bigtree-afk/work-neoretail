@@ -1,15 +1,11 @@
 /**
  * POST /api/sync
- *   Authorization: Bearer <SYNC_SECRET>
  *   body: { stores: [...], source?: string }
- * 로컬 동기화 스크립트가 호출. KV에 점포 + 메타 저장.
+ * 점포 데이터를 KV에 저장. 외부 cron(이카운트 동기화) + 클라이언트 모두 호출.
+ * 인증은 화이트리스트 기반 앱 진입 게이트로 위임 (단순화).
  */
 export async function onRequestPost({ request, env }) {
   if (!env.STORES_KV) return text('KV not bound', 500);
-  if (!env.SYNC_SECRET) return text('SYNC_SECRET not set', 500);
-
-  const auth = request.headers.get('authorization') || '';
-  if (auth !== `Bearer ${env.SYNC_SECRET}`) return text('unauthorized', 401);
 
   let body;
   try { body = await request.json(); }
