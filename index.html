@@ -6286,7 +6286,8 @@ ${text.slice(0, 3000)}`;
         const sorted = [...stores].sort((a,b) => (Number(b.createdAt)||0) - (Number(a.createdAt)||0));
         tb.innerHTML = '';
         const showCount = Math.min(sorted.length, 200);
-        sorted.slice(0, showCount).forEach(s => injectStoreRow(s));
+        // appendChild 직접 사용 — injectStoreRow 는 prepend 동작이라 정렬 순서가 뒤집힘
+        sorted.slice(0, showCount).forEach(s => tb.appendChild(buildStoreRowEl(s)));
         // 점포 개수 표시
         const countRow = document.createElement('tr');
         countRow.style.color = 'var(--gray-400)';
@@ -7952,7 +7953,7 @@ ${text.slice(0, 3000)}`;
     tb.innerHTML = '';
     const renderLimit = 500;
     matched.slice(0, renderLimit).forEach(s => {
-      try { if (typeof injectStoreRow === 'function') injectStoreRow(s); } catch(e){}
+      try { if (typeof buildStoreRowEl === 'function') tb.appendChild(buildStoreRowEl(s)); } catch(e){}
     });
     // 안내 행
     const info = document.createElement('tr');
