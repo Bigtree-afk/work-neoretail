@@ -273,8 +273,8 @@
   /* 상담 등록 모드: 입고가 칸 숨김 (판매가만 노출) */
   body.consult-mode .js-cost-col { display: none !important; }
   /* 상담 등록 전용 필드 (상담일 등) */
-  .js-consult-only { display: none; }
-  body.consult-mode .js-consult-only { display: block !important; }
+  .js-consult-only { display: none !important; }
+  body.consult-mode .js-consult-only { display: flex !important; }
   .modal-overlay.show { display: flex; }
   .modal { background: #FFF8E7; border-radius: 12px; box-shadow: 6px 6px 0 #1A1614; width: 560px; max-height: 85vh; overflow-y: auto; }
   .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
@@ -1836,6 +1836,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <button class="modal-close" onclick="closeModal('newJobModal')">✕</button>
     </div>
     <div class="modal-body">
+      <!-- 상담 등록 전용: 상담일 배너 (상단에 prominent 표시) -->
+      <div class="js-consult-only" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:none;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:700;color:#92400E">💬 상담일</span>
+        <input type="date" id="jobConsultDate" style="padding:6px 10px;border:1px solid #FCD34D;border-radius:6px;font-size:13px;background:#fff;font-weight:600">
+        <span style="font-size:11px;color:#92400E">기본은 오늘 — 날짜 버튼을 눌러 수정 가능</span>
+      </div>
       <!-- 기본 정보 -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
         <div class="form-group" style="margin:0">
@@ -1871,11 +1877,6 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <select id="jobEngineer">
             <option value="">담당자 선택...</option>
           </select>
-        </div>
-        <!-- 상담일 (상담 등록 모드 전용) -->
-        <div class="form-group js-consult-only" style="margin:0;grid-column:1/-1;display:none">
-          <label style="display:flex;align-items:center;gap:6px">💬 상담일 <span style="font-size:10px;color:var(--gray-400);font-weight:400">기본: 오늘 — 필요시 수정</span></label>
-          <input type="date" id="jobConsultDate" style="width:100%">
         </div>
         <div class="form-group" style="margin:0;grid-column:1/-1">
           <label style="display:flex;align-items:center;gap:6px">📌 매장 주요 일정 <span style="font-size:10px;color:var(--gray-400);font-weight:400">미정이면 비워두세요 — 나중에 상세에서 수정 가능</span></label>
