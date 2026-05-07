@@ -2469,7 +2469,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
                 <th style="padding:8px;text-align:center;font-size:11px;font-weight:700;width:50px">삭제</th>
               </tr>
             </thead>
-            <tbody id="catalogAdminTbody"></tbody>
+            <tbody id="catalogAdminTbody" class="js-catalog-tbody"></tbody>
           </table>
         </div>
       </div>
@@ -2494,6 +2494,47 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <button class="btn btn-outline" onclick="closeModal('adminModal')">닫기</button>
       <button class="btn btn-outline btn-sm" onclick="testAdminApiKey()" id="testAdminApiBtn">연결 테스트</button>
       <button class="btn btn-primary" onclick="saveAdminSettings()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 마이페이지 (모든 사용자) — 장비 품목 관리 -->
+<div class="modal-overlay" id="myPageModal" onclick="if(event.target===this)closeModal('myPageModal')">
+  <div class="modal-content" style="max-width:1100px;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title">📦 장비 품목 관리</div>
+      <button class="modal-close" onclick="closeModal('myPageModal')">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;flex:1">
+      <div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:10px 12px;font-size:11px;color:#075985;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          신규 작업 등록 시 노출되는 장비 카탈로그를 관리합니다.<br>
+          <strong>옵션</strong> 칸은 쉼표로 구분 (예: <code>유통, 외식</code>). 변경은 자동 저장 + 클라우드 동기화됩니다.
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="addCatalogItem()" style="font-size:11px;padding:5px 10px">+ 장비 추가</button>
+          <button class="btn btn-outline btn-sm" onclick="pushCatalogNow()" style="font-size:11px;padding:5px 10px" title="모든 직원 PC에 즉시 동기화">☁ 지금 클라우드 동기화</button>
+          <button class="btn btn-outline btn-sm" onclick="resetCatalogToDefault()" style="font-size:11px;padding:5px 10px;color:var(--warning);border-color:var(--warning)">↺ 기본값 초기화</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;border:1px solid var(--gray-200);border-radius:8px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead style="background:#F3F4F6;position:sticky;top:0;z-index:1">
+            <tr>
+              <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;width:120px">장비구분</th>
+              <th style="padding:10px;text-align:left;font-size:11px;font-weight:700;width:180px">장비명</th>
+              <th style="padding:10px;text-align:left;font-size:11px;font-weight:700">옵션 (쉼표 구분)</th>
+              <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;width:120px">원가</th>
+              <th style="padding:10px;text-align:right;font-size:11px;font-weight:700;width:120px">판매가</th>
+              <th style="padding:10px;text-align:center;font-size:11px;font-weight:700;width:50px">삭제</th>
+            </tr>
+          </thead>
+          <tbody class="js-catalog-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('myPageModal')">닫기</button>
     </div>
   </div>
 </div>
@@ -2679,6 +2720,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     if (id === 'newJobModal') { buildBallSelectors(); populateStoreNameList(); }
     if (id === 'adminModal') {
       try { renderBackupStatus(); } catch(e){}
+      try { renderCatalogAdmin(); } catch(e){}
+    }
+    if (id === 'myPageModal') {
+      // 마이페이지 열릴 때 클라우드에서 최신 카탈로그 풀 + 렌더
+      try { syncCatalogFromCloud().then(() => renderCatalogAdmin()); } catch(e){}
       try { renderCatalogAdmin(); } catch(e){}
     }
   }
@@ -3151,28 +3197,30 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   }
   window.getEquipmentCatalog = getEquipmentCatalog;
 
-  /* 카탈로그 CRUD — 마이페이지(관리자) 에서 호출 */
+  /* 카탈로그 CRUD — 모든 사용자 접근 가능 (마이페이지) */
   function renderCatalogAdmin() {
-    const tb = document.getElementById('catalogAdminTbody');
-    if (!tb) return;
+    const tbodies = document.querySelectorAll('.js-catalog-tbody');
+    if (!tbodies.length) return;
     const list = getEquipmentCatalog();
+    let html;
     if (list.length === 0) {
-      tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">등록된 장비가 없습니다. 우측 상단 [+ 장비 추가] 버튼을 눌러 추가하세요.</td></tr>`;
-      return;
+      html = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">등록된 장비가 없습니다. 우측 상단 [+ 장비 추가] 버튼을 눌러 추가하세요.</td></tr>`;
+    } else {
+      const inputSty = 'padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff;width:100%';
+      html = list.map((it, i) => `
+        <tr>
+          <td style="padding:5px"><input type="text" value="${esc(it.category||'')}" placeholder="POS / 컴퓨터 / 주변기기..." onchange="updateCatalogField(${i},'category',this.value)" style="${inputSty}"></td>
+          <td style="padding:5px"><input type="text" value="${esc(it.name||'')}" placeholder="장비명" onchange="updateCatalogField(${i},'name',this.value)" style="${inputSty}"></td>
+          <td style="padding:5px"><input type="text" value="${esc((it.variants||[]).join(', '))}" placeholder="옵션 (쉼표로 구분, 예: 유통, 외식)" onchange="updateCatalogField(${i},'variants',this.value)" style="${inputSty}"></td>
+          <td style="padding:5px"><input type="number" min="0" value="${Number(it.costPrice)||0}" onchange="updateCatalogField(${i},'costPrice',this.value)" style="${inputSty};text-align:right"></td>
+          <td style="padding:5px"><input type="number" min="0" value="${Number(it.salePrice)||0}" onchange="updateCatalogField(${i},'salePrice',this.value)" style="${inputSty};text-align:right"></td>
+          <td style="padding:5px;text-align:center">
+            <button title="삭제" onclick="if(confirm('이 장비 품목을 삭제하시겠습니까?'))removeCatalogItem(${i})" style="background:none;border:1px solid var(--gray-200);border-radius:5px;padding:5px 9px;cursor:pointer;font-size:13px;color:var(--danger)">×</button>
+          </td>
+        </tr>
+      `).join('');
     }
-    const inputSty = 'padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff;width:100%';
-    tb.innerHTML = list.map((it, i) => `
-      <tr>
-        <td style="padding:5px"><input type="text" value="${esc(it.category||'')}" placeholder="POS / 컴퓨터 / 주변기기..." onchange="updateCatalogField(${i},'category',this.value)" style="${inputSty}"></td>
-        <td style="padding:5px"><input type="text" value="${esc(it.name||'')}" placeholder="장비명" onchange="updateCatalogField(${i},'name',this.value)" style="${inputSty}"></td>
-        <td style="padding:5px"><input type="text" value="${esc((it.variants||[]).join(', '))}" placeholder="옵션 (쉼표로 구분, 예: 유통, 외식)" onchange="updateCatalogField(${i},'variants',this.value)" style="${inputSty}"></td>
-        <td style="padding:5px"><input type="number" min="0" value="${Number(it.costPrice)||0}" onchange="updateCatalogField(${i},'costPrice',this.value)" style="${inputSty};text-align:right"></td>
-        <td style="padding:5px"><input type="number" min="0" value="${Number(it.salePrice)||0}" onchange="updateCatalogField(${i},'salePrice',this.value)" style="${inputSty};text-align:right"></td>
-        <td style="padding:5px;text-align:center">
-          <button title="삭제" onclick="if(confirm('이 장비 품목을 삭제하시겠습니까?'))removeCatalogItem(${i})" style="background:none;border:1px solid var(--gray-200);border-radius:5px;padding:5px 9px;cursor:pointer;font-size:13px;color:var(--danger)">×</button>
-        </td>
-      </tr>
-    `).join('');
+    tbodies.forEach(tb => { tb.innerHTML = html; });
   }
   window.renderCatalogAdmin = renderCatalogAdmin;
 
@@ -3216,6 +3264,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     pushCatalogToCloud(getEquipmentCatalog(), { toast:true });
   }
   window.pushCatalogNow = pushCatalogNow;
+
+  // 마이페이지 열기 — 모든 사용자(직원/관리자) 가능
+  function openMyPage() {
+    if (typeof showModal === 'function') showModal('myPageModal');
+  }
+  window.openMyPage = openMyPage;
 
   function resetCatalogToDefault() {
     if (!confirm('카탈로그를 기본값으로 초기화하시겠습니까?\n현재 등록된 모든 사용자 정의 항목이 사라집니다.')) return;
@@ -4691,6 +4745,7 @@ ${text.slice(0, 3000)}`;
         </div>
       </div>
       <div style="padding:6px">
+        <button onclick="closeProfileMenu();openMyPage()" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--gray-700);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">📦 장비 품목 관리</button>
         ${isAdmin ? `<button onclick="closeProfileMenu();openAdminPage()" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--gray-700);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">⚙️ 관리자 페이지</button>` : ''}
         <button onclick="closeProfileMenu();doLogout()" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:8px;font-weight:600" onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background=''">🚪 로그아웃</button>
       </div>
