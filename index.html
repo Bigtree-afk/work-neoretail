@@ -3314,7 +3314,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
                 </div>
                 <div style="display:flex;flex-direction:column;gap:6px">
                   <div style="font-size:11px;color:var(--gray-600);font-weight:600">👁️ 미리보기 (저장 후 사용자에게 보이는 모습)</div>
-                  <div style="display:flex;flex-direction:column;gap:4px;background:#F9FAFB;padding:8px;border-radius:6px;min-height:160px">${previewHtml}</div>
+                  <div id="catalog-preview-${i}" style="display:flex;flex-direction:column;gap:4px;background:#F9FAFB;padding:8px;border-radius:6px;min-height:160px">${previewHtml}</div>
                 </div>
               </div>
               <div style="margin-top:14px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap">
@@ -3339,28 +3339,25 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   }
   window.toggleCatalogExpand = toggleCatalogExpand;
 
-  // textarea 입력 — 드래프트 갱신, 미리보기는 디바운스로 갱신
-  let _previewDebounce = null;
+  // textarea 입력 — 드래프트 갱신 + 미리보기 div 만 부분 업데이트 (textarea 안 건드림 = 포커스 유지)
   function updateDraftOptionsText(value, i) {
     catalogDraftText = String(value||'');
-    if (_previewDebounce) clearTimeout(_previewDebounce);
-    _previewDebounce = setTimeout(() => {
-      // 미리보기 영역만 갱신 (textarea 포커스 유지 위해 부분 렌더)
-      const tr = document.querySelector('.js-catalog-tbody');
-      if (!tr) return;
-      // 단순화: 전체 카탈로그 재렌더 — textarea 는 자동으로 다시 그려지지만 포커스 유지를 위해
-      // 현재 textarea 의 selectionStart/End 를 보존
-      const ta = document.activeElement;
-      const sel = (ta && ta.tagName === 'TEXTAREA') ? { s: ta.selectionStart, e: ta.selectionEnd } : null;
-      renderCatalogAdmin();
-      if (sel) {
-        const ta2 = document.querySelector(`tr[style*="F1F5F9"] textarea`);
-        if (ta2) {
-          ta2.focus();
-          try { ta2.setSelectionRange(sel.s, sel.e); } catch(e){}
-        }
-      }
-    }, 350); // 350ms 디바운스 — 입력 중에는 재렌더 X
+    const preview = document.getElementById(`catalog-preview-${i}`);
+    if (!preview) return;
+    const parsed = parseOptionsText(catalogDraftText);
+    if (parsed.length === 0) {
+      preview.innerHTML = `<div style="font-size:11px;color:var(--gray-400);padding:8px;background:#fff;border-radius:6px;border:1px dashed var(--gray-300);text-align:center">옵션 단계가 없습니다 — 좌측 입력칸에 추가하세요</div>`;
+      return;
+    }
+    preview.innerHTML = parsed.map((g, gi) => `
+      <div style="background:#fff;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="background:#1D4ED8;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap">${gi+1}단계</span>
+        <span style="font-weight:700;font-size:12px;color:var(--gray-700);min-width:90px">${esc(g.label)}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1">
+          ${g.choices.map(c => `<span style="background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;border-radius:10px;padding:2px 8px;font-size:10px;font-weight:600">${esc(c)}</span>`).join('')}
+        </div>
+        <span style="font-size:10px;color:var(--gray-400)">(${g.choices.length})</span>
+      </div>`).join('');
   }
   window.updateDraftOptionsText = updateDraftOptionsText;
 
