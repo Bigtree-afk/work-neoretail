@@ -1791,15 +1791,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <option value="">담당자 선택...</option>
           </select>
         </div>
-        <div class="form-group" style="margin:0">
-          <label>작업 예정일</label>
-          <input type="date" id="jobDate">
-        </div>
         <div class="form-group" style="margin:0;grid-column:1/-1">
           <label style="display:flex;align-items:center;gap:6px">📌 매장 주요 일정 <span style="font-size:10px;color:var(--gray-400);font-weight:400">미정이면 비워두세요 — 나중에 상세에서 수정 가능</span></label>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">🔧 설치 완료일</div>
+              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">🔧 설치 예정일</div>
               <input type="date" id="jobInstallDate" style="width:100%">
             </div>
             <div>
@@ -5454,7 +5450,6 @@ ${text.slice(0, 3000)}`;
       storeId: storeMatch ? storeMatch.id : '',
       unregistered: jobStoreUnregistered || !storeMatch,
       engineer:  (document.getElementById('jobEngineer') || {}).value || '',
-      date:      (document.getElementById('jobDate')     || {}).value || '',
       installDate:  (document.getElementById('jobInstallDate')   || {}).value || '',
       softOpenDate: (document.getElementById('jobSoftOpenDate')  || {}).value || '',
       openDate:     (document.getElementById('jobOpenDate')      || {}).value || '',
@@ -5728,26 +5723,30 @@ ${text.slice(0, 3000)}`;
     setText('statStockLow', 0);
     setText('statStockLowSub', '데이터 없음');
 
-    // 오늘 일정
+    // 오늘 일정 — 설치예정일/가오픈일/오픈일 중 오늘인 작업
     const todayBody = document.getElementById('dashTodayBody');
     if (todayBody) {
-      const todays = jobs.filter(j => {
-        const d = (j.date || '').slice(0,10);
-        const done = (j.status === '완료' || j.status === 'done');
-        return d === todayStr && !done;
+      const todayLabels = { installDate:'🔧 설치 예정', softOpenDate:'🌅 가오픈', openDate:'🎉 오픈' };
+      const todays = [];
+      jobs.forEach(j => {
+        if (j.status === '완료' || j.status === 'done') return;
+        ['installDate','softOpenDate','openDate'].forEach(field => {
+          if ((j[field] || '').slice(0,10) === todayStr) {
+            todays.push({ ...j, _kind: field });
+          }
+        });
       });
       if (todays.length > 0) {
         todayBody.innerHTML = todays.map(j => {
-          const time = (j.time || (j.date && j.date.length > 10 ? j.date.slice(11,16) : '')) || '--:--';
           const store = j.store || j.storeName || '-';
           const type = j.type || '작업';
-          const note = j.note || j.description || '';
           const eng = j.engineer || j.assignee || '미배정';
+          const kindLbl = todayLabels[j._kind] || '';
           return `<div class="sched-row" style="padding:12px 18px;border-bottom:1px solid var(--gray-100);display:flex;gap:14px;align-items:flex-start">
-            <div style="font-size:12px;font-weight:700;color:var(--primary);width:45px;flex-shrink:0;padding-top:2px">${time}</div>
+            <div style="font-size:12px;font-weight:700;color:var(--primary);width:75px;flex-shrink:0;padding-top:2px">${kindLbl}</div>
             <div style="flex:1">
               <div style="font-size:14px;font-weight:700;margin-bottom:3px">${esc(store)} — ${esc(type)}</div>
-              <div style="font-size:12px;color:var(--gray-400)">${esc(note)} ${eng?'/ 담당: '+esc(eng):''}</div>
+              <div style="font-size:12px;color:var(--gray-400)">담당: ${esc(eng)}</div>
             </div>
             <span class="badge badge-blue">${esc(j.status||'예정')}</span>
           </div>`;
@@ -5845,7 +5844,7 @@ ${text.slice(0, 3000)}`;
       (byDate[d] = byDate[d] || []).push({ ...j, _kind: kind });
     };
     jobs.forEach(j => {
-      pushEvent(j.date,         j, 'work');
+      // 작업예정일(j.date) 제거 — 설치/가오픈/오픈 3개만 캘린더에 표시
       pushEvent(j.installDate,  j, 'install');
       pushEvent(j.softOpenDate, j, 'soft');
       pushEvent(j.openDate,     j, 'open');
@@ -5867,7 +5866,7 @@ ${text.slice(0, 3000)}`;
       return 'background:#F3F4F6;color:#374151';
     };
     const kindIcon = (kind) => ({ install:'🔧', soft:'🌅', open:'🎉' })[kind] || '';
-    const kindLabel = (kind) => ({ install:'설치완료', soft:'가오픈', open:'오픈' })[kind] || '';
+    const kindLabel = (kind) => ({ install:'설치예정', soft:'가오픈', open:'오픈' })[kind] || '';
 
     // 이전 달 끝 날짜 (회색)
     for (let i = firstDayWeekday - 1; i >= 0; i--) {
@@ -6187,11 +6186,10 @@ ${text.slice(0, 3000)}`;
         ? `<div style="display:flex;align-items:center;gap:3px;padding:3px 6px;border-radius:5px;background:${color.bg};color:${color.fg};font-size:10px;font-weight:600;white-space:nowrap" title="${label} ${val}"><span>${icon}</span><span>${fmtDate(val)}</span></div>`
         : `<div style="display:flex;align-items:center;gap:3px;padding:3px 6px;border-radius:5px;background:#F3F4F6;color:#9CA3AF;font-size:10px;font-weight:500;white-space:nowrap" title="${label} 미정"><span>${icon}</span><span>—</span></div>`;
       const datesHtml = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;min-width:160px">
-          ${datePill('🗓','작업 예정일', j.date, {bg:'#EFF6FF',fg:'#1D4ED8'})}
-          ${datePill('🔧','설치 완료일', j.installDate, {bg:'#FED7AA',fg:'#9A3412'})}
-          ${datePill('🌅','가오픈일', j.softOpenDate, {bg:'#FECACA',fg:'#991B1B'})}
-          ${datePill('🎉','오픈일', j.openDate, {bg:'#A7F3D0',fg:'#065F46'})}
+        <div style="display:flex;flex-direction:column;gap:3px;min-width:120px">
+          ${datePill('🔧','설치 예정일', j.installDate, {bg:'#FED7AA',fg:'#9A3412'})}
+          ${datePill('🌅','가오픈일',    j.softOpenDate, {bg:'#FECACA',fg:'#991B1B'})}
+          ${datePill('🎉','오픈일',      j.openDate,     {bg:'#A7F3D0',fg:'#065F46'})}
         </div>`;
 
       // 담당 칸 — 매장 담당자 우선 표시 (없으면 엔지니어 표시)
@@ -6324,14 +6322,11 @@ ${text.slice(0, 3000)}`;
         </div>
         <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">작업 유형</div><div style="font-weight:700">${esc(j.type || '-')}</div></div>
         <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">담당</div><div>${esc(j.engineer || j.assignee || '미배정')}</div></div>
-        <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">작업 예정일</div>
-          <input type="date" value="${esc((j.date||'').slice(0,10))}" onchange="updateJobDate('${j.id}','date',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
-        </div>
         <div style="grid-column:1/-1">
           <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">📌 매장 주요 일정 <span style="font-size:10px;color:var(--gray-400)">— 입력 즉시 자동 저장</span></div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;background:#fff;padding:10px;border:1px solid var(--gray-200);border-radius:8px">
             <div>
-              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">🔧 설치 완료일</div>
+              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">🔧 설치 예정일</div>
               <input type="date" value="${esc((j.installDate||'').slice(0,10))}" onchange="updateJobDate('${j.id}','installDate',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
             </div>
             <div>
@@ -6399,14 +6394,14 @@ ${text.slice(0, 3000)}`;
 
   /* 작업 날짜 필드 업데이트 (상세 모달에서 사용) */
   function updateJobDate(jobId, field, value) {
-    if (!['date','installDate','softOpenDate','openDate'].includes(field)) return;
+    if (!['installDate','softOpenDate','openDate'].includes(field)) return;
     const jobs = getJobs();
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
     job[field] = value || '';
     saveJobs(jobs);
     if (typeof showToast === 'function') {
-      const labels = { date:'작업 예정일', installDate:'설치 완료일', softOpenDate:'가오픈일', openDate:'오픈일' };
+      const labels = { installDate:'설치 예정일', softOpenDate:'가오픈일', openDate:'오픈일' };
       showToast(`✅ ${labels[field]} ${value ? value : '비움'} 저장됨`);
     }
     try { hydrateNewopen('all'); } catch(e) {}
