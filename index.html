@@ -2506,6 +2506,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <button class="modal-close" onclick="closeModal('myPageModal')">✕</button>
     </div>
     <div class="modal-body" style="overflow-y:auto;flex:1">
+      <!-- 작업/카탈로그 클라우드 동기화 -->
+      <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 12px;font-size:11px;color:#92400E;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          ☁ <strong>다중 PC 동기화</strong> — 다른 PC/모바일에서 작업이 안 보일 때 누르세요.
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="pushJobsToCloud({toast:true})" style="font-size:11px;padding:5px 10px">☁ 작업 지금 동기화</button>
+          <button class="btn btn-outline btn-sm" onclick="syncJobsFromCloud().then(()=>{try{hydrateNewopen('all')}catch(e){};try{hydrateDashboardJobs()}catch(e){};showToast&&showToast('☁ 작업 받아옴')})" style="font-size:11px;padding:5px 10px">⤓ 작업 클라우드에서 받기</button>
+        </div>
+      </div>
       <div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:10px 12px;font-size:11px;color:#075985;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
           신규 작업 등록 시 노출되는 장비 카탈로그를 관리합니다.<br>
@@ -2513,7 +2523,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm" onclick="addCatalogItem()" style="font-size:11px;padding:5px 10px">+ 장비 추가</button>
-          <button class="btn btn-outline btn-sm" onclick="pushCatalogNow()" style="font-size:11px;padding:5px 10px" title="모든 직원 PC에 즉시 동기화">☁ 지금 클라우드 동기화</button>
+          <button class="btn btn-outline btn-sm" onclick="pushCatalogNow()" style="font-size:11px;padding:5px 10px" title="모든 직원 PC에 즉시 동기화">☁ 카탈로그 동기화</button>
           <button class="btn btn-outline btn-sm" onclick="resetCatalogToDefault()" style="font-size:11px;padding:5px 10px;color:var(--warning);border-color:var(--warning)">↺ 기본값 초기화</button>
         </div>
       </div>
@@ -5582,14 +5592,21 @@ ${text.slice(0, 3000)}`;
       const res = await fetch('/api/jobs', { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
-      if (Array.isArray(data?.jobs) && data.jobs.length > 0) {
-        // 로컬과 머지: id 기준, 양쪽 합집합 (cloud 우선 — 다른 기기에서 변경한 내용 반영)
-        const local = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
-        const byId = new Map();
-        local.forEach(j => { if (j && j.id) byId.set(j.id, j); });
-        data.jobs.forEach(j => { if (j && j.id) byId.set(j.id, j); }); // 클라우드가 우선
-        const merged = Array.from(byId.values());
-        localStorage.setItem('ns_jobs', JSON.stringify(merged));
+      const local = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
+      const cloud = Array.isArray(data?.jobs) ? data.jobs : [];
+      // 로컬과 머지: id 기준 합집합 — 새 항목은 양쪽 다 받음, 같은 id 는 cloud 가 우선
+      const byId = new Map();
+      local.forEach(j => { if (j && j.id) byId.set(j.id, j); });
+      cloud.forEach(j => { if (j && j.id) byId.set(j.id, j); });
+      const merged = Array.from(byId.values());
+      localStorage.setItem('ns_jobs', JSON.stringify(merged));
+      // 로컬에 클라우드보다 많거나 다른 항목이 있으면 즉시 클라우드에 푸시 (토큰 있을 때만)
+      // → 처음 동기화 시 admin PC 에서 자동으로 모든 작업을 클라우드에 올려줌
+      if (merged.length > cloud.length) {
+        const token = (typeof getCloudSyncToken === 'function') ? getCloudSyncToken() : (localStorage.getItem('cloud_sync_token')||'');
+        if (token) {
+          schedulePushJobsToCloud();
+        }
       }
     } catch(e) { /* 네트워크 실패 무시 */ }
   }
