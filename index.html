@@ -6393,7 +6393,7 @@ ${text.slice(0, 3000)}`;
         <div style="font-size:13px;font-weight:700;color:var(--gray-700)">📦 설치되어야 할 장비 (${eq.length}종 · 총 ${totalQty}대)</div>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="font-size:12px;color:var(--gray-500)">설치 완료: <b style="color:var(--success)">${installedQty}</b> / ${totalQty}대</div>
-          <button class="btn btn-primary btn-sm" style="font-size:12px;padding:6px 12px;font-weight:700" onclick="openEquipPicker('${j.id}')">+ 장비 추가</button>
+          <button class="btn btn-primary btn-sm" style="font-size:12px;padding:6px 12px;font-weight:700" onclick="toggleEquipPicker('${j.id}')">${equipPanelOpenForJobId === j.id ? '− 장비 추가 닫기' : '+ 장비 추가'}</button>
         </div>
       </div>
 
@@ -6420,85 +6420,162 @@ ${text.slice(0, 3000)}`;
           </tfoot>
         </table>
       </div>
+
+      ${equipPanelOpenForJobId === j.id ? `
+        <div id="equipPickerInline" style="margin-top:14px;border:2px solid var(--primary);border-radius:10px;background:#F8FAFC;overflow:hidden">
+          <div style="background:var(--primary);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:700;font-size:13px">📋 장비 카탈로그 — 옵션 선택 후 [추가] 버튼을 눌러 작업에 추가하세요</div>
+            <button onclick="toggleEquipPicker('${j.id}')" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:5px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700">닫기</button>
+          </div>
+          <div style="max-height:480px;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px">
+            ${FIXED_EQUIPMENT.map(def => {
+              const dvar = def.variants ? def.variants[0] : '';
+              const dcost = def.costPriceBy ? (def.costPriceBy[dvar]||0) : (def.costPrice||0);
+              const dsale = def.salePriceBy ? (def.salePriceBy[dvar]||0) : (def.salePrice||0);
+              const inputSty = 'padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff';
+              const variantSel = def.variants ? `
+                <select id="pick-variant-${def.key}" onchange="onPickerVariantChange('${def.key}')" style="${inputSty}">
+                  ${def.variants.map(v => `<option value="${v}">${v}</option>`).join('')}
+                </select>` : '';
+              const extraSel = def.extraToggle ? `
+                <select id="pick-extra-${def.key}" style="${inputSty}" title="${def.extraToggle.label}">
+                  ${def.extraToggle.options.map(o => `<option value="${o}">${def.extraToggle.label}: ${o}</option>`).join('')}
+                </select>` : '';
+              const sizeIn = def.hasSize ? `
+                <input id="pick-size-${def.key}" type="text" placeholder="사이즈" style="${inputSty};width:80px">` : '';
+              return `
+                <div style="background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                  <div style="font-weight:700;font-size:13px;min-width:120px">${esc(def.name)}</div>
+                  ${variantSel}
+                  ${extraSel}
+                  ${sizeIn}
+                  <select id="pick-cond-${def.key}" style="${inputSty}">
+                    <option value="new">신품</option>
+                    <option value="used">중고</option>
+                  </select>
+                  <label style="font-size:10px;color:var(--gray-500);display:flex;align-items:center;gap:3px">수량
+                    <input id="pick-qty-${def.key}" type="number" min="0" value="1" oninput="onPickerSubChange('${def.key}')" style="${inputSty};width:55px;text-align:right">
+                  </label>
+                  <label style="font-size:10px;color:var(--gray-500);display:flex;align-items:center;gap:3px">입고가
+                    <input id="pick-cost-${def.key}" type="number" min="0" value="${dcost}" style="${inputSty};width:80px;text-align:right;color:var(--gray-500)">
+                  </label>
+                  <label style="font-size:10px;color:var(--gray-500);display:flex;align-items:center;gap:3px">판매가
+                    <input id="pick-sale-${def.key}" type="number" min="0" value="${dsale}" oninput="onPickerSubChange('${def.key}')" style="${inputSty};width:90px;text-align:right">
+                  </label>
+                  <div style="margin-left:auto;font-size:11px;color:var(--gray-500);white-space:nowrap">합계 <b id="pick-total-${def.key}" style="color:var(--primary)">${(1*dsale).toLocaleString('ko-KR')}원</b></div>
+                  <button onclick="addEquipFromCatalog('${j.id}','${def.key}')" style="background:var(--primary);color:#fff;border:none;border-radius:5px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">＋ 추가</button>
+                </div>`;
+            }).join('')}
+            <!-- 직접 입력 -->
+            <div style="background:#FAFAFA;border:1px dashed var(--gray-300);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <div style="font-weight:700;font-size:13px;min-width:120px;color:var(--gray-600)">📝 직접 입력</div>
+              <input id="pick-name-__custom" type="text" placeholder="품목명" style="padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff;width:130px">
+              <input id="pick-spec-__custom" type="text" placeholder="규격/사양" style="padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff;width:160px">
+              <select id="pick-cond-__custom" style="padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff">
+                <option value="new">신품</option>
+                <option value="used">중고</option>
+              </select>
+              <label style="font-size:10px;color:var(--gray-500);display:flex;align-items:center;gap:3px">수량
+                <input id="pick-qty-__custom" type="number" min="0" value="1" style="padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff;width:55px;text-align:right">
+              </label>
+              <label style="font-size:10px;color:var(--gray-500);display:flex;align-items:center;gap:3px">판매가
+                <input id="pick-sale-__custom" type="number" min="0" value="0" style="padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff;width:90px;text-align:right">
+              </label>
+              <button onclick="addEquipFromCatalog('${j.id}','__custom')" style="margin-left:auto;background:var(--gray-700);color:#fff;border:none;border-radius:5px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">＋ 추가</button>
+            </div>
+          </div>
+        </div>
+      ` : ''}
     `;
 
     modal.classList.add('show');
   }
   window.editNewopen = editNewopen;
 
-  /* ── 작업 장비 편집 — 카탈로그 피커 + 인라인 수정 ── */
-  function openEquipPicker(jobId) {
-    const old = document.getElementById('equipPickerTempModal');
-    if (old) old.remove();
-    const modal = document.createElement('div');
-    modal.className = 'modal show';
-    modal.id = 'equipPickerTempModal';
-    modal.style.zIndex = '5000';
-    modal.innerHTML = `<div class="modal-content" style="max-width:560px">
-      <div class="modal-header">
-        <h3 class="modal-title">📦 장비 추가</h3>
-        <button class="modal-close" onclick="closeEquipPicker()">×</button>
-      </div>
-      <div style="padding:16px;display:flex;flex-direction:column;gap:6px;max-height:65vh;overflow-y:auto">
-        <div style="font-size:12px;color:var(--gray-500);margin-bottom:4px">동일 품목도 여러 번 추가 가능 — 각각 별도 행으로 저장됩니다</div>
-        ${FIXED_EQUIPMENT.map(def => `
-          <button onclick="addEquipFromCatalog('${jobId}','${def.key}')"
-            style="text-align:left;padding:10px 14px;border:1px solid var(--gray-200);border-radius:8px;background:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;transition:background .12s"
-            onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='#fff'">
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:13px">${esc(def.name)}</div>
-              ${def.variants ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">옵션: ${def.variants.join(' / ')}</div>` : ''}
-            </div>
-            <div style="font-size:11px;color:var(--gray-500);text-align:right;white-space:nowrap">
-              ${def.salePrice ? '판매가 '+def.salePrice.toLocaleString('ko-KR')+'원' :
-                def.salePriceBy ? '변형별 가격' : '가격 미정'}
-            </div>
-          </button>
-        `).join('')}
-        <button onclick="addEquipFromCatalog('${jobId}','__custom')"
-          style="text-align:left;padding:10px 14px;border:1px dashed var(--gray-300);border-radius:8px;background:#FAFAFA;cursor:pointer;color:var(--gray-600);font-weight:600;font-size:12px">
-          + 직접 입력 (기타 품목)
-        </button>
-      </div>
-    </div>`;
-    document.body.appendChild(modal);
+  /* ── 작업 장비 편집 — 인라인 카탈로그 패널 (팝업 X) ── */
+  let equipPanelOpenForJobId = null;
+  function toggleEquipPicker(jobId) {
+    equipPanelOpenForJobId = (equipPanelOpenForJobId === jobId) ? null : jobId;
+    try { editNewopen(jobId); } catch(e){}
+    // 패널 열렸으면 부드럽게 스크롤
+    setTimeout(() => {
+      const el = document.getElementById('equipPickerInline');
+      if (el && equipPanelOpenForJobId) el.scrollIntoView({ behavior:'smooth', block:'start' });
+    }, 80);
   }
-  window.openEquipPicker = openEquipPicker;
-  function closeEquipPicker() {
-    const m = document.getElementById('equipPickerTempModal');
-    if (m) m.remove();
-  }
-  window.closeEquipPicker = closeEquipPicker;
+  window.toggleEquipPicker = toggleEquipPicker;
 
+  // 카탈로그 행에서 [추가] 버튼 클릭 시 — DOM 입력값을 직접 읽어 push
   function addEquipFromCatalog(jobId, fixedKey) {
+    const get = (id) => {
+      const el = document.getElementById(id);
+      return el ? el.value : '';
+    };
     const jobs = getJobs();
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
     if (!Array.isArray(job.equipment)) job.equipment = [];
+
     let newItem;
     if (fixedKey === '__custom') {
-      newItem = { name:'기타 품목', spec:'', variant:'', extra:'', size:'',
-                  condition:'new', qty:1, costPrice:0, salePrice:0 };
+      const name = (get(`pick-name-__custom`) || '').trim();
+      if (!name) { if (typeof showToast === 'function') showToast('품목명을 입력하세요'); return; }
+      const qty = Math.max(0, Math.round(Number(get(`pick-qty-__custom`)) || 0));
+      if (qty <= 0) { if (typeof showToast === 'function') showToast('수량을 1 이상 입력하세요'); return; }
+      newItem = {
+        name,
+        spec: (get(`pick-spec-__custom`)||'').trim(),
+        condition: get(`pick-cond-__custom`) || 'new',
+        qty,
+        costPrice: 0,
+        salePrice: Math.max(0, Math.round(Number(get(`pick-sale-__custom`))||0)),
+      };
     } else {
       const def = FIXED_EQUIPMENT.find(d => d.key === fixedKey);
       if (!def) return;
-      const variant = def.variants ? def.variants[0] : '';
-      const cost = def.costPriceBy ? (def.costPriceBy[variant]||0) : (def.costPrice||0);
-      const sale = def.salePriceBy ? (def.salePriceBy[variant]||0) : (def.salePrice||0);
+      const qty = Math.max(0, Math.round(Number(get(`pick-qty-${fixedKey}`)) || 0));
+      if (qty <= 0) { if (typeof showToast === 'function') showToast('수량을 1 이상 입력하세요'); return; }
       newItem = {
-        name: def.name, variant,
-        extra: def.extraToggle ? def.extraToggle.options[0] : '',
-        size:'', condition:'new', qty:1, costPrice:cost, salePrice:sale,
+        name: def.name,
+        variant:   def.variants    ? get(`pick-variant-${fixedKey}`) : '',
+        extra:     def.extraToggle ? get(`pick-extra-${fixedKey}`)   : '',
+        size:      def.hasSize     ? get(`pick-size-${fixedKey}`)    : '',
+        condition: get(`pick-cond-${fixedKey}`) || 'new',
+        qty,
+        costPrice: Math.max(0, Math.round(Number(get(`pick-cost-${fixedKey}`))||0)),
+        salePrice: Math.max(0, Math.round(Number(get(`pick-sale-${fixedKey}`))||0)),
       };
     }
     job.equipment.push(newItem);
     saveJobs(jobs);
-    closeEquipPicker();
     try { editNewopen(jobId); } catch(e){}
     try { hydrateNewopen('all'); } catch(e){}
     if (typeof showToast === 'function') showToast(`✅ ${newItem.name} 추가됨`);
   }
   window.addEquipFromCatalog = addEquipFromCatalog;
+
+  // 변형 변경 시 단가 자동 갱신 (re-render 없이 input 값만 갱신)
+  function onPickerVariantChange(fixedKey) {
+    const def = FIXED_EQUIPMENT.find(d => d.key === fixedKey);
+    if (!def) return;
+    const variant = (document.getElementById(`pick-variant-${fixedKey}`)||{}).value || '';
+    const cost = def.costPriceBy ? (def.costPriceBy[variant]||0) : (def.costPrice||0);
+    const sale = def.salePriceBy ? (def.salePriceBy[variant]||0) : (def.salePrice||0);
+    const cEl = document.getElementById(`pick-cost-${fixedKey}`);
+    const sEl = document.getElementById(`pick-sale-${fixedKey}`);
+    if (cEl) cEl.value = cost;
+    if (sEl) sEl.value = sale;
+    onPickerSubChange(fixedKey);
+  }
+  window.onPickerVariantChange = onPickerVariantChange;
+  // 수량/판매가 변경 시 합계 표시 라이브 갱신 (re-render 없이)
+  function onPickerSubChange(fixedKey) {
+    const q = Number((document.getElementById(`pick-qty-${fixedKey}`)||{}).value)||0;
+    const p = Number((document.getElementById(`pick-sale-${fixedKey}`)||{}).value)||0;
+    const t = document.getElementById(`pick-total-${fixedKey}`);
+    if (t) t.textContent = (q*p).toLocaleString('ko-KR') + '원';
+  }
+  window.onPickerSubChange = onPickerSubChange;
 
   function updateJobEquipField(jobId, idx, field, value) {
     const jobs = getJobs();
