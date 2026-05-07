@@ -6284,7 +6284,7 @@ ${text.slice(0, 3000)}`;
     const grandTotal = eq.reduce((s, e) => s + (e.subtotal || (Number(e.qty)||0)*(Number(e.salePrice)||0)), 0);
 
     const rows = eq.length === 0
-      ? `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">등록된 투입 장비가 없습니다.</td></tr>`
+      ? `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">등록된 투입 장비가 없습니다. 우측 상단 [+ 장비 추가] 버튼으로 추가하세요.</td></tr>`
       : eq.map((e, i) => {
           const isChk = !!checked[i];
           const meta = (j.equipmentCheckedBy || {})[i];
@@ -6298,6 +6298,10 @@ ${text.slice(0, 3000)}`;
           const checkInfo = isChk && meta
             ? `<div style="font-size:10px;color:var(--success);margin-top:2px">✓ ${esc(meta.name||'-')} · ${meta.at?new Date(meta.at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div>`
             : '';
+          const qty   = Number(e.qty) || 0;
+          const sale  = Number(e.salePrice) || 0;
+          const sub   = qty * sale;
+          const inputStyle = 'width:100%;padding:5px 8px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;text-align:right;background:#fff';
           return `<tr style="${isChk?'background:#F0FDF4':''}">
             <td style="padding:8px;border-bottom:1px solid var(--gray-100);text-align:center">
               <input type="checkbox" ${isChk?'checked':''} onchange="toggleEquipChecked('${j.id}',${i},this.checked); editNewopen('${j.id}')" style="width:16px;height:16px;cursor:pointer">
@@ -6307,10 +6311,19 @@ ${text.slice(0, 3000)}`;
               ${e.spec ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">${esc(e.spec)}</div>` : ''}
               ${checkInfo}
             </td>
-            <td style="padding:8px;border-bottom:1px solid var(--gray-100);text-align:right;font-weight:600">${e.qty}대</td>
+            <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right">
+              <input type="number" min="0" value="${qty}" onchange="updateJobEquipField('${j.id}',${i},'qty',this.value)" style="${inputStyle}">
+            </td>
             <td style="padding:8px;border-bottom:1px solid var(--gray-100);text-align:right;color:var(--gray-500)">${(Number(e.costPrice)||0).toLocaleString('ko-KR')}</td>
-            <td style="padding:8px;border-bottom:1px solid var(--gray-100);text-align:right">${(Number(e.salePrice)||0).toLocaleString('ko-KR')}</td>
-            <td style="padding:8px;border-bottom:1px solid var(--gray-100);text-align:right;font-weight:700;color:var(--primary)">${((Number(e.qty)||0)*(Number(e.salePrice)||0)).toLocaleString('ko-KR')}</td>
+            <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right">
+              <input type="number" min="0" value="${sale}" onchange="updateJobEquipField('${j.id}',${i},'salePrice',this.value)" style="${inputStyle}">
+            </td>
+            <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:right">
+              <input type="number" min="0" value="${sub}" onchange="updateJobEquipField('${j.id}',${i},'subtotal',this.value)" style="${inputStyle};font-weight:700;color:var(--primary)">
+            </td>
+            <td style="padding:6px;border-bottom:1px solid var(--gray-100);text-align:center">
+              <button title="삭제" onclick="if(confirm('이 장비를 삭제하시겠습니까?'))removeJobEquip('${j.id}',${i})" style="background:none;border:1px solid var(--gray-200);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:13px;color:var(--danger)">×</button>
+            </td>
           </tr>`;
         }).join('');
 
@@ -6371,9 +6384,12 @@ ${text.slice(0, 3000)}`;
         ${j.notes ? `<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">비고</div><div style="font-size:13px;white-space:pre-wrap">${esc(j.notes)}</div></div>` : ''}
       </div>
 
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 4px;gap:10px;flex-wrap:wrap">
         <div style="font-size:13px;font-weight:700;color:var(--gray-700)">📦 설치되어야 할 장비 (${eq.length}종 · 총 ${totalQty}대)</div>
-        <div style="font-size:12px;color:var(--gray-500)">설치 완료: <b style="color:var(--success)">${installedQty}</b> / ${totalQty}대</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:12px;color:var(--gray-500)">설치 완료: <b style="color:var(--success)">${installedQty}</b> / ${totalQty}대</div>
+          <button class="btn btn-primary btn-sm" style="font-size:12px;padding:6px 12px;font-weight:700" onclick="openEquipPicker('${j.id}')">+ 장비 추가</button>
+        </div>
       </div>
 
       <div style="overflow-x:auto;border:1px solid var(--gray-200);border-radius:10px">
@@ -6382,10 +6398,11 @@ ${text.slice(0, 3000)}`;
             <tr>
               <th style="padding:10px;width:60px;text-align:center;font-size:11px;font-weight:700">설치</th>
               <th style="padding:10px;text-align:left;font-size:11px;font-weight:700">품목 / 분류 / 상태</th>
-              <th style="padding:10px;text-align:right;width:60px;font-size:11px;font-weight:700">수량</th>
+              <th style="padding:10px;text-align:right;width:80px;font-size:11px;font-weight:700">수량</th>
               <th style="padding:10px;text-align:right;width:100px;font-size:11px;font-weight:700">입고가</th>
-              <th style="padding:10px;text-align:right;width:100px;font-size:11px;font-weight:700">판매가</th>
-              <th style="padding:10px;text-align:right;width:120px;font-size:11px;font-weight:700">합계</th>
+              <th style="padding:10px;text-align:right;width:110px;font-size:11px;font-weight:700">판매가</th>
+              <th style="padding:10px;text-align:right;width:130px;font-size:11px;font-weight:700">합계</th>
+              <th style="padding:10px;width:40px;text-align:center;font-size:11px;font-weight:700">삭제</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -6393,6 +6410,7 @@ ${text.slice(0, 3000)}`;
             <tr style="background:#F9FAFB;font-weight:700">
               <td colspan="5" style="padding:10px;text-align:right;color:var(--gray-600)">총 합계</td>
               <td style="padding:10px;text-align:right;color:var(--primary);font-size:14px">${grandTotal.toLocaleString('ko-KR')}원</td>
+              <td></td>
             </tr>
           </tfoot>
         </table>
@@ -6402,6 +6420,128 @@ ${text.slice(0, 3000)}`;
     modal.classList.add('show');
   }
   window.editNewopen = editNewopen;
+
+  /* ── 작업 장비 편집 — 카탈로그 피커 + 인라인 수정 ── */
+  function openEquipPicker(jobId) {
+    const old = document.getElementById('equipPickerTempModal');
+    if (old) old.remove();
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.id = 'equipPickerTempModal';
+    modal.style.zIndex = '5000';
+    modal.innerHTML = `<div class="modal-content" style="max-width:560px">
+      <div class="modal-header">
+        <h3 class="modal-title">📦 장비 추가</h3>
+        <button class="modal-close" onclick="closeEquipPicker()">×</button>
+      </div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:6px;max-height:65vh;overflow-y:auto">
+        <div style="font-size:12px;color:var(--gray-500);margin-bottom:4px">동일 품목도 여러 번 추가 가능 — 각각 별도 행으로 저장됩니다</div>
+        ${FIXED_EQUIPMENT.map(def => `
+          <button onclick="addEquipFromCatalog('${jobId}','${def.key}')"
+            style="text-align:left;padding:10px 14px;border:1px solid var(--gray-200);border-radius:8px;background:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;transition:background .12s"
+            onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='#fff'">
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:13px">${esc(def.name)}</div>
+              ${def.variants ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">옵션: ${def.variants.join(' / ')}</div>` : ''}
+            </div>
+            <div style="font-size:11px;color:var(--gray-500);text-align:right;white-space:nowrap">
+              ${def.salePrice ? '판매가 '+def.salePrice.toLocaleString('ko-KR')+'원' :
+                def.salePriceBy ? '변형별 가격' : '가격 미정'}
+            </div>
+          </button>
+        `).join('')}
+        <button onclick="addEquipFromCatalog('${jobId}','__custom')"
+          style="text-align:left;padding:10px 14px;border:1px dashed var(--gray-300);border-radius:8px;background:#FAFAFA;cursor:pointer;color:var(--gray-600);font-weight:600;font-size:12px">
+          + 직접 입력 (기타 품목)
+        </button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  window.openEquipPicker = openEquipPicker;
+  function closeEquipPicker() {
+    const m = document.getElementById('equipPickerTempModal');
+    if (m) m.remove();
+  }
+  window.closeEquipPicker = closeEquipPicker;
+
+  function addEquipFromCatalog(jobId, fixedKey) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    if (!Array.isArray(job.equipment)) job.equipment = [];
+    let newItem;
+    if (fixedKey === '__custom') {
+      newItem = { name:'기타 품목', spec:'', variant:'', extra:'', size:'',
+                  condition:'new', qty:1, costPrice:0, salePrice:0 };
+    } else {
+      const def = FIXED_EQUIPMENT.find(d => d.key === fixedKey);
+      if (!def) return;
+      const variant = def.variants ? def.variants[0] : '';
+      const cost = def.costPriceBy ? (def.costPriceBy[variant]||0) : (def.costPrice||0);
+      const sale = def.salePriceBy ? (def.salePriceBy[variant]||0) : (def.salePrice||0);
+      newItem = {
+        name: def.name, variant,
+        extra: def.extraToggle ? def.extraToggle.options[0] : '',
+        size:'', condition:'new', qty:1, costPrice:cost, salePrice:sale,
+      };
+    }
+    job.equipment.push(newItem);
+    saveJobs(jobs);
+    closeEquipPicker();
+    try { editNewopen(jobId); } catch(e){}
+    try { hydrateNewopen('all'); } catch(e){}
+    if (typeof showToast === 'function') showToast(`✅ ${newItem.name} 추가됨`);
+  }
+  window.addEquipFromCatalog = addEquipFromCatalog;
+
+  function updateJobEquipField(jobId, idx, field, value) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job || !Array.isArray(job.equipment)) return;
+    const item = job.equipment[idx];
+    if (!item) return;
+    const num = Number(String(value).replace(/[^0-9.\-]/g,'')) || 0;
+    if (field === 'qty') {
+      item.qty = Math.max(0, Math.round(num));
+    } else if (field === 'salePrice') {
+      item.salePrice = Math.max(0, Math.round(num));
+    } else if (field === 'subtotal') {
+      // 합계 → 판매가 = 합계/수량 (수량이 0이면 무시)
+      const q = Number(item.qty) || 0;
+      if (q > 0) item.salePrice = Math.max(0, Math.round(num / q));
+    }
+    saveJobs(jobs);
+    try { editNewopen(jobId); } catch(e){}
+    try { hydrateNewopen('all'); } catch(e){}
+  }
+  window.updateJobEquipField = updateJobEquipField;
+
+  function removeJobEquip(jobId, idx) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job || !Array.isArray(job.equipment)) return;
+    job.equipment.splice(idx, 1);
+    // equipmentChecked / equipmentCheckedBy 인덱스 재정렬
+    const shiftMap = (m) => {
+      if (!m) return m;
+      const out = {};
+      Object.keys(m).forEach(k => {
+        const ki = parseInt(k, 10);
+        if (isNaN(ki)) return;
+        if (ki < idx) out[ki] = m[k];
+        else if (ki > idx) out[ki - 1] = m[k];
+      });
+      return out;
+    };
+    job.equipmentChecked   = shiftMap(job.equipmentChecked);
+    job.equipmentCheckedBy = shiftMap(job.equipmentCheckedBy);
+    saveJobs(jobs);
+    try { editNewopen(jobId); } catch(e){}
+    try { hydrateNewopen('all'); } catch(e){}
+    if (typeof showToast === 'function') showToast('🗑️ 장비 삭제됨');
+  }
+  window.removeJobEquip = removeJobEquip;
 
   /* 작업 날짜 필드 업데이트 (상세 모달에서 사용) */
   function updateJobDate(jobId, field, value) {
