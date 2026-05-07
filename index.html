@@ -2442,6 +2442,38 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
+      <!-- 장비 품목 관리 -->
+      <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+      <div class="admin-section">
+        <div class="admin-section-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <span>📦 장비 품목 관리</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" onclick="addCatalogItem()" style="font-size:11px;padding:5px 10px">+ 장비 추가</button>
+            <button class="btn btn-outline btn-sm" onclick="pushCatalogNow()" style="font-size:11px;padding:5px 10px" title="모든 직원 PC에 즉시 동기화">☁ 지금 클라우드 동기화</button>
+            <button class="btn btn-outline btn-sm" onclick="resetCatalogToDefault()" style="font-size:11px;padding:5px 10px;color:var(--warning);border-color:var(--warning)">↺ 기본값 초기화</button>
+          </div>
+        </div>
+        <div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:10px 12px;font-size:11px;color:#075985;margin-bottom:10px">
+          신규 작업 등록 시 [+ 장비 추가] 버튼에서 노출되는 장비 카탈로그입니다.<br>
+          <strong>옵션</strong> 칸은 쉼표로 구분 (예: <code>유통, 외식</code>). 각 변경은 자동 저장되며 클라우드에 푸시됩니다.
+        </div>
+        <div style="overflow-x:auto;border:1px solid var(--gray-200);border-radius:8px;max-height:380px;overflow-y:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead style="background:#F3F4F6;position:sticky;top:0;z-index:1">
+              <tr>
+                <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;width:120px">장비구분</th>
+                <th style="padding:8px;text-align:left;font-size:11px;font-weight:700;width:160px">장비명</th>
+                <th style="padding:8px;text-align:left;font-size:11px;font-weight:700">옵션 (쉼표 구분)</th>
+                <th style="padding:8px;text-align:right;font-size:11px;font-weight:700;width:110px">원가</th>
+                <th style="padding:8px;text-align:right;font-size:11px;font-weight:700;width:110px">판매가</th>
+                <th style="padding:8px;text-align:center;font-size:11px;font-weight:700;width:50px">삭제</th>
+              </tr>
+            </thead>
+            <tbody id="catalogAdminTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- 데이터 초기화 (위험구역) -->
       <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
       <div class="admin-section">
@@ -2583,6 +2615,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
       syncFromCloud({ toast: false });
+      try { if (typeof syncCatalogFromCloud === 'function') syncCatalogFromCloud(); } catch(e){}
       try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
       try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
       try { if (typeof hydrateSavedStores === 'function') hydrateSavedStores(); } catch(e){}
@@ -2644,7 +2677,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     document.getElementById(id).classList.add('show');
     if (id === 'lineImportModal') initLineImportModal();
     if (id === 'newJobModal') { buildBallSelectors(); populateStoreNameList(); }
-    if (id === 'adminModal') { try { renderBackupStatus(); } catch(e){} }
+    if (id === 'adminModal') {
+      try { renderBackupStatus(); } catch(e){}
+      try { renderCatalogAdmin(); } catch(e){}
+    }
   }
 
   function closeModal(id) {
@@ -3030,6 +3066,165 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       costPrice:0, salePrice:0 },
     { key:'hscanner',   name:'핸디스캐너',        costPrice:0,       salePrice:0       },
   ];
+
+  /* ── 장비 카탈로그 (사용자 관리 가능) ──
+     스키마: { id, category, name, variants[], costPrice, salePrice }
+     기본값: 기존 FIXED_EQUIPMENT 에서 시드 — 마이페이지에서 수정/추가/삭제 가능
+     localStorage: ns_equipment_catalog
+     클라우드: /api/catalog (모든 직원 PC 자동 동기화) */
+  const DEFAULT_EQUIPMENT_CATALOG = [
+    { id:'eq-server',      category:'컴퓨터',   name:'서버PC',          variants:[],                      costPrice:650000, salePrice:850000 },
+    { id:'eq-client',      category:'컴퓨터',   name:'클라이언트PC',     variants:[],                      costPrice:480000, salePrice:650000 },
+    { id:'eq-allinone',    category:'POS',     name:'일체형포스',       variants:['유통','외식'],          costPrice:495000, salePrice:1100000 },
+    { id:'eq-kiosk',       category:'POS',     name:'키오스크',         variants:['유통','외식'],          costPrice:0,      salePrice:1800000 },
+    { id:'eq-fscanner',    category:'주변기기', name:'고정스캐너',        variants:[],                      costPrice:0,      salePrice:0 },
+    { id:'eq-rprinter',    category:'주변기기', name:'포스프린터',        variants:['시리얼','패러럴'],      costPrice:0,      salePrice:0 },
+    { id:'eq-plukey',      category:'주변기기', name:'PLU키보드',         variants:[],                      costPrice:0,      salePrice:0 },
+    { id:'eq-handy930',    category:'POS',     name:'핸디터미널 930',    variants:[],                      costPrice:300000, salePrice:650000 },
+    { id:'eq-handy970',    category:'POS',     name:'핸디터미널 970',    variants:[],                      costPrice:480000, salePrice:800000 },
+    { id:'eq-handystand-v',category:'주변기기', name:'핸디거치대 수직형', variants:[],                      costPrice:80000,  salePrice:200000 },
+    { id:'eq-handystand-i',category:'주변기기', name:'핸디거치대 I/O박스',variants:[],                      costPrice:40000,  salePrice:120000 },
+    { id:'eq-lprinter',    category:'주변기기', name:'라벨프린터',        variants:[],                      costPrice:0,      salePrice:0 },
+    { id:'eq-posdai',      category:'가구',    name:'포스 다이',         variants:['전동','무전동'],        costPrice:0,      salePrice:0 },
+    { id:'eq-monitor',     category:'주변기기', name:'모니터',            variants:['사무용','포스 듀얼'],   costPrice:0,      salePrice:0 },
+    { id:'eq-scale',       category:'주변기기', name:'전자저울',          variants:['일반','정육'],          costPrice:0,      salePrice:0 },
+    { id:'eq-kbdai',       category:'가구',    name:'키보드 다이',       variants:[],                      costPrice:0,      salePrice:0 },
+    { id:'eq-checker-k501', category:'체크기', name:'체크기 K501',       variants:['세트','단품'],          costPrice:0,      salePrice:0 },
+    { id:'eq-checker-k4200',category:'체크기', name:'체크기 K4200',      variants:['세트','단품'],          costPrice:0,      salePrice:0 },
+    { id:'eq-checker-scs500',category:'체크기',name:'체크기 SCS500',     variants:['세트','단품'],          costPrice:0,      salePrice:0 },
+    { id:'eq-checker-k400', category:'체크기', name:'체크기 K400',       variants:['세트','단품'],          costPrice:0,      salePrice:0 },
+    { id:'eq-checker-p500', category:'체크기', name:'체크기 P500',       variants:['세트','단품'],          costPrice:0,      salePrice:0 },
+    { id:'eq-hscanner',    category:'주변기기', name:'핸디스캐너',        variants:[],                      costPrice:0,      salePrice:0 },
+  ];
+  function getEquipmentCatalog() {
+    try {
+      const v = JSON.parse(localStorage.getItem('ns_equipment_catalog') || 'null');
+      if (Array.isArray(v) && v.length > 0) return v;
+    } catch {}
+    return DEFAULT_EQUIPMENT_CATALOG.slice();
+  }
+  function setEquipmentCatalogLocal(arr) {
+    localStorage.setItem('ns_equipment_catalog', JSON.stringify(arr));
+  }
+  // 클라우드 → 로컬 동기화 (페이지 로드 시 한 번)
+  async function syncCatalogFromCloud() {
+    try {
+      const res = await fetch('/api/catalog', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data?.items) && data.items.length > 0) {
+        setEquipmentCatalogLocal(data.items);
+      }
+    } catch(e) { /* 네트워크 실패 무시 — 로컬 기본값 사용 */ }
+  }
+  // 로컬 → 클라우드 푸시 (관리자 토큰 필요)
+  async function pushCatalogToCloud(items, opts) {
+    const token = (typeof getCloudSyncToken === 'function') ? getCloudSyncToken() : (localStorage.getItem('cloud_sync_token')||'');
+    if (!token) {
+      if (opts && opts.toast && typeof showToast === 'function') {
+        showToast('⚠ 클라우드 동기화 토큰 미설정 — 로컬에만 저장됨');
+      }
+      return { ok:false, reason:'no token' };
+    }
+    try {
+      const res = await fetch('/api/catalog', {
+        method:'POST',
+        headers:{ 'authorization':'Bearer ' + token, 'content-type':'application/json' },
+        body: JSON.stringify({ items }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        if (opts && opts.toast && typeof showToast === 'function') showToast(`⚠ 클라우드 푸시 실패 (${res.status}): ${txt.slice(0,80)}`);
+        return { ok:false, status:res.status };
+      }
+      const data = await res.json();
+      if (opts && opts.toast && typeof showToast === 'function') showToast(`☁ 카탈로그 동기화 완료 (${data.count}건)`);
+      return { ok:true, ...data };
+    } catch(e) {
+      if (opts && opts.toast && typeof showToast === 'function') showToast('⚠ 클라우드 푸시 실패 (네트워크)');
+      return { ok:false, error:String(e) };
+    }
+  }
+  function saveEquipmentCatalog(arr, opts) {
+    setEquipmentCatalogLocal(arr);
+    pushCatalogToCloud(arr, opts);
+  }
+  window.getEquipmentCatalog = getEquipmentCatalog;
+
+  /* 카탈로그 CRUD — 마이페이지(관리자) 에서 호출 */
+  function renderCatalogAdmin() {
+    const tb = document.getElementById('catalogAdminTbody');
+    if (!tb) return;
+    const list = getEquipmentCatalog();
+    if (list.length === 0) {
+      tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">등록된 장비가 없습니다. 우측 상단 [+ 장비 추가] 버튼을 눌러 추가하세요.</td></tr>`;
+      return;
+    }
+    const inputSty = 'padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff;width:100%';
+    tb.innerHTML = list.map((it, i) => `
+      <tr>
+        <td style="padding:5px"><input type="text" value="${esc(it.category||'')}" placeholder="POS / 컴퓨터 / 주변기기..." onchange="updateCatalogField(${i},'category',this.value)" style="${inputSty}"></td>
+        <td style="padding:5px"><input type="text" value="${esc(it.name||'')}" placeholder="장비명" onchange="updateCatalogField(${i},'name',this.value)" style="${inputSty}"></td>
+        <td style="padding:5px"><input type="text" value="${esc((it.variants||[]).join(', '))}" placeholder="옵션 (쉼표로 구분, 예: 유통, 외식)" onchange="updateCatalogField(${i},'variants',this.value)" style="${inputSty}"></td>
+        <td style="padding:5px"><input type="number" min="0" value="${Number(it.costPrice)||0}" onchange="updateCatalogField(${i},'costPrice',this.value)" style="${inputSty};text-align:right"></td>
+        <td style="padding:5px"><input type="number" min="0" value="${Number(it.salePrice)||0}" onchange="updateCatalogField(${i},'salePrice',this.value)" style="${inputSty};text-align:right"></td>
+        <td style="padding:5px;text-align:center">
+          <button title="삭제" onclick="if(confirm('이 장비 품목을 삭제하시겠습니까?'))removeCatalogItem(${i})" style="background:none;border:1px solid var(--gray-200);border-radius:5px;padding:5px 9px;cursor:pointer;font-size:13px;color:var(--danger)">×</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+  window.renderCatalogAdmin = renderCatalogAdmin;
+
+  function addCatalogItem() {
+    const list = getEquipmentCatalog();
+    list.unshift({
+      id: 'eq-' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+      category: '', name: '', variants: [], costPrice: 0, salePrice: 0,
+    });
+    saveEquipmentCatalog(list);
+    renderCatalogAdmin();
+  }
+  window.addCatalogItem = addCatalogItem;
+
+  function updateCatalogField(idx, field, value) {
+    const list = getEquipmentCatalog();
+    if (idx < 0 || idx >= list.length) return;
+    if (field === 'variants') {
+      list[idx].variants = String(value||'').split(',').map(s => s.trim()).filter(Boolean);
+    } else if (field === 'costPrice' || field === 'salePrice') {
+      list[idx][field] = Math.max(0, Math.round(Number(value)||0));
+    } else {
+      list[idx][field] = String(value||'').trim();
+    }
+    saveEquipmentCatalog(list);
+    // 입력 후 일관성 위해 즉시 재렌더는 안 함 (포커스 유지)
+  }
+  window.updateCatalogField = updateCatalogField;
+
+  function removeCatalogItem(idx) {
+    const list = getEquipmentCatalog();
+    if (idx < 0 || idx >= list.length) return;
+    list.splice(idx, 1);
+    saveEquipmentCatalog(list);
+    renderCatalogAdmin();
+    if (typeof showToast === 'function') showToast('🗑️ 장비 삭제됨');
+  }
+  window.removeCatalogItem = removeCatalogItem;
+
+  function pushCatalogNow() {
+    pushCatalogToCloud(getEquipmentCatalog(), { toast:true });
+  }
+  window.pushCatalogNow = pushCatalogNow;
+
+  function resetCatalogToDefault() {
+    if (!confirm('카탈로그를 기본값으로 초기화하시겠습니까?\n현재 등록된 모든 사용자 정의 항목이 사라집니다.')) return;
+    const def = DEFAULT_EQUIPMENT_CATALOG.slice();
+    saveEquipmentCatalog(def);
+    renderCatalogAdmin();
+    if (typeof showToast === 'function') showToast('✅ 기본 카탈로그로 초기화됨');
+  }
+  window.resetCatalogToDefault = resetCatalogToDefault;
 
   /* ── 투입 장비 행 관리 ──
      행은 { id, fixed:true, fixedKey, name, variant, size, condition, qty, costPrice, salePrice }
@@ -6428,44 +6623,50 @@ ${text.slice(0, 3000)}`;
             <button onclick="toggleEquipPicker('${j.id}')" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:5px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700">닫기</button>
           </div>
           <div style="max-height:480px;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px">
-            ${FIXED_EQUIPMENT.map(def => {
-              const dvar = def.variants ? def.variants[0] : '';
-              const dcost = def.costPriceBy ? (def.costPriceBy[dvar]||0) : (def.costPrice||0);
-              const dsale = def.salePriceBy ? (def.salePriceBy[dvar]||0) : (def.salePrice||0);
+            ${(() => {
+              const catalog = getEquipmentCatalog();
+              if (catalog.length === 0) {
+                return `<div style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">등록된 장비가 없습니다. 마이페이지(관리자) → 장비 품목 관리에서 추가하세요.</div>`;
+              }
+              // 카테고리별 그룹핑
+              const groups = {};
+              catalog.forEach(def => {
+                const c = def.category || '기타';
+                (groups[c] = groups[c] || []).push(def);
+              });
               const inputSty = 'padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff';
-              const variantSel = def.variants ? `
-                <select id="pick-variant-${def.key}" onchange="onPickerVariantChange('${def.key}')" style="${inputSty}">
-                  ${def.variants.map(v => `<option value="${v}">${v}</option>`).join('')}
-                </select>` : '';
-              const extraSel = def.extraToggle ? `
-                <select id="pick-extra-${def.key}" style="${inputSty}" title="${def.extraToggle.label}">
-                  ${def.extraToggle.options.map(o => `<option value="${o}">${def.extraToggle.label}: ${o}</option>`).join('')}
-                </select>` : '';
-              const sizeIn = def.hasSize ? `
-                <input id="pick-size-${def.key}" type="text" placeholder="사이즈" style="${inputSty};width:80px">` : '';
-              return `
-                <div style="background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                  <div style="font-weight:700;font-size:13px;min-width:120px">${esc(def.name)}</div>
-                  ${variantSel}
-                  ${extraSel}
-                  ${sizeIn}
-                  <select id="pick-cond-${def.key}" style="${inputSty}">
-                    <option value="new">신품</option>
-                    <option value="used">중고</option>
-                  </select>
-                  <label style="font-size:10px;color:var(--gray-500);display:flex;align-items:center;gap:3px">수량
-                    <input id="pick-qty-${def.key}" type="number" min="0" value="1" oninput="onPickerSubChange('${def.key}')" style="${inputSty};width:55px;text-align:right">
-                  </label>
-                  <label style="font-size:10px;color:var(--gray-500);display:flex;align-items:center;gap:3px">입고가
-                    <input id="pick-cost-${def.key}" type="number" min="0" value="${dcost}" style="${inputSty};width:80px;text-align:right;color:var(--gray-500)">
-                  </label>
-                  <label style="font-size:10px;color:var(--gray-500);display:flex;align-items:center;gap:3px">판매가
-                    <input id="pick-sale-${def.key}" type="number" min="0" value="${dsale}" oninput="onPickerSubChange('${def.key}')" style="${inputSty};width:90px;text-align:right">
-                  </label>
-                  <div style="margin-left:auto;font-size:11px;color:var(--gray-500);white-space:nowrap">합계 <b id="pick-total-${def.key}" style="color:var(--primary)">${(1*dsale).toLocaleString('ko-KR')}원</b></div>
-                  <button onclick="addEquipFromCatalog('${j.id}','${def.key}')" style="background:var(--primary);color:#fff;border:none;border-radius:5px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">＋ 추가</button>
-                </div>`;
-            }).join('')}
+              return Object.keys(groups).map(cat => `
+                <div style="font-size:11px;font-weight:700;color:var(--gray-600);background:#E5E7EB;padding:4px 8px;border-radius:4px;margin-top:6px">${esc(cat)}</div>
+                ${groups[cat].map(def => {
+                  const dcost = Number(def.costPrice)||0;
+                  const dsale = Number(def.salePrice)||0;
+                  const variantSel = (def.variants && def.variants.length) ? `
+                    <select id="pick-variant-${def.id}" onchange="onPickerVariantChange('${def.id}')" style="${inputSty}">
+                      ${def.variants.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}
+                    </select>` : '';
+                  return `
+                    <div style="background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                      <div style="font-weight:700;font-size:13px;min-width:140px">${esc(def.name)}</div>
+                      ${variantSel}
+                      <select id="pick-cond-${def.id}" style="${inputSty}">
+                        <option value="new">신품</option>
+                        <option value="used">중고</option>
+                      </select>
+                      <label style="font-size:10px;color:var(--gray-500);display:flex;align-items:center;gap:3px">수량
+                        <input id="pick-qty-${def.id}" type="number" min="0" value="1" oninput="onPickerSubChange('${def.id}')" style="${inputSty};width:55px;text-align:right">
+                      </label>
+                      <label style="font-size:10px;color:var(--gray-500);display:flex;align-items:center;gap:3px">입고가
+                        <input id="pick-cost-${def.id}" type="number" min="0" value="${dcost}" style="${inputSty};width:80px;text-align:right;color:var(--gray-500)">
+                      </label>
+                      <label style="font-size:10px;color:var(--gray-500);display:flex;align-items:center;gap:3px">판매가
+                        <input id="pick-sale-${def.id}" type="number" min="0" value="${dsale}" oninput="onPickerSubChange('${def.id}')" style="${inputSty};width:90px;text-align:right">
+                      </label>
+                      <div style="margin-left:auto;font-size:11px;color:var(--gray-500);white-space:nowrap">합계 <b id="pick-total-${def.id}" style="color:var(--primary)">${(1*dsale).toLocaleString('ko-KR')}원</b></div>
+                      <button onclick="addEquipFromCatalog('${j.id}','${def.id}')" style="background:var(--primary);color:#fff;border:none;border-radius:5px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">＋ 추가</button>
+                    </div>`;
+                }).join('')}
+              `).join('');
+            })()}
             <!-- 직접 입력 -->
             <div style="background:#FAFAFA;border:1px dashed var(--gray-300);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <div style="font-weight:700;font-size:13px;min-width:120px;color:var(--gray-600)">📝 직접 입력</div>
@@ -6531,15 +6732,14 @@ ${text.slice(0, 3000)}`;
         salePrice: Math.max(0, Math.round(Number(get(`pick-sale-__custom`))||0)),
       };
     } else {
-      const def = FIXED_EQUIPMENT.find(d => d.key === fixedKey);
+      const cat = getEquipmentCatalog();
+      const def = cat.find(d => d.id === fixedKey);
       if (!def) return;
       const qty = Math.max(0, Math.round(Number(get(`pick-qty-${fixedKey}`)) || 0));
       if (qty <= 0) { if (typeof showToast === 'function') showToast('수량을 1 이상 입력하세요'); return; }
       newItem = {
         name: def.name,
-        variant:   def.variants    ? get(`pick-variant-${fixedKey}`) : '',
-        extra:     def.extraToggle ? get(`pick-extra-${fixedKey}`)   : '',
-        size:      def.hasSize     ? get(`pick-size-${fixedKey}`)    : '',
+        variant:   (def.variants && def.variants.length) ? get(`pick-variant-${fixedKey}`) : '',
         condition: get(`pick-cond-${fixedKey}`) || 'new',
         qty,
         costPrice: Math.max(0, Math.round(Number(get(`pick-cost-${fixedKey}`))||0)),
@@ -6553,20 +6753,8 @@ ${text.slice(0, 3000)}`;
     if (typeof showToast === 'function') showToast(`✅ ${newItem.name} 추가됨`);
   }
   window.addEquipFromCatalog = addEquipFromCatalog;
-
-  // 변형 변경 시 단가 자동 갱신 (re-render 없이 input 값만 갱신)
-  function onPickerVariantChange(fixedKey) {
-    const def = FIXED_EQUIPMENT.find(d => d.key === fixedKey);
-    if (!def) return;
-    const variant = (document.getElementById(`pick-variant-${fixedKey}`)||{}).value || '';
-    const cost = def.costPriceBy ? (def.costPriceBy[variant]||0) : (def.costPrice||0);
-    const sale = def.salePriceBy ? (def.salePriceBy[variant]||0) : (def.salePrice||0);
-    const cEl = document.getElementById(`pick-cost-${fixedKey}`);
-    const sEl = document.getElementById(`pick-sale-${fixedKey}`);
-    if (cEl) cEl.value = cost;
-    if (sEl) sEl.value = sale;
-    onPickerSubChange(fixedKey);
-  }
+  // 변형 변경 — 카탈로그 기반에서는 변형별 단가가 없어 가격 갱신 안 함 (합계만 갱신)
+  function onPickerVariantChange(fixedKey) { onPickerSubChange(fixedKey); }
   window.onPickerVariantChange = onPickerVariantChange;
   // 수량/판매가 변경 시 합계 표시 라이브 갱신 (re-render 없이)
   function onPickerSubChange(fixedKey) {
