@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>VAN 서류 업로드 — 네오리테일</title>
+<style>
+  :root {
+    --primary: #FF2D1F;
+    --bg: #FFF8E7;
+    --ink: #1A1614;
+    --gray-50:  #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-600: #4B5563;
+    --gray-700: #374151;
+    --gray-800: #1F2937;
+    --success: #10B981;
+    --warning: #F59E0B;
+    --danger:  #EF4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+    background: var(--bg); color: var(--ink); -webkit-tap-highlight-color: transparent;
+  }
+  header {
+    background: var(--ink); color: var(--bg);
+    padding: 14px 18px; display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  header .logo { font-weight: 700; font-size: 16px; letter-spacing: -0.5px; }
+  header .sub { font-size: 11px; color: rgba(255,248,231,0.55); margin-left: auto; }
+  main {
+    max-width: 720px; margin: 0 auto; padding: 18px;
+  }
+  h1 { font-size: 20px; margin: 4px 0 16px; }
+  h2 { font-size: 15px; margin: 18px 0 10px; color: var(--gray-700); }
+
+  .step {
+    background: #fff; border-radius: 12px; padding: 16px 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 14px;
+    border: 1px solid var(--gray-200);
+  }
+  .step .step-label { font-size: 11px; color: var(--gray-500); font-weight: 600; letter-spacing: 0.5px; margin-bottom: 8px; text-transform: uppercase; }
+  .step .step-current { font-size: 15px; font-weight: 700; color: var(--ink); }
+  .breadcrumb {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    font-size: 12px; color: var(--gray-500); margin-bottom: 8px;
+  }
+  .breadcrumb .crumb {
+    background: var(--gray-100); padding: 4px 10px; border-radius: 14px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .breadcrumb .crumb:hover { background: var(--gray-200); }
+  .breadcrumb .sep { color: var(--gray-300); }
+
+  .grid-options {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .opt-card {
+    background: #fff; border: 2px solid var(--gray-200); border-radius: 10px;
+    padding: 18px 14px; text-align: center; cursor: pointer; transition: all 0.15s;
+    font-weight: 600; font-size: 14px;
+  }
+  .opt-card:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .opt-card .opt-emoji { font-size: 28px; display: block; margin-bottom: 6px; }
+
+  .doc-list {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .doc-item {
+    background: #fff; border: 1px solid var(--gray-200); border-radius: 10px;
+    padding: 14px 16px; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .doc-item:hover { border-color: var(--primary); background: #FFFAF7; }
+  .doc-item .doc-icon { font-size: 24px; flex-shrink: 0; }
+  .doc-item .doc-name { font-weight: 600; font-size: 14px; flex: 1; }
+  .doc-item .doc-arrow { color: var(--gray-400); font-size: 18px; }
+  .doc-item .doc-count {
+    background: var(--success); color: #fff; font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 10px;
+  }
+
+  /* Upload section */
+  .upload-section { display: none; }
+  .upload-section.active { display: block; }
+
+  label { display: block; font-size: 12px; color: var(--gray-600); margin-bottom: 4px; font-weight: 600; }
+  input[type="text"], input[type="tel"], textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--gray-300); border-radius: 8px;
+    font-size: 14px; font-family: inherit; background: #fff;
+  }
+  textarea { min-height: 56px; resize: vertical; }
+  .form-row { margin-bottom: 12px; }
+
+  .upload-buttons {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 14px 0;
+  }
+  .upload-btn {
+    background: var(--ink); color: var(--bg); border: none; border-radius: 10px;
+    padding: 16px 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    transition: background 0.15s;
+  }
+  .upload-btn:hover { background: #2A2422; }
+  .upload-btn .btn-emoji { font-size: 24px; }
+
+  .preview-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin: 12px 0;
+  }
+  .preview-card {
+    position: relative; background: #fff; border: 1px solid var(--gray-200); border-radius: 8px;
+    overflow: hidden; aspect-ratio: 1;
+  }
+  .preview-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .preview-card .pdf-icon {
+    width: 100%; height: 100%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; background: #FEE2E2; color: var(--danger);
+    font-size: 12px; gap: 4px;
+  }
+  .preview-card .pdf-icon .icon { font-size: 32px; }
+  .preview-card .remove-btn {
+    position: absolute; top: 4px; right: 4px;
+    background: rgba(0,0,0,0.7); color: #fff; border: none; border-radius: 50%;
+    width: 22px; height: 22px; cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .preview-card .file-name {
+    position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.65); color: #fff;
+    font-size: 10px; padding: 3px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .preview-empty {
+    background: var(--gray-50); border: 2px dashed var(--gray-300); border-radius: 10px;
+    padding: 30px 16px; text-align: center; color: var(--gray-400); font-size: 13px;
+  }
+
+  .submit-btn {
+    width: 100%; background: var(--primary); color: #fff; border: none;
+    padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 700;
+    cursor: pointer; box-shadow: 3px 3px 0 var(--ink); margin-top: 8px;
+  }
+  .submit-btn:disabled { background: var(--gray-300); box-shadow: none; cursor: not-allowed; }
+  .back-btn {
+    background: none; border: 1px solid var(--gray-300); color: var(--gray-600);
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer;
+    margin-bottom: 12px;
+  }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: rgba(15,23,42,0.92); color: #fff; padding: 12px 20px; border-radius: 12px;
+    font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 9999;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .toast.show { opacity: 1; }
+
+  .progress-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9998;
+    display: none; align-items: center; justify-content: center;
+  }
+  .progress-overlay.show { display: flex; }
+  .progress-card {
+    background: #fff; border-radius: 14px; padding: 24px; min-width: 260px; text-align: center;
+  }
+  .progress-card .spinner {
+    width: 36px; height: 36px; border: 3px solid var(--gray-200); border-top-color: var(--primary);
+    border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 480px) {
+    .upload-buttons { grid-template-columns: 1fr; }
+    .grid-options { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">📑 VAN 서류 업로드</div>
+  <div class="sub">네오리테일</div>
+</header>
+
+<main>
+  <div class="breadcrumb" id="breadcrumb"></div>
+
+  <!-- 매장명 + 제출자 (항상 노출) -->
+  <div class="step">
+    <div class="form-row">
+      <label>매장명 <span style="color:var(--danger)">*</span></label>
+      <input type="text" id="inpStore" placeholder="예) 웰빙마트 신림점" autocomplete="off">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div>
+        <label>제출자 (선택)</label>
+        <input type="text" id="inpSubmitter" placeholder="이름 / 연락처">
+      </div>
+      <div>
+        <label>비고 (선택)</label>
+        <input type="text" id="inpNote" placeholder="간단한 메모">
+      </div>
+    </div>
+  </div>
+
+  <!-- 단계별 선택 영역 -->
+  <div id="stepArea"></div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+<div class="progress-overlay" id="progress">
+  <div class="progress-card">
+    <div class="spinner"></div>
+    <div id="progressText">업로드 중…</div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════
+   서류 카테고리 트리
+   각 leaf 는 docs 배열을 갖는다.
+   필요시 카테고리/서류 종류 추가만 하면 된다.
+════════════════════════════════════════════════ */
+const CATEGORIES = {
+  '카드가맹 신규': {
+    emoji: '🆕',
+    children: {
+      '개인사업자': {
+        emoji: '👤',
+        children: {
+          '1인대표': {
+            emoji: '🙋',
+            docs: [
+              { name: '사업자등록증', emoji: '📄' },
+              { name: '신분증',          emoji: '🪪' },
+              { name: '통장사본',        emoji: '🏦' },
+              { name: '임대차계약서',    emoji: '📑' },
+              { name: '매장사진(외부)', emoji: '🏪' },
+              { name: '매장사진(내부)', emoji: '🛒' },
+              { name: '기타',            emoji: '📎' },
+            ],
+          },
+          '공동대표': {
+            emoji: '🤝',
+            docs: [
+              { name: '사업자등록증',     emoji: '📄' },
+              { name: '대표 신분증(전체)', emoji: '🪪' },
+              { name: '동업계약서',       emoji: '📜' },
+              { name: '통장사본',         emoji: '🏦' },
+              { name: '임대차계약서',     emoji: '📑' },
+              { name: '매장사진(외부)',  emoji: '🏪' },
+              { name: '매장사진(내부)',  emoji: '🛒' },
+              { name: '기타',             emoji: '📎' },
+            ],
+          },
+        },
+      },
+      '법인사업자': {
+        emoji: '🏢',
+        children: {
+          '1인대표': {
+            emoji: '🙋',
+            docs: [
+              { name: '사업자등록증',     emoji: '📄' },
+              { name: '법인등기부등본',   emoji: '📚' },
+              { name: '법인인감증명서',   emoji: '🔖' },
+              { name: '대표자 신분증',    emoji: '🪪' },
+              { name: '통장사본',         emoji: '🏦' },
+              { name: '임대차계약서',     emoji: '📑' },
+              { name: '매장사진(외부)',  emoji: '🏪' },
+              { name: '매장사진(내부)',  emoji: '🛒' },
+              { name: '기타',             emoji: '📎' },
+            ],
+          },
+          '공동대표': {
+            emoji: '🤝',
+            docs: [
+              { name: '사업자등록증',       emoji: '📄' },
+              { name: '법인등기부등본',     emoji: '📚' },
+              { name: '법인인감증명서',     emoji: '🔖' },
+              { name: '주주명부',           emoji: '📋' },
+              { name: '공동대표 신분증(전체)', emoji: '🪪' },
+              { name: '통장사본',           emoji: '🏦' },
+              { name: '임대차계약서',       emoji: '📑' },
+              { name: '매장사진(외부)',    emoji: '🏪' },
+              { name: '매장사진(내부)',    emoji: '🛒' },
+              { name: '기타',               emoji: '📎' },
+            ],
+          },
+        },
+      },
+    },
+  },
+  '정보 변경': {
+    emoji: '✏️',
+    children: {
+      '대표자 변경': { emoji: '👤', docs: [
+        { name: '신/구 대표 신분증', emoji: '🪪' },
+        { name: '대표자 변경 계약서/공증', emoji: '📜' },
+        { name: '기타', emoji: '📎' },
+      ]},
+      '상호 변경':   { emoji: '📛', docs: [
+        { name: '변경된 사업자등록증', emoji: '📄' },
+        { name: '간판 사진',            emoji: '🪧' },
+        { name: '기타', emoji: '📎' },
+      ]},
+      '주소 이전':   { emoji: '🚚', docs: [
+        { name: '변경된 사업자등록증', emoji: '📄' },
+        { name: '신규 임대차계약서',   emoji: '📑' },
+        { name: '신규 매장사진',       emoji: '🏪' },
+        { name: '기타', emoji: '📎' },
+      ]},
+      '계좌 변경':   { emoji: '🏦', docs: [
+        { name: '변경된 통장사본',     emoji: '🏦' },
+        { name: '기타', emoji: '📎' },
+      ]},
+    },
+  },
+  '해지': {
+    emoji: '🚪',
+    children: {
+      '가맹 해지': { emoji: '🛑', docs: [
+        { name: '해지 신청서',  emoji: '📝' },
+        { name: '대표 신분증',   emoji: '🪪' },
+        { name: '기타',          emoji: '📎' },
+      ]},
+    },
+  },
+  '기타 서류': {
+    emoji: '📎',
+    children: {
+      '일반 첨부': { emoji: '📂', docs: [
+        { name: '기타 서류', emoji: '📎' },
+      ]},
+    },
+  },
+};
+
+/* 현재 경로 (스택) */
+let path = []; // ['카드가맹 신규', '개인사업자', '1인대표']
+let pickedFiles = []; // {file, dataUrl?, kind:'image'|'pdf'|'other'}
+
+const $ = (id) => document.getElementById(id);
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+function renderBreadcrumb() {
+  const bc = $('breadcrumb');
+  if (path.length === 0) { bc.innerHTML = ''; return; }
+  const parts = ['<span class="crumb" onclick="goHome()">🏠 처음</span>'];
+  path.forEach((p, i) => {
+    parts.push('<span class="sep">›</span>');
+    parts.push(`<span class="crumb" onclick="goPath(${i+1})">${escapeHtml(p)}</span>`);
+  });
+  bc.innerHTML = parts.join('');
+}
+
+function goHome() { path = []; pickedFiles = []; render(); }
+function goBack() { path.pop(); pickedFiles = []; render(); }
+function goPath(depth) { path = path.slice(0, depth); pickedFiles = []; render(); }
+
+function getCurrentNode() {
+  let node = { children: CATEGORIES };
+  for (const p of path) {
+    node = node.children ? node.children[p] : null;
+    if (!node) return null;
+  }
+  return node;
+}
+
+function render() {
+  renderBreadcrumb();
+  const area = $('stepArea');
+  const node = getCurrentNode();
+  if (!node) { area.innerHTML = '<div class="step">잘못된 경로입니다.</div>'; return; }
+
+  // 잎 노드 (docs 보유) → 서류 목록
+  if (node.docs) {
+    area.innerHTML = `
+      <button class="back-btn" onclick="goBack()">← 이전</button>
+      <h2>업로드할 서류를 선택하세요</h2>
+      <div class="doc-list">
+        ${node.docs.map(d => `
+          <div class="doc-item" onclick="pickDoc('${escapeAttr(d.name)}')">
+            <div class="doc-icon">${d.emoji}</div>
+            <div class="doc-name">${escapeHtml(d.name)}</div>
+            <div class="doc-arrow">→</div>
+          </div>`).join('')}
+      </div>`;
+    return;
+  }
+
+  // 가지 노드 → 자식 옵션
+  const children = node.children || {};
+  const keys = Object.keys(children);
+  area.innerHTML = `
+    ${path.length ? '<button class="back-btn" onclick="goBack()">← 이전</button>' : ''}
+    <h2>${path.length === 0 ? '업무 종류를 선택하세요' : '세부 항목을 선택하세요'}</h2>
+    <div class="grid-options">
+      ${keys.map(k => `
+        <div class="opt-card" onclick="goInto('${escapeAttr(k)}')">
+          <span class="opt-emoji">${children[k].emoji || '📂'}</span>
+          ${escapeHtml(k)}
+        </div>`).join('')}
+    </div>`;
+}
+
+function goInto(key) { path.push(key); pickedFiles = []; render(); }
+
+/* 서류 종류 클릭 → 업로드 UI 표시 */
+let _currentDocType = '';
+function pickDoc(docName) {
+  _currentDocType = docName;
+  pickedFiles = [];
+  const area = $('stepArea');
+  area.innerHTML = `
+    <button class="back-btn" onclick="goBack()">← 서류 목록으로</button>
+    <div class="step">
+      <div class="step-label">선택된 서류</div>
+      <div class="step-current">${escapeHtml(docName)}</div>
+    </div>
+    <div class="step">
+      <h2 style="margin:0 0 4px">사진 / PDF 업로드</h2>
+      <div style="font-size:12px;color:var(--gray-500);margin-bottom:4px">
+        파일당 최대 5MB · 제출 합 최대 20MB
+      </div>
+      <div class="upload-buttons">
+        <button class="upload-btn" onclick="document.getElementById('camInput').click()">
+          <span class="btn-emoji">📷</span>
+          <span>카메라 촬영</span>
+        </button>
+        <button class="upload-btn" onclick="document.getElementById('galInput').click()">
+          <span class="btn-emoji">🖼</span>
+          <span>갤러리 선택</span>
+        </button>
+        <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+          <span class="btn-emoji">📎</span>
+          <span>PDF / 파일</span>
+        </button>
+      </div>
+      <input type="file" id="camInput"  accept="image/*" capture="environment" multiple style="display:none" onchange="onPick(this.files,'image')">
+      <input type="file" id="galInput"  accept="image/*" multiple style="display:none" onchange="onPick(this.files,'image')">
+      <input type="file" id="fileInput" accept=".pdf,application/pdf,image/*" multiple style="display:none" onchange="onPick(this.files,'mixed')">
+
+      <div id="previewArea"></div>
+
+      <button class="submit-btn" id="submitBtn" onclick="submitFiles()">업로드</button>
+    </div>`;
+  renderPreview();
+}
+
+async function onPick(files, kind) {
+  for (const f of Array.from(files || [])) {
+    let item = { file: f, kind: 'other', dataUrl: null };
+    if (f.type.startsWith('image/')) {
+      // 이미지 압축 (긴 변 1600px, JPEG q=0.85)
+      try {
+        const compressed = await compressImage(f, 1600, 0.85);
+        item.file = compressed.file;
+        item.dataUrl = compressed.dataUrl;
+        item.kind = 'image';
+      } catch (e) {
+        item.kind = 'image';
+        item.dataUrl = await readAsDataURL(f);
+      }
+    } else if (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')) {
+      item.kind = 'pdf';
+    }
+    pickedFiles.push(item);
+  }
+  renderPreview();
+}
+
+function renderPreview() {
+  const el = $('previewArea');
+  if (pickedFiles.length === 0) {
+    el.innerHTML = `<div class="preview-empty">파일을 추가하면 여기에 미리보기가 표시됩니다.</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="preview-grid">${
+    pickedFiles.map((p, i) => {
+      const inner = p.kind === 'image' && p.dataUrl
+        ? `<img src="${p.dataUrl}" alt="">`
+        : p.kind === 'pdf'
+          ? `<div class="pdf-icon"><div class="icon">📄</div><div>PDF</div></div>`
+          : `<div class="pdf-icon" style="background:var(--gray-100);color:var(--gray-500)"><div class="icon">📎</div><div>파일</div></div>`;
+      return `<div class="preview-card">
+        ${inner}
+        <button class="remove-btn" onclick="removePick(${i})" title="삭제">×</button>
+        <div class="file-name">${escapeHtml(p.file.name || '')}</div>
+      </div>`;
+    }).join('')
+  }</div>
+  <div style="font-size:11px;color:var(--gray-500);margin-top:6px">총 ${pickedFiles.length}개 · 합계 ${formatBytes(pickedFiles.reduce((a,p)=>a+(p.file.size||0),0))}</div>`;
+}
+
+function removePick(idx) {
+  pickedFiles.splice(idx, 1);
+  renderPreview();
+}
+
+function readAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function compressImage(file, maxDim, quality) {
+  const dataUrl = await readAsDataURL(file);
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width: w, height: h } = img;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+        else       { w = Math.round(w * maxDim / h); h = maxDim; }
+      }
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      cv.toBlob((blob) => {
+        if (!blob) return reject(new Error('compress failed'));
+        const f = new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+        const fr = new FileReader();
+        fr.onload = () => resolve({ file: f, dataUrl: fr.result });
+        fr.readAsDataURL(blob);
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+async function submitFiles() {
+  const store = ($('inpStore').value || '').trim();
+  if (!store) { toast('매장명을 입력하세요'); $('inpStore').focus(); return; }
+  if (pickedFiles.length === 0) { toast('업로드할 파일이 없습니다'); return; }
+
+  const submitter = ($('inpSubmitter').value || '').trim();
+  const note      = ($('inpNote').value || '').trim();
+  const category  = path.slice(0, -1).join(' / '); // 최종 leaf 직전까지가 카테고리 경로
+  const docType   = _currentDocType;
+
+  const fd = new FormData();
+  fd.append('store', store);
+  fd.append('category', path.join(' / '));
+  fd.append('docType', docType);
+  fd.append('submitter', submitter);
+  fd.append('note', note);
+  pickedFiles.forEach(p => fd.append('files', p.file));
+
+  $('progress').classList.add('show');
+  $('progressText').textContent = '업로드 중…';
+  $('submitBtn').disabled = true;
+
+  try {
+    const res = await fetch('/api/vandocs', { method: 'POST', body: fd });
+    const text = await res.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch(e) {}
+    if (!res.ok) {
+      throw new Error((data && (data.error || data.message)) || text || ('HTTP ' + res.status));
+    }
+    $('progress').classList.remove('show');
+    showSuccess(data);
+  } catch (e) {
+    $('progress').classList.remove('show');
+    $('submitBtn').disabled = false;
+    toast('업로드 실패: ' + e.message);
+  }
+}
+
+function showSuccess(data) {
+  $('stepArea').innerHTML = `
+    <div class="step" style="text-align:center;padding:30px 20px">
+      <div style="font-size:48px;margin-bottom:10px">✅</div>
+      <h2 style="margin:0 0 6px">업로드 완료</h2>
+      <div style="color:var(--gray-500);font-size:13px;margin-bottom:14px">
+        파일 ${data?.count || pickedFiles.length}개가 저장되었습니다.<br>
+        제출 ID: <code style="background:var(--gray-100);padding:2px 6px;border-radius:4px">${escapeHtml(data?.id || '')}</code>
+      </div>
+      <button class="upload-btn" style="display:inline-flex;flex-direction:row;gap:8px" onclick="goHome()">📑 다른 서류 업로드</button>
+    </div>`;
+  pickedFiles = [];
+}
+
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/'/g, '&#39;');
+}
+function formatBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  return (n/(1024*1024)).toFixed(1) + ' MB';
+}
+
+/* 매장명 자동 저장 (편의) */
+try {
+  const saved = localStorage.getItem('vandocs_store');
+  if (saved) $('inpStore').value = saved;
+  $('inpStore').addEventListener('change', e => localStorage.setItem('vandocs_store', e.target.value || ''));
+} catch(e){}
+
+render();
+</script>
+
+</body>
+</html>
