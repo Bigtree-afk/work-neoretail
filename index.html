@@ -754,7 +754,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <!-- TOP NAV -->
 <nav class="topnav" id="topnav">
   <!-- 로고 -->
-  <a class="topnav-logo" onclick="showScreen('dashboard')">
+  <a class="topnav-logo" onclick="onLogoClick()" title="모바일에서는 메뉴 열기">
     <div class="logo-icon">NS</div>
     <div>
       <div class="logo-text">NeoSolution</div>
@@ -4105,6 +4105,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   }
 
   /* ── 모바일 드롭다운 메뉴 ── */
+  // 로고 클릭 — 모바일에선 메뉴 토글, 데스크톱에선 대시보드
+  function onLogoClick() {
+    if (window.innerWidth <= 768) {
+      toggleMenu();
+    } else {
+      showScreen('dashboard');
+    }
+  }
+  window.onLogoClick = onLogoClick;
+
   function toggleMenu() {
     const menu = document.getElementById('mobileMenu');
     const overlay = document.getElementById('menuOverlay');
