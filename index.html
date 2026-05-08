@@ -6517,7 +6517,7 @@ ${text.slice(0, 3000)}`;
                        .slice(0, 5);
       if (done.length > 0) {
         recentBody.innerHTML = done.map(j => `
-          <tr>
+          <tr style="cursor:pointer" onclick="window.editNewopen && window.editNewopen('${j.id}')" title="클릭 — 매장 상세 보기">
             <td><b>${esc(j.store || j.storeName || '-')}</b></td>
             <td><span class="badge badge-blue">${esc(j.type || '작업')}</span></td>
             <td style="color:var(--gray-400)">${esc(jobDateStr(j).slice(5,10).replace('-','.') || '—')}</td>
