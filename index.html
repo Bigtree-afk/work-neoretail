@@ -7425,7 +7425,28 @@ ${text.slice(0, 3000)}`;
             })()}
           </div>
         </div>
-        ${j.notes ? `<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">비고</div><div style="font-size:13px;white-space:pre-wrap">${esc(j.notes)}</div></div>` : ''}
+        <div style="grid-column:1/-1">
+          <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span>📝 비고 <span style="font-size:10px;color:var(--gray-400)">— 내용 수정 후 입력란 밖을 클릭하면 자동 저장</span></span>
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 10px;font-weight:700" onclick="addJobMemo('${j.id}')">+ 메모 추가</button>
+          </div>
+          <textarea placeholder="VAN사 변경, 고객 요청, 현장 특이사항 등..." onchange="updateJobNotes('${j.id}',this.value)" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;background:#fff;font-family:inherit;resize:vertical">${esc(j.notes||'')}</textarea>
+          ${(() => {
+            const memos = Array.isArray(j.memos) ? j.memos : [];
+            if (memos.length === 0) return '';
+            return `<div style="margin-top:8px;background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:11px;color:var(--gray-500);font-weight:600">🗓 메모 기록 (${memos.length}건)</div>
+              ${memos.slice().reverse().map((m, revIdx) => {
+                const idx = memos.length - 1 - revIdx;
+                return `<div style="display:grid;grid-template-columns:130px 1fr 28px;gap:6px;align-items:start;padding:6px;border:1px solid var(--gray-100);border-radius:6px;background:#FAFAFA">
+                  <div style="font-size:11px;color:var(--gray-500);font-weight:600;white-space:nowrap">${esc(m.at||'')}<div style="font-size:10px;color:var(--gray-400);margin-top:2px;font-weight:400">${esc(m.author||'')}</div></div>
+                  <textarea onchange="updateJobMemoAt('${j.id}',${idx},this.value)" style="width:100%;min-height:34px;padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff;font-family:inherit;resize:vertical">${esc(m.text||'')}</textarea>
+                  <button title="삭제" onclick="if(confirm('이 메모를 삭제하시겠습니까?'))removeJobMemo('${j.id}',${idx})" style="background:none;border:1px solid var(--gray-200);border-radius:5px;padding:4px 6px;cursor:pointer;font-size:12px;color:var(--danger)">×</button>
+                </div>`;
+              }).join('')}
+            </div>`;
+          })()}
+        </div>
       </div>
 
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 4px;gap:10px;flex-wrap:wrap">
@@ -7696,6 +7717,77 @@ ${text.slice(0, 3000)}`;
     try { hydrateNewopen('all'); } catch(e){}
   }
   window.updateJobAddress = updateJobAddress;
+
+  /* 비고(notes) 수정 */
+  function updateJobNotes(jobId, value) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    job.notes = String(value || '');
+    saveJobs(jobs);
+    if (typeof showToast === 'function') showToast('✅ 비고 저장됨');
+    try { hydrateNewopen('all'); } catch(e){}
+  }
+  window.updateJobNotes = updateJobNotes;
+
+  /* 한국시간 포맷 — 'MM.DD HH:mm' */
+  function _kstStamp() {
+    const d = new Date();
+    // toLocaleString 으로 KST 변환
+    const parts = new Intl.DateTimeFormat('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      year: '2-digit', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(d).reduce((a,p)=>{ a[p.type]=p.value; return a; }, {});
+    return `${parts.year}.${parts.month}.${parts.day} ${parts.hour}:${parts.minute}`;
+  }
+
+  /* 메모 추가 — 일자/시간 자동 기록 */
+  function addJobMemo(jobId) {
+    const text = prompt('추가할 메모 내용을 입력하세요');
+    if (text == null) return;
+    const trimmed = String(text || '').trim();
+    if (!trimmed) return;
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    if (!Array.isArray(job.memos)) job.memos = [];
+    let author = '';
+    try {
+      const auth = JSON.parse(localStorage.getItem('ns_auth') || 'null');
+      author = (auth && (auth.name || auth.email)) || '';
+    } catch(e){}
+    job.memos.push({ at: _kstStamp(), author, text: trimmed });
+    saveJobs(jobs);
+    if (typeof showToast === 'function') showToast('✅ 메모 추가됨');
+    try { editNewopen(jobId); } catch(e){}
+    try { hydrateNewopen('all'); } catch(e){}
+  }
+  window.addJobMemo = addJobMemo;
+
+  /* 기존 메모 텍스트 수정 */
+  function updateJobMemoAt(jobId, idx, value) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job || !Array.isArray(job.memos) || !job.memos[idx]) return;
+    job.memos[idx].text = String(value || '');
+    job.memos[idx].editedAt = _kstStamp();
+    saveJobs(jobs);
+    if (typeof showToast === 'function') showToast('✅ 메모 저장됨');
+  }
+  window.updateJobMemoAt = updateJobMemoAt;
+
+  /* 메모 삭제 */
+  function removeJobMemo(jobId, idx) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job || !Array.isArray(job.memos)) return;
+    job.memos.splice(idx, 1);
+    saveJobs(jobs);
+    if (typeof showToast === 'function') showToast('🗑 메모 삭제됨');
+    try { editNewopen(jobId); } catch(e){}
+  }
+  window.removeJobMemo = removeJobMemo;
 
   /* 매장 담당자 필드 업데이트 (상세 모달) — 단일 필드 (구버전 호환) */
   function updateJobContact(jobId, field, value) {
