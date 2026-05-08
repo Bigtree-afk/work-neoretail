@@ -428,14 +428,15 @@ function renderDocList(docs) {
           </div>`).join('')}
       </div>
       <div style="font-size:11px;color:var(--gray-500);margin-top:8px;line-height:1.5">
-        💡 위 서류들을 카메라로 촬영하거나 갤러리/파일에서 선택해 한꺼번에 업로드하세요.
+        💡 위 서류들을 카메라로 촬영하거나 갤러리/파일에서 선택해 한꺼번에 업로드하세요.<br>
+        🗑 업로드된 서류는 담당자 확인 후 1주일이 지나면 자동 삭제됩니다.
       </div>
     </div>
 
     <div class="step" style="padding:14px 16px">
       <h2 style="margin:0 0 4px;font-size:15px">📤 파일 업로드</h2>
       <div style="font-size:11px;color:var(--gray-500);margin-bottom:10px">
-        파일당 최대 5MB · 제출 합 최대 20MB
+        파일당 최대 24MB · 제출 합 최대 50MB
       </div>
       <div class="upload-buttons">
         <button class="upload-btn" onclick="document.getElementById('camInput').click()">
@@ -464,7 +465,7 @@ async function onPick(files) {
     let item = { file: f, kind: 'other', dataUrl: null };
     if (f.type.startsWith('image/')) {
       try {
-        const compressed = await compressImage(f, 1600, 0.85);
+        const compressed = await compressImage(f, 2400, 0.92);
         item.file = compressed.file;
         item.dataUrl = compressed.dataUrl;
         item.kind = 'image';

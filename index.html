@@ -6789,8 +6789,13 @@ ${text.slice(0, 3000)}`;
         <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px">${meta}</div>
         ${data.note?`<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:10px">📝 ${esc(data.note)}</div>`:''}
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">${filesHtml || '<div style="color:var(--gray-400);font-size:12px">파일 없음</div>'}</div>
-        <div style="margin-top:14px;display:flex;gap:6px;justify-content:flex-end">
-          ${data.acknowledged ? `<span style="font-size:11px;color:var(--gray-500);align-self:center">✓ ${esc(data.acknowledgedBy||'')} ${esc((data.acknowledgedAt||'').slice(0,16).replace('T',' '))}</span>` : `<button class="btn btn-primary btn-sm" onclick="ackVandoc('${esc(id)}');closeModal('dashListModal')">확인 처리</button>`}
+        <div style="margin-top:14px;display:flex;gap:6px;justify-content:space-between;align-items:center;flex-wrap:wrap">
+          <div style="font-size:10px;color:var(--gray-400)">
+            ${data.acknowledged ? `🗑 확인 후 7일 경과 시 자동 삭제됩니다.` : '🔒 미확인 상태에서는 자동 삭제되지 않습니다.'}
+          </div>
+          <div style="display:flex;gap:6px">
+            ${data.acknowledged ? `<span style="font-size:11px;color:var(--gray-500);align-self:center">✓ ${esc(data.acknowledgedBy||'')} ${esc((data.acknowledgedAt||'').slice(0,16).replace('T',' '))}</span>` : `<button class="btn btn-primary btn-sm" onclick="ackVandoc('${esc(id)}');closeModal('dashListModal')">확인 처리</button>`}
+          </div>
         </div>
       </div>`;
       if (typeof showModal === 'function') showModal('dashListModal');

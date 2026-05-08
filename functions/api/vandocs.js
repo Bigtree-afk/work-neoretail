@@ -2,34 +2,38 @@
  * VAN 서류 업로드 — 공개 엔드포인트 (인증 없음)
  *
  *   GET  /api/vandocs                → 인덱스(목록) 반환
- *   GET  /api/vandocs?id=<id>        → 특정 제출 상세(파일 base64 포함)
+ *   GET  /api/vandocs?unack=1        → 미확인 항목만
+ *   GET  /api/vandocs?id=<id>        → 특정 제출 메타데이터(파일 목록 포함, 바이너리 제외)
  *   GET  /api/vandocs?id=<id>&fileIdx=<n>&download=1
  *                                     → 단일 파일 바이너리 다운로드
  *   POST /api/vandocs                → multipart/form-data 업로드
- *      필드:
- *        store     (필수) — 매장명
- *        category  (선택) — 카테고리 경로 ("카드가맹 신규/개인사업자/1인대표")
- *        docType   (선택) — 서류 종류 ("사업자등록증" 등)
- *        submitter (선택) — 제출자 이름·연락처
- *        note      (선택) — 비고
- *        files     (필수, 다중) — 업로드 파일들
+ *      필드: store, category, docType, submitter, note, files[]
+ *   PUT  /api/vandocs?ack=<id>&by=<name>  → 확인(ack) 처리
  *
  * 저장 위치 (KV STORES_KV):
- *   "vandocs_index"          → { items: [{id, store, category, docType, count, totalBytes, createdAt}, ...] }
- *   "vandoc:<id>"            → { id, store, ..., files: [{name, type, size, data(base64)}, ...] }
+ *   "vandocs_index"                  → { items: [...] }
+ *   "vandoc:<id>"                    → 메타데이터(JSON) — files: [{name,type,size,key}]
+ *   "vandoc:<id>:f<n>"               → 파일 바이너리 (raw bytes, KV 25MB 한도)
+ *   "vandocs_cleanup_at"             → 마지막 정리 시각(ms) — 1시간마다 게으른 정리
  *
- * 한도: 파일당 5MB, 제출당 총 20MB (KV value 25MB 제한 회피).
+ * 한도: 파일당 24MB (KV 25MB 한도 안전 마진), 제출당 합계 50MB.
+ * 자동 삭제: 확인(ack)된 후 7일 경과 시 게으른 정리로 KV에서 삭제.
  */
 
-const MAX_FILE_BYTES   =  5_000_000;  // 파일당 5MB
-const MAX_TOTAL_BYTES  = 20_000_000;  // 제출당 20MB
-const INDEX_MAX        = 2000;        // 인덱스 최대 항목 수
+const MAX_FILE_BYTES   =  24_000_000; // 파일당 24MB (KV value 25MB 안전 마진)
+const MAX_TOTAL_BYTES  =  50_000_000; // 제출당 합계 50MB
+const INDEX_MAX        = 2000;
+const ACK_RETENTION_MS = 7 * 24 * 3600 * 1000; // 확인 후 7일 보관
+const CLEANUP_THROTTLE_MS = 3600 * 1000;       // 정리 주기 1시간
 
 export async function onRequestGet({ env, request }) {
   if (!env.STORES_KV) return json({ error: 'KV not bound' }, 500);
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
   const unack = url.searchParams.get('unack');
+
+  // 게으른 정리 (목록 조회 시에만 — 1시간 쓰로틀)
+  if (!id) { try { await _maybeCleanup(env); } catch(e){} }
 
   if (unack && !id) {
     const idx = (await env.STORES_KV.get('vandocs_index', 'json')) || { items: [] };
@@ -48,7 +52,17 @@ export async function onRequestGet({ env, request }) {
       const idx = Number(fileIdx);
       const f = data.files && data.files[idx];
       if (!f) return text('file not found', 404);
-      const bin = base64ToBytes(f.data || '');
+
+      let bin = null;
+      if (f.key) {
+        // 신규 형식: 별도 KV 키에 raw bytes 저장
+        bin = await env.STORES_KV.get(f.key, 'arrayBuffer');
+      } else if (f.data) {
+        // 구버전 호환: base64 inline
+        bin = base64ToBytes(f.data);
+      }
+      if (!bin) return text('file data missing', 404);
+
       return new Response(bin, {
         status: 200,
         headers: {
@@ -59,7 +73,12 @@ export async function onRequestGet({ env, request }) {
       });
     }
 
-    return json(data, 200);
+    // 메타데이터만 (data 필드 제거 — 응답 크기 절감)
+    const meta = { ...data, files: (data.files || []).map(f => ({
+      name: f.name, type: f.type, size: f.size,
+      hasData: !!(f.key || f.data),
+    })) };
+    return json(meta, 200);
   }
 
   const idx = (await env.STORES_KV.get('vandocs_index', 'json')) || { items: [] };
@@ -77,9 +96,7 @@ export async function onRequestPut({ request, env }) {
   const item = (idx.items || []).find(it => it.id === ackId);
   if (!item) return json({ error: 'not found' }, 404);
 
-  let by = '';
-  try { by = url.searchParams.get('by') || ''; } catch(e){}
-  // 본문에 by 가 있으면 그 값 사용
+  let by = url.searchParams.get('by') || '';
   try {
     const body = await request.json();
     if (body && body.by) by = String(body.by);
@@ -90,7 +107,7 @@ export async function onRequestPut({ request, env }) {
   item.acknowledgedBy = String(by || '').slice(0, 80);
 
   await env.STORES_KV.put('vandocs_index', JSON.stringify(idx));
-  return json({ ok: true, id: ackId }, 200);
+  return json({ ok: true, id: ackId, autoDeleteAt: new Date(Date.now() + ACK_RETENTION_MS).toISOString() }, 200);
 }
 
 export async function onRequestPost({ request, env }) {
@@ -112,9 +129,13 @@ export async function onRequestPost({ request, env }) {
   const rawFiles = form.getAll('files');
   if (!rawFiles || !rawFiles.length) return text('업로드 파일이 없습니다', 400);
 
-  const stored = [];
+  const id = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+
+  const fileMetas = [];
   let totalBytes = 0;
   let skipped = 0;
+  let n = 0;
+
   for (const f of rawFiles) {
     if (!f || typeof f.arrayBuffer !== 'function') { skipped++; continue; }
     const buf = await f.arrayBuffer();
@@ -122,24 +143,26 @@ export async function onRequestPost({ request, env }) {
     if (buf.byteLength > MAX_FILE_BYTES) { skipped++; continue; }
     if (totalBytes + buf.byteLength > MAX_TOTAL_BYTES) { skipped++; continue; }
     totalBytes += buf.byteLength;
-    stored.push({
-      name: String(f.name || 'file').slice(0, 200),
+
+    const fileKey = `vandoc:${id}:f${n}`;
+    // KV 는 ArrayBuffer 그대로 저장 가능 — base64 오버헤드 없음
+    await env.STORES_KV.put(fileKey, buf);
+
+    fileMetas.push({
+      name: String(f.name || `file_${n}`).slice(0, 200),
       type: String(f.type || 'application/octet-stream').slice(0, 100),
       size: buf.byteLength,
-      data: bytesToBase64(new Uint8Array(buf)),
+      key:  fileKey,
     });
+    n++;
   }
-  if (!stored.length) return text('유효한 파일이 없습니다 (파일당 ≤5MB, 제출 합 ≤20MB)', 413);
+  if (!fileMetas.length) {
+    return text(`유효한 파일이 없습니다 (파일당 ≤${(MAX_FILE_BYTES/1_000_000)|0}MB, 제출 합 ≤${(MAX_TOTAL_BYTES/1_000_000)|0}MB)`, 413);
+  }
 
-  const id = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
   const submission = {
-    id,
-    store,
-    category,
-    docType,
-    submitter,
-    note,
-    files: stored,
+    id, store, category, docType, submitter, note,
+    files: fileMetas,
     createdAt: new Date().toISOString(),
   };
 
@@ -149,7 +172,7 @@ export async function onRequestPost({ request, env }) {
   const idx = (await env.STORES_KV.get('vandocs_index', 'json')) || { items: [] };
   idx.items.unshift({
     id, store, category, docType, submitter,
-    count: stored.length, totalBytes,
+    count: fileMetas.length, totalBytes,
     createdAt: submission.createdAt,
   });
   if (idx.items.length > INDEX_MAX) idx.items = idx.items.slice(0, INDEX_MAX);
@@ -158,21 +181,57 @@ export async function onRequestPost({ request, env }) {
   return json({
     ok: true,
     id,
-    count: stored.length,
+    count: fileMetas.length,
     skipped,
     totalBytes,
   }, 200);
 }
 
-/* base64 ↔ bytes (Workers 환경) */
-function bytesToBase64(bytes) {
-  let bin = '';
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+/* ──────────────────────────────────────────────
+   게으른 정리: 확인 후 7일 경과 항목 KV에서 삭제
+   - 1시간에 한 번만 실행 (vandocs_cleanup_at 키)
+────────────────────────────────────────────── */
+async function _maybeCleanup(env) {
+  const last = Number(await env.STORES_KV.get('vandocs_cleanup_at') || '0');
+  const now = Date.now();
+  if (now - last < CLEANUP_THROTTLE_MS) return;
+  await env.STORES_KV.put('vandocs_cleanup_at', String(now));
+
+  const idx = (await env.STORES_KV.get('vandocs_index', 'json')) || { items: [] };
+  const items = idx.items || [];
+  const keep = [];
+  const expired = [];
+  for (const it of items) {
+    const ackTs = it.acknowledged && it.acknowledgedAt
+      ? new Date(it.acknowledgedAt).getTime()
+      : 0;
+    if (ackTs && (now - ackTs) > ACK_RETENTION_MS) expired.push(it);
+    else keep.push(it);
   }
-  return btoa(bin);
+  if (!expired.length) return;
+
+  for (const it of expired) {
+    try {
+      // 메타데이터에서 파일 키 목록을 정확히 얻기 위해 한 번 읽기
+      const meta = await env.STORES_KV.get('vandoc:' + it.id, 'json');
+      const fileKeys = (meta && meta.files || []).map(f => f.key).filter(Boolean);
+      // 파일 바이너리 삭제
+      for (const k of fileKeys) { try { await env.STORES_KV.delete(k); } catch(e){} }
+      // 호환: count 기반 추정 키 삭제 (구버전 데이터)
+      const cnt = it.count || 0;
+      for (let i = 0; i < cnt; i++) {
+        try { await env.STORES_KV.delete(`vandoc:${it.id}:f${i}`); } catch(e){}
+      }
+      // 메타데이터 삭제
+      try { await env.STORES_KV.delete('vandoc:' + it.id); } catch(e){}
+    } catch(e) {}
+  }
+
+  idx.items = keep;
+  await env.STORES_KV.put('vandocs_index', JSON.stringify(idx));
 }
+
+/* base64 → bytes (구버전 호환용) */
 function base64ToBytes(b64) {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
