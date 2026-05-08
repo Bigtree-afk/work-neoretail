@@ -8199,6 +8199,21 @@ ${text.slice(0, 3000)}`;
 
     let finalText = '';
     let interimText = '';
+
+    // 안전 타이머 — 모바일에서 마이크가 너무 오래 켜져있으면
+    // OS 가 통화모드(스피커폰)로 전환해버리므로, 짧게만 켰다 끈다.
+    let silenceTimer = null;
+    let maxTimer = null;
+    const SILENCE_MS = 2500;   // 마지막 입력 후 2.5초 침묵 → 종료
+    const MAX_MS    = 10000;   // 최대 10초 (그 이후 강제 종료)
+    function _stopRec(reason) {
+      try { rec.stop(); } catch(e){}
+    }
+    function _resetSilence() {
+      if (silenceTimer) clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => _stopRec('silence'), SILENCE_MS);
+    }
+
     rec.onresult = (ev) => {
       interimText = '';
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
@@ -8209,20 +8224,26 @@ ${text.slice(0, 3000)}`;
       const display = (finalText + interimText).trim();
       if (inputEl) inputEl.value = display;
       _updateVoiceOverlay(display);
+      // 입력이 들어오는 동안은 침묵 타이머 리셋
+      _resetSilence();
       // 라이브 검색 옵션이 켜진 경우 — 입력될 때마다 onDone 호출
       if (opts.liveSearch && typeof onDone === 'function') {
         try { onDone(display); } catch(e){}
       }
     };
     rec.onend = () => {
+      if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+      if (maxTimer)     { clearTimeout(maxTimer);     maxTimer = null; }
       if (opts.btn) opts.btn.classList.remove('listening');
       _hideVoiceOverlay();
       _activeVoiceRec = null;
+      window._activeVoiceRec = null;
       const final = (finalText.trim() || (inputEl ? inputEl.value : '')).trim();
       if (typeof onDone === 'function') {
         try { onDone(final); } catch(e){}
       }
     };
+    rec.onspeechend = () => _stopRec('speech-end');
     rec.onerror = (e) => {
       const msg = e && e.error;
       // 권한 거부는 안내, 그 외 일반 에러
@@ -8245,6 +8266,12 @@ ${text.slice(0, 3000)}`;
       window._activeVoiceRec = rec; // overlay 의 정지 버튼이 참조
       if (opts.btn) opts.btn.classList.add('listening');
       _showVoiceOverlay(opts.label || '듣고 있어요');
+      // 침묵 타이머 시작 + 최대 시간 안전 가드
+      _resetSilence();
+      maxTimer = setTimeout(() => _stopRec('max'), MAX_MS);
+      // 페이지 숨김/포커스 잃으면 즉시 종료 — 마이크 점유 방지
+      const _hardStop = () => _stopRec('hidden');
+      document.addEventListener('visibilitychange', _hardStop, { once: true });
     } catch(e) {
       showToast && showToast('음성 인식 시작 실패: ' + e.message);
       return null;
