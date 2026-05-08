@@ -6761,33 +6761,67 @@ ${text.slice(0, 3000)}`;
   }
   window.refreshDashVandocsAlert = refreshDashVandocsAlert;
 
-  /* 서류 상세 — 새 탭에 첫 파일 열기 + 파일 목록 모달 */
+  /* JSZip 동적 로드 (다운로드 시 1회만) */
+  let _jszipPromise = null;
+  function loadJSZip() {
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    if (_jszipPromise) return _jszipPromise;
+    _jszipPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+      s.onload = () => resolve(window.JSZip);
+      s.onerror = () => reject(new Error('JSZip load failed'));
+      document.head.appendChild(s);
+    });
+    return _jszipPromise;
+  }
+
+  /* 서류 상세 — 파일 목록 + 체크박스 다운로드 */
+  let _vdCurrent = null; // { id, store, docType, files: [...] }
   async function openVandocDetail(id) {
     try {
       const res = await fetch('/api/vandocs?id=' + encodeURIComponent(id), { cache: 'no-store' });
       if (!res.ok) { showToast && showToast('서류를 찾을 수 없습니다'); return; }
       const data = await res.json();
-      // 기존 dashListModal 재사용 — 파일 목록 표시
+      _vdCurrent = data;
+      _vdCurrent.id = id;
+
       const titleEl = document.getElementById('dashListTitle');
       const bodyEl = document.getElementById('dashListBody');
       if (!titleEl || !bodyEl) return;
       titleEl.textContent = `📑 ${data.store} — ${data.docType||''}`;
       const meta = `${esc(data.category||'')} · ${esc((data.createdAt||'').slice(0,16).replace('T',' '))}${data.submitter?` · ${esc(data.submitter)}`:''}`;
+      const fileCount = (data.files || []).length;
       const filesHtml = (data.files || []).map((f, i) => {
         const url = `/api/vandocs?id=${encodeURIComponent(id)}&fileIdx=${i}&download=1`;
         const isImg = (f.type||'').startsWith('image/');
         const thumb = isImg
           ? `<img src="${url}" style="width:100%;height:140px;object-fit:cover;border-radius:6px;border:1px solid var(--gray-200)" alt="">`
           : `<div style="width:100%;height:140px;background:#FEE2E2;color:var(--danger);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid var(--gray-200)"><div style="font-size:36px">📄</div><div style="font-size:11px">${(f.type||'').includes('pdf')?'PDF':'파일'}</div></div>`;
-        return `<a href="${url}" target="_blank" rel="noopener" style="display:block;text-decoration:none;color:inherit">
-          ${thumb}
-          <div style="font-size:11px;color:var(--gray-600);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name||'')}</div>
-          <div style="font-size:10px;color:var(--gray-400)">${formatBytesKB(f.size||0)}</div>
-        </a>`;
+        return `<div class="vd-file" style="position:relative">
+          <label style="position:absolute;top:6px;left:6px;background:rgba(255,255,255,0.95);border-radius:4px;padding:3px 6px;display:flex;align-items:center;gap:4px;cursor:pointer;z-index:1;font-size:11px;font-weight:600">
+            <input type="checkbox" class="vd-file-chk" data-idx="${i}" checked onchange="updateVdSelectAll()" style="margin:0;cursor:pointer">
+          </label>
+          <a href="${url}" target="_blank" rel="noopener" style="display:block;text-decoration:none;color:inherit">
+            ${thumb}
+            <div style="font-size:11px;color:var(--gray-600);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name||'')}</div>
+            <div style="font-size:10px;color:var(--gray-400)">${formatBytesKB(f.size||0)}</div>
+          </a>
+        </div>`;
       }).join('');
       bodyEl.innerHTML = `<div style="padding:16px">
         <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px">${meta}</div>
         ${data.note?`<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:10px">📝 ${esc(data.note)}</div>`:''}
+        ${fileCount > 0 ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;background:#F9FAFB;border:1px solid var(--gray-200);border-radius:8px;padding:8px 12px;margin-bottom:10px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600">
+            <input type="checkbox" id="vdSelectAll" checked onchange="toggleVdSelectAll(this.checked)" style="cursor:pointer">
+            전체 선택 <span id="vdSelectCount" style="color:var(--gray-500);font-weight:400">(${fileCount}/${fileCount})</span>
+          </label>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="downloadVdSelected()">⬇ 선택 다운로드 (ZIP)</button>
+            <button class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 10px" onclick="downloadVdAll()">⬇ 전체 다운로드 (ZIP)</button>
+          </div>
+        </div>` : ''}
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">${filesHtml || '<div style="color:var(--gray-400);font-size:12px">파일 없음</div>'}</div>
         <div style="margin-top:14px;display:flex;gap:6px;justify-content:space-between;align-items:center;flex-wrap:wrap">
           <div style="font-size:10px;color:var(--gray-400)">
@@ -6804,6 +6838,91 @@ ${text.slice(0, 3000)}`;
     }
   }
   window.openVandocDetail = openVandocDetail;
+
+  function toggleVdSelectAll(checked) {
+    document.querySelectorAll('.vd-file-chk').forEach(c => c.checked = checked);
+    updateVdSelectAll();
+  }
+  window.toggleVdSelectAll = toggleVdSelectAll;
+
+  function updateVdSelectAll() {
+    const all = document.querySelectorAll('.vd-file-chk');
+    const checked = Array.from(all).filter(c => c.checked).length;
+    const total = all.length;
+    const cntEl = document.getElementById('vdSelectCount');
+    if (cntEl) cntEl.textContent = `(${checked}/${total})`;
+    const sa = document.getElementById('vdSelectAll');
+    if (sa) {
+      sa.checked = checked === total && total > 0;
+      sa.indeterminate = checked > 0 && checked < total;
+    }
+  }
+  window.updateVdSelectAll = updateVdSelectAll;
+
+  function _getSelectedVdIdxs() {
+    return Array.from(document.querySelectorAll('.vd-file-chk'))
+      .filter(c => c.checked)
+      .map(c => Number(c.dataset.idx));
+  }
+
+  async function downloadVdSelected() {
+    const idxs = _getSelectedVdIdxs();
+    if (!idxs.length) { showToast && showToast('선택된 파일이 없습니다'); return; }
+    await _downloadVdAsZip(idxs);
+  }
+  window.downloadVdSelected = downloadVdSelected;
+
+  async function downloadVdAll() {
+    if (!_vdCurrent || !_vdCurrent.files) return;
+    const idxs = _vdCurrent.files.map((_, i) => i);
+    await _downloadVdAsZip(idxs);
+  }
+  window.downloadVdAll = downloadVdAll;
+
+  async function _downloadVdAsZip(idxs) {
+    const cur = _vdCurrent;
+    if (!cur || !cur.files) return;
+    if (typeof showToast === 'function') showToast('다운로드 준비 중…');
+    let JSZip;
+    try { JSZip = await loadJSZip(); }
+    catch(e) { showToast && showToast('ZIP 라이브러리 로드 실패'); return; }
+
+    const zip = new JSZip();
+    const seen = {};
+    let okCount = 0;
+    for (const i of idxs) {
+      const f = cur.files[i];
+      if (!f) continue;
+      try {
+        const res = await fetch(`/api/vandocs?id=${encodeURIComponent(cur.id)}&fileIdx=${i}&download=1`);
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        // 파일명 중복 처리
+        let name = f.name || `file_${i}`;
+        if (seen[name] != null) {
+          const dot = name.lastIndexOf('.');
+          const base = dot > 0 ? name.slice(0, dot) : name;
+          const ext = dot > 0 ? name.slice(dot) : '';
+          name = `${base}_${++seen[f.name]}${ext}`;
+        } else seen[f.name || name] = 0;
+        zip.file(name, blob);
+        okCount++;
+      } catch(e) {}
+    }
+    if (okCount === 0) { showToast && showToast('다운로드 실패'); return; }
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const dateStr = (cur.createdAt || '').slice(0,10).replace(/-/g, '');
+    const safe = (s) => String(s||'').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 40);
+    const zipName = `${safe(cur.store)}_${safe(cur.docType)}_${dateStr}_${okCount}files.zip`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = zipName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    showToast && showToast(`✅ ${okCount}개 파일 다운로드 완료`);
+  }
 
   function formatBytesKB(n) {
     if (!n) return '';
