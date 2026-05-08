@@ -7428,9 +7428,12 @@ ${text.slice(0, 3000)}`;
         <div style="grid-column:1/-1">
           <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;gap:8px">
             <span>📝 비고 <span style="font-size:10px;color:var(--gray-400)">— 내용 수정 후 입력란 밖을 클릭하면 자동 저장</span></span>
-            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 10px;font-weight:700" onclick="addJobMemo('${j.id}')">+ 메모 추가</button>
           </div>
           <textarea placeholder="VAN사 변경, 고객 요청, 현장 특이사항 등..." onchange="updateJobNotes('${j.id}',this.value)" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;background:#fff;font-family:inherit;resize:vertical">${esc(j.notes||'')}</textarea>
+          <div style="margin-top:8px;display:flex;gap:6px;align-items:flex-start">
+            <textarea id="jobMemoInput-${j.id}" placeholder="메모 입력 후 [추가] 클릭 — 줄바꿈 가능 (Shift+Enter)" style="flex:1;min-height:46px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;background:#fff;font-family:inherit;resize:vertical" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addJobMemo('${j.id}')}"></textarea>
+            <button class="btn btn-primary btn-sm" style="font-size:12px;padding:8px 14px;font-weight:700;white-space:nowrap" onclick="addJobMemo('${j.id}')">+ 추가</button>
+          </div>
           ${(() => {
             const memos = Array.isArray(j.memos) ? j.memos : [];
             if (memos.length === 0) return '';
@@ -7744,10 +7747,14 @@ ${text.slice(0, 3000)}`;
 
   /* 메모 추가 — 일자/시간 자동 기록 */
   function addJobMemo(jobId) {
-    const text = prompt('추가할 메모 내용을 입력하세요');
-    if (text == null) return;
-    const trimmed = String(text || '').trim();
-    if (!trimmed) return;
+    const inp = document.getElementById('jobMemoInput-' + jobId);
+    if (!inp) return;
+    const trimmed = String(inp.value || '').trim();
+    if (!trimmed) {
+      if (typeof showToast === 'function') showToast('메모 내용을 입력하세요');
+      try { inp.focus(); } catch(e){}
+      return;
+    }
     const jobs = getJobs();
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
