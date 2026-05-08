@@ -6870,23 +6870,65 @@ ${text.slice(0, 3000)}`;
   window.downloadVdAll = downloadVdAll;
 
   /* 선택된 파일들을 그대로 (압축 없이) 순차 다운로드
-     - 복수 파일이면 다운로드 폴더 안에 "매장명_서류종류_날짜" 하위 폴더 생성 후 그 안에 저장
-       (Chromium 계열 — download 속성 subpath 지원. Firefox 는 슬래시가 _ 로 치환되어
-        같은 효과로 평탄 저장됨)
-     - 단일 파일이면 원본 파일명 그대로 */
+     - 복수 파일 + showDirectoryPicker 지원 시:
+         사용자에게 폴더 선택 다이얼로그 → 그 안에 [매장명_서류종류_날짜] 하위 폴더 생성 → 파일 저장
+     - 그 외 (단일/미지원): 일반 다운로드 (파일명에 매장명 prefix) */
   async function _downloadVdFiles(idxs) {
     const cur = _vdCurrent;
     if (!cur || !cur.files) return;
-    if (typeof showToast === 'function') showToast(`다운로드 시작 — ${idxs.length}개`);
 
     const safe = (s) => String(s||'').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 60);
     const datePrefix = (cur.createdAt || '').slice(0,10).replace(/-/g, '');
     const folderName = `${safe(cur.store)}_${safe(cur.docType)}_${datePrefix}`;
-    const useFolder = idxs.length > 1; // 복수일 때만 폴더 사용
 
+    // 복수 파일 + File System Access API 가능 → 폴더 선택 후 하위폴더 생성
+    if (idxs.length > 1 && window.showDirectoryPicker) {
+      try {
+        showToast && showToast(`📁 저장할 부모 폴더를 선택하세요`);
+        const parentHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        const subHandle = await parentHandle.getDirectoryHandle(folderName, { create: true });
+        showToast && showToast(`다운로드 시작 — ${idxs.length}개 → ${folderName}/`);
+
+        const seen = {};
+        let okCount = 0;
+        for (const i of idxs) {
+          const f = cur.files[i];
+          if (!f) continue;
+          try {
+            const res = await fetch(`/api/vandocs?id=${encodeURIComponent(cur.id)}&fileIdx=${i}&download=1`);
+            if (!res.ok) continue;
+            const blob = await res.blob();
+
+            let leaf = f.name || `file_${i}`;
+            const dot = leaf.lastIndexOf('.');
+            const base = dot > 0 ? leaf.slice(0, dot) : leaf;
+            const ext  = dot > 0 ? leaf.slice(dot) : '';
+            if (seen[leaf] != null) leaf = `${base}_${++seen[leaf]}${ext}`;
+            else seen[f.name || leaf] = 0;
+
+            const fileHandle = await subHandle.getFileHandle(leaf, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            okCount++;
+          } catch(e) { /* 파일 단위 실패는 무시 */ }
+        }
+        showToast && showToast(`✅ ${okCount}개 파일 → [${folderName}] 에 저장 완료`);
+        return;
+      } catch (e) {
+        // 사용자가 폴더 선택 취소했거나 권한 거부 → 평탄 다운로드로 폴백
+        if (e && e.name === 'AbortError') {
+          showToast && showToast('취소됨');
+          return;
+        }
+        // 그 외 오류는 폴백 진행
+      }
+    }
+
+    // 폴백: 평탄 다운로드 (매장명_서류종류_원본 형식)
+    showToast && showToast(`다운로드 시작 — ${idxs.length}개`);
     const seen = {};
     let okCount = 0;
-
     for (const i of idxs) {
       const f = cur.files[i];
       if (!f) continue;
@@ -6895,38 +6937,25 @@ ${text.slice(0, 3000)}`;
         if (!res.ok) continue;
         const blob = await res.blob();
 
-        // 원본 파일명 유지 (확장자 포함). 단일이면 매장명 prefix.
         let baseName = f.name || `file_${i}`;
         const dot = baseName.lastIndexOf('.');
         const base = dot > 0 ? baseName.slice(0, dot) : baseName;
         const ext  = dot > 0 ? baseName.slice(dot) : '';
-        let leafName = useFolder
-          ? `${base}${ext}`
-          : `${safe(cur.store)}_${safe(cur.docType)}_${base}${ext}`;
-
-        // 중복 처리
-        const key = (useFolder ? folderName + '/' : '') + leafName;
-        if (seen[key] != null) leafName = `${base}_${++seen[key]}${ext}`;
-        else seen[key] = 0;
-
-        const finalPath = useFolder ? `${folderName}/${leafName}` : leafName;
+        let outName = `${safe(cur.store)}_${safe(cur.docType)}_${base}${ext}`;
+        if (seen[outName] != null) outName = `${safe(cur.store)}_${safe(cur.docType)}_${base}_${++seen[outName]}${ext}`;
+        else seen[outName] = 0;
 
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = finalPath; // Chromium 은 subpath 를 폴더로 해석
+        a.download = outName;
         document.body.appendChild(a);
         a.click();
         setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
         okCount++;
-        // 브라우저의 동시 다운로드 차단 방지 — 짧은 간격
         await new Promise(r => setTimeout(r, 250));
       } catch(e) {}
     }
-    if (useFolder) {
-      showToast && showToast(`✅ ${okCount}개 파일 → 다운로드 폴더 내 [${folderName}] 에 저장`);
-    } else {
-      showToast && showToast(`✅ ${okCount}개 파일 다운로드`);
-    }
+    showToast && showToast(`✅ ${okCount}개 파일 다운로드 (파일명에 매장명 포함)`);
   }
 
   function formatBytesKB(n) {
