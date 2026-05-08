@@ -8088,21 +8088,106 @@ ${text.slice(0, 3000)}`;
   /* ══════════════════════════════════════════════
      검색 / 필터 / 음성 인식
   ══════════════════════════════════════════════ */
-  function _runVoice(inputEl, onDone) {
+  // 활성 음성 인식 인스턴스 — 토글 (재클릭 시 중지) 용
+  let _activeVoiceRec = null;
+
+  function _showVoiceOverlay(label) {
+    let ov = document.getElementById('voiceOverlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'voiceOverlay';
+      ov.style.cssText = 'position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.92);color:#fff;padding:14px 20px;border-radius:14px;font-size:14px;z-index:9998;box-shadow:0 10px 30px rgba(0,0,0,0.35);display:flex;align-items:center;gap:14px;min-width:280px;max-width:90vw';
+      document.body.appendChild(ov);
+    }
+    ov.innerHTML = `
+      <div style="width:38px;height:38px;border-radius:50%;background:#EF4444;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;animation:pulse-dot 1s infinite">🎙</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;color:#94A3B8;margin-bottom:2px">${label||'듣고 있어요'} · 말씀해 주세요</div>
+        <div id="voiceOverlayText" style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">…</div>
+      </div>
+      <button onclick="(function(){if(window._activeVoiceRec){try{window._activeVoiceRec.stop()}catch(e){}}})()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">정지</button>`;
+  }
+  function _updateVoiceOverlay(text) {
+    const el = document.getElementById('voiceOverlayText');
+    if (el) el.textContent = text || '…';
+  }
+  function _hideVoiceOverlay() {
+    const ov = document.getElementById('voiceOverlay');
+    if (ov) ov.remove();
+  }
+
+  function _runVoice(inputEl, onDone, opts) {
+    opts = opts || {};
+    // 이미 듣고 있으면 중지(토글)
+    if (_activeVoiceRec) {
+      try { _activeVoiceRec.stop(); } catch(e){}
+      _activeVoiceRec = null;
+      return null;
+    }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { showToast && showToast('이 브라우저는 음성 인식을 지원하지 않습니다'); return; }
+    if (!SR) {
+      showToast && showToast('이 브라우저는 음성 인식을 지원하지 않습니다 (Chrome / Edge 권장)');
+      return null;
+    }
     const rec = new SR();
     rec.lang = 'ko-KR';
-    rec.interimResults = false;
+    rec.interimResults = true;          // 실시간 인식 결과 표시
+    rec.continuous = false;
     rec.maxAlternatives = 1;
-    showToast && showToast('🎙 듣고 있습니다...');
+
+    let finalText = '';
+    let interimText = '';
     rec.onresult = (ev) => {
-      const text = ev.results[0][0].transcript || '';
-      if (inputEl) inputEl.value = text;
-      if (typeof onDone === 'function') onDone(text);
+      interimText = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const t = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) finalText += t;
+        else interimText += t;
+      }
+      const display = (finalText + interimText).trim();
+      if (inputEl) inputEl.value = display;
+      _updateVoiceOverlay(display);
+      // 라이브 검색 옵션이 켜진 경우 — 입력될 때마다 onDone 호출
+      if (opts.liveSearch && typeof onDone === 'function') {
+        try { onDone(display); } catch(e){}
+      }
     };
-    rec.onerror = (e) => { showToast && showToast('음성 인식 오류: ' + (e.error||'')); };
-    try { rec.start(); } catch {}
+    rec.onend = () => {
+      if (opts.btn) opts.btn.classList.remove('listening');
+      _hideVoiceOverlay();
+      _activeVoiceRec = null;
+      const final = (finalText.trim() || (inputEl ? inputEl.value : '')).trim();
+      if (typeof onDone === 'function') {
+        try { onDone(final); } catch(e){}
+      }
+    };
+    rec.onerror = (e) => {
+      const msg = e && e.error;
+      // 권한 거부는 안내, 그 외 일반 에러
+      if (msg === 'not-allowed' || msg === 'service-not-allowed') {
+        showToast && showToast('🎙 마이크 권한이 거부되었습니다. 주소창 좌측 자물쇠 → 마이크 허용으로 변경하세요');
+      } else if (msg === 'no-speech') {
+        showToast && showToast('🎙 음성이 감지되지 않았습니다. 다시 시도해 주세요');
+      } else if (msg === 'aborted') {
+        // 사용자 정지 — 별도 안내 X
+      } else {
+        showToast && showToast('음성 인식 오류: ' + (msg || ''));
+      }
+      if (opts.btn) opts.btn.classList.remove('listening');
+      _hideVoiceOverlay();
+      _activeVoiceRec = null;
+    };
+    try {
+      rec.start();
+      _activeVoiceRec = rec;
+      window._activeVoiceRec = rec; // overlay 의 정지 버튼이 참조
+      if (opts.btn) opts.btn.classList.add('listening');
+      _showVoiceOverlay(opts.label || '듣고 있어요');
+    } catch(e) {
+      showToast && showToast('음성 인식 시작 실패: ' + e.message);
+      return null;
+    }
+    return rec;
   }
 
   function applyStoreFilter(q, opts) {
@@ -8190,7 +8275,15 @@ ${text.slice(0, 3000)}`;
 
   function startStoreVoiceSearch() {
     const inp = document.getElementById('storeSearchInput');
-    _runVoice(inp, () => runStoreSearch());
+    const btn = document.getElementById('storeMicBtn');
+    if (!inp) return;
+    // 라이브 검색 — 인식 도중에도 실시간으로 결과 갱신
+    _runVoice(inp, (text) => {
+      const q = (text||'').trim();
+      // 짧으면 패스, 그 외 즉시 검색
+      if (q.length === 0) applyStoreFilter('', { toast:false });
+      else applyStoreFilter(q, { toast:false });
+    }, { btn, label:'점포 검색', liveSearch:true });
   }
 
   function filterStoresByStatus(chip, status) {
