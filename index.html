@@ -6869,14 +6869,21 @@ ${text.slice(0, 3000)}`;
   }
   window.downloadVdAll = downloadVdAll;
 
-  /* 선택된 파일들을 그대로 (압축 없이) 순차 다운로드 */
+  /* 선택된 파일들을 그대로 (압축 없이) 순차 다운로드
+     - 복수 파일이면 다운로드 폴더 안에 "매장명_서류종류_날짜" 하위 폴더 생성 후 그 안에 저장
+       (Chromium 계열 — download 속성 subpath 지원. Firefox 는 슬래시가 _ 로 치환되어
+        같은 효과로 평탄 저장됨)
+     - 단일 파일이면 원본 파일명 그대로 */
   async function _downloadVdFiles(idxs) {
     const cur = _vdCurrent;
     if (!cur || !cur.files) return;
     if (typeof showToast === 'function') showToast(`다운로드 시작 — ${idxs.length}개`);
 
-    const safe = (s) => String(s||'').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 40);
+    const safe = (s) => String(s||'').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 60);
     const datePrefix = (cur.createdAt || '').slice(0,10).replace(/-/g, '');
+    const folderName = `${safe(cur.store)}_${safe(cur.docType)}_${datePrefix}`;
+    const useFolder = idxs.length > 1; // 복수일 때만 폴더 사용
+
     const seen = {};
     let okCount = 0;
 
@@ -6888,19 +6895,25 @@ ${text.slice(0, 3000)}`;
         if (!res.ok) continue;
         const blob = await res.blob();
 
-        // 매장명_서류종류_원본파일명 형식 — 매장별 구분 용이
+        // 원본 파일명 유지 (확장자 포함). 단일이면 매장명 prefix.
         let baseName = f.name || `file_${i}`;
         const dot = baseName.lastIndexOf('.');
         const base = dot > 0 ? baseName.slice(0, dot) : baseName;
         const ext  = dot > 0 ? baseName.slice(dot) : '';
-        let outName = `${safe(cur.store)}_${safe(cur.docType)}_${base}${ext}`;
+        let leafName = useFolder
+          ? `${base}${ext}`
+          : `${safe(cur.store)}_${safe(cur.docType)}_${base}${ext}`;
+
         // 중복 처리
-        if (seen[outName] != null) outName = `${safe(cur.store)}_${safe(cur.docType)}_${base}_${++seen[outName]}${ext}`;
-        else seen[outName] = 0;
+        const key = (useFolder ? folderName + '/' : '') + leafName;
+        if (seen[key] != null) leafName = `${base}_${++seen[key]}${ext}`;
+        else seen[key] = 0;
+
+        const finalPath = useFolder ? `${folderName}/${leafName}` : leafName;
 
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = outName;
+        a.download = finalPath; // Chromium 은 subpath 를 폴더로 해석
         document.body.appendChild(a);
         a.click();
         setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
@@ -6909,7 +6922,11 @@ ${text.slice(0, 3000)}`;
         await new Promise(r => setTimeout(r, 250));
       } catch(e) {}
     }
-    showToast && showToast(`✅ ${okCount}개 파일 다운로드`);
+    if (useFolder) {
+      showToast && showToast(`✅ ${okCount}개 파일 → 다운로드 폴더 내 [${folderName}] 에 저장`);
+    } else {
+      showToast && showToast(`✅ ${okCount}개 파일 다운로드`);
+    }
   }
 
   function formatBytesKB(n) {
