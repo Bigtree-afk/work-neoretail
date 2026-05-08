@@ -778,25 +778,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <span class="nav-icon">◆</span> 대시보드
     </a>
     <a class="nav-item" onclick="showScreen('newopen')">
-      <span class="nav-icon">✚</span> 신규관리
-    </a>
-    <a class="nav-item" onclick="showScreen('consult')">
-      <span class="nav-icon">💬</span> 상담 조회
+      <span class="nav-icon">✚</span> 신규/상담
     </a>
     <a class="nav-item" onclick="showScreen('stores')">
       <span class="nav-icon">▣</span> 점포 관리
     </a>
     <a class="nav-item" onclick="showScreen('jobs')">
-      <span class="nav-icon">●</span> 작업 목록
-    </a>
-    <a class="nav-item" onclick="showScreen('calendar')">
-      <span class="nav-icon">▤</span> 일정 캘린더
+      <span class="nav-icon">●</span> 작업/일정
     </a>
     <a class="nav-item" onclick="showScreen('equipment')">
       <span class="nav-icon">▦</span> 장비 재고
-    </a>
-    <a class="nav-item" onclick="showScreen('quote')">
-      <span class="nav-icon">₩</span> 견적 작성
     </a>
     <a class="nav-item" href="/vandocs.html" target="_blank" rel="noopener" title="VAN 가맹/변경 서류 업로드 (별도 창)">
       <span class="nav-icon">📑</span> VAN서류
@@ -833,27 +824,18 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <span class="nav-icon">◆</span> 대시보드
   </a>
   <a class="nav-item" onclick="showScreen('newopen'); closeMenu()">
-    <span class="nav-icon">✚</span> 신규관리
-  </a>
-  <a class="nav-item" onclick="showScreen('consult'); closeMenu()">
-    <span class="nav-icon">💬</span> 상담 조회
+    <span class="nav-icon">✚</span> 신규/상담
   </a>
   <a class="nav-item" onclick="showScreen('stores'); closeMenu()">
     <span class="nav-icon">▣</span> 점포 관리
   </a>
   <div class="nav-section">업무</div>
   <a class="nav-item" onclick="showScreen('jobs'); closeMenu()">
-    <span class="nav-icon">●</span> 작업 목록
-  </a>
-  <a class="nav-item" onclick="showScreen('calendar'); closeMenu()">
-    <span class="nav-icon">▤</span> 일정 캘린더
+    <span class="nav-icon">●</span> 작업/일정
   </a>
   <div class="nav-section">운영</div>
   <a class="nav-item" onclick="showScreen('equipment'); closeMenu()">
     <span class="nav-icon">▦</span> 장비 재고
-  </a>
-  <a class="nav-item" onclick="showScreen('quote'); closeMenu()">
-    <span class="nav-icon">₩</span> 견적 작성
   </a>
   <a class="nav-item" href="/vandocs.html" target="_blank" rel="noopener" onclick="closeMenu()">
     <span class="nav-icon">📑</span> VAN서류
@@ -1112,6 +1094,34 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <!-- SCREEN: JOBS                            -->
     <!-- ═══════════════════════════════════════ -->
     <div class="screen" id="screen-jobs">
+      <!-- 월간 캘린더 (상단 이동) -->
+      <div class="card" style="padding:14px 16px;margin-bottom:16px">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="moveCalMonth(-1)">◀ 전월</button>
+          <div style="font-size:16px; font-weight:800; color:var(--gray-900)" id="calMonthLabel">— 년 — 월</div>
+          <button class="btn btn-outline btn-sm" onclick="moveCalMonth(1)">다음월 ▶</button>
+          <button class="btn btn-outline btn-sm" onclick="moveCalMonth(0)" style="margin-left:8px;font-size:11px">오늘</button>
+          <div style="margin-left:auto; display:flex; gap:4px; font-size:10px; font-weight:600;flex-wrap:wrap">
+            <span style="background:#DBEAFE; color:#1D4ED8; padding:2px 7px; border-radius:10px">신규</span>
+            <span style="background:#D1FAE5; color:#065F46; padding:2px 7px; border-radius:10px">POS교체</span>
+            <span style="background:#EDE9FE; color:#5B21B6; padding:2px 7px; border-radius:10px">VAN</span>
+            <span style="background:#FEF3C7; color:#92400E; padding:2px 7px; border-radius:10px">AS</span>
+            <span style="background:#FED7AA; color:#9A3412; padding:2px 7px; border-radius:10px">🔧 설치</span>
+            <span style="background:#FECACA; color:#991B1B; padding:2px 7px; border-radius:10px">🌅 가오픈</span>
+            <span style="background:#A7F3D0; color:#065F46; padding:2px 7px; border-radius:10px">🎉 오픈</span>
+          </div>
+        </div>
+        <div class="cal-grid" id="calGrid">
+          <div class="cal-day-header">일</div>
+          <div class="cal-day-header">월</div>
+          <div class="cal-day-header">화</div>
+          <div class="cal-day-header">수</div>
+          <div class="cal-day-header">목</div>
+          <div class="cal-day-header">금</div>
+          <div class="cal-day-header">토</div>
+        </div>
+      </div>
+
       <div class="filter-row">
         <div class="search-bar" style="flex:0 0 280px;position:relative">
           <span class="search-icon" onclick="runJobSearch()" style="cursor:pointer" title="검색">🔍</span>
@@ -1188,7 +1198,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <button class="filter-chip" onclick="filterNewopen(this,'planned')">예정</button>
         <button class="filter-chip" onclick="filterNewopen(this,'progress')">진행중</button>
         <button class="filter-chip" onclick="filterNewopen(this,'done')">완료</button>
-        <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openConsultJob()" title="상담 단계 매장 등록 — 납품 결정 시 신규로 전환">＋ 상담 등록</button>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="showScreen('consult')" title="상담 진행 현황 보기">💬 상담 목록</button>
+        <button class="btn btn-outline btn-sm" onclick="showScreen('quote')" title="견적서 작성">₩ 견적 작성</button>
+        <button class="btn btn-outline btn-sm" onclick="openConsultJob()" title="상담 단계 매장 등록 — 납품 결정 시 신규로 전환">＋ 상담 등록</button>
         <button class="btn btn-primary btn-sm" onclick="openNewopenJob()">＋ 신규 등록</button>
       </div>
 
@@ -1271,7 +1283,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <button class="filter-chip" onclick="filterConsult(this,'won')">납품 결정</button>
         <button class="filter-chip" onclick="filterConsult(this,'lost')">납품 실패</button>
         <button class="filter-chip" onclick="filterConsult(this,'all')">전체</button>
-        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openConsultJob()">＋ 상담 등록</button>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="showScreen('newopen')">← 신규 진행 현황</button>
+        <button class="btn btn-outline btn-sm" onclick="showScreen('quote')">₩ 견적 작성</button>
+        <button class="btn btn-primary btn-sm" onclick="openConsultJob()">＋ 상담 등록</button>
       </div>
       <!-- 테이블 -->
       <div class="card">
@@ -1410,33 +1424,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <!-- ═══════════════════════════════════════ -->
     <!-- SCREEN: CALENDAR                        -->
     <!-- ═══════════════════════════════════════ -->
-    <div class="screen" id="screen-calendar">
-      <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px">
-        <button class="btn btn-outline btn-sm" onclick="moveCalMonth(-1)">◀</button>
-        <div style="font-size:18px; font-weight:800; color:var(--gray-900)" id="calMonthLabel">— 년 — 월</div>
-        <button class="btn btn-outline btn-sm" onclick="moveCalMonth(1)">▶</button>
-        <button class="btn btn-outline btn-sm" onclick="moveCalMonth(0)" style="margin-left:8px;font-size:11px">오늘</button>
-        <div style="margin-left:auto; display:flex; gap:6px; font-size:11px; font-weight:600;flex-wrap:wrap">
-          <span style="background:#DBEAFE; color:#1D4ED8; padding:3px 8px; border-radius:10px">신규</span>
-          <span style="background:#D1FAE5; color:#065F46; padding:3px 8px; border-radius:10px">POS교체</span>
-          <span style="background:#EDE9FE; color:#5B21B6; padding:3px 8px; border-radius:10px">VAN</span>
-          <span style="background:#FEF3C7; color:#92400E; padding:3px 8px; border-radius:10px">AS</span>
-          <span style="background:#FED7AA; color:#9A3412; padding:3px 8px; border-radius:10px">🔧 설치완료</span>
-          <span style="background:#FECACA; color:#991B1B; padding:3px 8px; border-radius:10px">🌅 가오픈</span>
-          <span style="background:#A7F3D0; color:#065F46; padding:3px 8px; border-radius:10px">🎉 오픈</span>
-        </div>
-      </div>
-
-      <div class="cal-grid" id="calGrid">
-        <div class="cal-day-header">일</div>
-        <div class="cal-day-header">월</div>
-        <div class="cal-day-header">화</div>
-        <div class="cal-day-header">수</div>
-        <div class="cal-day-header">목</div>
-        <div class="cal-day-header">금</div>
-        <div class="cal-day-header">토</div>
-      </div>
-    </div>
+    <!-- screen-calendar 는 작업/일정 (screen-jobs)로 통합됨. 유지보수성을 위해 빈 div 만 둠. -->
+    <div class="screen" id="screen-calendar" style="display:none"></div>
 
     <!-- ═══════════════════════════════════════ -->
     <!-- SCREEN: EQUIPMENT                       -->
@@ -2802,11 +2791,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   const titles = {
     dashboard: '대시보드',
-    newopen: '신규관리',
+    newopen: '신규/상담',
     consult: '상담 조회',
     stores: '점포 관리',
-    jobs: '작업 목록',
-    calendar: '일정 캘린더',
+    jobs: '작업/일정',
+    calendar: '작업/일정',
     equipment: '장비 재고',
     quote: '견적 작성'
   };
@@ -2835,8 +2824,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     if (id === 'consult' && typeof hydrateConsult === 'function') {
       try { hydrateConsult('active'); } catch(e) {}
     }
-    // 일정 캘린더 진입 시 갱신
-    if (id === 'calendar' && typeof renderCalendar === 'function') {
+    // 작업/일정 진입 시 캘린더 갱신
+    if ((id === 'jobs' || id === 'calendar') && typeof renderCalendar === 'function') {
       try { renderCalendar(); } catch(e) {}
     }
     // 대시보드 진입 시 데이터 갱신 (데모 HTML 잔존 방지)
