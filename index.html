@@ -874,29 +874,42 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
       <!-- STAT CARDS -->
       <div class="stat-grid">
-        <div class="stat-card blue">
+        <div class="stat-card blue" style="cursor:pointer" onclick="showDashList('newOpen')" title="클릭 — 이번달 신규 작업 목록 보기">
           <div class="stat-label">이번달 신규</div>
           <div class="stat-value" id="statNewOpen">0</div>
           <div class="stat-sub" id="statNewOpenSub">데이터 없음</div>
           <div class="stat-icon">🏪</div>
         </div>
-        <div class="stat-card green">
+        <div class="stat-card green" style="cursor:pointer" onclick="showDashList('inProgress')" title="클릭 — 진행중 작업 목록 보기">
           <div class="stat-label">진행중 작업</div>
           <div class="stat-value" id="statInProgress">0</div>
           <div class="stat-sub" id="statInProgressSub">등록된 작업 없음</div>
           <div class="stat-icon">⚙️</div>
         </div>
-        <div class="stat-card amber">
+        <div class="stat-card amber" style="cursor:pointer" onclick="showDashList('as')" title="클릭 — AS 접수 목록 보기">
           <div class="stat-label">AS 접수</div>
           <div class="stat-value" id="statAsCount">0</div>
           <div class="stat-sub" id="statAsCountSub">접수 내역 없음</div>
           <div class="stat-icon">🔧</div>
         </div>
-        <div class="stat-card red">
+        <div class="stat-card red" style="cursor:pointer" onclick="showDashList('stockLow')" title="클릭 — 장비 재고 부족 목록 보기">
           <div class="stat-label">장비 재고 부족</div>
           <div class="stat-value" id="statStockLow">0</div>
           <div class="stat-sub" id="statStockLowSub">데이터 없음</div>
           <div class="stat-icon">📦</div>
+        </div>
+      </div>
+
+      <!-- MODAL: 대시보드 통계 카드 클릭 시 — 작업 목록 -->
+      <div class="modal-overlay" id="dashListModal" onclick="if(event.target===this)closeModal('dashListModal')">
+        <div class="modal" style="max-width:760px;width:92vw;max-height:80vh;display:flex;flex-direction:column;background:#fff">
+          <div class="modal-header">
+            <div class="modal-title" id="dashListTitle">목록</div>
+            <button class="modal-close" onclick="closeModal('dashListModal')">✕</button>
+          </div>
+          <div class="modal-body" style="overflow-y:auto;flex:1;padding:0">
+            <div id="dashListBody"></div>
+          </div>
         </div>
       </div>
 
@@ -6433,7 +6446,7 @@ ${text.slice(0, 3000)}`;
           const type = j.type || '작업';
           const eng = j.engineer || j.assignee || '미배정';
           const kindLbl = todayLabels[j._kind] || '';
-          return `<div class="sched-row" style="padding:12px 18px;border-bottom:1px solid var(--gray-100);display:flex;gap:14px;align-items:flex-start">
+          return `<div class="sched-row" style="padding:12px 18px;border-bottom:1px solid var(--gray-100);display:flex;gap:14px;align-items:flex-start;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''" onclick="window.editNewopen && window.editNewopen('${j.id}')" title="클릭 — 매장 상세 보기">
             <div style="font-size:12px;font-weight:700;color:var(--primary);width:75px;flex-shrink:0;padding-top:2px">${kindLbl}</div>
             <div style="flex:1">
               <div style="font-size:14px;font-weight:700;margin-bottom:3px">${esc(store)} — ${esc(type)}</div>
@@ -6491,7 +6504,7 @@ ${text.slice(0, 3000)}`;
           const elapsedTxt = hours >= 72 ? `<span style="color:var(--danger);font-weight:700">${hours}시간</span>`
                             : hours >= 48 ? `<span style="color:var(--warning);font-weight:700">${hours}시간</span>`
                             : `${hours}시간`;
-          return `<tr>
+          return `<tr style="cursor:pointer" onclick="window.editNewopen && window.editNewopen('${j.id}')" title="클릭 — 매장 상세 보기">
             <td><b>${esc(j.store || j.storeName || '-')}</b></td>
             <td>${esc(j.note || j.description || '-')}</td>
             <td style="color:var(--gray-400)">${esc(recv)}</td>
@@ -6504,6 +6517,93 @@ ${text.slice(0, 3000)}`;
     }
   }
   window.hydrateDashboardJobs = hydrateDashboardJobs;
+
+  /* 대시보드 통계 카드 클릭 — 작업 목록 모달 */
+  function showDashList(kind) {
+    const titleEl = document.getElementById('dashListTitle');
+    const bodyEl = document.getElementById('dashListBody');
+    if (!titleEl || !bodyEl) return;
+    let jobs = [];
+    try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e){}
+    const today = new Date();
+    const ym = today.toISOString().slice(0,7);
+    const isDone = (j) => (j.status === '완료' || j.status === 'done');
+
+    let title = '목록';
+    let list = [];
+    let emptyMsg = '데이터가 없습니다.';
+
+    if (kind === 'newOpen') {
+      title = `🏪 이번달 신규 (${ym})`;
+      list = jobs.filter(j => /신규|개업|오픈/.test(j.type||'') && (j.openDate||'').slice(0,7) === ym)
+                 .sort((a,b) => (a.openDate||'').localeCompare(b.openDate||''));
+      emptyMsg = '이번달 신규 작업이 없습니다.';
+    } else if (kind === 'inProgress') {
+      title = '⚙️ 진행중 작업';
+      list = jobs.filter(j => !isDone(j))
+                 .sort((a,b) => {
+                   const da = a.installDate || a.softOpenDate || a.openDate || a.date || '';
+                   const db = b.installDate || b.softOpenDate || b.openDate || b.date || '';
+                   return da.localeCompare(db);
+                 });
+      emptyMsg = '진행중인 작업이 없습니다.';
+    } else if (kind === 'as') {
+      title = '🔧 AS 접수';
+      list = jobs.filter(j => /as|에이에스/i.test(j.type||'') && !isDone(j))
+                 .sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+      emptyMsg = '미처리 AS가 없습니다.';
+    } else if (kind === 'stockLow') {
+      title = '📦 장비 재고 부족';
+      // 재고 추적 기능 없음 — 안내
+      bodyEl.innerHTML = `<div style="padding:40px 24px;text-align:center;color:var(--gray-400);font-size:13px">
+        <div style="font-size:36px;margin-bottom:12px">📦</div>
+        <div style="font-weight:600;color:var(--gray-600);margin-bottom:6px">재고 추적 기능 준비중</div>
+        <div style="font-size:12px">장비 재고 정보는 향후 업데이트 예정입니다.<br>현재는 장비 카탈로그 관리만 제공됩니다.</div>
+        <button class="btn btn-outline btn-sm" style="margin-top:14px" onclick="closeModal('dashListModal');showScreen('equipment')">장비 재고 화면으로 이동</button>
+      </div>`;
+      titleEl.textContent = title;
+      if (typeof showModal === 'function') showModal('dashListModal');
+      return;
+    }
+
+    titleEl.textContent = `${title} — ${list.length}건`;
+
+    if (list.length === 0) {
+      bodyEl.innerHTML = `<div style="padding:40px 24px;text-align:center;color:var(--gray-400);font-size:13px">
+        <div style="font-size:36px;margin-bottom:12px">📭</div>
+        <div>${emptyMsg}</div>
+      </div>`;
+    } else {
+      const fmtDate = (s) => (s||'').slice(5,10).replace('-','.');
+      bodyEl.innerHTML = list.map(j => {
+        const store = j.store || j.storeName || '-';
+        const type = j.type || '작업';
+        const eng = j.engineer || j.assignee || '미배정';
+        const status = j.status || '예정';
+        const dates = [];
+        if (j.installDate) dates.push(`🔧 ${fmtDate(j.installDate)}`);
+        if (j.softOpenDate) dates.push(`🌅 ${fmtDate(j.softOpenDate)}`);
+        if (j.openDate) dates.push(`🎉 ${fmtDate(j.openDate)}`);
+        const dateStr = dates.length ? dates.join(' · ') : (j.date ? fmtDate(j.date) : '일정 미정');
+        const memo = j.notes || j.note || j.description || '';
+        const unreg = j.unregistered ? '<span style="background:#FEF3C7;color:#92400E;font-size:10px;padding:1px 6px;border-radius:4px;margin-left:6px">미등록</span>' : '';
+        return `<div onclick="closeModal('dashListModal');window.editNewopen && window.editNewopen('${j.id}')" style="padding:12px 18px;border-bottom:1px solid var(--gray-100);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''" title="클릭 — 매장 상세 보기">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+            <div style="font-size:14px;font-weight:700;flex:1;min-width:0">${esc(store)}${unreg}</div>
+            <span class="badge badge-blue" style="font-size:10px">${esc(type)}</span>
+            <span class="badge" style="font-size:10px;background:#F3F4F6;color:var(--gray-600)">${esc(status)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--gray-500)">
+            <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(dateStr)} · 담당 ${esc(eng)}</div>
+          </div>
+          ${memo ? `<div style="font-size:11px;color:var(--gray-400);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(memo)}</div>` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    if (typeof showModal === 'function') showModal('dashListModal');
+  }
+  window.showDashList = showDashList;
 
   /* ══════════════════════════════════════════════
      일정 캘린더 (ns_jobs 기반 동적 렌더)
