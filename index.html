@@ -5232,22 +5232,64 @@ ${text.slice(0, 3000)}`;
       listEl.innerHTML = '<div style="padding:14px;text-align:center;color:var(--gray-400);font-size:12px;background:#FAFAFA;border-radius:8px">등록된 사용자가 없습니다.</div>';
       return;
     }
-    listEl.innerHTML = allPeople.map((p, idx) => `
-      <div class="admin-employee-row" style="padding:10px 12px">
-        <div class="avatar-sm" style="background:${p.color || (p.role==='admin'?'#EF4444':'#2563EB')}">${(p.name||'?').charAt(0)}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700">${esc(p.name||'-')}${p.title ? ` <span style="font-size:11px;color:var(--gray-500);font-weight:500">${esc(p.title)}</span>` : ''}</div>
-          <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
-            ${p.email ? `📧 ${esc(p.email)}` : ''}
-            ${p.phone ? ` · 📞 ${esc(p.phone)}` : ''}
+    const inSty = 'padding:5px 8px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff';
+    listEl.innerHTML = allPeople.map((p) => {
+      // 프리셋: 읽기 전용
+      if (p.source === 'preset') {
+        return `<div class="admin-employee-row" style="padding:10px 12px">
+          <div class="avatar-sm" style="background:${p.color || (p.role==='admin'?'#EF4444':'#2563EB')}">${(p.name||'?').charAt(0)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700">${esc(p.name||'-')}${p.title ? ` <span style="font-size:11px;color:var(--gray-500);font-weight:500">${esc(p.title)}</span>` : ''}</div>
+            <div style="font-size:11px;color:var(--gray-500);margin-top:2px">${p.email ? `📧 ${esc(p.email)}` : ''}</div>
           </div>
+          <span class="admin-badge ${p.role==='admin'?'admin':'staff'}">${p.role==='admin'?'관리자':'직원'}</span>
+          <span style="font-size:10px;color:var(--gray-300);margin-left:6px">기본</span>
+        </div>`;
+      }
+      // 사용자 — 인라인 편집 가능
+      const sid = esc(p.id);
+      return `<div class="admin-employee-row" style="padding:10px 12px;align-items:flex-start">
+        <div class="avatar-sm" style="background:${p.role==='admin'?'#EF4444':'#2563EB'};margin-top:4px">${(p.name||'?').charAt(0)}</div>
+        <div style="flex:1;min-width:0;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <input type="text" value="${esc(p.name||'')}" placeholder="이름" onchange="updateUserField('${sid}','name',this.value)" style="${inSty}">
+          <input type="text" value="${esc(p.title||'')}" placeholder="직책 (예: 영업팀장)" onchange="updateUserField('${sid}','title',this.value)" style="${inSty}">
+          <input type="tel" value="${esc(p.phone||'')}" placeholder="연락처" onchange="updateUserField('${sid}','phone',this.value)" style="${inSty}">
+          <select onchange="updateUserField('${sid}','role',this.value)" style="${inSty}">
+            <option value="staff" ${p.role!=='admin'?'selected':''}>직원</option>
+            <option value="admin" ${p.role==='admin'?'selected':''}>관리자</option>
+          </select>
+          <div style="grid-column:1/-1;font-size:11px;color:var(--gray-500)">📧 ${esc(p.email)}</div>
         </div>
-        <span class="admin-badge ${p.role==='admin'?'admin':'staff'}">${p.role==='admin'?'관리자':'직원'}</span>
-        ${p.source === 'user' ? `<button class="btn btn-outline btn-sm" style="color:#EF4444;border-color:#FCA5A5;padding:3px 10px;font-size:11px;margin-left:6px" onclick="removeEmployee('${esc(p.id)}')">삭제</button>` : ''}
-      </div>
-    `).join('');
+        <button class="btn btn-outline btn-sm" style="color:#EF4444;border-color:#FCA5A5;padding:3px 10px;font-size:11px;margin-left:6px;flex-shrink:0" onclick="removeEmployee('${sid}')">삭제</button>
+      </div>`;
+    }).join('');
   }
   window.renderEmployeeList = renderEmployeeList;
+
+  function updateUserField(userId, field, value) {
+    if (!['name','title','phone','role'].includes(field)) return;
+    const users = getUsers();
+    const u = users.find(x => x.id === userId);
+    if (!u) return;
+    u[field] = String(value||'').trim();
+    saveUsers(users);
+    // 현재 로그인한 사용자의 이름/역할이 바뀌면 ns_auth 도 동기화 — 프로필 드롭다운 즉시 반영
+    try {
+      const auth = JSON.parse(localStorage.getItem('ns_auth') || 'null');
+      if (auth && (auth.email || auth.id || '').toLowerCase() === (u.email || u.id || '').toLowerCase()) {
+        if (field === 'name') auth.name = u.name;
+        if (field === 'role') auth.role = u.role;
+        localStorage.setItem('ns_auth', JSON.stringify(auth));
+      }
+    } catch(e){}
+    if (typeof showToast === 'function') {
+      const labels = { name:'이름', title:'직책', phone:'연락처', role:'역할' };
+      showToast(`✅ ${labels[field]} 저장됨`);
+    }
+    // 클라우드에 직원 정보도 푸시
+    try { pushCloudWhitelist({ toast: false }); } catch(e){}
+  }
+  window.updateUserField = updateUserField;
 
   function removeEmployee(id) {
     if (!confirm('이 직원을 삭제하시겠습니까? (이메일 화이트리스트에서도 제거됩니다)')) return;
