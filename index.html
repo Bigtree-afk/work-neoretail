@@ -6766,21 +6766,6 @@ ${text.slice(0, 3000)}`;
   }
   window.refreshDashVandocsAlert = refreshDashVandocsAlert;
 
-  /* JSZip 동적 로드 (다운로드 시 1회만) */
-  let _jszipPromise = null;
-  function loadJSZip() {
-    if (window.JSZip) return Promise.resolve(window.JSZip);
-    if (_jszipPromise) return _jszipPromise;
-    _jszipPromise = new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
-      s.onload = () => resolve(window.JSZip);
-      s.onerror = () => reject(new Error('JSZip load failed'));
-      document.head.appendChild(s);
-    });
-    return _jszipPromise;
-  }
-
   /* 서류 상세 — 파일 목록 + 체크박스 다운로드 */
   let _vdCurrent = null; // { id, store, docType, files: [...] }
   async function openVandocDetail(id) {
@@ -6823,8 +6808,8 @@ ${text.slice(0, 3000)}`;
             전체 선택 <span id="vdSelectCount" style="color:var(--gray-500);font-weight:400">(${fileCount}/${fileCount})</span>
           </label>
           <div style="display:flex;gap:6px">
-            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="downloadVdSelected()">⬇ 선택 다운로드 (ZIP)</button>
-            <button class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 10px" onclick="downloadVdAll()">⬇ 전체 다운로드 (ZIP)</button>
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="downloadVdSelected()">⬇ 선택 다운로드</button>
+            <button class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 10px" onclick="downloadVdAll()">⬇ 전체 다운로드</button>
           </div>
         </div>` : ''}
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">${filesHtml || '<div style="color:var(--gray-400);font-size:12px">파일 없음</div>'}</div>
@@ -6873,28 +6858,28 @@ ${text.slice(0, 3000)}`;
   async function downloadVdSelected() {
     const idxs = _getSelectedVdIdxs();
     if (!idxs.length) { showToast && showToast('선택된 파일이 없습니다'); return; }
-    await _downloadVdAsZip(idxs);
+    await _downloadVdFiles(idxs);
   }
   window.downloadVdSelected = downloadVdSelected;
 
   async function downloadVdAll() {
     if (!_vdCurrent || !_vdCurrent.files) return;
     const idxs = _vdCurrent.files.map((_, i) => i);
-    await _downloadVdAsZip(idxs);
+    await _downloadVdFiles(idxs);
   }
   window.downloadVdAll = downloadVdAll;
 
-  async function _downloadVdAsZip(idxs) {
+  /* 선택된 파일들을 그대로 (압축 없이) 순차 다운로드 */
+  async function _downloadVdFiles(idxs) {
     const cur = _vdCurrent;
     if (!cur || !cur.files) return;
-    if (typeof showToast === 'function') showToast('다운로드 준비 중…');
-    let JSZip;
-    try { JSZip = await loadJSZip(); }
-    catch(e) { showToast && showToast('ZIP 라이브러리 로드 실패'); return; }
+    if (typeof showToast === 'function') showToast(`다운로드 시작 — ${idxs.length}개`);
 
-    const zip = new JSZip();
+    const safe = (s) => String(s||'').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 40);
+    const datePrefix = (cur.createdAt || '').slice(0,10).replace(/-/g, '');
     const seen = {};
     let okCount = 0;
+
     for (const i of idxs) {
       const f = cur.files[i];
       if (!f) continue;
@@ -6902,31 +6887,29 @@ ${text.slice(0, 3000)}`;
         const res = await fetch(`/api/vandocs?id=${encodeURIComponent(cur.id)}&fileIdx=${i}&download=1`);
         if (!res.ok) continue;
         const blob = await res.blob();
-        // 파일명 중복 처리
-        let name = f.name || `file_${i}`;
-        if (seen[name] != null) {
-          const dot = name.lastIndexOf('.');
-          const base = dot > 0 ? name.slice(0, dot) : name;
-          const ext = dot > 0 ? name.slice(dot) : '';
-          name = `${base}_${++seen[f.name]}${ext}`;
-        } else seen[f.name || name] = 0;
-        zip.file(name, blob);
+
+        // 매장명_서류종류_원본파일명 형식 — 매장별 구분 용이
+        let baseName = f.name || `file_${i}`;
+        const dot = baseName.lastIndexOf('.');
+        const base = dot > 0 ? baseName.slice(0, dot) : baseName;
+        const ext  = dot > 0 ? baseName.slice(dot) : '';
+        let outName = `${safe(cur.store)}_${safe(cur.docType)}_${base}${ext}`;
+        // 중복 처리
+        if (seen[outName] != null) outName = `${safe(cur.store)}_${safe(cur.docType)}_${base}_${++seen[outName]}${ext}`;
+        else seen[outName] = 0;
+
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = outName;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
         okCount++;
+        // 브라우저의 동시 다운로드 차단 방지 — 짧은 간격
+        await new Promise(r => setTimeout(r, 250));
       } catch(e) {}
     }
-    if (okCount === 0) { showToast && showToast('다운로드 실패'); return; }
-
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const dateStr = (cur.createdAt || '').slice(0,10).replace(/-/g, '');
-    const safe = (s) => String(s||'').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 40);
-    const zipName = `${safe(cur.store)}_${safe(cur.docType)}_${dateStr}_${okCount}files.zip`;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = zipName;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-    showToast && showToast(`✅ ${okCount}개 파일 다운로드 완료`);
+    showToast && showToast(`✅ ${okCount}개 파일 다운로드`);
   }
 
   function formatBytesKB(n) {
