@@ -919,6 +919,18 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
+      <!-- 신규 VAN 서류 알림 (확인하면 사라짐) -->
+      <div id="dashVandocsAlert" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:12px 16px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <div style="font-weight:700;color:#92400E;font-size:14px">📑 신규 VAN 서류 — <span id="dashVandocsCount">0</span>건</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" onclick="ackAllVandocs()" style="font-size:11px;padding:5px 10px;color:#92400E;border-color:#92400E">전체 확인</button>
+            <button class="btn btn-outline btn-sm" onclick="openMyPage()" style="font-size:11px;padding:5px 10px">마이페이지에서 보기</button>
+          </div>
+        </div>
+        <div id="dashVandocsBody" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+
       <div class="grid-2" style="margin-bottom:20px">
         <!-- 오늘 일정 -->
         <div class="card">
@@ -2575,10 +2587,25 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <div class="modal-overlay" id="myPageModal" onclick="if(event.target===this)closeModal('myPageModal')">
   <div class="modal" style="max-width:1100px;width:95vw;max-height:90vh;display:flex;flex-direction:column;background:#fff">
     <div class="modal-header">
-      <div class="modal-title">📦 장비 품목 관리</div>
+      <div class="modal-title">📦 장비 품목 관리 / 📑 서류 확인</div>
       <button class="modal-close" onclick="closeModal('myPageModal')">✕</button>
     </div>
     <div class="modal-body" style="overflow-y:auto;flex:1">
+      <!-- VAN 서류 확인 -->
+      <div style="background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;padding:12px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+          <div style="font-weight:700;color:#5B21B6;font-size:14px">📑 VAN 서류 확인 <span id="vandocsBadge" style="background:#7C3AED;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px">0</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-outline btn-sm" onclick="loadVandocsList()" style="font-size:11px;padding:5px 10px">🔄 새로고침</button>
+            <label style="font-size:11px;color:#5B21B6;display:flex;align-items:center;gap:4px;cursor:pointer">
+              <input type="checkbox" id="vandocsShowAcked" onchange="loadVandocsList()"> 확인된 항목도 보기
+            </label>
+          </div>
+        </div>
+        <div id="vandocsListArea" style="max-height:340px;overflow-y:auto;background:#fff;border:1px solid #E5E7EB;border-radius:6px;padding:6px">
+          <div style="text-align:center;padding:20px;color:var(--gray-400);font-size:12px">새로고침을 눌러 서류 목록을 불러오세요.</div>
+        </div>
+      </div>
       <!-- 작업/카탈로그 클라우드 동기화 -->
       <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 12px;font-size:11px;color:#92400E;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
@@ -2810,6 +2837,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     // 대시보드 진입 시 데이터 갱신 (데모 HTML 잔존 방지)
     if (id === 'dashboard' && typeof hydrateDashboardJobs === 'function') {
       try { hydrateDashboardJobs(); } catch(e) {}
+      try { refreshDashVandocsAlert(); } catch(e) {}
     }
     // 점포관리 진입 시 갱신
     if (id === 'stores' && typeof hydrateSavedStores === 'function') {
@@ -2829,6 +2857,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       // 마이페이지 열릴 때 클라우드에서 최신 카탈로그 풀 + 렌더
       try { syncCatalogFromCloud().then(() => renderCatalogAdmin()); } catch(e){}
       try { renderCatalogAdmin(); } catch(e){}
+      try { loadVandocsList(); } catch(e){}
     }
   }
 
@@ -6610,6 +6639,180 @@ ${text.slice(0, 3000)}`;
     if (typeof showModal === 'function') showModal('dashListModal');
   }
   window.showDashList = showDashList;
+
+  /* ══════════════════════════════════════════════
+     VAN 서류 — 마이페이지 목록 + 대시보드 알림
+  ══════════════════════════════════════════════ */
+  async function fetchVandocsIndex(unackOnly) {
+    try {
+      const url = unackOnly ? '/api/vandocs?unack=1' : '/api/vandocs';
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) return { items: [] };
+      return await res.json();
+    } catch(e) { return { items: [] }; }
+  }
+
+  function _vdRowHtml(it) {
+    const created = (it.createdAt || '').slice(0,16).replace('T',' ');
+    const ackBadge = it.acknowledged
+      ? `<span style="background:var(--gray-200);color:var(--gray-600);font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">✓ 확인됨${it.acknowledgedBy?` · ${esc(it.acknowledgedBy)}`:''}</span>`
+      : `<span style="background:#7C3AED;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">NEW</span>`;
+    const ackBtn = it.acknowledged
+      ? ''
+      : `<button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 10px" onclick="event.stopPropagation();ackVandoc('${esc(it.id)}')">확인</button>`;
+    return `<div class="vd-row" style="border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;background:#fff;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:background 0.15s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='#fff'" onclick="openVandocDetail('${esc(it.id)}')">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="font-weight:700;font-size:13px;flex:1;min-width:0">${esc(it.store)} <span style="color:var(--gray-400);font-size:11px;font-weight:400">— ${esc(it.docType||'')}</span></div>
+        ${ackBadge}
+      </div>
+      <div style="font-size:11px;color:var(--gray-500);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <span>${esc(it.category||'')}</span>
+        <span>${esc(created)} · 파일 ${it.count||0}개${it.submitter?` · ${esc(it.submitter)}`:''}</span>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:6px">${ackBtn}</div>
+    </div>`;
+  }
+
+  async function loadVandocsList() {
+    const area = document.getElementById('vandocsListArea');
+    const badge = document.getElementById('vandocsBadge');
+    if (!area) return;
+    area.innerHTML = `<div style="text-align:center;padding:20px;color:var(--gray-400);font-size:12px">불러오는 중…</div>`;
+    const showAcked = !!document.getElementById('vandocsShowAcked')?.checked;
+    const data = await fetchVandocsIndex(false);
+    const all = data.items || [];
+    const unackCount = all.filter(it => !it.acknowledged).length;
+    if (badge) badge.textContent = unackCount;
+    const items = showAcked ? all : all.filter(it => !it.acknowledged);
+    if (!items.length) {
+      area.innerHTML = `<div style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">${showAcked?'업로드된 서류가 없습니다.':'확인할 신규 서류가 없습니다.'}</div>`;
+      return;
+    }
+    area.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px">${items.map(_vdRowHtml).join('')}</div>`;
+    // 대시보드 알림도 함께 갱신
+    refreshDashVandocsAlert();
+  }
+  window.loadVandocsList = loadVandocsList;
+
+  async function ackVandoc(id) {
+    let by = '';
+    try {
+      const auth = JSON.parse(localStorage.getItem('ns_auth') || 'null');
+      by = (auth && (auth.name || auth.email)) || '';
+    } catch(e){}
+    try {
+      await fetch('/api/vandocs?ack=' + encodeURIComponent(id) + '&by=' + encodeURIComponent(by), {
+        method: 'PUT'
+      });
+      if (typeof showToast === 'function') showToast('✅ 확인 처리됨');
+      try { loadVandocsList(); } catch(e){}
+      refreshDashVandocsAlert();
+    } catch(e) {
+      if (typeof showToast === 'function') showToast('확인 실패: ' + e.message);
+    }
+  }
+  window.ackVandoc = ackVandoc;
+
+  async function ackAllVandocs() {
+    const data = await fetchVandocsIndex(true);
+    const items = data.items || [];
+    if (!items.length) return;
+    if (!confirm(`신규 서류 ${items.length}건을 모두 확인 처리하시겠습니까?`)) return;
+    let by = '';
+    try {
+      const auth = JSON.parse(localStorage.getItem('ns_auth') || 'null');
+      by = (auth && (auth.name || auth.email)) || '';
+    } catch(e){}
+    for (const it of items) {
+      try {
+        await fetch('/api/vandocs?ack=' + encodeURIComponent(it.id) + '&by=' + encodeURIComponent(by), { method: 'PUT' });
+      } catch(e) {}
+    }
+    if (typeof showToast === 'function') showToast(`✅ ${items.length}건 확인 처리됨`);
+    refreshDashVandocsAlert();
+    try { loadVandocsList(); } catch(e){}
+  }
+  window.ackAllVandocs = ackAllVandocs;
+
+  async function refreshDashVandocsAlert() {
+    const el = document.getElementById('dashVandocsAlert');
+    const body = document.getElementById('dashVandocsBody');
+    const cnt = document.getElementById('dashVandocsCount');
+    if (!el || !body) return;
+    const data = await fetchVandocsIndex(true);
+    const items = data.items || [];
+    if (!items.length) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    if (cnt) cnt.textContent = items.length;
+    body.innerHTML = items.slice(0, 5).map(it => {
+      const created = (it.createdAt || '').slice(5,16).replace('T',' ').replace(/-/g,'.');
+      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;border:1px solid #FCD34D;border-radius:6px;padding:8px 10px;cursor:pointer" onclick="openVandocDetail('${esc(it.id)}')" onmouseover="this.style.background='#FFFBEB'" onmouseout="this.style.background='#fff'">
+        <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          <b style="font-size:13px">${esc(it.store)}</b>
+          <span style="color:var(--gray-500);font-size:11px"> — ${esc(it.docType||'')} · ${esc(it.category||'')}</span>
+        </div>
+        <span style="font-size:11px;color:#92400E;white-space:nowrap">${esc(created)} · ${it.count||0}개</span>
+        <button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;color:#92400E;border-color:#92400E" onclick="event.stopPropagation();ackVandoc('${esc(it.id)}')">확인</button>
+      </div>`;
+    }).join('');
+    if (items.length > 5) {
+      body.innerHTML += `<div style="text-align:center;font-size:11px;color:#92400E;padding:4px">…외 ${items.length - 5}건 (마이페이지에서 전체 보기)</div>`;
+    }
+  }
+  window.refreshDashVandocsAlert = refreshDashVandocsAlert;
+
+  /* 서류 상세 — 새 탭에 첫 파일 열기 + 파일 목록 모달 */
+  async function openVandocDetail(id) {
+    try {
+      const res = await fetch('/api/vandocs?id=' + encodeURIComponent(id), { cache: 'no-store' });
+      if (!res.ok) { showToast && showToast('서류를 찾을 수 없습니다'); return; }
+      const data = await res.json();
+      // 기존 dashListModal 재사용 — 파일 목록 표시
+      const titleEl = document.getElementById('dashListTitle');
+      const bodyEl = document.getElementById('dashListBody');
+      if (!titleEl || !bodyEl) return;
+      titleEl.textContent = `📑 ${data.store} — ${data.docType||''}`;
+      const meta = `${esc(data.category||'')} · ${esc((data.createdAt||'').slice(0,16).replace('T',' '))}${data.submitter?` · ${esc(data.submitter)}`:''}`;
+      const filesHtml = (data.files || []).map((f, i) => {
+        const url = `/api/vandocs?id=${encodeURIComponent(id)}&fileIdx=${i}&download=1`;
+        const isImg = (f.type||'').startsWith('image/');
+        const thumb = isImg
+          ? `<img src="${url}" style="width:100%;height:140px;object-fit:cover;border-radius:6px;border:1px solid var(--gray-200)" alt="">`
+          : `<div style="width:100%;height:140px;background:#FEE2E2;color:var(--danger);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid var(--gray-200)"><div style="font-size:36px">📄</div><div style="font-size:11px">${(f.type||'').includes('pdf')?'PDF':'파일'}</div></div>`;
+        return `<a href="${url}" target="_blank" rel="noopener" style="display:block;text-decoration:none;color:inherit">
+          ${thumb}
+          <div style="font-size:11px;color:var(--gray-600);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name||'')}</div>
+          <div style="font-size:10px;color:var(--gray-400)">${formatBytesKB(f.size||0)}</div>
+        </a>`;
+      }).join('');
+      bodyEl.innerHTML = `<div style="padding:16px">
+        <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px">${meta}</div>
+        ${data.note?`<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:10px">📝 ${esc(data.note)}</div>`:''}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">${filesHtml || '<div style="color:var(--gray-400);font-size:12px">파일 없음</div>'}</div>
+        <div style="margin-top:14px;display:flex;gap:6px;justify-content:flex-end">
+          ${data.acknowledged ? `<span style="font-size:11px;color:var(--gray-500);align-self:center">✓ ${esc(data.acknowledgedBy||'')} ${esc((data.acknowledgedAt||'').slice(0,16).replace('T',' '))}</span>` : `<button class="btn btn-primary btn-sm" onclick="ackVandoc('${esc(id)}');closeModal('dashListModal')">확인 처리</button>`}
+        </div>
+      </div>`;
+      if (typeof showModal === 'function') showModal('dashListModal');
+    } catch(e) {
+      if (typeof showToast === 'function') showToast('상세 로드 실패: ' + e.message);
+    }
+  }
+  window.openVandocDetail = openVandocDetail;
+
+  function formatBytesKB(n) {
+    if (!n) return '';
+    if (n < 1024) return n + ' B';
+    if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+    return (n/(1024*1024)).toFixed(1) + ' MB';
+  }
+
+  // 대시보드 진입 시 자동 갱신 — hydrateDashboardJobs 와 함께
+  try { refreshDashVandocsAlert(); } catch(e){}
+  // 5분마다 폴링
+  try {
+    setInterval(() => { try { refreshDashVandocsAlert(); } catch(e){} }, 5 * 60 * 1000);
+  } catch(e){}
 
   /* ══════════════════════════════════════════════
      일정 캘린더 (ns_jobs 기반 동적 렌더)

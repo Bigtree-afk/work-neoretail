@@ -29,6 +29,13 @@ export async function onRequestGet({ env, request }) {
   if (!env.STORES_KV) return json({ error: 'KV not bound' }, 500);
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
+  const unack = url.searchParams.get('unack');
+
+  if (unack && !id) {
+    const idx = (await env.STORES_KV.get('vandocs_index', 'json')) || { items: [] };
+    const items = (idx.items || []).filter(it => !it.acknowledged);
+    return json({ items }, 200);
+  }
 
   if (id) {
     const data = await env.STORES_KV.get('vandoc:' + id, 'json');
@@ -57,6 +64,33 @@ export async function onRequestGet({ env, request }) {
 
   const idx = (await env.STORES_KV.get('vandocs_index', 'json')) || { items: [] };
   return json(idx, 200);
+}
+
+/* PUT /api/vandocs?ack=<id>&by=<name>  → 확인(ack) 처리 */
+export async function onRequestPut({ request, env }) {
+  if (!env.STORES_KV) return text('KV not bound', 500);
+  const url = new URL(request.url);
+  const ackId = url.searchParams.get('ack');
+  if (!ackId) return text('ack id required', 400);
+
+  const idx = (await env.STORES_KV.get('vandocs_index', 'json')) || { items: [] };
+  const item = (idx.items || []).find(it => it.id === ackId);
+  if (!item) return json({ error: 'not found' }, 404);
+
+  let by = '';
+  try { by = url.searchParams.get('by') || ''; } catch(e){}
+  // 본문에 by 가 있으면 그 값 사용
+  try {
+    const body = await request.json();
+    if (body && body.by) by = String(body.by);
+  } catch(e){}
+
+  item.acknowledged = true;
+  item.acknowledgedAt = new Date().toISOString();
+  item.acknowledgedBy = String(by || '').slice(0, 80);
+
+  await env.STORES_KV.put('vandocs_index', JSON.stringify(idx));
+  return json({ ok: true, id: ackId }, 200);
 }
 
 export async function onRequestPost({ request, env }) {
