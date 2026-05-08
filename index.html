@@ -919,18 +919,6 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
-      <!-- 신규 VAN 서류 알림 (확인하면 사라짐) -->
-      <div id="dashVandocsAlert" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:12px 16px;margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
-          <div style="font-weight:700;color:#92400E;font-size:14px">📑 신규 VAN 서류 — <span id="dashVandocsCount">0</span>건</div>
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-outline btn-sm" onclick="ackAllVandocs()" style="font-size:11px;padding:5px 10px;color:#92400E;border-color:#92400E">전체 확인</button>
-            <button class="btn btn-outline btn-sm" onclick="openMyPage()" style="font-size:11px;padding:5px 10px">마이페이지에서 보기</button>
-          </div>
-        </div>
-        <div id="dashVandocsBody" style="display:flex;flex-direction:column;gap:6px"></div>
-      </div>
-
       <div class="grid-2" style="margin-bottom:20px">
         <!-- 오늘 일정 -->
         <div class="card">
@@ -1018,12 +1006,27 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
-      <!-- AS 현황 -->
-      <div class="card">
-        <div style="padding:16px 18px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; justify-content:space-between">
-          <div class="section-title">🔧 AS 미처리 현황</div>
-          <button class="btn btn-outline btn-sm" onclick="showScreen('jobs')">전체보기</button>
+      <!-- 신규 VAN 서류 + AS 미처리 (2열) -->
+      <div class="grid-2" style="margin-bottom:20px;align-items:stretch">
+
+        <!-- 신규 VAN 서류 알림 -->
+        <div class="card" id="dashVandocsAlert" style="display:none;background:#FFFBEB;border:1px solid #FCD34D">
+          <div style="padding:14px 18px;border-bottom:1px solid #FCD34D;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <div class="section-title" style="color:#92400E">📑 신규 VAN 서류 — <span id="dashVandocsCount">0</span>건</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-outline btn-sm" onclick="ackAllVandocs()" style="font-size:11px;padding:5px 10px;color:#92400E;border-color:#92400E">전체 확인</button>
+              <button class="btn btn-outline btn-sm" onclick="openMyPage()" style="font-size:11px;padding:5px 10px">마이페이지</button>
+            </div>
+          </div>
+          <div id="dashVandocsBody" style="padding:10px 14px;display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto"></div>
         </div>
+
+        <!-- AS 현황 -->
+        <div class="card">
+          <div style="padding:16px 18px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; justify-content:space-between">
+            <div class="section-title">🔧 AS 미처리 현황</div>
+            <button class="btn btn-outline btn-sm" onclick="showScreen('jobs')">전체보기</button>
+          </div>
         <table>
           <thead>
             <tr>
@@ -1078,7 +1081,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             </tr>
           </tbody>
         </table>
-      </div>
+        </div>
+
+      </div><!-- /grid-2 (VAN+AS) -->
 
       <!-- 신규/상담 현황 요약 패널 -->
       <div class="card" style="margin-top:20px; border:1.5px solid #1D4ED8; overflow:visible" id="aiAnalysisCard">
