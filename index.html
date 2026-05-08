@@ -6314,26 +6314,38 @@ ${text.slice(0, 3000)}`;
 
   function buildJobCardEl(job) {
     const typeIcon = { '신규':'🏪','POS교체':'🔄','VAN교체':'💳','AS':'🔧','기타':'📋' }[job.type] || '📋';
+    const isJobDone = (job.status === '완료' || job.status === 'done');
     const card = document.createElement('div');
     card.className = 'job-card';
     card.setAttribute('data-jobtype', job.type || '기타');
     card.dataset.jobId = job.id;
+    card.style.cursor = 'pointer';
+    card.style.position = 'relative';
+    card.title = '클릭하여 상세 보기';
+    card.onclick = () => { try { window.editNewopen && window.editNewopen(job.id); } catch(e){} };
+
+    const badgeCls = isJobDone ? 'badge-green' : 'badge-blue';
+    const closeBtn = isJobDone
+      ? `<button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px;color:var(--gray-700);border-color:var(--gray-300);font-weight:700" onclick="event.stopPropagation();reopenNewopen('${job.id}')">↩ 되돌리기</button>`
+      : `<button class="btn btn-primary btn-sm" style="background:var(--success);color:#fff;font-size:11px;padding:5px 10px;font-weight:700" onclick="event.stopPropagation();completeNewopen('${job.id}')">✓ 종료</button>`;
+
     card.innerHTML = `
       <div class="job-card-header">
         <div>
           <div class="job-type" style="color:var(--primary)">${typeIcon} ${esc(job.type||'기타')}</div>
-          <div class="job-store">${esc(job.storeName)}</div>
+          <div class="job-store">${esc(job.storeName||job.store||'-')}</div>
           <div class="job-addr">${esc(job.address||'')}</div>
         </div>
-        <span class="badge badge-blue"><span class="badge-dot"></span>${esc(job.status||'진행중')}</span>
+        <span class="badge ${badgeCls}"><span class="badge-dot"></span>${esc(job.status||'진행중')}</span>
       </div>
       <div style="font-size:12.5px;color:var(--gray-600);margin-top:8px;line-height:1.55">${esc(job.notes||'메모 없음')}</div>
       <div class="job-meta">
         <div class="job-meta-item"><div class="job-meta-label">작업일</div><div class="job-meta-value">${esc(job.date||'-')}</div></div>
         <div class="job-meta-item"><div class="job-meta-label">담당</div><div class="job-meta-value">${esc(job.engineer||'미배정')}</div></div>
-        <div class="job-meta-item"><div class="job-meta-label">등록</div><div class="job-meta-value">방금</div></div>
+        <div class="job-meta-item"><div class="job-meta-label">등록</div><div class="job-meta-value">${esc((job.createdAt? new Date(job.createdAt).toLocaleDateString('ko-KR'):'방금'))}</div></div>
         <div class="job-meta-item"><div class="job-meta-label">ID</div><div class="job-meta-value" style="font-size:10px">${esc(job.id)}</div></div>
       </div>
+      <div style="margin-top:10px;display:flex;justify-content:flex-end">${closeBtn}</div>
     `;
     return card;
   }
@@ -8198,6 +8210,18 @@ ${text.slice(0, 3000)}`;
   }
   window.updateJobAddress = updateJobAddress;
 
+  /* 작업/일정 카드 그리드 재빌드 — 상태 변경 후 카드 UI 갱신 */
+  function rebuildJobsGrid() {
+    const grid = document.getElementById('jobsGrid');
+    if (!grid) return;
+    // 기존 카드 제거 (+ 새 작업 등록 버튼 제외)
+    Array.from(grid.querySelectorAll('.job-card')).forEach(c => {
+      if (c.id !== 'newJobCardBtn') c.remove();
+    });
+    try { hydrateSavedJobs(); } catch(e){}
+  }
+  window.rebuildJobsGrid = rebuildJobsGrid;
+
   /* 신규 작업 종료(완료) 처리 — 진행 목록에서 사라지고 지난 완료 목록에 표시 */
   function completeNewopen(jobId) {
     const jobs = getJobs();
@@ -8210,6 +8234,7 @@ ${text.slice(0, 3000)}`;
     if (typeof showToast === 'function') showToast('✅ 종료 처리 완료 — [지난 완료] 에서 확인');
     try { hydrateNewopen('all'); } catch(e){}
     try { hydrateDashboardJobs(); } catch(e){}
+    try { rebuildJobsGrid(); } catch(e){}
   }
   window.completeNewopen = completeNewopen;
 
@@ -8224,6 +8249,7 @@ ${text.slice(0, 3000)}`;
     if (typeof showToast === 'function') showToast('↩ 진행 목록으로 복귀');
     try { hydrateNewopen('done'); } catch(e){}
     try { hydrateDashboardJobs(); } catch(e){}
+    try { rebuildJobsGrid(); } catch(e){}
   }
   window.reopenNewopen = reopenNewopen;
 
