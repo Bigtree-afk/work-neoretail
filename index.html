@@ -7538,19 +7538,19 @@ ${text.slice(0, 3000)}`;
         : `<div style="font-size:12px">${eng}</div><div style="font-size:10px;color:var(--gray-400);margin-top:2px">매장 담당자 미입력</div>`;
 
       const wf = renderWorkflowRow(j, COLSPAN, groupBg);
-      const openDetailAttr = `onclick="editNewopen('${j.id||''}')" title="클릭하여 상세 보기" style="cursor:pointer"`;
       const cellBg = `background:${groupBg};${groupBorderTop}`;
-      return `<tr style="background:${groupBg}">
+      // 행 전체 클릭 시 매장 상세 — 액션 버튼은 stopPropagation 으로 분리
+      return `<tr style="background:${groupBg};cursor:pointer" onclick="editNewopen('${j.id||''}')" title="클릭하여 상세 보기">
         <td style="${cellBg}"><span class="badge ${badgeCls}">${esc(status)}</span></td>
-        <td style="${cellBg}" ${openDetailAttr}>
+        <td style="${cellBg}">
           <b style="text-decoration:underline;text-decoration-color:transparent;transition:text-decoration-color .15s" onmouseover="this.style.textDecorationColor='currentColor'" onmouseout="this.style.textDecorationColor='transparent'">${esc(store)}</b>${unregBadge}${typeBadge}
         </td>
-        <td style="font-size:11px;color:var(--gray-500);${cellBg}" ${openDetailAttr}>${esc(addr)}</td>
+        <td style="font-size:11px;color:var(--gray-500);${cellBg}">${esc(addr)}</td>
         <td style="${cellBg}">${datesHtml}</td>
         <td style="${cellBg}">${contactCellHtml}</td>
         <td style="text-align:center;font-weight:600;${cellBg}">${posQty ? posQty + '대' : '<span style="color:var(--gray-300)">—</span>'}</td>
         <td style="${cellBg}"><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100%"><div style="background:var(--primary);height:100%;width:${wfProg}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px;text-align:right">${wfProg}%</div></td>
-        <td style="text-align:center;${cellBg}">
+        <td style="text-align:center;${cellBg}" onclick="event.stopPropagation()">
           <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
             ${closeBtn}
             ${linkBtn || ''}
