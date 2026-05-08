@@ -1194,10 +1194,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <!-- 액션 바 -->
       <div class="filter-row" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <div style="font-size:13px;font-weight:700;color:var(--gray-700)">📋 신규 진행 현황</div>
-        <button class="filter-chip active" onclick="filterNewopen(this,'all')">전체</button>
+        <button class="filter-chip active" onclick="filterNewopen(this,'all')">진행 전체</button>
         <button class="filter-chip" onclick="filterNewopen(this,'planned')">예정</button>
         <button class="filter-chip" onclick="filterNewopen(this,'progress')">진행중</button>
-        <button class="filter-chip" onclick="filterNewopen(this,'done')">완료</button>
+        <button class="filter-chip" onclick="filterNewopen(this,'done')">📦 지난 완료</button>
         <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="showScreen('consult')" title="상담 진행 현황 보기">💬 상담 목록</button>
         <button class="btn btn-outline btn-sm" onclick="showScreen('quote')" title="견적서 작성">₩ 견적 작성</button>
         <button class="btn btn-outline btn-sm" onclick="openConsultJob()" title="상담 단계 매장 등록 — 납품 결정 시 신규로 전환">＋ 상담 등록</button>
@@ -1280,9 +1280,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <div class="filter-row" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <div style="font-size:13px;font-weight:700;color:var(--gray-700)">💬 상담 진행 현황</div>
         <button class="filter-chip active" onclick="filterConsult(this,'active')">상담중</button>
-        <button class="filter-chip" onclick="filterConsult(this,'won')">납품 결정</button>
-        <button class="filter-chip" onclick="filterConsult(this,'lost')">납품 실패</button>
-        <button class="filter-chip" onclick="filterConsult(this,'all')">전체</button>
+        <button class="filter-chip" onclick="filterConsult(this,'won')">📦 납품 결정</button>
+        <button class="filter-chip" onclick="filterConsult(this,'lost')">📦 종료(실패)</button>
+        <button class="filter-chip" onclick="filterConsult(this,'all')">📚 지난 상담 전체</button>
         <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="showScreen('newopen')">← 신규 진행 현황</button>
         <button class="btn btn-outline btn-sm" onclick="showScreen('quote')">₩ 견적 작성</button>
         <button class="btn btn-primary btn-sm" onclick="openConsultJob()">＋ 상담 등록</button>
@@ -7450,11 +7450,13 @@ ${text.slice(0, 3000)}`;
     setText('newopenWaiting', waiting);
     setText('newopenDone', doneCnt);
 
-    // 필터링
+    // 필터링 — 기본값 'all' 은 미완료(진행/예정)만 표시. 'done' 으로 지난 완료 보기
     let view = items.slice();
-    if (filter === 'planned')  view = view.filter(j => !isDone(j) && j.status !== '진행중');
-    if (filter === 'progress') view = view.filter(j => !isDone(j) && (j.status === '진행중' || /설치|진행/i.test(j.status||'')));
-    if (filter === 'done')     view = view.filter(isDone);
+    const f = filter || 'all';
+    if (f === 'all')      view = view.filter(j => !isDone(j));
+    if (f === 'planned')  view = view.filter(j => !isDone(j) && j.status !== '진행중');
+    if (f === 'progress') view = view.filter(j => !isDone(j) && (j.status === '진행중' || /설치|진행/i.test(j.status||'')));
+    if (f === 'done')     view = view.filter(isDone);
     view.sort((a,b)=> new Date(b.date||b.createdAt||0) - new Date(a.date||a.createdAt||0));
 
     const tb = document.getElementById('newopenTbody');
@@ -7493,6 +7495,9 @@ ${text.slice(0, 3000)}`;
       const linkBtn = j.unregistered
         ? `<button class="btn btn-outline btn-sm" style="color:var(--warning);border-color:var(--warning);background:#FEF3C7;font-size:12px;padding:6px 10px;font-weight:700;white-space:nowrap" onclick="event.stopPropagation();linkRegisteredStore('${j.id||''}')">🔗 연결</button>`
         : (j.storeId ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-700);border-color:var(--gray-400);font-size:12px;padding:6px 10px;font-weight:700;white-space:nowrap" onclick="event.stopPropagation();unlinkStore('${j.id||''}')" title="잘못 연결된 가맹점을 해제하고 미등록 상태로 되돌립니다">🔓 해제</button>` : '');
+      const closeBtn = isDone(j)
+        ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-600);border-color:var(--gray-300);font-size:11px;padding:5px 8px;font-weight:700;white-space:nowrap" onclick="event.stopPropagation();reopenNewopen('${j.id||''}')" title="완료 처리를 되돌려 진행 목록으로 복귀">↩ 되돌리기</button>`
+        : `<button class="btn btn-primary btn-sm" style="background:var(--success);color:#fff;font-size:11px;padding:5px 8px;font-weight:700;white-space:nowrap" onclick="event.stopPropagation();completeNewopen('${j.id||''}')" title="작업 종료 — 지난 완료 목록으로 이동">✓ 종료</button>`;
 
       // 매장 주요 일정 — 2줄 (1줄: 설치 / 2줄: 가오픈 + 오픈)
       const fmtDate = (s) => (s||'').slice(5,10).replace('-','.');
@@ -7533,7 +7538,12 @@ ${text.slice(0, 3000)}`;
         <td style="${cellBg}">${contactCellHtml}</td>
         <td style="text-align:center;font-weight:600;${cellBg}">${posQty ? posQty + '대' : '<span style="color:var(--gray-300)">—</span>'}</td>
         <td style="${cellBg}"><div style="background:var(--gray-100);border-radius:6px;height:8px;overflow:hidden;width:100%"><div style="background:var(--primary);height:100%;width:${wfProg}%"></div></div><div style="font-size:10px;color:var(--gray-400);margin-top:2px;text-align:right">${wfProg}%</div></td>
-        <td style="text-align:center;${cellBg}">${linkBtn || '<span style="color:var(--gray-300);font-size:11px">—</span>'}</td>
+        <td style="text-align:center;${cellBg}">
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
+            ${closeBtn}
+            ${linkBtn || ''}
+          </div>
+        </td>
       </tr>${wf.pillRow}${wf.detailRows}`;
       } catch(err) {
         try { console.error('[hydrateNewopen] row render error for job', j && j.id, err); } catch(e){}
@@ -7758,7 +7768,8 @@ ${text.slice(0, 3000)}`;
             <button class="modal-close" onclick="document.getElementById('newopenDetailModal').classList.remove('show')">✕</button>
           </div>
           <div class="modal-body" id="newopenDetailBody"></div>
-          <div class="modal-footer" style="justify-content:flex-end">
+          <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
+            <div id="newopenDetailFooterLeft"></div>
             <button class="btn btn-outline" onclick="document.getElementById('newopenDetailModal').classList.remove('show')">닫기</button>
           </div>
         </div>`;
@@ -7768,6 +7779,16 @@ ${text.slice(0, 3000)}`;
     const title = document.getElementById('newopenDetailTitle');
     const body  = document.getElementById('newopenDetailBody');
     title.textContent = `📋 ${j.storeName || j.store || '-'} · ${j.type || '-'}`;
+
+    // 모달 푸터 좌측 — 종료/되돌리기 버튼
+    const footerLeft = document.getElementById('newopenDetailFooterLeft');
+    if (footerLeft) {
+      const isJobDone = (j.status === '완료' || j.status === 'done');
+      footerLeft.innerHTML = isJobDone
+        ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-700);border-color:var(--gray-400);font-weight:700" onclick="reopenNewopen('${j.id}');document.getElementById('newopenDetailModal').classList.remove('show')">↩ 진행으로 되돌리기</button>
+           <span style="margin-left:10px;font-size:11px;color:var(--gray-500)">완료: ${esc((j.completedAt||'').slice(0,16).replace('T',' '))}</span>`
+        : `<button class="btn btn-primary btn-sm" style="background:var(--success);font-weight:700" onclick="completeNewopen('${j.id}');document.getElementById('newopenDetailModal').classList.remove('show')">✓ 작업 종료</button>`;
+    }
 
     const eq = Array.isArray(j.equipment) ? j.equipment : [];
     const checked = j.equipmentChecked || {};
@@ -8176,6 +8197,35 @@ ${text.slice(0, 3000)}`;
     try { hydrateNewopen('all'); } catch(e){}
   }
   window.updateJobAddress = updateJobAddress;
+
+  /* 신규 작업 종료(완료) 처리 — 진행 목록에서 사라지고 지난 완료 목록에 표시 */
+  function completeNewopen(jobId) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    if (!confirm(`"${job.store || job.storeName || '이 작업'}" 을(를) 종료 처리하시겠습니까?\n진행 목록에서 사라지고 [지난 완료]에서 확인할 수 있습니다.`)) return;
+    job.status = '완료';
+    job.completedAt = new Date().toISOString();
+    saveJobs(jobs);
+    if (typeof showToast === 'function') showToast('✅ 종료 처리 완료 — [지난 완료] 에서 확인');
+    try { hydrateNewopen('all'); } catch(e){}
+    try { hydrateDashboardJobs(); } catch(e){}
+  }
+  window.completeNewopen = completeNewopen;
+
+  /* 종료 되돌리기 — 다시 진행 목록으로 */
+  function reopenNewopen(jobId) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    job.status = '진행중';
+    delete job.completedAt;
+    saveJobs(jobs);
+    if (typeof showToast === 'function') showToast('↩ 진행 목록으로 복귀');
+    try { hydrateNewopen('done'); } catch(e){}
+    try { hydrateDashboardJobs(); } catch(e){}
+  }
+  window.reopenNewopen = reopenNewopen;
 
   /* 비고(notes) 수정 */
   function updateJobNotes(jobId, value) {
