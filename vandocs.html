@@ -343,7 +343,8 @@ const CATEGORIES = {
 
 /* 현재 경로 (스택) */
 let path = []; // ['카드가맹 신규', '개인사업자', '1인대표']
-let pickedFiles = []; // {file, dataUrl?, kind:'image'|'pdf'|'other'}
+// 서류명 → 파일배열 매핑 — 한 화면에 모든 서류 + 파일 누적
+let pickedByDoc = {}; // { '사업자등록증': [{file, dataUrl, kind}, ...], ... }
 
 const $ = (id) => document.getElementById(id);
 
@@ -366,9 +367,9 @@ function renderBreadcrumb() {
   bc.innerHTML = parts.join('');
 }
 
-function goHome() { path = []; pickedFiles = []; render(); }
-function goBack() { path.pop(); pickedFiles = []; render(); }
-function goPath(depth) { path = path.slice(0, depth); pickedFiles = []; render(); }
+function goHome() { path = []; pickedByDoc = {}; render(); }
+function goBack() { path.pop(); pickedByDoc = {}; render(); }
+function goPath(depth) { path = path.slice(0, depth); pickedByDoc = {}; render(); }
 
 function getCurrentNode() {
   let node = { children: CATEGORIES };
@@ -385,19 +386,9 @@ function render() {
   const node = getCurrentNode();
   if (!node) { area.innerHTML = '<div class="step">잘못된 경로입니다.</div>'; return; }
 
-  // 잎 노드 (docs 보유) → 서류 목록
+  // 잎 노드 (docs 보유) → 모든 서류를 한 화면에 표시 (일괄 업로드)
   if (node.docs) {
-    area.innerHTML = `
-      <button class="back-btn" onclick="goBack()">← 이전</button>
-      <h2>업로드할 서류를 선택하세요</h2>
-      <div class="doc-list">
-        ${node.docs.map(d => `
-          <div class="doc-item" onclick="pickDoc('${escapeAttr(d.name)}')">
-            <div class="doc-icon">${d.emoji}</div>
-            <div class="doc-name">${escapeHtml(d.name)}</div>
-            <div class="doc-arrow">→</div>
-          </div>`).join('')}
-      </div>`;
+    renderDocList(node.docs);
     return;
   }
 
@@ -416,55 +407,127 @@ function render() {
     </div>`;
 }
 
-function goInto(key) { path.push(key); pickedFiles = []; render(); }
+function goInto(key) { path.push(key); pickedByDoc = {}; render(); }
 
-/* 서류 종류 클릭 → 업로드 UI 표시 */
-let _currentDocType = '';
-function pickDoc(docName) {
-  _currentDocType = docName;
-  pickedFiles = [];
+/* 모든 서류를 한 화면에 표시 (일괄 업로드) */
+let _currentDocs = [];
+
+function renderDocList(docs) {
+  _currentDocs = docs.slice();
   const area = $('stepArea');
+  const totalDocs = docs.length;
+  const docsWithFiles = docs.filter(d => (pickedByDoc[d.name] || []).length > 0).length;
+  const totalFiles = Object.values(pickedByDoc).reduce((a,arr)=>a+arr.length,0);
+
   area.innerHTML = `
-    <button class="back-btn" onclick="goBack()">← 서류 목록으로</button>
-    <div class="step">
-      <div class="step-label">선택된 서류</div>
-      <div class="step-current">${escapeHtml(docName)}</div>
+    <button class="back-btn" onclick="goBack()">← 이전</button>
+    <div class="step" style="padding:14px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0 0 2px;font-size:15px">📋 업로드할 서류 목록</h2>
+          <div style="font-size:11px;color:var(--gray-500)">파일당 최대 5MB · 서류당 합 최대 20MB</div>
+        </div>
+        <div style="font-size:12px;color:var(--gray-600);font-weight:600">
+          <span id="docProgress">${docsWithFiles}/${totalDocs}</span> 서류 · <span id="fileCount">${totalFiles}</span>개 파일
+        </div>
+      </div>
     </div>
-    <div class="step">
-      <h2 style="margin:0 0 4px">사진 / PDF 업로드</h2>
-      <div style="font-size:12px;color:var(--gray-500);margin-bottom:4px">
-        파일당 최대 5MB · 제출 합 최대 20MB
-      </div>
-      <div class="upload-buttons">
-        <button class="upload-btn" onclick="document.getElementById('camInput').click()">
-          <span class="btn-emoji">📷</span>
-          <span>카메라 촬영</span>
-        </button>
-        <button class="upload-btn" onclick="document.getElementById('galInput').click()">
-          <span class="btn-emoji">🖼</span>
-          <span>갤러리 선택</span>
-        </button>
-        <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
-          <span class="btn-emoji">📎</span>
-          <span>PDF / 파일</span>
-        </button>
-      </div>
-      <input type="file" id="camInput"  accept="image/*" capture="environment" multiple style="display:none" onchange="onPick(this.files,'image')">
-      <input type="file" id="galInput"  accept="image/*" multiple style="display:none" onchange="onPick(this.files,'image')">
-      <input type="file" id="fileInput" accept=".pdf,application/pdf,image/*" multiple style="display:none" onchange="onPick(this.files,'mixed')">
 
-      <div id="previewArea"></div>
+    <div class="doc-list" id="docListArea" style="gap:10px">
+      ${docs.map((d, i) => renderDocCard(d, i)).join('')}
+    </div>
 
-      <button class="submit-btn" id="submitBtn" onclick="submitFiles()">업로드</button>
+    <button class="submit-btn" id="submitBtn" onclick="submitAll()" style="margin-top:14px">전체 업로드</button>
+    <div style="font-size:11px;color:var(--gray-500);text-align:center;margin-top:8px">
+      파일이 추가된 서류만 업로드됩니다.
     </div>`;
-  renderPreview();
+  // 초기 미리보기
+  docs.forEach((d, i) => renderPreviewFor(d.name, i));
 }
 
-async function onPick(files, kind) {
+function renderDocCard(d, idx) {
+  const list = pickedByDoc[d.name] || [];
+  const sumBytes = list.reduce((a,p)=>a+(p.file?.size||0),0);
+  const headerStyle = list.length > 0
+    ? 'border-bottom-color:var(--success);background:#F0FDF4'
+    : 'background:#fff';
+  return `
+    <div class="doc-batch" style="border:1px solid ${list.length>0?'var(--success)':'var(--gray-200)'};border-radius:10px;background:#fff;overflow:hidden" data-doc="${escapeAttr(d.name)}">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--gray-100);${headerStyle}">
+        <div style="font-size:22px;flex-shrink:0">${d.emoji}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px">${escapeHtml(d.name)}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${list.length === 0 ? '파일 없음' : `${list.length}개 · ${formatBytes(sumBytes)}`}</div>
+        </div>
+        ${list.length > 0 ? '<span style="background:var(--success);color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:12px;flex-shrink:0">✓ 준비됨</span>' : ''}
+      </div>
+      <div style="padding:10px 12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+          <button class="upload-btn" style="padding:10px 4px;font-size:11px;border-radius:8px" onclick="document.getElementById('cam-${idx}').click()">
+            <span style="font-size:18px">📷</span><span>촬영</span>
+          </button>
+          <button class="upload-btn" style="padding:10px 4px;font-size:11px;border-radius:8px" onclick="document.getElementById('gal-${idx}').click()">
+            <span style="font-size:18px">🖼</span><span>갤러리</span>
+          </button>
+          <button class="upload-btn" style="padding:10px 4px;font-size:11px;border-radius:8px" onclick="document.getElementById('file-${idx}').click()">
+            <span style="font-size:18px">📎</span><span>파일</span>
+          </button>
+        </div>
+        <input type="file" id="cam-${idx}"  accept="image/*" capture="environment" multiple style="display:none" onchange="onPickFor('${escapeAttr(d.name)}', this.files); this.value=''">
+        <input type="file" id="gal-${idx}"  accept="image/*" multiple style="display:none" onchange="onPickFor('${escapeAttr(d.name)}', this.files); this.value=''">
+        <input type="file" id="file-${idx}" accept=".pdf,application/pdf,image/*" multiple style="display:none" onchange="onPickFor('${escapeAttr(d.name)}', this.files); this.value=''">
+        <div id="prev-${idx}"></div>
+      </div>
+    </div>`;
+}
+
+function refreshCounters() {
+  const totalDocs = _currentDocs.length;
+  const docsWithFiles = _currentDocs.filter(d => (pickedByDoc[d.name] || []).length > 0).length;
+  const totalFiles = Object.values(pickedByDoc).reduce((a,arr)=>a+arr.length,0);
+  const dp = $('docProgress'); if (dp) dp.textContent = `${docsWithFiles}/${totalDocs}`;
+  const fc = $('fileCount');   if (fc) fc.textContent = totalFiles;
+}
+
+function refreshDocCard(docName) {
+  const idx = _currentDocs.findIndex(d => d.name === docName);
+  if (idx < 0) return;
+  refreshCounters();
+  const cards = document.querySelectorAll('.doc-batch');
+  if (cards[idx]) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = renderDocCard(_currentDocs[idx], idx);
+    cards[idx].replaceWith(tmp.firstElementChild);
+  }
+  renderPreviewFor(docName, idx);
+}
+
+function renderPreviewFor(docName, idx) {
+  const el = document.getElementById('prev-' + idx);
+  if (!el) return;
+  const list = pickedByDoc[docName] || [];
+  if (list.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="preview-grid">${
+    list.map((p, i) => {
+      const inner = p.kind === 'image' && p.dataUrl
+        ? `<img src="${p.dataUrl}" alt="">`
+        : p.kind === 'pdf'
+          ? `<div class="pdf-icon"><div class="icon">📄</div><div>PDF</div></div>`
+          : `<div class="pdf-icon" style="background:var(--gray-100);color:var(--gray-500)"><div class="icon">📎</div><div>파일</div></div>`;
+      return `<div class="preview-card">
+        ${inner}
+        <button class="remove-btn" onclick="removePickFor('${escapeAttr(docName)}', ${i})" title="삭제">×</button>
+        <div class="file-name">${escapeHtml(p.file.name || '')}</div>
+      </div>`;
+    }).join('')
+  }</div>`;
+}
+
+async function onPickFor(docName, files) {
+  if (!pickedByDoc[docName]) pickedByDoc[docName] = [];
   for (const f of Array.from(files || [])) {
     let item = { file: f, kind: 'other', dataUrl: null };
     if (f.type.startsWith('image/')) {
-      // 이미지 압축 (긴 변 1600px, JPEG q=0.85)
       try {
         const compressed = await compressImage(f, 1600, 0.85);
         item.file = compressed.file;
@@ -474,40 +537,19 @@ async function onPick(files, kind) {
         item.kind = 'image';
         item.dataUrl = await readAsDataURL(f);
       }
-    } else if (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')) {
+    } else if (f.type === 'application/pdf' || (f.name||'').toLowerCase().endsWith('.pdf')) {
       item.kind = 'pdf';
     }
-    pickedFiles.push(item);
+    pickedByDoc[docName].push(item);
   }
-  renderPreview();
+  refreshDocCard(docName);
 }
 
-function renderPreview() {
-  const el = $('previewArea');
-  if (pickedFiles.length === 0) {
-    el.innerHTML = `<div class="preview-empty">파일을 추가하면 여기에 미리보기가 표시됩니다.</div>`;
-    return;
-  }
-  el.innerHTML = `<div class="preview-grid">${
-    pickedFiles.map((p, i) => {
-      const inner = p.kind === 'image' && p.dataUrl
-        ? `<img src="${p.dataUrl}" alt="">`
-        : p.kind === 'pdf'
-          ? `<div class="pdf-icon"><div class="icon">📄</div><div>PDF</div></div>`
-          : `<div class="pdf-icon" style="background:var(--gray-100);color:var(--gray-500)"><div class="icon">📎</div><div>파일</div></div>`;
-      return `<div class="preview-card">
-        ${inner}
-        <button class="remove-btn" onclick="removePick(${i})" title="삭제">×</button>
-        <div class="file-name">${escapeHtml(p.file.name || '')}</div>
-      </div>`;
-    }).join('')
-  }</div>
-  <div style="font-size:11px;color:var(--gray-500);margin-top:6px">총 ${pickedFiles.length}개 · 합계 ${formatBytes(pickedFiles.reduce((a,p)=>a+(p.file.size||0),0))}</div>`;
-}
-
-function removePick(idx) {
-  pickedFiles.splice(idx, 1);
-  renderPreview();
+function removePickFor(docName, idx) {
+  if (!pickedByDoc[docName]) return;
+  pickedByDoc[docName].splice(idx, 1);
+  if (pickedByDoc[docName].length === 0) delete pickedByDoc[docName];
+  refreshDocCard(docName);
 }
 
 function readAsDataURL(file) {
@@ -545,57 +587,75 @@ async function compressImage(file, maxDim, quality) {
   });
 }
 
-async function submitFiles() {
+async function submitAll() {
   const store = ($('inpStore').value || '').trim();
   if (!store) { toast('매장명을 입력하세요'); $('inpStore').focus(); return; }
-  if (pickedFiles.length === 0) { toast('업로드할 파일이 없습니다'); return; }
+
+  const docNames = Object.keys(pickedByDoc).filter(k => (pickedByDoc[k] || []).length > 0);
+  if (docNames.length === 0) { toast('업로드할 파일이 없습니다'); return; }
 
   const submitter = ($('inpSubmitter').value || '').trim();
   const note      = ($('inpNote').value || '').trim();
-  const category  = path.slice(0, -1).join(' / '); // 최종 leaf 직전까지가 카테고리 경로
-  const docType   = _currentDocType;
-
-  const fd = new FormData();
-  fd.append('store', store);
-  fd.append('category', path.join(' / '));
-  fd.append('docType', docType);
-  fd.append('submitter', submitter);
-  fd.append('note', note);
-  pickedFiles.forEach(p => fd.append('files', p.file));
+  const category  = path.join(' / ');
 
   $('progress').classList.add('show');
-  $('progressText').textContent = '업로드 중…';
   $('submitBtn').disabled = true;
 
-  try {
-    const res = await fetch('/api/vandocs', { method: 'POST', body: fd });
-    const text = await res.text();
-    let data = null;
-    try { data = JSON.parse(text); } catch(e) {}
-    if (!res.ok) {
-      throw new Error((data && (data.error || data.message)) || text || ('HTTP ' + res.status));
+  const results = [];
+  let totalFiles = 0;
+  let failed = [];
+  let i = 0;
+  for (const docName of docNames) {
+    i++;
+    $('progressText').textContent = `업로드 중… (${i}/${docNames.length}) ${docName}`;
+    const files = pickedByDoc[docName] || [];
+    totalFiles += files.length;
+
+    const fd = new FormData();
+    fd.append('store', store);
+    fd.append('category', category);
+    fd.append('docType', docName);
+    fd.append('submitter', submitter);
+    fd.append('note', note);
+    files.forEach(p => fd.append('files', p.file));
+
+    try {
+      const res = await fetch('/api/vandocs', { method: 'POST', body: fd });
+      const txt = await res.text();
+      let data = null;
+      try { data = JSON.parse(txt); } catch(e) {}
+      if (!res.ok) throw new Error((data && (data.error||data.message)) || txt || ('HTTP '+res.status));
+      results.push(data);
+    } catch (e) {
+      failed.push({ doc: docName, error: e.message });
     }
-    $('progress').classList.remove('show');
-    showSuccess(data);
-  } catch (e) {
-    $('progress').classList.remove('show');
-    $('submitBtn').disabled = false;
-    toast('업로드 실패: ' + e.message);
+  }
+
+  $('progress').classList.remove('show');
+  $('submitBtn').disabled = false;
+
+  if (failed.length === 0) {
+    showSuccessBatch(docNames.length, totalFiles, results);
+  } else if (failed.length < docNames.length) {
+    toast(`${docNames.length - failed.length}건 성공, ${failed.length}건 실패`);
+  } else {
+    toast('업로드 실패: ' + failed[0].error);
   }
 }
 
-function showSuccess(data) {
+function showSuccessBatch(docCount, fileCount, results) {
+  const ids = (results || []).map(r => r && r.id).filter(Boolean);
   $('stepArea').innerHTML = `
     <div class="step" style="text-align:center;padding:30px 20px">
       <div style="font-size:48px;margin-bottom:10px">✅</div>
       <h2 style="margin:0 0 6px">업로드 완료</h2>
       <div style="color:var(--gray-500);font-size:13px;margin-bottom:14px">
-        파일 ${data?.count || pickedFiles.length}개가 저장되었습니다.<br>
-        제출 ID: <code style="background:var(--gray-100);padding:2px 6px;border-radius:4px">${escapeHtml(data?.id || '')}</code>
+        서류 <b>${docCount}</b>건 · 파일 <b>${fileCount}</b>개 저장 완료<br>
+        ${ids.length ? `<div style="font-size:11px;color:var(--gray-400);margin-top:6px;word-break:break-all">제출 ID: ${ids.map(id=>`<code style="background:var(--gray-100);padding:1px 5px;border-radius:3px;margin:0 2px">${escapeHtml(id)}</code>`).join('')}</div>` : ''}
       </div>
-      <button class="upload-btn" style="display:inline-flex;flex-direction:row;gap:8px" onclick="goHome()">📑 다른 서류 업로드</button>
+      <button class="upload-btn" style="display:inline-flex;flex-direction:row;gap:8px;width:auto;padding:10px 18px" onclick="goHome()">📑 다른 서류 업로드</button>
     </div>`;
-  pickedFiles = [];
+  pickedByDoc = {};
 }
 
 function escapeHtml(s) {
