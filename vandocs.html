@@ -240,8 +240,8 @@ const CATEGORIES = {
               { name: '신분증',          emoji: '🪪' },
               { name: '통장사본',        emoji: '🏦' },
               { name: '임대차계약서',    emoji: '📑' },
-              { name: '매장사진(외부)', emoji: '🏪' },
-              { name: '매장사진(내부)', emoji: '🛒' },
+              { name: '매장사진(외부)', emoji: '🏪', desc: '다른 각도의 사진 각 2장' },
+              { name: '매장사진(내부)', emoji: '🛒', desc: '다른 각도의 사진 각 2장' },
               { name: '기타',            emoji: '📎' },
             ],
           },
@@ -253,8 +253,8 @@ const CATEGORIES = {
               { name: '동업계약서',       emoji: '📜' },
               { name: '통장사본',         emoji: '🏦' },
               { name: '임대차계약서',     emoji: '📑' },
-              { name: '매장사진(외부)',  emoji: '🏪' },
-              { name: '매장사진(내부)',  emoji: '🛒' },
+              { name: '매장사진(외부)',  emoji: '🏪', desc: '다른 각도의 사진 각 2장' },
+              { name: '매장사진(내부)',  emoji: '🛒', desc: '다른 각도의 사진 각 2장' },
               { name: '기타',             emoji: '📎' },
             ],
           },
@@ -272,8 +272,8 @@ const CATEGORIES = {
               { name: '대표자 신분증',    emoji: '🪪' },
               { name: '통장사본',         emoji: '🏦' },
               { name: '임대차계약서',     emoji: '📑' },
-              { name: '매장사진(외부)',  emoji: '🏪' },
-              { name: '매장사진(내부)',  emoji: '🛒' },
+              { name: '매장사진(외부)',  emoji: '🏪', desc: '다른 각도의 사진 각 2장' },
+              { name: '매장사진(내부)',  emoji: '🛒', desc: '다른 각도의 사진 각 2장' },
               { name: '기타',             emoji: '📎' },
             ],
           },
@@ -287,8 +287,8 @@ const CATEGORIES = {
               { name: '공동대표 신분증(전체)', emoji: '🪪' },
               { name: '통장사본',           emoji: '🏦' },
               { name: '임대차계약서',       emoji: '📑' },
-              { name: '매장사진(외부)',    emoji: '🏪' },
-              { name: '매장사진(내부)',    emoji: '🛒' },
+              { name: '매장사진(외부)',    emoji: '🏪', desc: '다른 각도의 사진 각 2장' },
+              { name: '매장사진(내부)',    emoji: '🛒', desc: '다른 각도의 사진 각 2장' },
               { name: '기타',               emoji: '📎' },
             ],
           },
@@ -421,7 +421,10 @@ function renderDocList(docs) {
         ${docs.map(d => `
           <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--gray-50);border-radius:8px">
             <div style="font-size:18px">${d.emoji}</div>
-            <div style="font-size:13px;font-weight:600;color:var(--gray-700)">${escapeHtml(d.name)}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;color:var(--gray-700)">${escapeHtml(d.name)}</div>
+              ${d.desc ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">${escapeHtml(d.desc)}</div>` : ''}
+            </div>
           </div>`).join('')}
       </div>
       <div style="font-size:11px;color:var(--gray-500);margin-top:8px;line-height:1.5">
