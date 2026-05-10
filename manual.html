@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이용 매뉴얼 — 네오리테일 작업관리</title>
+<style>
+  :root {
+    --primary: #FF2D1F;
+    --bg: #FFF8E7;
+    --ink: #1A1614;
+    --gray-50:  #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-600: #4B5563;
+    --gray-700: #374151;
+    --gray-900: #111827;
+    --success: #10B981;
+    --warning: #F59E0B;
+    --danger:  #EF4444;
+    --info:    #3B82F6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.65;
+  }
+  header {
+    background: var(--ink); color: var(--bg);
+    padding: 16px 20px; display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  header .logo { font-weight: 700; font-size: 17px; }
+  header .sub { font-size: 11px; color: rgba(255,248,231,0.55); margin-left: auto; }
+  header a { color: rgba(255,248,231,0.7); font-size: 12px; text-decoration: none; padding: 4px 10px; border:1px solid rgba(255,248,231,0.2); border-radius:6px; }
+  header a:hover { color: var(--bg); border-color: var(--bg); }
+
+  .layout { max-width: 1100px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 240px 1fr; gap: 24px; }
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; padding: 16px; }
+    nav.toc { position: static !important; max-height: none !important; }
+  }
+  nav.toc {
+    position: sticky; top: 80px; max-height: calc(100vh - 100px); overflow-y: auto;
+    background: #fff; border: 1px solid var(--gray-200); border-radius: 12px; padding: 14px 12px;
+    align-self: start;
+  }
+  nav.toc h3 { margin: 0 0 8px; font-size: 12px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; }
+  nav.toc ul { list-style: none; padding: 0; margin: 0; }
+  nav.toc li { margin: 0; }
+  nav.toc a {
+    display: block; padding: 6px 10px; font-size: 13px; color: var(--gray-700); text-decoration: none;
+    border-radius: 6px; transition: background .15s, color .15s;
+  }
+  nav.toc a:hover { background: var(--gray-100); color: var(--primary); }
+  nav.toc a.active { background: var(--ink); color: var(--bg); font-weight: 600; }
+
+  main { min-width: 0; }
+  section { background:#fff; border:1px solid var(--gray-200); border-radius: 14px; padding: 24px; margin-bottom: 18px; scroll-margin-top: 80px; }
+  section h2 { font-size: 22px; margin: 0 0 4px; color: var(--ink); display:flex; align-items:center; gap:10px; }
+  section .lead { color: var(--gray-500); font-size: 13px; margin: 4px 0 18px; }
+  section h3 { font-size: 16px; margin: 18px 0 6px; color: var(--gray-900); }
+  section h4 { font-size: 14px; margin: 12px 0 4px; color: var(--gray-700); }
+  section p { margin: 8px 0; font-size: 14px; }
+  section ul, section ol { padding-left: 22px; margin: 8px 0; font-size: 14px; }
+  section li { margin: 4px 0; }
+  code, kbd { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-family: 'Consolas','Menlo',monospace; font-size: 12.5px; color: var(--gray-900); }
+  kbd { border: 1px solid var(--gray-300); }
+  .tip {
+    background: #ECFDF5; border-left: 4px solid var(--success); padding: 10px 14px; border-radius: 0 8px 8px 0;
+    margin: 12px 0; font-size: 13px; color: #065F46;
+  }
+  .warn {
+    background: #FEF3C7; border-left: 4px solid var(--warning); padding: 10px 14px; border-radius: 0 8px 8px 0;
+    margin: 12px 0; font-size: 13px; color: #92400E;
+  }
+  .info {
+    background: #EFF6FF; border-left: 4px solid var(--info); padding: 10px 14px; border-radius: 0 8px 8px 0;
+    margin: 12px 0; font-size: 13px; color: #1E40AF;
+  }
+  .danger {
+    background: #FEE2E2; border-left: 4px solid var(--danger); padding: 10px 14px; border-radius: 0 8px 8px 0;
+    margin: 12px 0; font-size: 13px; color: #991B1B;
+  }
+  table.flow { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+  table.flow th, table.flow td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+  table.flow th { background: var(--gray-50); font-weight: 700; }
+  .pill { display:inline-block; background: var(--gray-100); color: var(--gray-700); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin: 0 2px; }
+  .pill.green { background:#D1FAE5; color:#065F46; }
+  .pill.blue { background:#DBEAFE; color:#1D4ED8; }
+  .pill.red { background:#FEE2E2; color:#991B1B; }
+  .pill.amber { background:#FEF3C7; color:#92400E; }
+  .pill.purple { background:#EDE9FE; color:#5B21B6; }
+  .toc-section-title { font-size: 11px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; padding: 8px 10px 4px; letter-spacing: 0.5px; }
+  hr { border: none; border-top: 1px solid var(--gray-200); margin: 16px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">📖 이용 매뉴얼</div>
+  <div class="sub">네오리테일 작업관리 시스템</div>
+  <a href="/" target="_blank" rel="noopener">← 메인으로</a>
+</header>
+
+<div class="layout">
+  <nav class="toc" id="toc">
+    <h3>목차</h3>
+    <ul>
+      <li class="toc-section-title">시작하기</li>
+      <li><a href="#intro">1. 소개</a></li>
+      <li><a href="#login">2. 로그인 / 권한</a></li>
+
+      <li class="toc-section-title">기본 메뉴</li>
+      <li><a href="#dashboard">3. 대시보드</a></li>
+      <li><a href="#newopen">4. 신규/상담</a></li>
+      <li><a href="#stores">5. 점포 관리</a></li>
+      <li><a href="#jobs">6. 작업/일정</a></li>
+      <li><a href="#equipment">7. 장비 재고</a></li>
+      <li><a href="#vandocs">8. VAN서류</a></li>
+
+      <li class="toc-section-title">마이/관리자</li>
+      <li><a href="#mypage">9. 마이페이지</a></li>
+      <li><a href="#admin">10. 관리자 페이지</a></li>
+
+      <li class="toc-section-title">참고</li>
+      <li><a href="#workflow">11. 업무 흐름 한눈에</a></li>
+      <li><a href="#faq">12. 자주 묻는 질문</a></li>
+    </ul>
+  </nav>
+
+  <main>
+
+  <section id="intro">
+    <h2>① 소개</h2>
+    <p class="lead">네오리테일 작업관리 시스템은 가맹점 신규 오픈, 상담, AS, VAN 서류 접수까지 한 번에 관리하는 사내 업무 도구입니다.</p>
+    <h3>주요 기능</h3>
+    <ul>
+      <li><b>신규/상담 통합 관리</b> — 상담 → 납품 결정 → 신규 진행 → 종료까지 일관된 흐름</li>
+      <li><b>월간 캘린더 + 작업 카드</b> — 일정과 진행 현황을 한 화면에서</li>
+      <li><b>장비 카탈로그</b> — 옵션 단계까지 모든 직원이 공유</li>
+      <li><b>VAN 서류 공개 접수</b> — 가맹점/제출자가 로그인 없이 모바일로 사진/PDF 업로드</li>
+      <li><b>클라우드 동기화</b> — 모든 직원 PC·모바일에서 데이터 자동 공유</li>
+    </ul>
+    <div class="tip">💡 모든 데이터는 Cloudflare 클라우드 KV 에 자동 저장되어 PC를 옮겨도 그대로 보입니다.</div>
+  </section>
+
+  <section id="login">
+    <h2>② 로그인 / 권한</h2>
+    <p class="lead">화이트리스트에 등록된 구글 계정으로만 접속이 가능합니다.</p>
+    <h3>로그인 방법</h3>
+    <ol>
+      <li>우측 상단 <span class="pill">로그인</span> 버튼 클릭</li>
+      <li>구글 계정 선택</li>
+      <li>관리자가 등록한 화이트리스트 이메일이면 자동 입장 / 아니면 차단</li>
+    </ol>
+    <h3>권한 종류</h3>
+    <ul>
+      <li><b>일반 직원</b> — 신규/상담/점포/작업/장비/VAN서류 모든 업무 수행 가능</li>
+      <li><b>관리자</b> — 위 + 직원 추가/삭제, API 키 관리, 데이터 초기화</li>
+    </ul>
+    <div class="info">접속이 차단되면 관리자에게 본인 구글 이메일을 알려 화이트리스트 등록을 요청하세요.</div>
+  </section>
+
+  <section id="dashboard">
+    <h2>③ 대시보드</h2>
+    <p class="lead">로그인 직후 첫 화면. 한눈에 업무 현황을 파악할 수 있습니다.</p>
+    <h3>통계 카드 (4개)</h3>
+    <table class="flow">
+      <tr><th>카드</th><th>의미</th><th>클릭 시</th></tr>
+      <tr><td>🏪 이번달 신규</td><td>이번달 오픈 예정 신규 작업 수</td><td>해당 작업 목록 모달</td></tr>
+      <tr><td>⚙️ 진행중 작업</td><td>완료되지 않은 모든 작업</td><td>작업 목록 모달</td></tr>
+      <tr><td>🔧 AS 접수</td><td>미처리 AS 건수 (48시간 초과 강조)</td><td>AS 목록 모달</td></tr>
+      <tr><td>📦 장비 재고 부족</td><td>(추후 지원 예정)</td><td>장비 화면 이동</td></tr>
+    </table>
+    <h3>그 외 영역</h3>
+    <ul>
+      <li><b>📅 오늘 일정</b> — 설치예정/가오픈/오픈 일정이 오늘인 작업. 클릭 시 매장 상세</li>
+      <li><b>✅ 최근 완료 작업</b> — 최신 5건. 클릭 시 매장 상세</li>
+      <li><b>📑 신규 VAN 서류</b> — 미확인 서류 알림. <span class="pill green">전체 확인</span> 또는 마이페이지에서 검토</li>
+      <li><b>🔧 AS 미처리 현황</b> — 미처리 AS 표 형태 목록. 행 클릭 시 매장 상세</li>
+    </ul>
+  </section>
+
+  <section id="newopen">
+    <h2>④ 신규/상담</h2>
+    <p class="lead">상담 → 납품 결정 → 신규 진행 → 종료의 전체 영업 사이클을 관리합니다.</p>
+
+    <h3>주요 액션</h3>
+    <ul>
+      <li><span class="pill blue">+ 신규 등록</span> — 즉시 진행할 신규 가맹점 등록</li>
+      <li><span class="pill blue">+ 상담 등록</span> — 결정 전 상담 단계 매장 등록 (납품 결정 시 자동으로 신규로 전환)</li>
+      <li><span class="pill">💬 상담 목록</span> — 진행 중인 상담 조회</li>
+      <li><span class="pill">₩ 견적 작성</span> — 견적서 화면으로 이동</li>
+    </ul>
+
+    <h3>필터 탭</h3>
+    <ul>
+      <li><b>진행 전체</b> (기본) — 미완료 작업만 표시</li>
+      <li><b>예정 / 진행중</b> — 세부 상태별</li>
+      <li><b>📦 지난 완료</b> — 종료 처리된 작업 보관소</li>
+    </ul>
+
+    <h3>상태 전환</h3>
+    <table class="flow">
+      <tr><th>액션</th><th>방법</th><th>결과</th></tr>
+      <tr><td>작업 종료</td><td>행 우측 <span class="pill green">✓ 종료</span> 또는 상세 모달 푸터</td><td>지난 완료로 이동</td></tr>
+      <tr><td>되돌리기</td><td>지난 완료 탭에서 <span class="pill">↩ 되돌리기</span></td><td>진행 목록으로 복귀</td></tr>
+      <tr><td>상담 → 신규 전환</td><td>상담 목록의 <span class="pill blue">→ 신규 전환</span></td><td>신규로 자동 변환</td></tr>
+      <tr><td>상담 종료(실패)</td><td>상담 목록의 <span class="pill red">✕ 납품 실패</span></td><td>지난 상담으로 보관</td></tr>
+    </table>
+
+    <h3>매장 상세 모달</h3>
+    <p>점포명/행 어디든 클릭 → 모달이 열림. 모달 안에서:</p>
+    <ul>
+      <li>📅 주요 일정 (설치 / 가오픈 / 오픈일) — 입력 즉시 자동 저장</li>
+      <li>📍 주소 직접 수정 가능</li>
+      <li>👤 매장 담당자 다중 등록 + ⭐대표 연락망 지정</li>
+      <li>📦 설치 장비 추가/수량 변경/판매가 수정 / 설치 완료 체크</li>
+      <li>📝 비고 인라인 수정 + <b>메모 추가</b> (KST 타임스탬프 자동 기록)</li>
+    </ul>
+
+    <h3>📅 미니 캘린더 (이번주 + 다음주)</h3>
+    <p>화면 상단에 2주 일정이 보이고, 작업을 클릭하면 매장 상세로 바로 이동합니다.</p>
+
+    <div class="tip">💡 <b>상담</b>은 영업 단계 (구속력 낮음), <b>신규</b>는 실제 작업 단계입니다. 동일 매장이 상담 → 신규로 자연스럽게 이어집니다.</div>
+  </section>
+
+  <section id="stores">
+    <h2>⑤ 점포 관리</h2>
+    <p class="lead">거래 중인 모든 가맹점 마스터 데이터.</p>
+    <h3>기능</h3>
+    <ul>
+      <li><b>매장 등록</b> — 점포명/사업자/대표/연락처/주소/VAN/POS·KIO 등 정보</li>
+      <li><b>검색</b> — 상단 검색창 (음성 인식 🎙 지원)</li>
+      <li><b>매장 클릭</b> — 상세 정보 팝업 (설치 장비, 작업 이력)</li>
+      <li><b>모바일 가로 스크롤</b> — 좌측 점포명은 고정, 주소/상태 등은 스크롤로 확인</li>
+    </ul>
+    <div class="tip">💡 매장 목록은 <b>최근 등록순</b>으로 정렬되어 새로 추가한 점포가 가장 위에 보입니다.</div>
+  </section>
+
+  <section id="jobs">
+    <h2>⑥ 작업/일정</h2>
+    <p class="lead">월간 캘린더와 작업 카드를 함께 관리합니다.</p>
+    <h3>월간 캘린더 (상단)</h3>
+    <ul>
+      <li><span class="pill">◀ 전월</span> / <span class="pill">다음월 ▶</span> / <span class="pill">오늘</span> 버튼</li>
+      <li>색상 범례: 신규/POS교체/VAN/AS + 🔧 설치/🌅 가오픈/🎉 오픈</li>
+      <li>날짜에 작업 점이 표시됨 — 일정이 많은 날은 +N 표시</li>
+    </ul>
+    <h3>작업 카드 (하단)</h3>
+    <ul>
+      <li>각 카드: 점포명 / 유형 / 작업일 / 담당자 / 상태</li>
+      <li><b>카드 클릭</b> → 매장 상세 모달</li>
+      <li>카드 우측 하단 <span class="pill green">✓ 종료</span> 버튼 → 즉시 종료 처리</li>
+      <li>필터 칩: 전체 / 신규 / POS교체 / VAN교체 / AS / 완료</li>
+      <li><span class="pill" style="background:#06C755;color:#fff">💬 Line 메시지 가져오기</span> — 라인 메시지에서 작업 일괄 등록</li>
+    </ul>
+  </section>
+
+  <section id="equipment">
+    <h2>⑦ 장비 재고</h2>
+    <p class="lead">장비 카테고리별 보유 / 부족 현황을 파악합니다. 카탈로그 자체 관리는 마이페이지에서.</p>
+    <ul>
+      <li>좌측: 카테고리 그룹</li>
+      <li>각 항목: 장비명 / 모델 / 재고 / 부족 표시</li>
+      <li>상단 검색창으로 장비명 빠른 찾기</li>
+      <li><b>재고 부족만 보기</b> 토글 버튼</li>
+    </ul>
+  </section>
+
+  <section id="vandocs">
+    <h2>⑧ VAN서류 (공개 접수처)</h2>
+    <p class="lead">로그인 없이 누구나 모바일/PC로 가맹/변경 서류를 사진·PDF로 업로드합니다.</p>
+    <h3>접수 카테고리</h3>
+    <ul>
+      <li>카드가맹 신규 → 개인사업자/법인사업자 → 1인대표/공동대표</li>
+      <li>정보 변경 → 대표자/상호/주소/계좌 변경</li>
+      <li>해지</li>
+      <li>기타 서류</li>
+    </ul>
+    <h3>사용자(제출자) 흐름</h3>
+    <ol>
+      <li>매장명·제출자 입력</li>
+      <li>업무 종류 단계 선택 (예: 카드가맹 신규 → 개인사업자 → 1인대표)</li>
+      <li>준비할 서류 목록 확인 후</li>
+      <li>📷 카메라 / 🖼 갤러리 / 📎 PDF 한꺼번에 선택해 추가</li>
+      <li>[전체 업로드] 클릭</li>
+    </ol>
+    <h3>한도 / 보관</h3>
+    <ul>
+      <li>파일당 최대 24MB / 제출당 합계 50MB</li>
+      <li>이미지는 자동 압축 (긴 변 2400px / JPEG 92%)</li>
+      <li>담당자 [확인] 후 7일 경과 시 자동 삭제</li>
+      <li>미확인 상태로는 절대 삭제되지 않음</li>
+    </ul>
+    <h3>직원의 서류 검토</h3>
+    <ul>
+      <li>대시보드 좌측 <span class="pill amber">📑 신규 VAN 서류</span> 카드 — NEW 표시</li>
+      <li>마이페이지의 보라색 섹션 — 모든 서류 목록</li>
+      <li>항목 클릭 → 상세 모달 → 썸네일/체크박스/[선택 다운로드][전체 다운로드]</li>
+      <li>다운로드 시 부모 폴더 선택 → <code>매장명_서류종류_날짜/</code> 하위폴더 자동 생성 (Chrome/Edge)</li>
+      <li>[확인 처리] → 알림에서 사라짐 + 7일 후 자동 삭제 카운트다운 시작</li>
+    </ul>
+  </section>
+
+  <section id="mypage">
+    <h2>⑨ 마이페이지</h2>
+    <p class="lead">우측 상단 프로필 → <span class="pill">📦 마이페이지</span></p>
+    <h3>섹션</h3>
+    <ul>
+      <li><b>📑 VAN 서류 확인</b> — 미확인 건수 뱃지 + 항목 클릭 → 다운로드/확인 처리</li>
+      <li><b>☁ 다중 PC 동기화</b> — 다른 PC에서 작업/점포가 안 보일 때 [작업 동기화 / 받기], [점포 동기화 / 받기]</li>
+      <li><b>📦 장비 카탈로그 관리</b> — 신규 등록 시 노출되는 장비 항목 추가/수정/삭제 (모든 직원 가능)</li>
+    </ul>
+    <h3>장비 카탈로그 옵션</h3>
+    <ul>
+      <li>각 장비에 옵션 단계 텍스트 형식 입력 가능</li>
+      <li>예: <code>색상: 검정, 흰색, 회색</code> ↵ <code>크기: 소, 중, 대</code></li>
+      <li>변경 즉시 자동 클라우드 동기화 → 모든 직원 PC에 반영</li>
+    </ul>
+  </section>
+
+  <section id="admin">
+    <h2>⑩ 관리자 페이지</h2>
+    <p class="lead">관리자 권한이 있는 사용자만 사용. 우측 상단 <span class="pill">⚙️</span> 톱니바퀴 또는 프로필 메뉴.</p>
+    <h3>주요 항목</h3>
+    <ul>
+      <li><b>등록 직원 관리</b> — 직원 추가 / 이름·직책·전화·역할 인라인 편집 / 삭제</li>
+      <li><b>API 키 관리</b> — Claude API 키 (대시보드 AI 분석 용)</li>
+      <li><b>접근 허용 이메일 (화이트리스트)</b> — 직원 추가 시 자동 등록됨</li>
+      <li><b>Google OAuth</b> — Google Client ID 설정</li>
+      <li><b>AI 대시보드 분석</b> — Claude 기반 신규/상담 트렌드 요약</li>
+      <li><b>☁ 클라우드 동기화</b> — 작업/점포/카탈로그/화이트리스트 풀&푸시</li>
+      <li><b>💾 자동 백업</b> — 브라우저 로컬 자동 저장 + 수동 export/import</li>
+      <li><b>⚠ 데이터 초기화</b> — 위험: 모든 데이터 영구 삭제 (확인 다이얼로그)</li>
+    </ul>
+    <div class="warn">⚠ 데이터 초기화는 되돌릴 수 없습니다. 관리자도 신중히 사용하세요.</div>
+  </section>
+
+  <section id="workflow">
+    <h2>⑪ 업무 흐름 한눈에</h2>
+    <h3>가맹점 영업 → 오픈까지</h3>
+    <ol>
+      <li>잠재 고객 발굴 → <b>상담 등록</b> (신규/상담 메뉴)</li>
+      <li>장비/일정 협의 → 상담 메모/일정 갱신</li>
+      <li>납품 결정 → <b>→ 신규 전환</b> 클릭 → 신규 작업으로 변환</li>
+      <li>설치 일정 입력 (설치 / 가오픈 / 오픈일)</li>
+      <li>장비 추가/수량 입력 → 설치 완료 체크</li>
+      <li>오픈 완료 후 <b>✓ 종료</b> → 지난 완료로 이동</li>
+    </ol>
+    <h3>VAN 서류 처리</h3>
+    <ol>
+      <li>가맹점/제출자 → <code>/vandocs.html</code> 공개 페이지에서 사진·PDF 업로드</li>
+      <li>대시보드/마이페이지 알림 확인</li>
+      <li>썸네일/다운로드 검토 → <b>[확인]</b> 처리</li>
+      <li>7일 경과 시 자동 정리</li>
+    </ol>
+    <h3>AS 처리</h3>
+    <ol>
+      <li>대시보드 AS 미처리 카드/표에서 신규 접수 확인</li>
+      <li>행/카드 클릭 → 매장 상세에서 메모, 일정 추가</li>
+      <li>완료 후 <b>✓ 종료</b></li>
+    </ol>
+  </section>
+
+  <section id="faq">
+    <h2>⑫ 자주 묻는 질문</h2>
+
+    <h3>Q. 다른 PC에서 입력한 작업이 안 보입니다.</h3>
+    <p>마이페이지 상단 ☁ <b>작업 받기</b> / <b>점포 받기</b> 클릭 후 새로고침. 보통 자동 동기화되지만 캐시가 남아있을 때가 있습니다.</p>
+
+    <h3>Q. 새로 추가한 장비 카탈로그가 다른 직원 PC에서 안 보여요.</h3>
+    <p>마이페이지에서 <b>☁ 카탈로그 동기화</b> 클릭. 변경은 자동 push 되지만 다른 직원이 페이지를 다시 열어야 받아옵니다.</p>
+
+    <h3>Q. VAN 서류 다운로드 시 매번 폴더를 선택해야 하나요?</h3>
+    <p>처음 한 번 부모 폴더(예: 다운로드)를 선택하면, 같은 세션 내에서는 자동 저장됩니다. 새 세션에서는 다시 선택이 필요합니다 (Chrome 보안 정책).</p>
+
+    <h3>Q. 잘못 종료 처리한 작업을 되살리려면?</h3>
+    <p>신규/상담 → <b>📦 지난 완료</b> 탭 → 해당 작업 행 우측 <b>↩ 되돌리기</b> 버튼.</p>
+
+    <h3>Q. 마이크 권한이 거부되어 음성 검색이 안 됩니다.</h3>
+    <p>주소창 좌측 자물쇠 🔒 → 사이트 설정 → 마이크 <b>허용</b>. Chrome/Edge 권장.</p>
+
+    <h3>Q. 모바일에서 메뉴가 안 보입니다.</h3>
+    <p>좌측 상단 <b>로고</b>를 누르면 메뉴가 펼쳐집니다. 우측 햄버거 ☰ 버튼도 동일 동작.</p>
+
+    <h3>Q. 데이터가 사라졌어요!</h3>
+    <p>관리자에게 문의. 마이페이지 <b>💾 자동 백업</b>의 export 파일이 있다면 import 로 복구 가능. 클라우드 동기화 시점에 따라 다른 PC에서 받아올 수도 있습니다.</p>
+
+    <hr>
+    <p style="font-size:12px;color:var(--gray-400);text-align:center;margin-top:20px">
+      네오리테일 작업관리 시스템 · 사내 전용 · 문의는 관리자에게
+    </p>
+  </section>
+
+  </main>
+</div>
+
+<script>
+// 스크롤 시 현재 섹션 활성화
+const sections = document.querySelectorAll('section[id]');
+const tocLinks = document.querySelectorAll('nav.toc a');
+function setActive() {
+  let cur = '';
+  const offset = 100;
+  sections.forEach(s => { if (window.scrollY + offset >= s.offsetTop) cur = s.id; });
+  tocLinks.forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + cur);
+  });
+}
+window.addEventListener('scroll', setActive, { passive: true });
+setActive();
+</script>
+
+</body>
+</html>

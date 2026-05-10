@@ -5086,6 +5086,7 @@ ${text.slice(0, 3000)}`;
       </div>
       <div style="padding:6px">
         <button onclick="closeProfileMenu();openMyPage()" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--gray-700);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">📦 장비 품목 관리</button>
+        <button onclick="closeProfileMenu();window.open('/manual.html','_blank','noopener')" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--gray-700);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">📖 이용 매뉴얼</button>
         ${isAdmin ? `<button onclick="closeProfileMenu();openAdminPage()" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--gray-700);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">⚙️ 관리자 페이지</button>` : ''}
         <button onclick="closeProfileMenu();doLogout()" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:8px;font-weight:600" onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background=''">🚪 로그아웃</button>
       </div>
