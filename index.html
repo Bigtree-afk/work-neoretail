@@ -272,6 +272,10 @@
   .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(2px); z-index: 200; display: none; align-items: center; justify-content: center; }
   /* 상담 등록 모드: 입고가 칸 숨김 (판매가만 노출) */
   body.consult-mode .js-cost-col { display: none !important; }
+  /* AS 모드: 매장 주요 일정 숨김 + AS 패널 표시 */
+  body.as-mode .js-non-as { display: none !important; }
+  .js-as-only { display: none !important; }
+  body.as-mode .js-as-only { display: block !important; }
   /* 상담 등록 전용 필드 (상담일 등) */
   .js-consult-only { display: none !important; }
   body.consult-mode .js-consult-only { display: flex !important; }
@@ -1938,7 +1942,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <option value="">담당자 선택...</option>
           </select>
         </div>
-        <div class="form-group" style="margin:0;grid-column:1/-1">
+        <!-- 매장 주요 일정 — AS 가 아닐 때만 표시 -->
+        <div class="form-group js-non-as" style="margin:0;grid-column:1/-1">
           <label style="display:flex;align-items:center;gap:6px">📌 매장 주요 일정 <span style="font-size:10px;color:var(--gray-400);font-weight:400">미정이면 비워두세요 — 나중에 상세에서 수정 가능</span></label>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
             <div>
@@ -1952,6 +1957,46 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <div>
               <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">🎉 오픈일</div>
               <input type="date" id="jobOpenDate" style="width:100%">
+            </div>
+          </div>
+        </div>
+
+        <!-- AS 전용 — AS 접수/처리예정 + VAN/POS 대상 -->
+        <div class="form-group js-as-only" style="margin:0;grid-column:1/-1;display:none">
+          <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:14px 16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+              <div style="font-weight:700;color:#92400E;font-size:14px">🔧 AS 접수 정보</div>
+              <div style="font-size:11px;color:#92400E">
+                AS 접수: <b id="asReceivedAtDisplay">-</b>
+                <input type="hidden" id="asReceivedAt">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+              <div>
+                <div style="font-size:11px;color:#92400E;margin-bottom:3px;font-weight:600">처리 예정일</div>
+                <input type="date" id="asDueDate" style="width:100%;padding:7px 9px;border:1px solid #FCD34D;border-radius:6px;font-size:13px;background:#fff">
+              </div>
+              <div>
+                <div style="font-size:11px;color:#92400E;margin-bottom:3px;font-weight:600">처리 예정 시간</div>
+                <input type="time" id="asDueTime" style="width:100%;padding:7px 9px;border:1px solid #FCD34D;border-radius:6px;font-size:13px;background:#fff">
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#92400E;margin-bottom:5px;font-weight:600">대상 장비</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <label style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:#fff;border:1.5px solid #FCD34D;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">
+                  <input type="checkbox" id="asTargetVAN" style="margin:0;cursor:pointer"> 💳 VAN
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:#fff;border:1.5px solid #FCD34D;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">
+                  <input type="checkbox" id="asTargetPOS" style="margin:0;cursor:pointer"> 🖥 POS
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:#fff;border:1.5px solid #FCD34D;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">
+                  <input type="checkbox" id="asTargetKIO" style="margin:0;cursor:pointer"> 📟 키오스크
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:#fff;border:1.5px solid #FCD34D;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">
+                  <input type="checkbox" id="asTargetETC" style="margin:0;cursor:pointer"> 📦 기타
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -2910,7 +2955,13 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   function showModal(id) {
     document.getElementById(id).classList.add('show');
     if (id === 'lineImportModal') initLineImportModal();
-    if (id === 'newJobModal') { buildBallSelectors(); populateStoreNameList(); }
+    if (id === 'newJobModal') {
+      buildBallSelectors();
+      populateStoreNameList();
+      // AS 접수일 매번 초기화 → applyJobTypeMode 에서 현재 시각 설정
+      try { const r = document.getElementById('asReceivedAt'); if (r) r.value = ''; } catch(e){}
+      try { if (typeof applyJobTypeMode === 'function') applyJobTypeMode(); } catch(e){}
+    }
     if (id === 'adminModal') {
       try { renderBackupStatus(); } catch(e){}
       try { renderCatalogAdmin(); } catch(e){}
@@ -6233,6 +6284,22 @@ ${text.slice(0, 3000)}`;
 
     const jobType = (document.getElementById('jobType') || {}).value || '신규';
     const isConsult = (jobType === '상담');
+    const isAs = /AS/i.test(jobType);
+
+    // AS 전용 필드 수집
+    let asInfo = null;
+    if (isAs) {
+      const receivedAt = (document.getElementById('asReceivedAt') || {}).value || '';
+      const dueDate = (document.getElementById('asDueDate') || {}).value || '';
+      const dueTime = (document.getElementById('asDueTime') || {}).value || '';
+      const targets = [];
+      if ((document.getElementById('asTargetVAN')||{}).checked) targets.push('VAN');
+      if ((document.getElementById('asTargetPOS')||{}).checked) targets.push('POS');
+      if ((document.getElementById('asTargetKIO')||{}).checked) targets.push('키오스크');
+      if ((document.getElementById('asTargetETC')||{}).checked) targets.push('기타');
+      asInfo = { receivedAt, dueDate, dueTime, targets };
+    }
+
     const job = {
       id: 'JOB-' + Date.now().toString(36).toUpperCase(),
       type:      jobType,
@@ -6242,9 +6309,15 @@ ${text.slice(0, 3000)}`;
       unregistered: jobStoreUnregistered || !storeMatch,
       engineer:  (document.getElementById('jobEngineer') || {}).value || '',
       consultDate:  (document.getElementById('jobConsultDate')   || {}).value || '',
-      installDate:  (document.getElementById('jobInstallDate')   || {}).value || '',
-      softOpenDate: (document.getElementById('jobSoftOpenDate')  || {}).value || '',
-      openDate:     (document.getElementById('jobOpenDate')      || {}).value || '',
+      // AS 일 때는 매장 주요 일정 비움
+      installDate:  isAs ? '' : ((document.getElementById('jobInstallDate')   || {}).value || ''),
+      softOpenDate: isAs ? '' : ((document.getElementById('jobSoftOpenDate')  || {}).value || ''),
+      openDate:     isAs ? '' : ((document.getElementById('jobOpenDate')      || {}).value || ''),
+      // AS 전용
+      asReceivedAt: asInfo ? asInfo.receivedAt : '',
+      asDueDate:    asInfo ? asInfo.dueDate    : '',
+      asDueTime:    asInfo ? asInfo.dueTime    : '',
+      asTargets:    asInfo ? asInfo.targets    : [],
       address:   (document.getElementById('jobAddressInput') || {}).value?.trim() || '',
       contactName:  (document.getElementById('jobContactName')  || {}).value?.trim() || '',
       contactRole:  (document.getElementById('jobContactRole')  || {}).value?.trim() || '',
@@ -6275,9 +6348,13 @@ ${text.slice(0, 3000)}`;
     if (notesEl) notesEl.value = '';
     const addrEl = document.getElementById('jobAddressInput');
     if (addrEl) addrEl.value = '';
-    ['jobConsultDate','jobInstallDate','jobSoftOpenDate','jobOpenDate','jobContactName','jobContactRole','jobContactPhone'].forEach(id => {
+    ['jobConsultDate','jobInstallDate','jobSoftOpenDate','jobOpenDate','jobContactName','jobContactRole','jobContactPhone','asReceivedAt','asDueDate','asDueTime'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
+    });
+    ['asTargetVAN','asTargetPOS','asTargetKIO','asTargetETC'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.checked = false;
     });
     if (jobStoreUnregistered) toggleUnregisteredStore(); // 모드 초기화
     // 장비 테이블 초기화
@@ -6303,17 +6380,16 @@ ${text.slice(0, 3000)}`;
     const inp = document.getElementById('jobStoreName');
     const panel = document.getElementById('jobStoreResults');
     if (!inp || !panel) return;
-    const q = (inp.value || '').trim().toLowerCase();
+    const norm = (s) => String(s||'').toLowerCase().replace(/\s+/g,'');
+    const q = norm(inp.value);
     const stores = getStores();
     let matches = stores;
     if (q) {
-      matches = stores.filter(s =>
-        (s.name || '').toLowerCase().includes(q) ||
-        (s.ceo || s.owner || '').toLowerCase().includes(q) ||
-        (s.biz || s.bizno || '').toLowerCase().includes(q) ||
-        (s.code || '').toLowerCase().includes(q) ||
-        (s.addr || s.address || '').toLowerCase().includes(q)
-      );
+      matches = stores.filter(s => {
+        const aliases = Array.isArray(s.aliases) ? s.aliases : [];
+        return [s.name, s.ceo, s.owner, s.biz, s.bizno, s.code, s.addr, s.address, ...aliases]
+          .some(v => v && norm(v).includes(q));
+      });
     }
     matches = matches.slice(0, 30);
     if (matches.length === 0) {
@@ -7718,10 +7794,25 @@ ${text.slice(0, 3000)}`;
   }
   window.openNewopenJob = openNewopenJob;
 
-  // 작업 유형에 따라 모달 모드 토글 (상담일 때 입고가 숨김)
+  // 작업 유형에 따라 모달 모드 토글 (상담일 때 입고가 숨김 / AS 일 때 AS 패널 노출)
   function applyJobTypeMode() {
     const t = (document.getElementById('jobType')||{}).value || '';
     document.body.classList.toggle('consult-mode', t === '상담');
+    const isAs = /AS/i.test(t);
+    document.body.classList.toggle('as-mode', isAs);
+    if (isAs) {
+      // AS 접수일/시간 — 모달 열 때마다 현재 시각으로 갱신
+      const now = new Date();
+      const parts = new Intl.DateTimeFormat('ko-KR', {
+        timeZone: 'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit', hour12:false,
+      }).formatToParts(now).reduce((a,p)=>{ a[p.type]=p.value; return a; }, {});
+      const isoLocal = `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+      const recvHidden = document.getElementById('asReceivedAt');
+      const recvDisp   = document.getElementById('asReceivedAtDisplay');
+      if (recvHidden && !recvHidden.value) recvHidden.value = isoLocal;
+      if (recvDisp) recvDisp.textContent = (recvHidden && recvHidden.value) || isoLocal;
+    }
   }
   window.applyJobTypeMode = applyJobTypeMode;
 
@@ -9436,14 +9527,19 @@ ${text.slice(0, 3000)}`;
     return rec;
   }
 
+  // 공백 무시 정규화 — "이마트 에브리데이" 와 "이마트에브리데이" 모두 매칭되게
+  function _normalizeSearch(s) {
+    return String(s||'').toLowerCase().replace(/\s+/g, '');
+  }
+
   function applyStoreFilter(q, opts) {
     opts = opts || {};
-    q = (q || '').trim().toLowerCase();
+    const qNorm = _normalizeSearch(q);
     const tb = document.getElementById('storeListTbody');
     if (!tb) return 0;
 
     // 검색어 비었으면 → 기본 hydrate (최신 200개)로 복원
-    if (!q) {
+    if (!qNorm) {
       try { if (typeof hydrateSavedStores === 'function') hydrateSavedStores(); } catch(e) {}
       if (opts.toast && typeof showToast === 'function') {
         const total = (getStores()||[]).length;
@@ -9456,7 +9552,7 @@ ${text.slice(0, 3000)}`;
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     const matched = stores.filter(s => {
       const aliasNames = Array.isArray(s.aliases) ? s.aliases : [];
-      const blob = [
+      const blob = _normalizeSearch([
         s.name, s.code, s.id,
         s.ceo, s.owner,
         s.biz, s.bizno,
@@ -9464,8 +9560,8 @@ ${text.slice(0, 3000)}`;
         s.addr, s.address,
         s.memo, s.van, s.tid, s.status,
         ...aliasNames,
-      ].filter(Boolean).join(' | ').toLowerCase();
-      return blob.includes(q);
+      ].filter(Boolean).join(' | '));
+      return blob.includes(qNorm);
     });
 
     // 렌더 (성능: 최대 500건) — 정렬 상태 반영, 없으면 등록순
