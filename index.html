@@ -7931,13 +7931,15 @@ ${text.slice(0, 3000)}`;
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;padding:14px;background:#F9FAFB;border-radius:10px;border:1px solid var(--gray-200)">
         <div>
-          <div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">점포명</div>
-          <div style="font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <span>${esc(j.storeName || j.store || '-')}</span>
-            ${j.unregistered ? '<span style="background:#FEF3C7;color:#92400E;font-size:10px;padding:1px 6px;border-radius:4px">미등록</span>' : ''}
-            ${j.unregistered ? `<button class="btn btn-outline btn-sm" style="color:var(--warning);border-color:var(--warning);font-size:10px;padding:2px 8px" onclick="document.getElementById('newopenDetailModal').classList.remove('show');linkRegisteredStore('${j.id}')">가맹점 연결</button>` : ''}
-            ${(j.storeId && !j.unregistered) ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-600);border-color:var(--gray-400);font-size:10px;padding:2px 8px" onclick="document.getElementById('newopenDetailModal').classList.remove('show');unlinkStore('${j.id}')">🔓 연결 해제</button>` : ''}
-            ${j.originalStoreName && !j.unregistered ? `<span style="font-size:10px;color:var(--gray-400)">최초 입력: ${esc(j.originalStoreName)}</span>` : ''}
+          <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span>점포명</span>
+            ${j.unregistered ? '<span style="background:#FEF3C7;color:#92400E;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700">미등록</span>' : '<span style="background:#D1FAE5;color:#065F46;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700">등록 매장 연결됨</span>'}
+            ${j.originalStoreName && j.originalStoreName !== (j.storeName||j.store) ? `<span style="font-size:10px;color:var(--gray-400)">최초: ${esc(j.originalStoreName)}</span>` : ''}
+          </div>
+          <input type="text" value="${esc(j.storeName || j.store || '')}" placeholder="점포명을 입력하세요" onchange="updateJobStoreName('${j.id}',this.value)" style="width:100%;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;font-weight:700;background:#fff;margin-bottom:6px">
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <button class="btn btn-outline btn-sm" style="color:${j.storeId?'var(--gray-700)':'var(--warning)'};border-color:${j.storeId?'var(--gray-400)':'var(--warning)'};font-size:11px;padding:4px 10px;font-weight:700" onclick="document.getElementById('newopenDetailModal').classList.remove('show');linkRegisteredStore('${j.id}')">🔗 ${j.storeId?'다른 매장으로 재매칭':'등록 매장 매칭'}</button>
+            ${j.storeId ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-600);border-color:var(--gray-300);font-size:11px;padding:4px 10px" onclick="document.getElementById('newopenDetailModal').classList.remove('show');unlinkStore('${j.id}')">🔓 연결 해제</button>` : ''}
           </div>
         </div>
         <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">작업 유형</div><div style="font-weight:700">${esc(j.type || '-')}</div></div>
@@ -8282,6 +8284,27 @@ ${text.slice(0, 3000)}`;
     try { hydrateNewopen('all'); } catch(e){}
   }
   window.updateJobAddress = updateJobAddress;
+
+  /* 작업의 점포명 수정 — 미등록·등록 작업 모두 가능. 등록 매장에 연결된 상태면 storeId 는 유지 */
+  function updateJobStoreName(jobId, value) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const newName = String(value || '').trim();
+    if (!newName) { showToast && showToast('점포명을 입력하세요'); return; }
+    const prev = job.storeName || job.store || '';
+    if (prev === newName) return;
+    if (!job.originalStoreName) job.originalStoreName = prev;
+    job.storeName = newName;
+    job.store = newName;
+    saveJobs(jobs);
+    if (typeof showToast === 'function') showToast('✅ 점포명 저장됨');
+    try { hydrateNewopen('all'); } catch(e){}
+    try { hydrateDashboardJobs(); } catch(e){}
+    try { rebuildJobsGrid(); } catch(e){}
+    try { pushJobsToCloud({ toast: false }); } catch(e){}
+  }
+  window.updateJobStoreName = updateJobStoreName;
 
   /* 작업/일정 카드 그리드 재빌드 — 상태 변경 후 카드 UI 갱신 */
   function rebuildJobsGrid() {
