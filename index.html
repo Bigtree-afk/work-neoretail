@@ -1410,15 +1410,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <!-- ═══════════════════════════════════════ -->
     <div class="screen" id="screen-stores">
       <div class="filter-row" style="margin-bottom:16px">
-        <select id="storeSearchScope" onchange="onStoreSearchInput(document.getElementById('storeSearchInput').value)" style="padding:6px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;font-weight:600;color:var(--gray-700);flex-shrink:0">
-          <option value="name_biz">상호·사업자번호</option>
-          <option value="ceo">대표자</option>
-          <option value="addr">주소</option>
-        </select>
-        <div class="search-bar" style="flex:0 0 280px;position:relative">
-          <span class="search-icon" onclick="runStoreSearch()" style="cursor:pointer" title="검색">🔍</span>
-          <input type="text" id="storeSearchInput" placeholder="검색어 입력 (2자 이상 즉시 검색)" autocomplete="off" oninput="onStoreSearchInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();runStoreSearch();}" style="padding-right:40px">
-          <button type="button" id="storeMicBtn" onclick="startStoreVoiceSearch()" title="음성 검색" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:#F3F4F6;border:1px solid var(--gray-200);border-radius:8px;width:30px;height:30px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center">🎙</button>
+        <!-- 검색 범위 + 입력 + 음성 한 줄 결합 그룹 -->
+        <div style="display:inline-flex;align-items:center;height:36px;border:1.5px solid var(--gray-200);border-radius:8px;background:#fff;overflow:hidden;flex:0 0 auto">
+          <select id="storeSearchScope" onchange="onStoreSearchInput(document.getElementById('storeSearchInput').value)" style="border:none;outline:none;padding:0 8px;font-size:12px;background:#F9FAFB;font-weight:600;color:var(--gray-700);height:100%;border-right:1px solid var(--gray-200);cursor:pointer">
+            <option value="name_biz">상호·사업자</option>
+            <option value="ceo">대표자</option>
+            <option value="addr">주소</option>
+          </select>
+          <span onclick="runStoreSearch()" style="padding:0 8px;cursor:pointer;color:var(--gray-400);font-size:13px" title="검색">🔍</span>
+          <input type="text" id="storeSearchInput" placeholder="검색어 입력 (2자 이상)" autocomplete="off" oninput="onStoreSearchInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();runStoreSearch();}" style="border:none;outline:none;padding:0 6px;font-size:13px;width:220px;height:100%">
+          <button type="button" id="storeMicBtn" onclick="startStoreVoiceSearch()" title="음성 검색" style="border:none;border-left:1px solid var(--gray-200);background:#F9FAFB;width:34px;height:100%;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">🎙</button>
         </div>
         <div class="filter-chip active" onclick="filterStoresByStatus(this,'전체')">전체</div>
         <div class="filter-chip" onclick="filterStoresByStatus(this,'거래중')">거래중</div>
