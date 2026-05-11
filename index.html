@@ -790,6 +790,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <a class="nav-item" onclick="showScreen('jobs')">
       <span class="nav-icon">●</span> 작업/일정
     </a>
+    <a class="nav-item" onclick="showScreen('asmgmt')">
+      <span class="nav-icon">🔧</span> AS 관리
+    </a>
     <a class="nav-item" onclick="showScreen('equipment')">
       <span class="nav-icon">▦</span> 장비 재고
     </a>
@@ -836,6 +839,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   <div class="nav-section">업무</div>
   <a class="nav-item" onclick="showScreen('jobs'); closeMenu()">
     <span class="nav-icon">●</span> 작업/일정
+  </a>
+  <a class="nav-item" onclick="showScreen('asmgmt'); closeMenu()">
+    <span class="nav-icon">🔧</span> AS 관리
   </a>
   <div class="nav-section">운영</div>
   <a class="nav-item" onclick="showScreen('equipment'); closeMenu()">
@@ -1309,6 +1315,76 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
               <div style="font-size:36px;margin-bottom:10px">💬</div>
               <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">상담 내역이 없습니다</div>
               <div style="font-size:11px">"+ 상담 등록"으로 추가하세요.</div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- SCREEN: AS 관리                          -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="screen" id="screen-asmgmt">
+      <!-- 통계 카드 -->
+      <div class="stat-grid" style="margin-bottom:16px">
+        <div class="stat-card amber">
+          <div class="stat-label">미처리 AS</div>
+          <div class="stat-value" id="asMgmtPending">0</div>
+          <div class="stat-sub" id="asMgmtPendingSub">접수 대기</div>
+          <div class="stat-icon">🔧</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">48시간 초과</div>
+          <div class="stat-value" id="asMgmtOver48">0</div>
+          <div class="stat-sub">긴급 대응 필요</div>
+          <div class="stat-icon">⚠️</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-label">오늘 처리 예정</div>
+          <div class="stat-value" id="asMgmtToday">0</div>
+          <div class="stat-sub">방문/처리 예정</div>
+          <div class="stat-icon">📅</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">이번달 완료</div>
+          <div class="stat-value" id="asMgmtDone">0</div>
+          <div class="stat-sub">처리 완료</div>
+          <div class="stat-icon">✅</div>
+        </div>
+      </div>
+
+      <!-- 액션 바 -->
+      <div class="filter-row" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div style="font-size:13px;font-weight:700;color:var(--gray-700)">🔧 AS 진행 현황</div>
+        <button class="filter-chip active" onclick="filterAsMgmt(this,'pending')">미처리</button>
+        <button class="filter-chip" onclick="filterAsMgmt(this,'today')">오늘 예정</button>
+        <button class="filter-chip" onclick="filterAsMgmt(this,'done')">완료</button>
+        <button class="filter-chip" onclick="filterAsMgmt(this,'all')">전체</button>
+        <input type="text" id="asMgmtSearch" placeholder="🔍 매장명 / 메모 검색" oninput="filterAsMgmt(null,_asMgmtFilter)" style="padding:6px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;width:240px;margin-left:auto">
+        <button class="btn btn-primary btn-sm" onclick="openAsJob()">＋ AS 등록</button>
+      </div>
+
+      <!-- 테이블 -->
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:80px">상태</th>
+              <th style="min-width:200px">매장명</th>
+              <th style="min-width:120px">대상 장비</th>
+              <th style="min-width:140px">접수 일시</th>
+              <th style="min-width:140px">처리 예정</th>
+              <th style="width:80px">경과</th>
+              <th>증상/메모</th>
+              <th style="width:90px">담당</th>
+              <th style="width:120px;text-align:center">처리</th>
+            </tr>
+          </thead>
+          <tbody id="asMgmtTbody">
+            <tr><td colspan="9" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+              <div style="font-size:36px;margin-bottom:10px">🔧</div>
+              <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">AS 접수 내역이 없습니다</div>
+              <div style="font-size:11px">"+ AS 등록"으로 추가하세요.</div>
             </td></tr>
           </tbody>
         </table>
@@ -2909,6 +2985,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     stores: '점포 관리',
     jobs: '작업/일정',
     calendar: '작업/일정',
+    asmgmt: 'AS 관리',
     equipment: '장비 재고',
     quote: '견적 작성'
   };
@@ -2945,6 +3022,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     if (id === 'dashboard' && typeof hydrateDashboardJobs === 'function') {
       try { hydrateDashboardJobs(); } catch(e) {}
       try { refreshDashVandocsAlert(); } catch(e) {}
+    }
+    // AS 관리 진입 시 갱신
+    if (id === 'asmgmt' && typeof hydrateAsMgmt === 'function') {
+      try { hydrateAsMgmt(); } catch(e) {}
     }
     // 점포관리 진입 시 갱신
     if (id === 'stores' && typeof hydrateSavedStores === 'function') {
@@ -6340,6 +6421,7 @@ ${text.slice(0, 3000)}`;
     try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
     try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
     try { if (typeof hydrateConsult === 'function') hydrateConsult('active'); } catch(e){}
+    try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(e){}
 
     // 입력 필드 초기화
     const storeEl = document.getElementById('jobStoreName');
@@ -7929,6 +8011,136 @@ ${text.slice(0, 3000)}`;
   }
   window.filterConsult = filterConsult;
 
+  /* ══════════════════════════════════════════════
+     AS 관리 — 별도 화면
+  ══════════════════════════════════════════════ */
+  let _asMgmtFilter = 'pending';
+
+  function isAsJob(j) {
+    return j && /AS/i.test(j.type || '');
+  }
+
+  function openAsJob() {
+    if (typeof showModal === 'function') showModal('newJobModal');
+    setTimeout(() => {
+      const sel = document.getElementById('jobType');
+      if (sel) {
+        for (const opt of sel.options) {
+          if (/AS/i.test(opt.value || opt.textContent)) { sel.value = opt.value || opt.textContent; break; }
+        }
+      }
+      if (typeof applyJobTypeMode === 'function') applyJobTypeMode();
+    }, 50);
+  }
+  window.openAsJob = openAsJob;
+
+  function hydrateAsMgmt() {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const all = jobs.filter(isAsJob);
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0,10);
+    const ym = todayStr.slice(0,7);
+    const isDone = (j) => (j.status === '완료' || j.status === 'done');
+    const pending = all.filter(j => !isDone(j));
+    const over48 = pending.filter(j => {
+      const ts = j.asReceivedAt ? new Date(j.asReceivedAt.replace(' ','T')+':00').getTime()
+              : (j.createdAt ? Number(j.createdAt) : 0);
+      return ts && (Date.now() - ts) > 48 * 3600 * 1000;
+    });
+    const todayDue = pending.filter(j => (j.asDueDate || '').slice(0,10) === todayStr);
+    const doneThisMonth = all.filter(j => isDone(j) && ((j.completedAt||j.createdAt||0) && new Date(j.completedAt||j.createdAt||0).toISOString().slice(0,7) === ym));
+
+    const setText = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+    setText('asMgmtPending', pending.length);
+    setText('asMgmtPendingSub', pending.length === 0 ? '접수 없음' : '접수 대기');
+    setText('asMgmtOver48', over48.length);
+    setText('asMgmtToday', todayDue.length);
+    setText('asMgmtDone', doneThisMonth.length);
+
+    // 필터링
+    let view = all.slice();
+    const q = String(document.getElementById('asMgmtSearch')?.value || '').toLowerCase().replace(/\s+/g,'');
+    if (_asMgmtFilter === 'pending')  view = view.filter(j => !isDone(j));
+    else if (_asMgmtFilter === 'today') view = view.filter(j => !isDone(j) && (j.asDueDate||'').slice(0,10) === todayStr);
+    else if (_asMgmtFilter === 'done')  view = view.filter(isDone);
+    if (q) {
+      view = view.filter(j => {
+        const blob = [j.store, j.storeName, j.notes, j.address, j.engineer]
+          .filter(Boolean).join(' | ').toLowerCase().replace(/\s+/g,'');
+        return blob.includes(q);
+      });
+    }
+    // 정렬: 미처리는 접수일 오래된 순(긴급), 완료는 최신 완료 순
+    view.sort((a,b) => {
+      if (_asMgmtFilter === 'done') {
+        return (new Date(b.completedAt||0).getTime()) - (new Date(a.completedAt||0).getTime());
+      }
+      const ta = a.asReceivedAt ? new Date(a.asReceivedAt.replace(' ','T')+':00').getTime() : Number(a.createdAt||0);
+      const tb = b.asReceivedAt ? new Date(b.asReceivedAt.replace(' ','T')+':00').getTime() : Number(b.createdAt||0);
+      return ta - tb;
+    });
+
+    const tb = document.getElementById('asMgmtTbody');
+    if (!tb) return;
+    if (view.length === 0) {
+      tb.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+        <div style="font-size:36px;margin-bottom:10px">🔧</div>
+        <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">해당 조건에 맞는 AS 가 없습니다</div>
+      </td></tr>`;
+      return;
+    }
+
+    tb.innerHTML = view.map(j => {
+      const done = isDone(j);
+      const recv = j.asReceivedAt || (j.createdAt ? new Date(Number(j.createdAt)).toISOString().slice(0,16).replace('T',' ') : '-');
+      const ts = j.asReceivedAt ? new Date(j.asReceivedAt.replace(' ','T')+':00').getTime() : Number(j.createdAt||0);
+      const hours = ts ? Math.round((Date.now() - ts) / 3600000) : 0;
+      const elapsedTxt = done
+        ? '<span style="color:var(--success);font-weight:700">완료</span>'
+        : hours >= 72 ? `<span style="color:var(--danger);font-weight:700">${hours}h ⚠</span>`
+        : hours >= 48 ? `<span style="color:var(--warning);font-weight:700">${hours}h</span>`
+        : `<span style="color:var(--gray-600)">${hours}h</span>`;
+      const due = [j.asDueDate, j.asDueTime].filter(Boolean).join(' ');
+      const targets = Array.isArray(j.asTargets) ? j.asTargets : [];
+      const targetIcons = { 'VAN':'💳', 'POS':'🖥', '키오스크':'📟', '기타':'📦' };
+      const targetBadges = targets.length
+        ? targets.map(t => `<span style="display:inline-block;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:2px">${targetIcons[t]||''} ${esc(t)}</span>`).join('')
+        : '<span style="color:var(--gray-300);font-size:11px">-</span>';
+      const statusBadge = done
+        ? `<span class="badge badge-green">완료</span>`
+        : `<span class="badge badge-amber">${esc(j.status || '접수')}</span>`;
+      const store = j.store || j.storeName || '-';
+      const unregBadge = j.unregistered ? '<span style="margin-left:4px;background:#FEF3C7;color:#92400E;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700">미등록</span>' : '';
+      const eng = j.engineer || j.assignee || '<span style="color:var(--danger)">미배정</span>';
+      const actBtn = done
+        ? `<button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="event.stopPropagation();reopenNewopen('${j.id}')">↩ 되돌리기</button>`
+        : `<button class="btn btn-primary btn-sm" style="background:var(--success);color:#fff;font-size:11px;padding:5px 10px;font-weight:700" onclick="event.stopPropagation();completeNewopen('${j.id}')">✓ 처리완료</button>`;
+
+      return `<tr style="cursor:pointer" onclick="editNewopen('${j.id}')" title="클릭 — 상세 보기">
+        <td>${statusBadge}</td>
+        <td><b>${esc(store)}</b>${unregBadge}</td>
+        <td>${targetBadges}</td>
+        <td style="font-size:11px;color:var(--gray-600);font-family:monospace">${esc(recv)}</td>
+        <td style="font-size:11px;color:var(--gray-600)">${esc(due || '-')}</td>
+        <td>${elapsedTxt}</td>
+        <td style="font-size:12px;color:var(--gray-600);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(j.notes || j.description || '-')}</td>
+        <td style="font-size:12px">${eng}</td>
+        <td style="text-align:center" onclick="event.stopPropagation()">${actBtn}</td>
+      </tr>`;
+    }).join('');
+  }
+  window.hydrateAsMgmt = hydrateAsMgmt;
+
+  function filterAsMgmt(chip, filter) {
+    if (chip) {
+      chip.parentElement.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    }
+    _asMgmtFilter = filter;
+    hydrateAsMgmt();
+  }
+  window.filterAsMgmt = filterAsMgmt;
+
   function convertConsultToNewopen(jobId) {
     if (!confirm('이 상담을 신규로 전환하시겠습니까?\n\n상담 시 입력한 장비/담당자/메모가 그대로 신규관리로 이전됩니다.\n일정(설치/가오픈/오픈)만 추가 입력하시면 됩니다.')) return;
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
@@ -8480,6 +8692,7 @@ ${text.slice(0, 3000)}`;
     try { hydrateNewopen('all'); } catch(e){}
     try { hydrateDashboardJobs(); } catch(e){}
     try { rebuildJobsGrid(); } catch(e){}
+    try { hydrateAsMgmt(); } catch(e){}
   }
   window.completeNewopen = completeNewopen;
 
@@ -8495,6 +8708,7 @@ ${text.slice(0, 3000)}`;
     try { hydrateNewopen('done'); } catch(e){}
     try { hydrateDashboardJobs(); } catch(e){}
     try { rebuildJobsGrid(); } catch(e){}
+    try { hydrateAsMgmt(); } catch(e){}
   }
   window.reopenNewopen = reopenNewopen;
 
