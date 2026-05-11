@@ -6469,7 +6469,7 @@ ${text.slice(0, 3000)}`;
         : ((document.getElementById('jobNotes') || {}).value?.trim() || ''),
       equipment,
       equipTotal,
-      status:    isConsult ? '상담중' : '진행중',
+      status:    isConsult ? '상담중' : (isAs ? '접수' : '진행중'),
       createdAt: Date.now()
     };
 
@@ -8143,13 +8143,54 @@ ${text.slice(0, 3000)}`;
   }
   window.openAsJob = openAsJob;
 
+  /* AS 상태 사이클 — 접수 → 방문예정 → 재방문필요 → 처리완료 → (다시 접수) */
+  const AS_STATUS_FLOW = ['접수', '방문예정', '재방문필요', '처리완료'];
+  const AS_STATUS_META = {
+    '접수':       { color:'#0EA5E9', bg:'#E0F2FE', icon:'📋' },
+    '방문예정':   { color:'#1D4ED8', bg:'#DBEAFE', icon:'🚗' },
+    '재방문필요': { color:'#9A3412', bg:'#FED7AA', icon:'🔁' },
+    '처리완료':   { color:'#065F46', bg:'#D1FAE5', icon:'✅' },
+  };
+  function _isAsDone(j) { return j.status === '처리완료' || j.status === '완료' || j.status === 'done'; }
+  function cycleAsStatus(jobId) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === jobId);
+    if (!j) return;
+    const cur = j.status || '접수';
+    const idx = AS_STATUS_FLOW.indexOf(cur);
+    const next = AS_STATUS_FLOW[(idx + 1) % AS_STATUS_FLOW.length];
+    setAsStatus(jobId, next);
+  }
+  window.cycleAsStatus = cycleAsStatus;
+
+  function setAsStatus(jobId, status) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === jobId);
+    if (!j) return;
+    j.status = status;
+    if (status === '처리완료') j.completedAt = new Date().toISOString();
+    else delete j.completedAt;
+    saveJobs(jobs);
+    try { pushJobsToCloud({ toast: false }); } catch(e){}
+    try { hydrateAsMgmt(); } catch(e){}
+    try { hydrateDashboardJobs(); } catch(e){}
+    try { rebuildJobsGrid(); } catch(e){}
+    // 상세 모달이 열려 있으면 갱신
+    try {
+      const modal = document.getElementById('newopenDetailModal');
+      if (modal && modal.classList.contains('show')) editNewopen(jobId);
+    } catch(e){}
+    if (typeof showToast === 'function') showToast(`상태: ${status}`);
+  }
+  window.setAsStatus = setAsStatus;
+
   function hydrateAsMgmt() {
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const all = jobs.filter(isAsJob);
     const today = new Date();
     const todayStr = today.toISOString().slice(0,10);
     const ym = todayStr.slice(0,7);
-    const isDone = (j) => (j.status === '완료' || j.status === 'done');
+    const isDone = _isAsDone;
     const pending = all.filter(j => !isDone(j));
     const over48 = pending.filter(j => {
       const ts = j.asReceivedAt ? new Date(j.asReceivedAt.replace(' ','T')+':00').getTime()
@@ -8215,15 +8256,17 @@ ${text.slice(0, 3000)}`;
       const targetBadges = targets.length
         ? targets.map(t => `<span style="display:inline-block;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:2px">${targetIcons[t]||''} ${esc(t)}</span>`).join('')
         : '<span style="color:var(--gray-300);font-size:11px">-</span>';
-      const statusBadge = done
-        ? `<span class="badge badge-green">완료</span>`
-        : `<span class="badge badge-amber">${esc(j.status || '접수')}</span>`;
+      const curStatus = j.status || '접수';
+      const meta = AS_STATUS_META[curStatus] || AS_STATUS_META['접수'];
+      const statusBadge = `<span class="badge" style="background:${meta.bg};color:${meta.color};font-weight:700">${meta.icon} ${esc(curStatus)}</span>`;
       const store = j.store || j.storeName || '-';
       const unregBadge = j.unregistered ? '<span style="margin-left:4px;background:#FEF3C7;color:#92400E;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700">미등록</span>' : '';
       const eng = j.engineer || j.assignee || '<span style="color:var(--danger)">미배정</span>';
-      const actBtn = done
-        ? `<button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="event.stopPropagation();reopenNewopen('${j.id}')">↩ 되돌리기</button>`
-        : `<button class="btn btn-primary btn-sm" style="background:var(--success);color:#fff;font-size:11px;padding:5px 10px;font-weight:700" onclick="event.stopPropagation();completeNewopen('${j.id}')">✓ 처리완료</button>`;
+      // 상태 사이클 버튼 — 다음 상태로 토글
+      const curIdx = AS_STATUS_FLOW.indexOf(curStatus);
+      const nextStatus = AS_STATUS_FLOW[(curIdx + 1) % AS_STATUS_FLOW.length];
+      const nextMeta = AS_STATUS_META[nextStatus];
+      const actBtn = `<button class="btn btn-sm" style="background:${nextMeta.bg};color:${nextMeta.color};border:1px solid ${nextMeta.color};font-size:11px;padding:5px 8px;font-weight:700;white-space:nowrap" onclick="event.stopPropagation();cycleAsStatus('${j.id}')" title="현재: ${esc(curStatus)} → 다음: ${esc(nextStatus)}">→ ${nextMeta.icon} ${esc(nextStatus)}</button>`;
 
       return `<tr style="cursor:pointer" onclick="editNewopen('${j.id}')" title="클릭 — 상세 보기">
         <td>${statusBadge}</td>
@@ -8335,14 +8378,29 @@ ${text.slice(0, 3000)}`;
     const body  = document.getElementById('newopenDetailBody');
     title.textContent = `📋 ${j.storeName || j.store || '-'} · ${j.type || '-'}`;
 
-    // 모달 푸터 좌측 — 종료/되돌리기 버튼
+    // 모달 푸터 좌측 — AS 작업은 상태 토글 픽커 / 그 외는 종료/되돌리기 버튼
     const footerLeft = document.getElementById('newopenDetailFooterLeft');
     if (footerLeft) {
-      const isJobDone = (j.status === '완료' || j.status === 'done');
-      footerLeft.innerHTML = isJobDone
-        ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-700);border-color:var(--gray-400);font-weight:700" onclick="reopenNewopen('${j.id}');document.getElementById('newopenDetailModal').classList.remove('show')">↩ 진행으로 되돌리기</button>
-           <span style="margin-left:10px;font-size:11px;color:var(--gray-500)">완료: ${esc((j.completedAt||'').slice(0,16).replace('T',' '))}</span>`
-        : `<button class="btn btn-primary btn-sm" style="background:var(--success);font-weight:700" onclick="completeNewopen('${j.id}');document.getElementById('newopenDetailModal').classList.remove('show')">✓ 작업 종료</button>`;
+      const isAsType = /AS/i.test(j.type || '');
+      if (isAsType) {
+        const cur = j.status || '접수';
+        const pickerHtml = AS_STATUS_FLOW.map(s => {
+          const m = AS_STATUS_META[s];
+          const active = (s === cur);
+          return `<button class="btn btn-sm" style="background:${active?m.color:'#fff'};color:${active?'#fff':m.color};border:1.5px solid ${m.color};font-size:11px;padding:5px 10px;font-weight:700;border-radius:8px${active?';box-shadow:0 0 0 2px '+m.bg:''}" onclick="setAsStatus('${j.id}','${s}')">${m.icon} ${esc(s)}</button>`;
+        }).join('');
+        footerLeft.innerHTML = `<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:11px;color:var(--gray-500);font-weight:600;margin-right:4px">AS 상태:</span>
+          ${pickerHtml}
+          ${j.completedAt ? `<span style="margin-left:8px;font-size:11px;color:var(--gray-500)">완료 ${esc((j.completedAt||'').slice(0,16).replace('T',' '))}</span>` : ''}
+        </div>`;
+      } else {
+        const isJobDone = (j.status === '완료' || j.status === 'done');
+        footerLeft.innerHTML = isJobDone
+          ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-700);border-color:var(--gray-400);font-weight:700" onclick="reopenNewopen('${j.id}');document.getElementById('newopenDetailModal').classList.remove('show')">↩ 진행으로 되돌리기</button>
+             <span style="margin-left:10px;font-size:11px;color:var(--gray-500)">완료: ${esc((j.completedAt||'').slice(0,16).replace('T',' '))}</span>`
+          : `<button class="btn btn-primary btn-sm" style="background:var(--success);font-weight:700" onclick="completeNewopen('${j.id}');document.getElementById('newopenDetailModal').classList.remove('show')">✓ 작업 종료</button>`;
+      }
     }
 
     const eq = Array.isArray(j.equipment) ? j.equipment : [];
