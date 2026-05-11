@@ -4854,32 +4854,50 @@ ${text.slice(0, 4000)}`;
 
     try {
       const response = await callClaude([{ role:'user', content: prompt }], 2000);
-      const match = response.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error('응답 파싱 실패');
-      const result = JSON.parse(match[0]);
+      console.log('[Line Import] Claude 응답:', response);
+
+      // 코드펜스 제거 + JSON 추출
+      let raw = String(response || '').trim();
+      raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (!m) {
+        console.error('[Line Import] JSON 미발견 응답:', response);
+        throw new Error('Claude 응답에 JSON이 없습니다');
+      }
+      let result;
+      try { result = JSON.parse(m[0]); }
+      catch (pe) {
+        console.error('[Line Import] JSON 파싱 실패:', pe, m[0]);
+        throw new Error('JSON 파싱 실패: ' + pe.message);
+      }
 
       lineParseData = (result.items || []).map((item, i) => {
         // 자동 매칭 — 동일 매장의 기존 미완료 작업이 있으면 update 액션 추천
-        const match = _findMatchingJob(item);
+        let matchedJob = null;
+        try { matchedJob = _findMatchingJob(item); }
+        catch (me) { console.warn('[Line Import] 매칭 실패:', me, item); }
         let action = 'new';
         if (item.type === 'ignore')      action = 'skip';
-        else if (match)                  action = 'update';
+        else if (matchedJob)             action = 'update';
         return {
           ...item,
           id: i,
           checked: item.type !== 'ignore',
           action,
-          targetJobId: match ? match.id : '',
-          targetJobLabel: match ? `${match.store||match.storeName||''} · ${match.type||''}` : '',
+          targetJobId: matchedJob ? matchedJob.id : '',
+          targetJobLabel: matchedJob ? `${matchedJob.store||matchedJob.storeName||''} · ${matchedJob.type||''}` : '',
         };
       });
 
       renderLineParseResults(result.summary);
 
     } catch(e) {
-      showToast('❌ 분석 오류: ' + e.message.slice(0,80));
+      console.error('[Line Import] 분석 오류:', e);
+      const msg = (e && e.message) ? String(e.message) : String(e);
+      showToast('❌ 분석 오류: ' + msg.slice(0,120));
       document.getElementById('lineAnalyzeBtn').style.display = '';
       document.getElementById('lineAnalyzeHint').style.display = '';
+      document.getElementById('lineParseLoading').style.display = 'none';
     }
 
     document.getElementById('lineParseLoading').style.display = 'none';
