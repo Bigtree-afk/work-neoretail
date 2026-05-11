@@ -9191,21 +9191,33 @@ ${text.slice(0, 3000)}`;
     const renderResults = (q) => {
       const results = document.getElementById('mergeResults');
       q = (q || '').trim().toLowerCase();
-      if (q.length < 1) { results.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);font-size:12px">검색어를 입력하세요</div>'; return; }
-      const matched = stores.filter(s => {
-        if (s.id === survivor.id) return false;
+      // 자기 자신만 제외 — 다른 필터 없음. 검색어 없으면 전체 표시 (최근 등록순)
+      let matched = stores.filter(s => s.id !== survivor.id);
+      if (q.length >= 1) {
+        matched = matched.filter(s => {
+          const aliases = Array.isArray(s.aliases) ? s.aliases : [];
+          const blob = [s.name, s.biz, s.bizno, s.code, s.ceo, s.owner, s.addr, s.address, s.tel, s.phone, s.van, s.tid, s.status, s.memo, ...aliases]
+            .filter(Boolean).join(' | ').toLowerCase();
+          return blob.includes(q);
+        });
+      }
+      // 최근 등록순 정렬 — 큰 데이터셋이라도 빠르게
+      matched.sort((a,b) => (Number(b.createdAt)||0) - (Number(a.createdAt)||0));
+      const total = matched.length;
+      const renderLimit = 500;
+      matched = matched.slice(0, renderLimit);
+
+      if (total === 0) { results.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);font-size:12px">일치 매장이 없습니다</div>'; return; }
+      const headerInfo = `<div style="font-size:11px;color:var(--gray-500);padding:6px 10px;background:#F9FAFB;border-bottom:1px solid var(--gray-200);position:sticky;top:0">
+        ${q ? `검색 결과 ${total.toLocaleString()}건` : `전체 ${total.toLocaleString()}건`}${total > renderLimit ? ` · 상위 ${renderLimit}건 표시 (검색어를 입력해 좁히세요)` : ''}
+      </div>`;
+      results.innerHTML = headerInfo + matched.map(s => {
         const aliases = Array.isArray(s.aliases) ? s.aliases : [];
-        const blob = [s.name, s.biz, s.ceo, s.addr, s.tel, ...aliases].filter(Boolean).join(' | ').toLowerCase();
-        return blob.includes(q);
-      }).slice(0, 30);
-      if (matched.length === 0) { results.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);font-size:12px">일치 매장이 없습니다</div>'; return; }
-      results.innerHTML = matched.map(s => {
-        const aliases = Array.isArray(s.aliases) ? s.aliases : [];
-        return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;margin:4px 0;cursor:pointer;background:#fff">
+        return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;margin:4px;cursor:pointer;background:#fff">
           <input type="radio" name="mergePick" value="${esc(s.id)}" style="margin:0">
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:13px">${esc(s.name)}</div>
-            <div style="font-size:11px;color:var(--gray-500)">${esc(s.biz||'-')} · ${esc(s.ceo||'-')} · ${esc(s.addr||'-')}</div>
+            <div style="font-size:11px;color:var(--gray-500)">${esc(s.biz||s.bizno||'-')} · ${esc(s.ceo||s.owner||'-')} · ${esc(s.addr||s.address||'-')}</div>
             ${aliases.length ? `<div style="font-size:10px;color:var(--gray-400);margin-top:2px">↳ (구) ${esc(aliases.join(', '))}</div>` : ''}
           </div>
         </label>`;
@@ -9216,6 +9228,7 @@ ${text.slice(0, 3000)}`;
     };
 
     document.getElementById('mergeSearch').addEventListener('input', e => renderResults(e.target.value));
+    // 다이얼로그 열 때 바로 전체 목록 노출
     renderResults('');
 
     const confirmBtn = document.getElementById('storeMergeConfirmBtn');
