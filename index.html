@@ -1119,6 +1119,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <span style="background:#FED7AA; color:#9A3412; padding:2px 7px; border-radius:10px">🔧 설치</span>
             <span style="background:#FECACA; color:#991B1B; padding:2px 7px; border-radius:10px">🌅 가오픈</span>
             <span style="background:#A7F3D0; color:#065F46; padding:2px 7px; border-radius:10px">🎉 오픈</span>
+            <span style="background:#FEF3C7; color:#92400E; padding:2px 7px; border-radius:10px">🛠 AS</span>
           </div>
         </div>
         <div class="cal-grid" id="calGrid">
@@ -1156,8 +1157,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </button>
       </div>
 
+      <!-- 오픈 작업 섹션 -->
+      <div style="display:flex;align-items:center;gap:10px;margin:14px 0 8px;flex-wrap:wrap">
+        <div style="font-size:14px;font-weight:700;color:var(--gray-700)">🏪 오픈 작업 (신규 · 가맹 · POS/VAN 교체 · 장비추가 등)</div>
+        <span id="jobsOpenCount" style="font-size:11px;color:var(--gray-500);font-weight:600"></span>
+      </div>
       <div class="grid-3" id="jobsGrid">
-
         <div class="job-card" id="newJobCardBtn" style="border:2px dashed var(--gray-200); background:var(--gray-50); display:flex; align-items:center; justify-content:center; min-height:200px; cursor:pointer" onclick="showModal('newJobModal')">
           <div style="text-align:center">
             <div style="font-size:32px; margin-bottom:10px">➕</div>
@@ -1165,7 +1170,22 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <div style="font-size:12px; color:var(--gray-400); margin-top:4px">클릭하여 작업을 추가하세요</div>
           </div>
         </div>
+      </div>
 
+      <!-- AS 관리 섹션 -->
+      <div style="display:flex;align-items:center;gap:10px;margin:22px 0 8px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--gray-200)">
+        <div style="font-size:14px;font-weight:700;color:#92400E">🛠 AS 관리 작업</div>
+        <span id="jobsAsCount" style="font-size:11px;color:var(--gray-500);font-weight:600"></span>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;font-size:11px;padding:4px 10px;color:#92400E;border-color:#FCD34D" onclick="showScreen('asmgmt')">🔧 AS 관리 페이지 →</button>
+      </div>
+      <div class="grid-3" id="jobsAsGrid">
+        <div class="job-card" id="newAsCardBtn" style="border:2px dashed #FCD34D; background:#FFFBEB; display:flex; align-items:center; justify-content:center; min-height:200px; cursor:pointer" onclick="openAsJob()">
+          <div style="text-align:center">
+            <div style="font-size:32px; margin-bottom:10px">🛠</div>
+            <div style="font-size:14px; font-weight:700; color:#92400E">＋ AS 등록</div>
+            <div style="font-size:12px; color:#92400E; margin-top:4px;opacity:0.8">AS 접수를 추가하세요</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -6637,9 +6657,10 @@ ${text.slice(0, 3000)}`;
   }
 
   function injectJobCard(job) {
-    const grid = document.getElementById('jobsGrid');
+    const isAs = /AS/i.test(job.type || '');
+    const grid = document.getElementById(isAs ? 'jobsAsGrid' : 'jobsGrid');
     if (!grid) return;
-    const addBtn = document.getElementById('newJobCardBtn');
+    const addBtn = document.getElementById(isAs ? 'newAsCardBtn' : 'newJobCardBtn');
     const card = buildJobCardEl(job);
     if (addBtn) grid.insertBefore(card, addBtn); else grid.appendChild(card);
   }
@@ -6647,10 +6668,18 @@ ${text.slice(0, 3000)}`;
   function hydrateSavedJobs() {
     try {
       const jobs = (typeof getJobs === 'function') ? getJobs() : [];
-      const grid = document.getElementById('jobsGrid');
-      if (!grid) return;
+      const openGrid = document.getElementById('jobsGrid');
+      const asGrid   = document.getElementById('jobsAsGrid');
+      if (!openGrid && !asGrid) return;
       // 최신 등록이 위로 오도록 역순으로 prepend
       jobs.slice().reverse().forEach(j => injectJobCard(j));
+      // 카운트 라벨 갱신
+      const openCount = jobs.filter(j => !/AS/i.test(j.type||'')).length;
+      const asCount   = jobs.filter(j =>  /AS/i.test(j.type||'')).length;
+      const lblOpen = document.getElementById('jobsOpenCount');
+      const lblAs   = document.getElementById('jobsAsCount');
+      if (lblOpen) lblOpen.textContent = openCount ? `${openCount}건` : '등록된 작업 없음';
+      if (lblAs)   lblAs.textContent   = asCount   ? `${asCount}건`   : 'AS 접수 없음';
     } catch {}
   }
 
@@ -7356,10 +7385,18 @@ ${text.slice(0, 3000)}`;
       (byDate[d] = byDate[d] || []).push({ ...j, _kind: kind });
     };
     jobs.forEach(j => {
-      // 작업예정일(j.date) 제거 — 설치/가오픈/오픈 3개만 캘린더에 표시
-      pushEvent(j.installDate,  j, 'install');
-      pushEvent(j.softOpenDate, j, 'soft');
-      pushEvent(j.openDate,     j, 'open');
+      const isAs = /AS/i.test(j.type || '');
+      if (isAs) {
+        // AS 일정 — 처리예정일이 있으면, 없으면 접수일
+        const asDate = (j.asDueDate || '').slice(0,10) ||
+                       (j.asReceivedAt ? j.asReceivedAt.slice(0,10) : '');
+        if (asDate) pushEvent(asDate, j, 'as');
+      } else {
+        // 매장 주요 일정 3종
+        pushEvent(j.installDate,  j, 'install');
+        pushEvent(j.softOpenDate, j, 'soft');
+        pushEvent(j.openDate,     j, 'open');
+      }
     });
 
     const today = new Date().toISOString().slice(0, 10);
@@ -7369,6 +7406,7 @@ ${text.slice(0, 3000)}`;
       if (kind === 'install') return 'background:#FED7AA;color:#9A3412'; // 주황
       if (kind === 'soft')    return 'background:#FECACA;color:#991B1B'; // 분홍/빨강
       if (kind === 'open')    return 'background:#A7F3D0;color:#065F46;font-weight:800'; // 진한 초록
+      if (kind === 'as')      return 'background:#FEF3C7;color:#92400E;font-weight:700'; // 노란 — AS
       // 작업 유형별
       const t = type || '';
       if (/AS/i.test(t))           return 'background:#FEF3C7;color:#92400E';
@@ -7377,8 +7415,8 @@ ${text.slice(0, 3000)}`;
       if (/신규|개업|가맹|SW/.test(t))  return 'background:#DBEAFE;color:#1D4ED8';
       return 'background:#F3F4F6;color:#374151';
     };
-    const kindIcon = (kind) => ({ install:'🔧', soft:'🌅', open:'🎉' })[kind] || '';
-    const kindLabel = (kind) => ({ install:'설치예정', soft:'가오픈', open:'오픈' })[kind] || '';
+    const kindIcon = (kind) => ({ install:'🔧', soft:'🌅', open:'🎉', as:'🛠' })[kind] || '';
+    const kindLabel = (kind) => ({ install:'설치예정', soft:'가오픈', open:'오픈', as:'AS' })[kind] || '';
 
     // 이전 달 끝 날짜 (회색)
     for (let i = firstDayWeekday - 1; i >= 0; i--) {
@@ -8733,11 +8771,12 @@ ${text.slice(0, 3000)}`;
 
   /* 작업/일정 카드 그리드 재빌드 — 상태 변경 후 카드 UI 갱신 */
   function rebuildJobsGrid() {
-    const grid = document.getElementById('jobsGrid');
-    if (!grid) return;
-    // 기존 카드 제거 (+ 새 작업 등록 버튼 제외)
-    Array.from(grid.querySelectorAll('.job-card')).forEach(c => {
-      if (c.id !== 'newJobCardBtn') c.remove();
+    ['jobsGrid', 'jobsAsGrid'].forEach(gridId => {
+      const grid = document.getElementById(gridId);
+      if (!grid) return;
+      Array.from(grid.querySelectorAll('.job-card')).forEach(c => {
+        if (c.id !== 'newJobCardBtn' && c.id !== 'newAsCardBtn') c.remove();
+      });
     });
     try { hydrateSavedJobs(); } catch(e){}
   }
