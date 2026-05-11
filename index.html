@@ -4853,22 +4853,31 @@ ${contextData}
 ${text.slice(0, 4000)}`;
 
     try {
-      const response = await callClaude([{ role:'user', content: prompt }], 2000);
+      const response = await callClaude([{ role:'user', content: prompt }], 8000);
       console.log('[Line Import] Claude 응답:', response);
 
       // 코드펜스 제거 + JSON 추출
       let raw = String(response || '').trim();
       raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
-      const m = raw.match(/\{[\s\S]*\}/);
-      if (!m) {
+      const startIdx = raw.indexOf('{');
+      if (startIdx < 0) {
         console.error('[Line Import] JSON 미발견 응답:', response);
         throw new Error('Claude 응답에 JSON이 없습니다');
       }
+      let jsonStr = raw.slice(startIdx);
       let result;
-      try { result = JSON.parse(m[0]); }
+      try { result = JSON.parse(jsonStr); }
       catch (pe) {
-        console.error('[Line Import] JSON 파싱 실패:', pe, m[0]);
-        throw new Error('JSON 파싱 실패: ' + pe.message);
+        console.warn('[Line Import] 1차 파싱 실패, 복구 시도:', pe.message);
+        // 잘림 복구: 마지막 완전한 } 까지만 사용 + 배열·객체 닫기
+        const salvaged = _salvageJson(jsonStr);
+        try {
+          result = JSON.parse(salvaged);
+          console.log('[Line Import] 복구 성공');
+        } catch (pe2) {
+          console.error('[Line Import] 복구 실패:', pe2, salvaged.slice(-200));
+          throw new Error('JSON 파싱 실패 (응답 잘림): ' + pe.message);
+        }
       }
 
       lineParseData = (result.items || []).map((item, i) => {
@@ -4910,6 +4919,30 @@ ${text.slice(0, 4000)}`;
     device_mgmt:  { label:'📱 단말기 관리', bg:'#D1FAE5', color:'#065F46', jobType:'장비 추가' },
     ignore:       { label:'⚪ 기타',       bg:'#F3F4F6', color:'#6B7280', jobType:null },
   };
+
+  /* 잘린 JSON 복구 — 마지막 완전한 항목까지 살린 뒤 배열·객체 닫기 */
+  function _salvageJson(s) {
+    // 마지막 완전한 } 위치 찾기 (문자열 내부 무시)
+    let depth = 0, inStr = false, esc = false, lastGoodObjEnd = -1;
+    let arrayStart = -1, objStart = s.indexOf('{');
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (esc) { esc = false; continue; }
+      if (c === '\\') { esc = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === '[' && arrayStart < 0) arrayStart = i;
+      if (c === '{') depth++;
+      else if (c === '}') { depth--; if (depth === 1 && arrayStart >= 0) lastGoodObjEnd = i; }
+    }
+    if (lastGoodObjEnd < 0) {
+      // items 배열 시작 전에 잘림 — 빈 items 반환
+      return '{"summary":"부분 응답","items":[]}';
+    }
+    // 마지막 완전한 항목까지 자르고 ]} 닫기
+    let truncated = s.slice(0, lastGoodObjEnd + 1) + ']}';
+    return truncated;
+  }
 
   /* Line 항목에 매칭되는 기존 미완료 작업 찾기 — 동일 매장 + 호환 유형 */
   function _findMatchingJob(item) {
