@@ -2009,8 +2009,15 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <button type="button" onclick="toggleUnregisteredStore()" id="unregBtn" style="float:right;background:none;border:1px solid var(--gray-300);color:var(--gray-500);font-size:10px;padding:2px 8px;border-radius:6px;cursor:pointer;font-weight:600">+ 미등록 가맹점</button>
           </label>
           <div style="position:relative">
-            <input type="text" id="jobStoreName" placeholder="점포명을 입력해 검색..." autocomplete="off" oninput="runJobStoreSearch()" onfocus="runJobStoreSearch()" onblur="setTimeout(()=>{const p=document.getElementById('jobStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px">
+            <input type="text" id="jobStoreName" placeholder="점포명을 입력해 검색..." autocomplete="off" oninput="runJobStoreSearch();_resetStorePickInfo()" onfocus="runJobStoreSearch()" onblur="setTimeout(()=>{const p=document.getElementById('jobStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px">
             <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--gray-400);pointer-events:none">🔍</span>
+          </div>
+          <!-- 선택된 매장의 사업자 정보 — 혼선 방지용 -->
+          <div id="jobStorePickedInfo" style="display:none;margin-top:6px;padding:6px 10px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;font-size:11px;color:#065F46;display:none">
+            <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap">
+              <span><b>✓ 선택됨</b> · 사업자 <code style="background:#fff;padding:1px 6px;border-radius:3px;font-family:monospace" id="jobStorePickedBiz">-</code></span>
+              <span id="jobStorePickedCeo" style="color:#065F46"></span>
+            </div>
           </div>
           <div id="jobStoreResults" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;margin-top:4px"></div>
           <div id="unregNotice" style="display:none;margin-top:6px;padding:6px 10px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;font-size:11px;color:#92400E">
@@ -3052,6 +3059,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       // AS 접수일 매번 초기화 → applyJobTypeMode 에서 현재 시각 설정
       try { const r = document.getElementById('asReceivedAt'); if (r) r.value = ''; } catch(e){}
       try { if (typeof applyJobTypeMode === 'function') applyJobTypeMode(); } catch(e){}
+      try { _resetStorePickInfo(); } catch(e){}
     }
     if (id === 'adminModal') {
       try { renderBackupStatus(); } catch(e){}
@@ -6496,25 +6504,53 @@ ${text.slice(0, 3000)}`;
     }
     panel.innerHTML = matches.map(s => {
       const name = esc(s.name || '-');
-      const sub = [s.ceo || s.owner, s.biz || s.bizno, s.tel].filter(Boolean).map(esc).join(' · ');
+      const biz  = esc(s.biz || s.bizno || '');
+      const ceo  = esc(s.ceo || s.owner || '');
+      const tel  = esc(s.tel || s.phone || '');
       const addr = esc(s.addr || s.address || '');
-      return `<div onclick="pickJobStore(${JSON.stringify(name).replace(/"/g,'&quot;')}, ${JSON.stringify(addr).replace(/"/g,'&quot;')})" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--gray-100)" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
-        <div style="font-size:13px;font-weight:700;color:var(--gray-800)">${name}</div>
-        ${sub ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">${sub}</div>` : ''}
+      const sub = [ceo, biz, tel].filter(Boolean).join(' · ');
+      const args = `${JSON.stringify(name).replace(/"/g,'&quot;')}, ${JSON.stringify(addr).replace(/"/g,'&quot;')}, ${JSON.stringify(biz).replace(/"/g,'&quot;')}, ${JSON.stringify(ceo).replace(/"/g,'&quot;')}`;
+      return `<div onclick="pickJobStore(${args})" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--gray-100)" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+          <div style="font-size:13px;font-weight:700;color:var(--gray-800)">${name}</div>
+          ${biz ? `<code style="font-size:11px;color:var(--gray-600);background:#F3F4F6;padding:1px 6px;border-radius:3px;font-family:monospace">${biz}</code>` : ''}
+        </div>
+        ${(ceo || tel) ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">${[ceo, tel].filter(Boolean).join(' · ')}</div>` : ''}
         ${addr ? `<div style="font-size:11px;color:var(--gray-400);margin-top:1px">${addr}</div>` : ''}
       </div>`;
     }).join('');
     panel.style.display = 'block';
   }
 
-  function pickJobStore(name, address) {
+  function pickJobStore(name, address, biz, ceo) {
     const inp = document.getElementById('jobStoreName');
     if (inp) inp.value = name;
     const addrEl = document.getElementById('jobAddressInput');
     if (addrEl && address) addrEl.value = address;
     const panel = document.getElementById('jobStoreResults');
     if (panel) panel.style.display = 'none';
+    // 사업자 정보 표시 — 혼선 방지
+    const info = document.getElementById('jobStorePickedInfo');
+    const bizEl = document.getElementById('jobStorePickedBiz');
+    const ceoEl = document.getElementById('jobStorePickedCeo');
+    if (info) {
+      if (biz || ceo) {
+        if (bizEl) bizEl.textContent = biz || '-';
+        if (ceoEl) ceoEl.textContent = ceo ? ('대표 ' + ceo) : '';
+        info.style.display = 'block';
+      } else {
+        info.style.display = 'none';
+      }
+    }
   }
+  window.pickJobStore = pickJobStore;
+
+  // 사용자가 다시 타이핑하면 선택 표시 숨김
+  function _resetStorePickInfo() {
+    const info = document.getElementById('jobStorePickedInfo');
+    if (info) info.style.display = 'none';
+  }
+  window._resetStorePickInfo = _resetStorePickInfo;
 
   /* 담당 엔지니어 select: 등록된 직원만 표시 */
   function populateEngineerSelect() {
