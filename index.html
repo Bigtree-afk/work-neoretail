@@ -5007,6 +5007,16 @@ ${text.slice(0, 4000)}`;
           ${hasMatch && item.action==='update' ? `<span style="font-size:10px;color:var(--success);font-weight:600">→ ${esc(item.targetJobLabel)} 기록 추가</span>` : ''}
           ${hasMatch && item.action==='new' ? `<span style="font-size:10px;color:var(--warning);font-weight:600">⚠ 동일 매장 기존 작업이 있습니다</span>` : ''}
         </div>`;
+      // 카테고리 변경 드롭다운 — 분류 버튼 클릭 시 다른 카테고리로 즉시 전환
+      const catSelector = `
+        <select onclick="event.stopPropagation()" onchange="setLineCategory(${item.id}, this.value)"
+                style="background:${meta.bg};color:${meta.color};font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid ${meta.color};cursor:pointer">
+          <option value="as_pos_van"  ${item.type==='as_pos_van'?'selected':''}>🛠 A/S (POS/VAN)</option>
+          <option value="open_store"  ${item.type==='open_store'?'selected':''}>🏪 오픈 작업</option>
+          <option value="van_doc"     ${item.type==='van_doc'?'selected':''}>📑 밴서류</option>
+          <option value="device_mgmt" ${item.type==='device_mgmt'?'selected':''}>📱 단말기 AS</option>
+          <option value="ignore"      ${item.type==='ignore'?'selected':''}>⚪ 기타/무시</option>
+        </select>`;
       return `
       <div class="line-parse-item ${item.checked ? 'checked' : ''}"
            style="border-left:4px solid ${meta.color};${item.checked && !isIgnore?'background:#F0FDF4':''}"
@@ -5016,7 +5026,7 @@ ${text.slice(0, 4000)}`;
                style="margin-top:3px;flex-shrink:0;width:15px;height:15px;accent-color:#06C755">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
-            <span style="background:${meta.bg};color:${meta.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">${meta.label}</span>
+            ${catSelector}
             ${item.status ? `<span style="background:#fff;border:1px solid var(--gray-300);color:var(--gray-700);font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px">${esc(item.status)}</span>` : ''}
             <span class="line-msg-sender">${esc(item.sender || '')}${item.time ? ' · ' + esc(item.time) : ''}</span>
             ${item.store ? `<span style="font-size:11px;background:#EEF2FF;color:#3730A3;padding:1px 7px;border-radius:8px;font-weight:600">🏪 ${esc(item.store)}</span>` : ''}
@@ -5044,6 +5054,28 @@ ${text.slice(0, 4000)}`;
     }
     updateLineRegisterCount();
   }
+
+  /* 개별 항목 카테고리 변경 — A/S, 오픈, 밴서류, 단말기 사이 자유 전환 */
+  function setLineCategory(id, type) {
+    const item = lineParseData.find(i => i.id === id);
+    if (!item) return;
+    item.type = type;
+    if (type === 'ignore') {
+      item.checked = false;
+      item.action = 'skip';
+      item.targetJobId = '';
+      item.targetJobLabel = '';
+    } else {
+      // 카테고리가 바뀌면 매칭 재시도
+      const match = (typeof _findMatchingJob === 'function') ? _findMatchingJob(item) : null;
+      item.targetJobId = match ? match.id : '';
+      item.targetJobLabel = match ? `${match.store||match.storeName||''} · ${match.type||''}` : '';
+      item.action = match ? 'update' : 'new';
+      item.checked = true;
+    }
+    renderLineParseResults(document.getElementById('lineResultSummary').textContent);
+  }
+  window.setLineCategory = setLineCategory;
 
   /* 개별 항목 처리 방식 변경 — '신규/업데이트/건너뛰기' */
   function setLineAction(id, action) {
