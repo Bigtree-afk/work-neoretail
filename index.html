@@ -2057,7 +2057,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
                 <input type="time" id="asDueTime" style="width:100%;padding:7px 9px;border:1px solid #FCD34D;border-radius:6px;font-size:13px;background:#fff">
               </div>
             </div>
-            <div>
+            <div style="margin-bottom:12px">
               <div style="font-size:11px;color:#92400E;margin-bottom:5px;font-weight:600">대상 장비</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap">
                 <label style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:#fff;border:1.5px solid #FCD34D;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">
@@ -2073,6 +2073,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
                   <input type="checkbox" id="asTargetETC" style="margin:0;cursor:pointer"> 📦 기타
                 </label>
               </div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#92400E;margin-bottom:5px;font-weight:600">📝 AS 요청 내용 / 증상</div>
+              <textarea id="asRequest" placeholder="예) 카드 단말 통신 오류, 영수증 프린터 용지 걸림, 부팅 안 됨..." style="width:100%;min-height:72px;padding:9px 11px;border:1.5px solid #FCD34D;border-radius:8px;font-size:13px;background:#fff;font-family:inherit;resize:vertical"></textarea>
+              <div style="font-size:10px;color:#92400E;margin-top:4px">고객이 알려온 증상·요청사항을 그대로 기록하세요. 추가 메모는 등록 후 상세에서 누적 메모로 추가 가능합니다.</div>
             </div>
           </div>
         </div>
@@ -6373,12 +6378,13 @@ ${text.slice(0, 3000)}`;
       const receivedAt = (document.getElementById('asReceivedAt') || {}).value || '';
       const dueDate = (document.getElementById('asDueDate') || {}).value || '';
       const dueTime = (document.getElementById('asDueTime') || {}).value || '';
+      const request = (document.getElementById('asRequest') || {}).value?.trim() || '';
       const targets = [];
       if ((document.getElementById('asTargetVAN')||{}).checked) targets.push('VAN');
       if ((document.getElementById('asTargetPOS')||{}).checked) targets.push('POS');
       if ((document.getElementById('asTargetKIO')||{}).checked) targets.push('키오스크');
       if ((document.getElementById('asTargetETC')||{}).checked) targets.push('기타');
-      asInfo = { receivedAt, dueDate, dueTime, targets };
+      asInfo = { receivedAt, dueDate, dueTime, request, targets };
     }
 
     const job = {
@@ -6399,11 +6405,15 @@ ${text.slice(0, 3000)}`;
       asDueDate:    asInfo ? asInfo.dueDate    : '',
       asDueTime:    asInfo ? asInfo.dueTime    : '',
       asTargets:    asInfo ? asInfo.targets    : [],
+      asRequest:    asInfo ? asInfo.request    : '',
       address:   (document.getElementById('jobAddressInput') || {}).value?.trim() || '',
       contactName:  (document.getElementById('jobContactName')  || {}).value?.trim() || '',
       contactRole:  (document.getElementById('jobContactRole')  || {}).value?.trim() || '',
       contactPhone: (document.getElementById('jobContactPhone') || {}).value?.trim() || '',
-      notes:     (document.getElementById('jobNotes')    || {}).value?.trim() || '',
+      // AS 작업은 요청 내용을 notes 에도 복사 (AS 관리 테이블 호환)
+      notes:     isAs
+        ? (asInfo.request || ((document.getElementById('jobNotes')||{}).value?.trim() || ''))
+        : ((document.getElementById('jobNotes') || {}).value?.trim() || ''),
       equipment,
       equipTotal,
       status:    isConsult ? '상담중' : '진행중',
@@ -6430,7 +6440,7 @@ ${text.slice(0, 3000)}`;
     if (notesEl) notesEl.value = '';
     const addrEl = document.getElementById('jobAddressInput');
     if (addrEl) addrEl.value = '';
-    ['jobConsultDate','jobInstallDate','jobSoftOpenDate','jobOpenDate','jobContactName','jobContactRole','jobContactPhone','asReceivedAt','asDueDate','asDueTime'].forEach(id => {
+    ['jobConsultDate','jobInstallDate','jobSoftOpenDate','jobOpenDate','jobContactName','jobContactRole','jobContactPhone','asReceivedAt','asDueDate','asDueTime','asRequest'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
@@ -8123,7 +8133,7 @@ ${text.slice(0, 3000)}`;
         <td style="font-size:11px;color:var(--gray-600);font-family:monospace">${esc(recv)}</td>
         <td style="font-size:11px;color:var(--gray-600)">${esc(due || '-')}</td>
         <td>${elapsedTxt}</td>
-        <td style="font-size:12px;color:var(--gray-600);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(j.notes || j.description || '-')}</td>
+        <td style="font-size:12px;color:var(--gray-600);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(j.asRequest || j.notes || j.description || '')}">${esc(j.asRequest || j.notes || j.description || '-')}</td>
         <td style="font-size:12px">${eng}</td>
         <td style="text-align:center" onclick="event.stopPropagation()">${actBtn}</td>
       </tr>`;
