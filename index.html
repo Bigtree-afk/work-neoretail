@@ -1443,7 +1443,6 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <table class="store-list-table" id="storeListTable" style="min-width:1100px">
           <thead>
             <tr>
-              <th>거래처코드</th>
               <th data-sort="name" style="cursor:pointer;user-select:none" title="클릭하여 정렬">점포명 (간판) <span class="sort-ind" data-for="name" style="color:var(--gray-300);font-size:10px;margin-left:2px">↕</span></th>
               <th data-sort="biz"  style="cursor:pointer;user-select:none" title="클릭하여 정렬">사업자번호 <span class="sort-ind" data-for="biz"  style="color:var(--gray-300);font-size:10px;margin-left:2px">↕</span></th>
               <th data-sort="ceo"  style="cursor:pointer;user-select:none" title="클릭하여 정렬">대표자 <span class="sort-ind" data-for="ceo"  style="color:var(--gray-300);font-size:10px;margin-left:2px">↕</span></th>
@@ -1457,7 +1456,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </thead>
           <tbody id="storeListTbody">
             <tr id="storeListEmptyRow">
-              <td colspan="10" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+              <td colspan="9" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
                 <div style="font-size:36px;margin-bottom:10px">🏪</div>
                 <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">등록된 점포가 없습니다</div>
                 <div style="font-size:11px">상단 "엑셀 일괄 업로드"로 점포를 등록하세요.</div>
@@ -6700,7 +6699,6 @@ ${text.slice(0, 3000)}`;
       ? `<div style="font-size:10px;color:var(--gray-500);margin-top:2px" title="이전 상호: ${esc(aliases.join(', '))}">↳ (구) ${esc(aliases[0])}${aliases.length>1?` 외 ${aliases.length-1}건`:''}</div>`
       : '';
     tr.innerHTML = `
-      <td style="color:var(--gray-400);font-size:11px">${esc(store.id)}</td>
       <td><b>${esc(store.name)}</b>${aliasBadge}</td>
       <td style="font-family:monospace;font-size:11px">${esc(store.biz||'-')}</td>
       <td>${esc(store.ceo||'-')}</td>
@@ -6803,12 +6801,12 @@ ${text.slice(0, 3000)}`;
           : ' · 정렬: 등록순(최신)';
         const countRow = document.createElement('tr');
         countRow.style.color = 'var(--gray-400)';
-        countRow.innerHTML = `<td colspan="10" style="text-align:center;padding:10px;font-size:11px;background:#F9FAFB">총 ${stores.length.toLocaleString()}개 점포 · 최신 ${showCount.toLocaleString()}개 표시${sortLabel}</td>`;
+        countRow.innerHTML = `<td colspan="9" style="text-align:center;padding:10px;font-size:11px;background:#F9FAFB">총 ${stores.length.toLocaleString()}개 점포 · 최신 ${showCount.toLocaleString()}개 표시${sortLabel}</td>`;
         tb.appendChild(countRow);
         _updateSortIndicators();
       } else {
         tb.innerHTML = `<tr id="storeListEmptyRow">
-          <td colspan="10" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+          <td colspan="9" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
             <div style="font-size:36px;margin-bottom:10px">🏪</div>
             <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">등록된 점포가 없습니다</div>
             <div style="font-size:11px">상단 "엑셀 일괄 업로드"로 점포를 등록하세요.</div>
@@ -9281,18 +9279,18 @@ ${text.slice(0, 3000)}`;
     tr.style.outline = '2px solid var(--primary)';
     tr.style.outlineOffset = '-2px';
 
-    // 행 셀에서 정보 추출 (컬럼: 코드 / 점포명 / 사업자 / 대표 / 전화 / 주소 / VAN / POS·KIO / 담당 / 상태)
+    // 행 셀에서 정보 추출 (컬럼: 점포명 / 사업자 / 대표 / 전화 / 주소 / VAN / POS·KIO / 담당 / 상태)
     const cells = tr.querySelectorAll('td');
     const getText = (i) => (cells[i]?.innerText || cells[i]?.textContent || '').trim();
-    const code   = getText(0);
-    const name   = (tr.querySelector('b')?.textContent || getText(1) || '선택된 점포').trim();
-    const bizno  = getText(2);
-    const ceo    = getText(3);
-    const tel    = getText(4);
-    const addr   = getText(5);
-    const van    = (cells[6]?.querySelector('.badge')?.textContent || '').trim();
-    const posTxt = (cells[7]?.querySelector('.pk-chip')?.textContent || '').trim();
-    const status = (cells[9]?.querySelector('.badge')?.textContent || '거래중').trim();
+    const code   = tr.dataset.storeId || '';
+    const name   = (tr.querySelector('b')?.textContent || getText(0) || '선택된 점포').trim();
+    const bizno  = getText(1);
+    const ceo    = getText(2);
+    const tel    = getText(3);
+    const addr   = getText(4);
+    const van    = (cells[5]?.querySelector('.badge')?.textContent || '').trim();
+    const posTxt = (cells[6]?.querySelector('.pk-chip')?.textContent || '').trim();
+    const status = (cells[8]?.querySelector('.badge')?.textContent || '거래중').trim();
 
     // 저장된 점포 데이터가 있으면 보강 (dataset.storeId 기반)
     let store = null;
