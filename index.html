@@ -4858,7 +4858,21 @@ ${text.slice(0, 4000)}`;
       if (!match) throw new Error('응답 파싱 실패');
       const result = JSON.parse(match[0]);
 
-      lineParseData = (result.items || []).map((item, i) => ({ ...item, id: i, checked: item.type !== 'ignore' }));
+      lineParseData = (result.items || []).map((item, i) => {
+        // 자동 매칭 — 동일 매장의 기존 미완료 작업이 있으면 update 액션 추천
+        const match = _findMatchingJob(item);
+        let action = 'new';
+        if (item.type === 'ignore')      action = 'skip';
+        else if (match)                  action = 'update';
+        return {
+          ...item,
+          id: i,
+          checked: item.type !== 'ignore',
+          action,
+          targetJobId: match ? match.id : '',
+          targetJobLabel: match ? `${match.store||match.storeName||''} · ${match.type||''}` : '',
+        };
+      });
 
       renderLineParseResults(result.summary);
 
@@ -4879,15 +4893,64 @@ ${text.slice(0, 4000)}`;
     ignore:       { label:'⚪ 기타',       bg:'#F3F4F6', color:'#6B7280', jobType:null },
   };
 
+  /* Line 항목에 매칭되는 기존 미완료 작업 찾기 — 동일 매장 + 호환 유형 */
+  function _findMatchingJob(item) {
+    if (!item || !item.store) return null;
+    const wantNorm = String(item.store||'').toLowerCase().replace(/\s+/g,'');
+    if (!wantNorm) return null;
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const isDone = (j) => /완료|done|처리완료/i.test(j.status||'');
+
+    // 카테고리 → 작업 유형 매핑 (호환 가능한 유형 집합)
+    const compatTypes = {
+      as_pos_van:  [/AS|에이에스/i],
+      open_store:  [/신규|개업|오픈|POS\s*교체|VAN\s*변경|SW\s*변경|당사매장/i],
+      van_doc:     [/신규가맹|신규|VAN|밴서류|상호변경|주소변경|계좌변경|정보변경|재신고/i],
+      device_mgmt: [/장비|단말|개통|이동단말기|AS|에이에스/i],
+    };
+    const pats = compatTypes[item.type] || [];
+
+    // 매장명 매칭 + 미완료 + 호환 유형 — 최근 createdAt 우선
+    const candidates = jobs.filter(j => {
+      if (isDone(j)) return false;
+      const aliases = Array.isArray(j.aliases) ? j.aliases : [];
+      const names = [j.store, j.storeName, ...aliases].filter(Boolean);
+      const nameMatch = names.some(n => {
+        const nn = String(n).toLowerCase().replace(/\s+/g,'');
+        return nn === wantNorm || nn.includes(wantNorm) || wantNorm.includes(nn);
+      });
+      if (!nameMatch) return false;
+      return pats.some(p => p.test(j.type||''));
+    });
+    if (candidates.length === 0) return null;
+    candidates.sort((a,b) => (Number(b.createdAt)||0) - (Number(a.createdAt)||0));
+    return candidates[0];
+  }
+  window._findMatchingJob = _findMatchingJob;
+
   function renderLineParseResults(summary) {
     document.getElementById('lineResultSummary').textContent = summary || '';
     document.getElementById('lineParseResults').style.display = '';
 
     document.getElementById('lineItemList').innerHTML = lineParseData.map(item => {
       const meta = LINE_TYPE_META[item.type] || LINE_TYPE_META.ignore;
+      const isIgnore = item.type === 'ignore';
+      // 액션 선택기 — 매칭된 기존 작업이 있으면 update 옵션 노출
+      const hasMatch = !!item.targetJobId;
+      const actionSelector = isIgnore ? '' : `
+        <div style="display:flex;align-items:center;gap:5px;margin-top:4px;flex-wrap:wrap" onclick="event.stopPropagation()">
+          <span style="font-size:11px;color:var(--gray-500);font-weight:600">처리:</span>
+          <select onchange="setLineAction(${item.id}, this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:6px;background:#fff;font-weight:600">
+            <option value="new"    ${item.action==='new'?'selected':''}>＋ 새 작업으로 등록</option>
+            ${hasMatch ? `<option value="update" ${item.action==='update'?'selected':''}>↻ 기존 작업 업데이트 (${esc(item.targetJobLabel)})</option>` : ''}
+            <option value="skip"   ${item.action==='skip'?'selected':''}>✕ 건너뛰기</option>
+          </select>
+          ${hasMatch && item.action==='update' ? `<span style="font-size:10px;color:var(--success);font-weight:600">→ ${esc(item.targetJobLabel)} 기록 추가</span>` : ''}
+          ${hasMatch && item.action==='new' ? `<span style="font-size:10px;color:var(--warning);font-weight:600">⚠ 동일 매장 기존 작업이 있습니다</span>` : ''}
+        </div>`;
       return `
       <div class="line-parse-item ${item.checked ? 'checked' : ''}"
-           style="border-left:4px solid ${meta.color};${item.checked?'background:#F0FDF4':''}"
+           style="border-left:4px solid ${meta.color};${item.checked && !isIgnore?'background:#F0FDF4':''}"
            id="litem-${item.id}" onclick="toggleLineItem(${item.id})">
         <input type="checkbox" ${item.checked ? 'checked' : ''}
                onclick="event.stopPropagation();toggleLineItem(${item.id})"
@@ -4903,6 +4966,7 @@ ${text.slice(0, 4000)}`;
           </div>
           ${item.parsed ? `<div class="line-msg-parsed" style="font-size:12px;color:var(--gray-700);margin-bottom:2px">→ ${esc(item.parsed)}</div>` : ''}
           <div class="line-msg-text" style="font-size:11px;color:var(--gray-400)">${esc(item.original || item.request || '')}</div>
+          ${actionSelector}
         </div>
       </div>`;
     }).join('');
@@ -4921,6 +4985,17 @@ ${text.slice(0, 4000)}`;
     }
     updateLineRegisterCount();
   }
+
+  /* 개별 항목 처리 방식 변경 — '신규/업데이트/건너뛰기' */
+  function setLineAction(id, action) {
+    const item = lineParseData.find(i => i.id === id);
+    if (!item) return;
+    item.action = action;
+    if (action === 'skip') item.checked = false;
+    else item.checked = true;
+    renderLineParseResults(document.getElementById('lineResultSummary').textContent);
+  }
+  window.setLineAction = setLineAction;
 
   function selectAllLineItems(val) {
     lineParseData.forEach(item => { item.checked = val; });
@@ -4942,12 +5017,13 @@ ${text.slice(0, 4000)}`;
   }
 
   function registerLineItems() {
-    const toRegister = lineParseData.filter(i => i.checked && i.type !== 'ignore');
+    const toRegister = lineParseData.filter(i => i.checked && i.action !== 'skip' && i.type !== 'ignore');
     if (!toRegister.length) { showToast('등록할 항목이 없습니다'); return; }
 
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     const jobs = getJobs();
     const cats = { as_pos_van:0, open_store:0, van_doc:0, device_mgmt:0 };
+    let newCount = 0, updCount = 0;
 
     const kstNow = (() => {
       const d = new Date();
@@ -4960,6 +5036,50 @@ ${text.slice(0, 4000)}`;
       const meta = LINE_TYPE_META[item.type];
       if (!meta || !meta.jobType) return;
       cats[item.type] = (cats[item.type] || 0) + 1;
+
+      // ──────────────────────────────────────────────
+      // ACTION: update — 기존 작업에 상태/메모만 갱신
+      // ──────────────────────────────────────────────
+      if (item.action === 'update' && item.targetJobId) {
+        const job = jobs.find(j => j.id === item.targetJobId);
+        if (job) {
+          // 누적 메모로 기록
+          if (!Array.isArray(job.memos)) job.memos = [];
+          job.memos.push({
+            at: kstNow.replace(/^\d{2}/, m => m).slice(2),   // YY.MM.DD HH:mm 형태
+            author: item.sender || 'Line 임포트',
+            text: [
+              `[${meta.label}]`,
+              item.status ? `상태: ${item.status}` : '',
+              item.parsed || item.request || item.original || ''
+            ].filter(Boolean).join(' '),
+          });
+          // 상태 전환 — 단말기 A/S 수리완료 등 '완료' 표시
+          if (item.status === '완료') {
+            if (/AS/i.test(job.type||'')) {
+              job.status = '처리완료';
+              job.completedAt = new Date().toISOString();
+            } else {
+              job.status = '완료';
+              job.completedAt = new Date().toISOString();
+            }
+          } else if (item.status === '진행중') {
+            job.status = '진행중';
+          } else if (item.status === '재방문필요') {
+            job.status = '재방문필요';
+          } else if (item.status === '심사중') {
+            // 밴서류 진행상태
+            job.status = '심사중';
+          }
+          // 담당자가 비어있으면 보강
+          if (!job.engineer && item.assignee) job.engineer = item.assignee;
+          updCount++;
+          return; // 다음 항목으로
+        }
+      }
+
+      // 이하 신규 등록 흐름 (action === 'new')
+      newCount++;
 
       // 매장 매칭 (이름/별칭 기반)
       const wantName = (item.store || '').trim();
