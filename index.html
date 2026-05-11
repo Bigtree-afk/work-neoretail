@@ -2008,16 +2008,22 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <span style="font-size:10px;color:var(--gray-400);font-weight:400">🔍 검색</span>
             <button type="button" onclick="toggleUnregisteredStore()" id="unregBtn" style="float:right;background:none;border:1px solid var(--gray-300);color:var(--gray-500);font-size:10px;padding:2px 8px;border-radius:6px;cursor:pointer;font-weight:600">+ 미등록 가맹점</button>
           </label>
-          <div style="display:flex;gap:5px;align-items:stretch">
-            <select id="jobStoreScope" onchange="runJobStoreSearch()" style="padding:6px 8px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px;background:#fff;font-weight:600;color:var(--gray-700);flex-shrink:0">
-              <option value="name_biz">상호·사업자</option>
-              <option value="ceo">대표자</option>
-              <option value="addr">주소</option>
-            </select>
-            <div style="position:relative;flex:1">
-              <input type="text" id="jobStoreName" placeholder="검색어 입력..." autocomplete="off" oninput="runJobStoreSearch();_resetStorePickInfo()" onfocus="runJobStoreSearch()" onblur="setTimeout(()=>{const p=document.getElementById('jobStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px;width:100%">
-              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--gray-400);pointer-events:none">🔍</span>
-            </div>
+          <!-- 검색 범위 라디오 (위) -->
+          <div style="display:flex;gap:4px;margin-bottom:5px;flex-wrap:wrap">
+            <label style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:#fff;border:1px solid var(--gray-200);border-radius:14px;cursor:pointer;font-size:11px;font-weight:600">
+              <input type="radio" name="jobStoreScope" value="name_biz" checked onchange="runJobStoreSearch()" style="margin:0">상호·사업자
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:#fff;border:1px solid var(--gray-200);border-radius:14px;cursor:pointer;font-size:11px;font-weight:600">
+              <input type="radio" name="jobStoreScope" value="ceo" onchange="runJobStoreSearch()" style="margin:0">대표자
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:#fff;border:1px solid var(--gray-200);border-radius:14px;cursor:pointer;font-size:11px;font-weight:600">
+              <input type="radio" name="jobStoreScope" value="addr" onchange="runJobStoreSearch()" style="margin:0">주소
+            </label>
+          </div>
+          <!-- 검색 입력 (아래) -->
+          <div style="position:relative">
+            <input type="text" id="jobStoreName" placeholder="검색어를 입력하세요..." autocomplete="off" oninput="runJobStoreSearch();_resetStorePickInfo()" onfocus="runJobStoreSearch()" onblur="setTimeout(()=>{const p=document.getElementById('jobStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px;width:100%">
+            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--gray-400);pointer-events:none">🔍</span>
           </div>
           <!-- 선택된 매장의 사업자 정보 — 혼선 방지용 -->
           <div id="jobStorePickedInfo" style="display:none;margin-top:6px;padding:6px 10px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;font-size:11px;color:#065F46;display:none">
@@ -6493,7 +6499,8 @@ ${text.slice(0, 3000)}`;
     const panel = document.getElementById('jobStoreResults');
     if (!inp || !panel) return;
     const q = _normalizeSearch(inp.value);
-    const scope = (document.getElementById('jobStoreScope')||{}).value || 'name_biz';
+    const scopeRadio = document.querySelector('input[name="jobStoreScope"]:checked');
+    const scope = scopeRadio ? scopeRadio.value : 'name_biz';
     const stores = getStores();
     let matches = stores;
     if (q) matches = stores.filter(s => _matchStore(s, q, scope));
