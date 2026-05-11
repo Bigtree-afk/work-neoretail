@@ -9303,7 +9303,10 @@ ${text.slice(0, 3000)}`;
         if (clCount) clCount.textContent = `${log.length}건`;
         const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
         const sorted = log.slice().sort((a,b) => (b.at||'').localeCompare(a.at||''));
-        clList.innerHTML = sorted.map(l => {
+        const survivorIdLocal = store ? store.id : '';
+        clList.innerHTML = sorted.map((l, sortedIdx) => {
+          // 원본 인덱스 — undo 호출 시 필요
+          const origIdx = log.indexOf(l);
           const diff = [];
           const before = l.from || {};
           const after  = l.to   || {};
@@ -9313,13 +9316,22 @@ ${text.slice(0, 3000)}`;
               diff.push(`<div style="font-size:11px;color:var(--gray-700)"><b>${labels[k]}</b>: <span style="color:var(--gray-400);text-decoration:line-through">${escFn(before[k]||'-')}</span> → <span style="color:var(--success);font-weight:700">${escFn(after[k]||'-')}</span></div>`);
             }
           });
-          return `<div style="border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;background:#FFFDF7">
+          const isMerge = l.type === '매장 병합';
+          const canUndo = isMerge && l.mergedSnapshot && !l._undone;
+          const undoneTag = l._undone ? '<span style="margin-left:6px;background:var(--gray-200);color:var(--gray-600);font-size:10px;padding:1px 6px;border-radius:4px">취소됨</span>' : '';
+          const actionBtns = canUndo
+            ? `<div style="margin-top:8px;display:flex;justify-content:flex-end">
+                 <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 10px;color:var(--warning);border-color:var(--warning);font-weight:700" onclick="confirmUndoStoreMerge('${escFn(survivorIdLocal)}',${origIdx})">↶ 병합 취소</button>
+               </div>`
+            : '';
+          return `<div style="border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;background:${l._undone?'#F9FAFB':'#FFFDF7'};${l._undone?'opacity:0.7':''}">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px">
-              <span style="background:#7C3AED;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">${escFn(l.type || '변경')}</span>
+              <div><span style="background:#7C3AED;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">${escFn(l.type || '변경')}</span>${undoneTag}</div>
               <span style="font-size:11px;color:var(--gray-500)">${escFn(l.at||'')}${l.by?` · ${escFn(l.by)}`:''}</span>
             </div>
             ${diff.length ? `<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:6px">${diff.join('')}</div>` : ''}
             ${l.note ? `<div style="font-size:11.5px;color:var(--gray-600);background:#fff;padding:6px 8px;border-radius:6px;border:1px dashed var(--gray-200)">📝 ${escFn(l.note)}</div>` : ''}
+            ${actionBtns}
           </div>`;
         }).join('');
       }
@@ -9556,24 +9568,52 @@ ${text.slice(0, 3000)}`;
   }
   window.openStoreMergeDialog = openStoreMergeDialog;
 
-  /* 매장 병합 실행 */
+  /* 매장 병합 실행 — 취소 가능 스냅샷 포함 */
   function mergeStores(survivorId, mergedId) {
     const stores = getStores();
     const survivor = stores.find(s => s.id === survivorId);
     const merged   = stores.find(s => s.id === mergedId);
     if (!survivor || !merged) return false;
 
-    // aliases 흡수 + 흡수 매장 이름도 alias 로
+    // 흡수 매장 전체 스냅샷 (취소 시 복원용)
+    const mergedSnapshot = JSON.parse(JSON.stringify(merged));
+
+    // 이 병합에서 추가한 aliases 만 따로 기록 (취소 시 정확히 그 항목만 제거)
+    const addedAliases = [];
     if (!Array.isArray(survivor.aliases)) survivor.aliases = [];
-    if (merged.name && !survivor.aliases.includes(merged.name)) survivor.aliases.unshift(merged.name);
+    if (merged.name && !survivor.aliases.includes(merged.name)) {
+      survivor.aliases.unshift(merged.name);
+      addedAliases.push(merged.name);
+    }
     if (Array.isArray(merged.aliases)) {
-      merged.aliases.forEach(a => { if (a && !survivor.aliases.includes(a)) survivor.aliases.push(a); });
+      merged.aliases.forEach(a => {
+        if (a && !survivor.aliases.includes(a)) {
+          survivor.aliases.push(a);
+          addedAliases.push(a);
+        }
+      });
     }
-    // changeLog 흡수
+
+    // 작업(jobs) storeId/store/storeName 재라우팅 — 이전 값 보존
+    const reroutedJobs = [];
+    try {
+      const jobs = getJobs();
+      const mergedName = merged.name;
+      const survivorName = survivor.name;
+      jobs.forEach(j => {
+        const changed = {};
+        let touched = false;
+        if (j.storeId === merged.id) { changed.storeId = j.storeId; j.storeId = survivor.id; touched = true; }
+        if ((j.store || '') === mergedName) { changed.store = j.store; j.store = survivorName; touched = true; }
+        if ((j.storeName || '') === mergedName) { changed.storeName = j.storeName; j.storeName = survivorName; touched = true; }
+        if (touched) reroutedJobs.push({ id: j.id, prev: changed });
+      });
+      if (reroutedJobs.length) saveJobs(jobs);
+      try { pushJobsToCloud({ toast: false }); } catch(e){}
+    } catch(e){}
+
+    // changeLog 기록 (취소용 스냅샷 포함)
     if (!Array.isArray(survivor.changeLog)) survivor.changeLog = [];
-    if (Array.isArray(merged.changeLog)) {
-      merged.changeLog.forEach(l => survivor.changeLog.push(l));
-    }
     survivor.changeLog.unshift({
       at: _kstDateTimeStr(),
       type: '매장 병합',
@@ -9581,22 +9621,10 @@ ${text.slice(0, 3000)}`;
       to:   { name: survivor.name, biz: survivor.biz, ceo: survivor.ceo },
       note: `흡수: ${merged.name}${merged.biz?` (${merged.biz})`:''} → 유지: ${survivor.name}`,
       by:   _currentAuthName(),
+      mergedSnapshot,
+      addedAliases,
+      reroutedJobs,
     });
-
-    // 매장에 연결된 작업(jobs)의 storeId/store/storeName 갱신
-    try {
-      const jobs = getJobs();
-      const mergedName = merged.name;
-      const survivorName = survivor.name;
-      let changed = 0;
-      jobs.forEach(j => {
-        if (j.storeId === merged.id) { j.storeId = survivor.id; changed++; }
-        if ((j.store || '') === mergedName) { j.store = survivorName; changed++; }
-        if ((j.storeName || '') === mergedName) { j.storeName = survivorName; changed++; }
-      });
-      if (changed > 0) saveJobs(jobs);
-      try { pushJobsToCloud({ toast: false }); } catch(e){}
-    } catch(e){}
 
     // 흡수 매장 삭제
     const idx = stores.findIndex(s => s.id === merged.id);
@@ -9608,6 +9636,91 @@ ${text.slice(0, 3000)}`;
     return true;
   }
   window.mergeStores = mergeStores;
+
+  /* 매장 병합 취소 — changeLog 의 mergedSnapshot 으로 복원 */
+  function undoStoreMerge(survivorId, logIdx) {
+    const stores = getStores();
+    const survivor = stores.find(s => s.id === survivorId);
+    if (!survivor || !Array.isArray(survivor.changeLog)) return false;
+    const entry = survivor.changeLog[logIdx];
+    if (!entry || entry.type !== '매장 병합' || !entry.mergedSnapshot) {
+      showToast && showToast('이 병합은 취소 불가 (스냅샷 없음)');
+      return false;
+    }
+    if (entry._undone) {
+      showToast && showToast('이미 취소된 병합입니다');
+      return false;
+    }
+
+    // 흡수 매장 복원 — id 가 같은 매장이 이미 있으면 중단
+    if (stores.find(s => s.id === entry.mergedSnapshot.id)) {
+      showToast && showToast('동일 ID 매장이 이미 존재해 복원할 수 없습니다');
+      return false;
+    }
+    stores.push(JSON.parse(JSON.stringify(entry.mergedSnapshot)));
+
+    // 추가된 aliases 만 제거
+    if (Array.isArray(entry.addedAliases) && Array.isArray(survivor.aliases)) {
+      survivor.aliases = survivor.aliases.filter(a => !entry.addedAliases.includes(a));
+      if (survivor.aliases.length === 0) delete survivor.aliases;
+    }
+
+    // 작업 재라우팅 되돌리기
+    try {
+      const jobs = getJobs();
+      if (Array.isArray(entry.reroutedJobs)) {
+        const byId = {};
+        entry.reroutedJobs.forEach(r => { byId[r.id] = r.prev; });
+        jobs.forEach(j => {
+          const prev = byId[j.id];
+          if (!prev) return;
+          if ('storeId' in prev)   j.storeId   = prev.storeId;
+          if ('store' in prev)     j.store     = prev.store;
+          if ('storeName' in prev) j.storeName = prev.storeName;
+        });
+        saveJobs(jobs);
+        try { pushJobsToCloud({ toast: false }); } catch(e){}
+      }
+    } catch(e){}
+
+    // 취소 사실을 changeLog 상단에 기록
+    entry._undone = true;
+    entry._undoneAt = _kstDateTimeStr();
+    entry._undoneBy = _currentAuthName();
+    survivor.changeLog.unshift({
+      at: _kstDateTimeStr(),
+      type: '병합 취소',
+      from: { name: survivor.name },
+      to:   { name: entry.mergedSnapshot.name },
+      note: `병합 취소 — ${entry.mergedSnapshot.name} 매장 복원됨`,
+      by:   _currentAuthName(),
+    });
+
+    saveStores(stores);
+    try { pushStoresToCloud({ toast: false }); } catch(e){}
+    try { hydrateSavedStores(); } catch(e){}
+    showToast && showToast(`✅ 병합 취소 — [${entry.mergedSnapshot.name}] 복원됨`);
+    return true;
+  }
+  window.undoStoreMerge = undoStoreMerge;
+
+  function confirmUndoStoreMerge(survivorId, logIdx) {
+    const stores = getStores();
+    const survivor = stores.find(s => s.id === survivorId);
+    if (!survivor) return;
+    const entry = (survivor.changeLog||[])[logIdx];
+    if (!entry || !entry.mergedSnapshot) return;
+    const msg = `다음 병합을 취소합니다:\n\n` +
+      `유지 매장: ${survivor.name}\n` +
+      `복원 매장: ${entry.mergedSnapshot.name}${entry.mergedSnapshot.biz?` (${entry.mergedSnapshot.biz})`:''}\n\n` +
+      `- 흡수됐던 매장이 다시 별도 항목으로 복원됩니다.\n` +
+      `- 이 병합으로 옮겨졌던 작업들이 원래 매장으로 되돌아갑니다.\n` +
+      `- 이 병합으로 추가된 별칭(aliases)도 제거됩니다.\n\n계속하시겠습니까?`;
+    if (!confirm(msg)) return;
+    const ok = undoStoreMerge(survivorId, logIdx);
+    if (ok) closeModal('storeDetailModal');
+  }
+  window.confirmUndoStoreMerge = confirmUndoStoreMerge;
 
   /* ══════════════════════════════════════════════
      검색 / 필터 / 음성 인식
