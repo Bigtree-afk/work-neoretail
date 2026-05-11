@@ -1429,6 +1429,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
                   </div>
                 </div>
               </div>
+              <!-- 정보 변경 이력 -->
+              <div class="card" id="detailChangeLogCard" style="display:none">
+                <div style="padding:14px 18px; border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;gap:8px">
+                  <div class="section-title">📜 정보 변경 이력</div>
+                  <span id="detailChangeCount" style="font-size:11px;color:var(--gray-500);font-weight:600"></span>
+                </div>
+                <div id="detailChangeLogList" style="padding:12px 14px;max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
+              </div>
             </div>
           </div>
           <style>
@@ -1437,8 +1445,46 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             }
           </style>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-outline btn-sm" id="storeDetailChangeBtn" style="font-weight:700">ℹ 정보 변경</button>
+            <button class="btn btn-outline btn-sm" id="storeDetailMergeBtn">🔗 다른 매장과 병합</button>
+          </div>
           <button class="btn btn-outline" onclick="closeModal('storeDetailModal')">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: 점포 정보 변경 -->
+    <div class="modal-overlay" id="storeChangeModal" onclick="if(event.target===this)closeModal('storeChangeModal')">
+      <div class="modal" style="max-width:560px;width:92vw;background:#fff">
+        <div class="modal-header">
+          <div class="modal-title">ℹ 점포 정보 변경</div>
+          <button class="modal-close" onclick="closeModal('storeChangeModal')">✕</button>
+        </div>
+        <div class="modal-body" style="overflow-y:auto;max-height:70vh">
+          <div id="storeChangeBody"></div>
+        </div>
+        <div class="modal-footer" style="justify-content:flex-end;gap:6px">
+          <button class="btn btn-outline" onclick="closeModal('storeChangeModal')">취소</button>
+          <button class="btn btn-primary" id="storeChangeSaveBtn">변경 저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: 매장 병합 -->
+    <div class="modal-overlay" id="storeMergeModal" onclick="if(event.target===this)closeModal('storeMergeModal')">
+      <div class="modal" style="max-width:680px;width:92vw;background:#fff">
+        <div class="modal-header">
+          <div class="modal-title">🔗 매장 병합</div>
+          <button class="modal-close" onclick="closeModal('storeMergeModal')">✕</button>
+        </div>
+        <div class="modal-body" style="overflow-y:auto;max-height:70vh">
+          <div id="storeMergeBody"></div>
+        </div>
+        <div class="modal-footer" style="justify-content:flex-end;gap:6px">
+          <button class="btn btn-outline" onclick="closeModal('storeMergeModal')">취소</button>
+          <button class="btn btn-primary" id="storeMergeConfirmBtn" style="background:var(--warning)">병합 실행</button>
         </div>
       </div>
     </div>
@@ -6395,9 +6441,13 @@ ${text.slice(0, 3000)}`;
     const tr = document.createElement('tr');
     tr.dataset.storeId = store.id;
     tr.setAttribute('onclick','toggleStoreDetail(this)');
+    const aliases = Array.isArray(store.aliases) ? store.aliases.filter(Boolean) : [];
+    const aliasBadge = aliases.length
+      ? `<div style="font-size:10px;color:var(--gray-500);margin-top:2px" title="이전 상호: ${esc(aliases.join(', '))}">↳ (구) ${esc(aliases[0])}${aliases.length>1?` 외 ${aliases.length-1}건`:''}</div>`
+      : '';
     tr.innerHTML = `
       <td style="color:var(--gray-400);font-size:11px">${esc(store.id)}</td>
-      <td><b>${esc(store.name)}</b></td>
+      <td><b>${esc(store.name)}</b>${aliasBadge}</td>
       <td style="font-family:monospace;font-size:11px">${esc(store.biz||'-')}</td>
       <td>${esc(store.ceo||'-')}</td>
       <td style="font-size:11px;color:var(--gray-500)">${esc(store.tel||'-')}</td>
@@ -8854,9 +8904,311 @@ ${text.slice(0, 3000)}`;
       }
     }
 
+    /* ── 정보 변경 이력 (changeLog) 렌더 ── */
+    const clCard = document.getElementById('detailChangeLogCard');
+    const clList = document.getElementById('detailChangeLogList');
+    const clCount = document.getElementById('detailChangeCount');
+    const log = (store && Array.isArray(store.changeLog)) ? store.changeLog : [];
+    if (clCard && clList) {
+      if (log.length === 0) {
+        clCard.style.display = 'none';
+      } else {
+        clCard.style.display = '';
+        if (clCount) clCount.textContent = `${log.length}건`;
+        const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+        const sorted = log.slice().sort((a,b) => (b.at||'').localeCompare(a.at||''));
+        clList.innerHTML = sorted.map(l => {
+          const diff = [];
+          const before = l.from || {};
+          const after  = l.to   || {};
+          ['name','biz','ceo','addr','tel','van'].forEach(k => {
+            const labels = { name:'상호', biz:'사업자', ceo:'대표자', addr:'주소', tel:'연락처', van:'VAN' };
+            if ((before[k]||'') !== (after[k]||'') && (before[k] || after[k])) {
+              diff.push(`<div style="font-size:11px;color:var(--gray-700)"><b>${labels[k]}</b>: <span style="color:var(--gray-400);text-decoration:line-through">${escFn(before[k]||'-')}</span> → <span style="color:var(--success);font-weight:700">${escFn(after[k]||'-')}</span></div>`);
+            }
+          });
+          return `<div style="border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;background:#FFFDF7">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px">
+              <span style="background:#7C3AED;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">${escFn(l.type || '변경')}</span>
+              <span style="font-size:11px;color:var(--gray-500)">${escFn(l.at||'')}${l.by?` · ${escFn(l.by)}`:''}</span>
+            </div>
+            ${diff.length ? `<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:6px">${diff.join('')}</div>` : ''}
+            ${l.note ? `<div style="font-size:11.5px;color:var(--gray-600);background:#fff;padding:6px 8px;border-radius:6px;border:1px dashed var(--gray-200)">📝 ${escFn(l.note)}</div>` : ''}
+          </div>`;
+        }).join('');
+      }
+    }
+
+    /* ── 정보 변경 / 매장 병합 버튼 바인딩 ── */
+    const changeBtn = document.getElementById('storeDetailChangeBtn');
+    const mergeBtn  = document.getElementById('storeDetailMergeBtn');
+    if (changeBtn) changeBtn.onclick = () => openStoreChangeDialog(store ? store.id : null, store);
+    if (mergeBtn)  mergeBtn.onclick  = () => openStoreMergeDialog(store ? store.id : null, store);
+
     // 상세 모달로 표시 (스크롤 대신 팝업)
     if (typeof showModal === 'function') showModal('storeDetailModal');
   };
+
+  /* ══════════════════════════════════════════════
+     점포 정보 변경 / 매장 병합
+  ══════════════════════════════════════════════ */
+  function _kstDateStr() {
+    return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
+  }
+  function _kstDateTimeStr() {
+    const d = new Date();
+    const parts = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', hour12:false,
+    }).format(d);
+    return parts.replace('T',' ').replace(',',' ');
+  }
+  function _currentAuthName() {
+    try {
+      const a = JSON.parse(localStorage.getItem('ns_auth') || 'null');
+      return a && (a.name || a.email) || '';
+    } catch(e) { return ''; }
+  }
+
+  /* ── 정보 변경 다이얼로그 ── */
+  function openStoreChangeDialog(storeId, fallbackStore) {
+    let store = null;
+    if (storeId) {
+      const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+      store = stores.find(s => s.id === storeId) || null;
+    }
+    if (!store && fallbackStore) store = fallbackStore;
+    if (!store) { showToast && showToast('점포 정보를 찾을 수 없습니다'); return; }
+
+    const body = document.getElementById('storeChangeBody');
+    const cur = {
+      name: store.name || '',
+      biz:  store.biz || store.bizno || '',
+      ceo:  store.ceo || store.owner || '',
+      addr: store.addr || store.address || '',
+      tel:  store.tel || store.phone || '',
+      van:  store.van || '',
+    };
+    body.innerHTML = `
+      <div style="background:#F9FAFB;border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--gray-600)">
+        <b>${esc(store.name)}</b> 의 정보를 변경합니다.<br>
+        <span style="font-size:11px;color:var(--gray-500)">이전 정보는 자동으로 변경 이력에 보존되고, 검색 시 이전 상호로도 매칭됩니다.</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label style="font-size:11px;color:var(--gray-600);font-weight:600;display:block;margin-bottom:4px">변경 유형</label>
+          <select id="chgType" style="width:100%;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:13px;background:#fff">
+            <option value="상호 변경">상호 변경</option>
+            <option value="사업자 변경">사업자 변경</option>
+            <option value="대표자 변경">대표자 변경</option>
+            <option value="주소 이전">주소 이전</option>
+            <option value="VAN 변경">VAN 변경</option>
+            <option value="재오픈">재오픈 (전체 변경)</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+        ${[
+          ['name','상호 (점포명)','text'],
+          ['biz','사업자등록번호','text'],
+          ['ceo','대표자','text'],
+          ['addr','주소','text'],
+          ['tel','연락처','tel'],
+          ['van','VAN사','text'],
+        ].map(([k, label, type]) => `
+          <div>
+            <label style="font-size:11px;color:var(--gray-600);font-weight:600;display:block;margin-bottom:4px">${label}</label>
+            <div style="display:grid;grid-template-columns:1fr 24px 1fr;gap:4px;align-items:center">
+              <input type="text" disabled value="${esc(cur[k]||'')}" style="padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;background:#F9FAFB;color:var(--gray-500)">
+              <div style="text-align:center;color:var(--gray-400)">→</div>
+              <input type="${type}" id="chg_${k}" value="${esc(cur[k]||'')}" style="padding:7px 9px;border:1px solid var(--gray-300);border-radius:6px;font-size:12px;background:#fff">
+            </div>
+          </div>`).join('')}
+        <div>
+          <label style="font-size:11px;color:var(--gray-600);font-weight:600;display:block;margin-bottom:4px">변경 사유 / 메모</label>
+          <textarea id="chgNote" placeholder="예: 가맹 해지 후 재오픈, 사업자 변경" style="width:100%;padding:8px 10px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px;min-height:50px;font-family:inherit;resize:vertical"></textarea>
+        </div>
+      </div>`;
+
+    const saveBtn = document.getElementById('storeChangeSaveBtn');
+    saveBtn.onclick = () => {
+      const type = document.getElementById('chgType').value;
+      const newFields = {
+        name: document.getElementById('chg_name').value.trim(),
+        biz:  document.getElementById('chg_biz').value.trim(),
+        ceo:  document.getElementById('chg_ceo').value.trim(),
+        addr: document.getElementById('chg_addr').value.trim(),
+        tel:  document.getElementById('chg_tel').value.trim(),
+        van:  document.getElementById('chg_van').value.trim(),
+      };
+      const note = document.getElementById('chgNote').value.trim();
+      // 변경 사항 없는지
+      const anyChange = ['name','biz','ceo','addr','tel','van'].some(k => (cur[k]||'') !== (newFields[k]||''));
+      if (!anyChange) { showToast && showToast('변경된 내용이 없습니다'); return; }
+
+      applyStoreChange(store.id, type, cur, newFields, note);
+      closeModal('storeChangeModal');
+      closeModal('storeDetailModal');
+      showToast && showToast(`✅ ${type} 처리 완료`);
+    };
+
+    if (typeof showModal === 'function') showModal('storeChangeModal');
+  }
+  window.openStoreChangeDialog = openStoreChangeDialog;
+
+  /* 변경 적용 — store + aliases + changeLog */
+  function applyStoreChange(storeId, type, before, after, note) {
+    const stores = getStores();
+    const s = stores.find(x => x.id === storeId);
+    if (!s) return false;
+    // 이전 상호가 바뀐 경우 aliases 에 추가
+    if (before.name && before.name !== after.name) {
+      if (!Array.isArray(s.aliases)) s.aliases = [];
+      if (!s.aliases.includes(before.name)) s.aliases.unshift(before.name);
+    }
+    // 필드 갱신
+    s.name = after.name || s.name;
+    s.biz  = after.biz;
+    s.ceo  = after.ceo;
+    s.addr = after.addr;
+    s.tel  = after.tel;
+    s.van  = after.van;
+    // 변경 이력 기록
+    if (!Array.isArray(s.changeLog)) s.changeLog = [];
+    s.changeLog.unshift({
+      at: _kstDateTimeStr(),
+      type, from: before, to: after,
+      note, by: _currentAuthName(),
+    });
+    saveStores(stores);
+    try { pushStoresToCloud({ toast: false }); } catch(e){}
+    try { hydrateSavedStores(); } catch(e){}
+    return true;
+  }
+  window.applyStoreChange = applyStoreChange;
+
+  /* ── 매장 병합 다이얼로그 ── */
+  function openStoreMergeDialog(survivorId, fallbackStore) {
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    let survivor = stores.find(s => s.id === survivorId) || fallbackStore;
+    if (!survivor) { showToast && showToast('점포를 찾을 수 없습니다'); return; }
+
+    const body = document.getElementById('storeMergeBody');
+    body.innerHTML = `
+      <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#92400E">
+        <b>유지(생존) 매장:</b> ${esc(survivor.name)}<br>
+        다른 매장을 검색해 선택하면, 그 매장의 정보가 이 매장에 흡수되고 <b>병합된 매장은 삭제</b>됩니다.<br>
+        병합된 매장의 이전 상호는 자동으로 검색 별칭(aliases)에 추가됩니다.
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;color:var(--gray-600);font-weight:600;display:block;margin-bottom:4px">병합할 다른 매장 검색</label>
+        <input type="text" id="mergeSearch" placeholder="점포명 / 사업자번호 / 주소" style="width:100%;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:13px">
+      </div>
+      <div id="mergeResults" style="max-height:280px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px;padding:4px"></div>
+    `;
+
+    let pickedId = null;
+    const renderResults = (q) => {
+      const results = document.getElementById('mergeResults');
+      q = (q || '').trim().toLowerCase();
+      if (q.length < 1) { results.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);font-size:12px">검색어를 입력하세요</div>'; return; }
+      const matched = stores.filter(s => {
+        if (s.id === survivor.id) return false;
+        const aliases = Array.isArray(s.aliases) ? s.aliases : [];
+        const blob = [s.name, s.biz, s.ceo, s.addr, s.tel, ...aliases].filter(Boolean).join(' | ').toLowerCase();
+        return blob.includes(q);
+      }).slice(0, 30);
+      if (matched.length === 0) { results.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);font-size:12px">일치 매장이 없습니다</div>'; return; }
+      results.innerHTML = matched.map(s => {
+        const aliases = Array.isArray(s.aliases) ? s.aliases : [];
+        return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;margin:4px 0;cursor:pointer;background:#fff">
+          <input type="radio" name="mergePick" value="${esc(s.id)}" style="margin:0">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13px">${esc(s.name)}</div>
+            <div style="font-size:11px;color:var(--gray-500)">${esc(s.biz||'-')} · ${esc(s.ceo||'-')} · ${esc(s.addr||'-')}</div>
+            ${aliases.length ? `<div style="font-size:10px;color:var(--gray-400);margin-top:2px">↳ (구) ${esc(aliases.join(', '))}</div>` : ''}
+          </div>
+        </label>`;
+      }).join('');
+      results.querySelectorAll('input[name="mergePick"]').forEach(r => {
+        r.onchange = () => { pickedId = r.value; };
+      });
+    };
+
+    document.getElementById('mergeSearch').addEventListener('input', e => renderResults(e.target.value));
+    renderResults('');
+
+    const confirmBtn = document.getElementById('storeMergeConfirmBtn');
+    confirmBtn.onclick = () => {
+      if (!pickedId) { showToast && showToast('병합할 매장을 선택하세요'); return; }
+      const merged = stores.find(s => s.id === pickedId);
+      if (!merged) return;
+      const msg = `다음 매장을 [${survivor.name}] 으로 병합합니다:\n\n` +
+        `흡수: ${merged.name} (${merged.biz||'-'})\n` +
+        `유지: ${survivor.name} (${survivor.biz||'-'})\n\n` +
+        `흡수 매장의 작업/이력/별칭이 유지 매장으로 옮겨지고, 흡수 매장은 삭제됩니다.\n계속하시겠습니까?`;
+      if (!confirm(msg)) return;
+      mergeStores(survivor.id, merged.id);
+      closeModal('storeMergeModal');
+      closeModal('storeDetailModal');
+      showToast && showToast(`✅ 병합 완료 — [${merged.name}] → [${survivor.name}]`);
+    };
+
+    if (typeof showModal === 'function') showModal('storeMergeModal');
+  }
+  window.openStoreMergeDialog = openStoreMergeDialog;
+
+  /* 매장 병합 실행 */
+  function mergeStores(survivorId, mergedId) {
+    const stores = getStores();
+    const survivor = stores.find(s => s.id === survivorId);
+    const merged   = stores.find(s => s.id === mergedId);
+    if (!survivor || !merged) return false;
+
+    // aliases 흡수 + 흡수 매장 이름도 alias 로
+    if (!Array.isArray(survivor.aliases)) survivor.aliases = [];
+    if (merged.name && !survivor.aliases.includes(merged.name)) survivor.aliases.unshift(merged.name);
+    if (Array.isArray(merged.aliases)) {
+      merged.aliases.forEach(a => { if (a && !survivor.aliases.includes(a)) survivor.aliases.push(a); });
+    }
+    // changeLog 흡수
+    if (!Array.isArray(survivor.changeLog)) survivor.changeLog = [];
+    if (Array.isArray(merged.changeLog)) {
+      merged.changeLog.forEach(l => survivor.changeLog.push(l));
+    }
+    survivor.changeLog.unshift({
+      at: _kstDateTimeStr(),
+      type: '매장 병합',
+      from: { name: merged.name, biz: merged.biz, ceo: merged.ceo },
+      to:   { name: survivor.name, biz: survivor.biz, ceo: survivor.ceo },
+      note: `흡수: ${merged.name}${merged.biz?` (${merged.biz})`:''} → 유지: ${survivor.name}`,
+      by:   _currentAuthName(),
+    });
+
+    // 매장에 연결된 작업(jobs)의 storeId/store/storeName 갱신
+    try {
+      const jobs = getJobs();
+      const mergedName = merged.name;
+      const survivorName = survivor.name;
+      let changed = 0;
+      jobs.forEach(j => {
+        if (j.storeId === merged.id) { j.storeId = survivor.id; changed++; }
+        if ((j.store || '') === mergedName) { j.store = survivorName; changed++; }
+        if ((j.storeName || '') === mergedName) { j.storeName = survivorName; changed++; }
+      });
+      if (changed > 0) saveJobs(jobs);
+      try { pushJobsToCloud({ toast: false }); } catch(e){}
+    } catch(e){}
+
+    // 흡수 매장 삭제
+    const idx = stores.findIndex(s => s.id === merged.id);
+    if (idx >= 0) stores.splice(idx, 1);
+
+    saveStores(stores);
+    try { pushStoresToCloud({ toast: false }); } catch(e){}
+    try { hydrateSavedStores(); } catch(e){}
+    return true;
+  }
+  window.mergeStores = mergeStores;
 
   /* ══════════════════════════════════════════════
      검색 / 필터 / 음성 인식
@@ -9009,6 +9361,7 @@ ${text.slice(0, 3000)}`;
     // 검색어 있으면 → 전체 점포 데이터에서 매칭 결과만 렌더 (DOM 외부 점포까지 포함)
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     const matched = stores.filter(s => {
+      const aliasNames = Array.isArray(s.aliases) ? s.aliases : [];
       const blob = [
         s.name, s.code, s.id,
         s.ceo, s.owner,
@@ -9016,6 +9369,7 @@ ${text.slice(0, 3000)}`;
         s.tel, s.phone,
         s.addr, s.address,
         s.memo, s.van, s.tid, s.status,
+        ...aliasNames,
       ].filter(Boolean).join(' | ').toLowerCase();
       return blob.includes(q);
     });
