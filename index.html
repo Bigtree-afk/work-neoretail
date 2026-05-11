@@ -1221,6 +1221,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <button class="filter-chip active" onclick="filterNewopen(this,'all')">진행 전체</button>
         <button class="filter-chip" onclick="filterNewopen(this,'planned')">예정</button>
         <button class="filter-chip" onclick="filterNewopen(this,'progress')">진행중</button>
+        <button class="filter-chip" onclick="filterNewopen(this,'open')">🏪 오픈 작업</button>
+        <button class="filter-chip" onclick="filterNewopen(this,'vandoc')">📑 밴서류</button>
         <button class="filter-chip" onclick="filterNewopen(this,'done')">📦 지난 완료</button>
         <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="showScreen('consult')" title="상담 진행 현황 보기">💬 상담 목록</button>
         <button class="btn btn-outline btn-sm" onclick="showScreen('quote')" title="견적서 작성">₩ 견적 작성</button>
@@ -1372,6 +1374,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div style="font-size:13px;font-weight:700;color:var(--gray-700)">🔧 AS 진행 현황</div>
         <button class="filter-chip active" onclick="filterAsMgmt(this,'pending')">미처리</button>
         <button class="filter-chip" onclick="filterAsMgmt(this,'today')">오늘 예정</button>
+        <button class="filter-chip" onclick="filterAsMgmt(this,'posvan')">🛠 POS/VAN</button>
+        <button class="filter-chip" onclick="filterAsMgmt(this,'device')">📱 단말기</button>
         <button class="filter-chip" onclick="filterAsMgmt(this,'done')">완료</button>
         <button class="filter-chip" onclick="filterAsMgmt(this,'all')">전체</button>
         <input type="text" id="asMgmtSearch" placeholder="🔍 매장명 / 메모 검색" oninput="filterAsMgmt(null,_asMgmtFilter)" style="padding:6px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;width:240px;margin-left:auto">
@@ -4912,12 +4916,16 @@ ${text.slice(0, 4000)}`;
     document.getElementById('lineParseLoading').style.display = 'none';
   }
 
+  // Line 카테고리 → 기존 메뉴 매핑
+  //   menu: 'asmgmt' 또는 'newopen' — 등록 후 어느 화면에서 보일지
+  //   jobType: 화면 필터 정규식과 매칭되어야 함 (/as|에이에스/i 또는 /신규|개업|오픈/)
+  //   lineCategory: job 객체에 저장되어 화면 안에서 세부 구분 뱃지로 표시
   const LINE_TYPE_META = {
-    as_pos_van:   { label:'🛠 A/S 관리',   bg:'#FEF3C7', color:'#92400E', jobType:'AS 처리' },
-    open_store:   { label:'🏪 오픈 작업',  bg:'#DBEAFE', color:'#1D4ED8', jobType:'신규' },
-    van_doc:      { label:'📑 밴서류',     bg:'#EDE9FE', color:'#5B21B6', jobType:'신규가맹' },
-    device_mgmt:  { label:'📱 단말기 관리', bg:'#D1FAE5', color:'#065F46', jobType:'장비 추가' },
-    ignore:       { label:'⚪ 기타',       bg:'#F3F4F6', color:'#6B7280', jobType:null },
+    as_pos_van:   { label:'🛠 A/S (POS/VAN)', bg:'#FEF3C7', color:'#92400E', jobType:'AS 처리',     menu:'asmgmt' },
+    open_store:   { label:'🏪 오픈 작업',     bg:'#DBEAFE', color:'#1D4ED8', jobType:'신규',         menu:'newopen' },
+    van_doc:      { label:'📑 밴서류',        bg:'#EDE9FE', color:'#5B21B6', jobType:'신규가맹',     menu:'newopen' },
+    device_mgmt:  { label:'📱 단말기 AS',     bg:'#D1FAE5', color:'#065F46', jobType:'AS 처리',     menu:'asmgmt' },
+    ignore:       { label:'⚪ 기타',          bg:'#F3F4F6', color:'#6B7280', jobType:null,          menu:null },
   };
 
   /* 잘린 JSON 복구 — 마지막 완전한 항목까지 살린 뒤 배열·객체 닫기 */
@@ -8147,6 +8155,8 @@ ${text.slice(0, 4000)}`;
     if (f === 'planned')  view = view.filter(j => !isDone(j) && j.status !== '진행중');
     if (f === 'progress') view = view.filter(j => !isDone(j) && (j.status === '진행중' || /설치|진행/i.test(j.status||'')));
     if (f === 'done')     view = view.filter(isDone);
+    if (f === 'open')     view = view.filter(j => !isDone(j) && (j.lineCategory === 'open_store' || (!j.lineCategory && /신규|개업|오픈/.test(j.type||'') && !/가맹|밴|VAN/i.test(j.type||''))));
+    if (f === 'vandoc')   view = view.filter(j => !isDone(j) && (j.lineCategory === 'van_doc'    || /가맹|밴|VAN/i.test(j.type||'')));
     view.sort((a,b)=> new Date(b.date||b.createdAt||0) - new Date(a.date||a.createdAt||0));
 
     const tb = document.getElementById('newopenTbody');
@@ -8176,6 +8186,10 @@ ${text.slice(0, 4000)}`;
       const store = j.store || j.storeName || '-';
       const unregBadge = j.unregistered ? `<span style="margin-left:6px;background:#FEF3C7;color:#92400E;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700">미등록</span>` : '';
       const typeBadge = `<span style="margin-left:6px;background:#EFF6FF;color:#1D4ED8;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700">${esc(j.type||'-')}</span>`;
+      // Line 출처 카테고리 뱃지 — 화면 안에서 오픈/밴서류 구분
+      const lineCatBadge = (j.source === 'line' && j.lineCategory && LINE_TYPE_META[j.lineCategory])
+        ? `<span style="margin-left:4px;background:${LINE_TYPE_META[j.lineCategory].bg};color:${LINE_TYPE_META[j.lineCategory].color};font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700" title="Line 분류">${LINE_TYPE_META[j.lineCategory].label}</span>`
+        : '';
       const addr = j.address || '-';
       const dt = jobDateStr(j).slice(0,10);
       const eng = j.engineer || j.assignee || '<span style="color:var(--danger)">미배정</span>';
@@ -8221,7 +8235,7 @@ ${text.slice(0, 4000)}`;
       return `<tr style="background:${groupBg};cursor:pointer" onclick="editNewopen('${j.id||''}')" title="클릭하여 상세 보기">
         <td style="${cellBg}"><span class="badge ${badgeCls}">${esc(status)}</span></td>
         <td style="${cellBg}">
-          <b style="text-decoration:underline;text-decoration-color:transparent;transition:text-decoration-color .15s" onmouseover="this.style.textDecorationColor='currentColor'" onmouseout="this.style.textDecorationColor='transparent'">${esc(store)}</b>${unregBadge}${typeBadge}
+          <b style="text-decoration:underline;text-decoration-color:transparent;transition:text-decoration-color .15s" onmouseover="this.style.textDecorationColor='currentColor'" onmouseout="this.style.textDecorationColor='transparent'">${esc(store)}</b>${unregBadge}${typeBadge}${lineCatBadge}
         </td>
         <td style="font-size:11px;color:var(--gray-500);${cellBg}">${esc(addr)}</td>
         <td style="${cellBg}">${datesHtml}</td>
@@ -8493,6 +8507,8 @@ ${text.slice(0, 4000)}`;
     if (_asMgmtFilter === 'pending')  view = view.filter(j => !isDone(j));
     else if (_asMgmtFilter === 'today') view = view.filter(j => !isDone(j) && (j.asDueDate||'').slice(0,10) === todayStr);
     else if (_asMgmtFilter === 'done')  view = view.filter(isDone);
+    else if (_asMgmtFilter === 'posvan') view = view.filter(j => !isDone(j) && (j.lineCategory === 'as_pos_van' || (!j.lineCategory && !(Array.isArray(j.asTargets) && j.asTargets.includes('이동단말기')))));
+    else if (_asMgmtFilter === 'device') view = view.filter(j => !isDone(j) && (j.lineCategory === 'device_mgmt' || (Array.isArray(j.asTargets) && j.asTargets.includes('이동단말기'))));
     if (q) {
       view = view.filter(j => {
         const blob = [j.store, j.storeName, j.notes, j.address, j.engineer]
@@ -8541,6 +8557,9 @@ ${text.slice(0, 4000)}`;
       const statusBadge = `<span class="badge" style="background:${meta.bg};color:${meta.color};font-weight:700">${meta.icon} ${esc(curStatus)}</span>`;
       const store = j.store || j.storeName || '-';
       const unregBadge = j.unregistered ? '<span style="margin-left:4px;background:#FEF3C7;color:#92400E;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700">미등록</span>' : '';
+      const lineCatBadge = (j.source === 'line' && j.lineCategory && LINE_TYPE_META[j.lineCategory])
+        ? `<span style="margin-left:4px;background:${LINE_TYPE_META[j.lineCategory].bg};color:${LINE_TYPE_META[j.lineCategory].color};font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700" title="Line 분류">${LINE_TYPE_META[j.lineCategory].label}</span>`
+        : '';
       const eng = j.engineer || j.assignee || '<span style="color:var(--danger)">미배정</span>';
       // 상태 사이클 버튼 — 다음 상태로 토글
       const curIdx = AS_STATUS_FLOW.indexOf(curStatus);
@@ -8550,7 +8569,7 @@ ${text.slice(0, 4000)}`;
 
       return `<tr style="cursor:pointer" onclick="editNewopen('${j.id}')" title="클릭 — 상세 보기">
         <td>${statusBadge}</td>
-        <td><b>${esc(store)}</b>${unregBadge}</td>
+        <td><b>${esc(store)}</b>${unregBadge}${lineCatBadge}</td>
         <td>${targetBadges}</td>
         <td style="font-size:11px;color:var(--gray-600);font-family:monospace">${esc(recv)}</td>
         <td style="font-size:11px;color:var(--gray-600)">${esc(due || '-')}</td>
