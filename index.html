@@ -766,7 +766,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <!-- TOP NAV -->
 <nav class="topnav" id="topnav">
   <!-- 로고 -->
-  <a class="topnav-logo" onclick="onLogoClick()" title="모바일에서는 메뉴 열기">
+  <a class="topnav-logo" onclick="onLogoClick()" title="클릭 → 대시보드 (모바일에서는 메뉴 열기 / 한 번 더 누르면 대시보드)">
     <div class="logo-icon">NS</div>
     <div>
       <div class="logo-text">NeoSolution</div>
@@ -778,10 +778,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   <!-- 네비게이션 링크 (데스크탑) -->
   <div class="topnav-links" id="topnavLinks">
-    <a class="nav-item active" onclick="showScreen('dashboard')">
-      <span class="nav-icon">◆</span> 대시보드
-    </a>
-    <a class="nav-item" onclick="showScreen('newopen')">
+    <a class="nav-item active" onclick="showScreen('newopen')">
       <span class="nav-icon">✚</span> 신규/상담
     </a>
     <a class="nav-item" onclick="showScreen('stores')">
@@ -827,10 +824,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <!-- 모바일 드롭다운 메뉴 -->
 <div class="topnav-mobile-menu" id="mobileMenu">
   <div class="nav-section">메인</div>
-  <a class="nav-item active" onclick="showScreen('dashboard'); closeMenu()">
-    <span class="nav-icon">◆</span> 대시보드
-  </a>
-  <a class="nav-item" onclick="showScreen('newopen'); closeMenu()">
+  <a class="nav-item active" onclick="showScreen('newopen'); closeMenu()">
     <span class="nav-icon">✚</span> 신규/상담
   </a>
   <a class="nav-item" onclick="showScreen('stores'); closeMenu()">
@@ -4409,9 +4403,22 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   /* ── 모바일 드롭다운 메뉴 ── */
   // 로고 클릭 — 모바일에선 메뉴 토글, 데스크톱에선 대시보드
+  // 모바일에서 로고 클릭 동작:
+  //  - 메뉴 닫힌 상태 → 메뉴 열기
+  //  - 메뉴 열린 상태 → 대시보드로 이동 (메뉴 닫힘)
+  // 데스크톱: 항상 대시보드로 이동
   function onLogoClick() {
     if (window.innerWidth <= 768) {
-      toggleMenu();
+      const menu = document.getElementById('mobileMenu');
+      const isOpen = menu && menu.classList.contains('open');
+      if (isOpen) {
+        // 두 번째 탭 — 대시보드로 이동
+        closeMenu();
+        showScreen('dashboard');
+      } else {
+        // 첫 번째 탭 — 메뉴 열기
+        toggleMenu();
+      }
     } else {
       showScreen('dashboard');
     }
