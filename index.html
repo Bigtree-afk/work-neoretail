@@ -2008,9 +2008,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <span style="font-size:10px;color:var(--gray-400);font-weight:400">🔍 검색</span>
             <button type="button" onclick="toggleUnregisteredStore()" id="unregBtn" style="float:right;background:none;border:1px solid var(--gray-300);color:var(--gray-500);font-size:10px;padding:2px 8px;border-radius:6px;cursor:pointer;font-weight:600">+ 미등록 가맹점</button>
           </label>
-          <div style="position:relative">
-            <input type="text" id="jobStoreName" placeholder="점포명을 입력해 검색..." autocomplete="off" oninput="runJobStoreSearch();_resetStorePickInfo()" onfocus="runJobStoreSearch()" onblur="setTimeout(()=>{const p=document.getElementById('jobStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px">
-            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--gray-400);pointer-events:none">🔍</span>
+          <div style="display:flex;gap:5px;align-items:stretch">
+            <select id="jobStoreScope" onchange="runJobStoreSearch()" style="padding:6px 8px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px;background:#fff;font-weight:600;color:var(--gray-700);flex-shrink:0">
+              <option value="name_biz">상호·사업자</option>
+              <option value="ceo">대표자</option>
+              <option value="addr">주소</option>
+            </select>
+            <div style="position:relative;flex:1">
+              <input type="text" id="jobStoreName" placeholder="검색어 입력..." autocomplete="off" oninput="runJobStoreSearch();_resetStorePickInfo()" onfocus="runJobStoreSearch()" onblur="setTimeout(()=>{const p=document.getElementById('jobStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px;width:100%">
+              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--gray-400);pointer-events:none">🔍</span>
+            </div>
           </div>
           <!-- 선택된 매장의 사업자 정보 — 혼선 방지용 -->
           <div id="jobStorePickedInfo" style="display:none;margin-top:6px;padding:6px 10px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;font-size:11px;color:#065F46;display:none">
@@ -6485,17 +6492,11 @@ ${text.slice(0, 3000)}`;
     const inp = document.getElementById('jobStoreName');
     const panel = document.getElementById('jobStoreResults');
     if (!inp || !panel) return;
-    const norm = (s) => String(s||'').toLowerCase().replace(/\s+/g,'');
-    const q = norm(inp.value);
+    const q = _normalizeSearch(inp.value);
+    const scope = (document.getElementById('jobStoreScope')||{}).value || 'name_biz';
     const stores = getStores();
     let matches = stores;
-    if (q) {
-      matches = stores.filter(s => {
-        const aliases = Array.isArray(s.aliases) ? s.aliases : [];
-        return [s.name, s.ceo, s.owner, s.biz, s.bizno, s.code, s.addr, s.address, ...aliases]
-          .some(v => v && norm(v).includes(q));
-      });
-    }
+    if (q) matches = stores.filter(s => _matchStore(s, q, scope));
     matches = matches.slice(0, 30);
     if (matches.length === 0) {
       panel.innerHTML = `<div style="padding:12px 14px;font-size:12px;color:var(--gray-400);text-align:center">검색 결과가 없습니다.</div>`;
@@ -8996,8 +8997,13 @@ ${text.slice(0, 3000)}`;
           </div>
           <div class="modal-body">
             <div id="linkStoreCurrentInfo" style="margin-bottom:14px;padding:10px 14px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:12px;color:#92400E"></div>
-            <div style="display:flex;gap:8px;margin-bottom:10px">
-              <input type="text" id="linkStoreSearchInput" placeholder="점포명·사업자번호·대표자 검색" autocomplete="off"
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <select id="linkStoreScope" onchange="runLinkStoreSearch()" style="padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;font-weight:600;color:var(--gray-700);flex-shrink:0">
+                <option value="name_biz">상호·사업자</option>
+                <option value="ceo">대표자</option>
+                <option value="addr">주소</option>
+              </select>
+              <input type="text" id="linkStoreSearchInput" placeholder="검색어 입력..." autocomplete="off"
                      oninput="onLinkStoreInput(this.value)"
                      onkeydown="if(event.key==='Enter'){event.preventDefault();runLinkStoreSearch();}"
                      style="flex:1;padding:10px 12px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px">
@@ -9046,21 +9052,19 @@ ${text.slice(0, 3000)}`;
   window.onLinkStoreInput = onLinkStoreInput;
 
   function runLinkStoreSearch() {
-    const q = (document.getElementById('linkStoreSearchInput')?.value || '').trim().toLowerCase();
+    const qRaw = document.getElementById('linkStoreSearchInput')?.value || '';
+    const qNorm = _normalizeSearch(qRaw);
+    const scope = (document.getElementById('linkStoreScope')||{}).value || 'name_biz';
     const stores = getStores() || [];
     const panel = document.getElementById('linkStoreResults');
     const lbl = document.getElementById('linkStoreCountLabel');
     if (!panel) return;
-    if (!q) {
+    if (!qNorm) {
       panel.innerHTML = '';
       if (lbl) lbl.textContent = '검색어를 입력하세요.';
       return;
     }
-    const matches = stores.filter(s => {
-      const blob = [s.name, s.ceo, s.owner, s.biz, s.bizno, s.tel, s.addr, s.address, s.code]
-        .filter(Boolean).join('|').toLowerCase();
-      return blob.includes(q);
-    });
+    const matches = stores.filter(s => _matchStore(s, qNorm, scope));
     if (lbl) lbl.textContent = `검색 결과: ${matches.length.toLocaleString()}건${matches.length > 100 ? ' (상위 100건만 표시)' : ''}`;
     if (matches.length === 0) {
       panel.innerHTML = `<div style="padding:24px;text-align:center;color:var(--gray-400);font-size:12px">일치하는 점포가 없습니다.<br><span style="font-size:11px">검색어를 줄여서 다시 시도해 보세요.</span></div>`;
@@ -9555,7 +9559,14 @@ ${text.slice(0, 3000)}`;
       </div>
       <div style="margin-bottom:10px">
         <label style="font-size:11px;color:var(--gray-600);font-weight:600;display:block;margin-bottom:4px">병합할 다른 매장 검색</label>
-        <input type="text" id="mergeSearch" placeholder="점포명 / 사업자번호 / 주소" style="width:100%;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:13px">
+        <div style="display:flex;gap:6px">
+          <select id="mergeScope" style="padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:13px;background:#fff;font-weight:600;color:var(--gray-700);flex-shrink:0">
+            <option value="name_biz">상호·사업자번호</option>
+            <option value="ceo">대표자</option>
+            <option value="addr">주소</option>
+          </select>
+          <input type="text" id="mergeSearch" placeholder="검색어 입력..." style="flex:1;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:13px">
+        </div>
       </div>
       <div id="mergeResults" style="max-height:280px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px;padding:4px"></div>
     `;
@@ -9563,16 +9574,12 @@ ${text.slice(0, 3000)}`;
     let pickedId = null;
     const renderResults = (q) => {
       const results = document.getElementById('mergeResults');
-      q = (q || '').trim().toLowerCase();
-      // 자기 자신만 제외 — 다른 필터 없음. 검색어 없으면 전체 표시 (최근 등록순)
+      const qNorm = _normalizeSearch(q);
+      const scope = (document.getElementById('mergeScope')||{}).value || 'name_biz';
+      // 자기 자신만 제외. 검색어 없으면 전체 표시 (최근 등록순)
       let matched = stores.filter(s => s.id !== survivor.id);
-      if (q.length >= 1) {
-        matched = matched.filter(s => {
-          const aliases = Array.isArray(s.aliases) ? s.aliases : [];
-          const blob = [s.name, s.biz, s.bizno, s.code, s.ceo, s.owner, s.addr, s.address, s.tel, s.phone, s.van, s.tid, s.status, s.memo, ...aliases]
-            .filter(Boolean).join(' | ').toLowerCase();
-          return blob.includes(q);
-        });
+      if (qNorm.length >= 1) {
+        matched = matched.filter(s => _matchStore(s, qNorm, scope));
       }
       // 최근 등록순 정렬 — 큰 데이터셋이라도 빠르게
       matched.sort((a,b) => (Number(b.createdAt)||0) - (Number(a.createdAt)||0));
@@ -9601,6 +9608,7 @@ ${text.slice(0, 3000)}`;
     };
 
     document.getElementById('mergeSearch').addEventListener('input', e => renderResults(e.target.value));
+    document.getElementById('mergeScope').addEventListener('change', () => renderResults(document.getElementById('mergeSearch').value));
     // 다이얼로그 열 때 바로 전체 목록 노출
     renderResults('');
 
@@ -9914,6 +9922,30 @@ ${text.slice(0, 3000)}`;
   function _normalizeSearch(s) {
     return String(s||'').toLowerCase().replace(/\s+/g, '');
   }
+  /* 검색 범위 → 매장에서 검색 대상이 되는 필드만 추출 (모든 검색 지점 공통) */
+  function _storeFieldsForScope(s, scope) {
+    if (!s) return [];
+    if (scope === 'ceo')      return [s.ceo, s.owner];
+    if (scope === 'addr')     return [s.addr, s.address];
+    // 기본 'name_biz' — 상호 + 별칭 + 사업자번호 + 거래처코드
+    const aliasNames = Array.isArray(s.aliases) ? s.aliases : [];
+    return [s.name, ...aliasNames, s.biz, s.bizno, s.code];
+  }
+  /* 입력값 normalize + scope 적용해서 매칭 */
+  function _matchStore(store, qNorm, scope) {
+    if (!qNorm) return true;
+    const blob = _normalizeSearch(_storeFieldsForScope(store, scope).filter(Boolean).join(' | '));
+    return blob.includes(qNorm);
+  }
+  /* 검색창 옆에 끼워 넣을 scope selector HTML 생성 */
+  function _scopeSelectorHTML(id, current) {
+    const cur = current || 'name_biz';
+    return `<select id="${id}" style="padding:6px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;font-weight:600;color:var(--gray-700);flex-shrink:0;margin-right:6px">
+      <option value="name_biz"${cur==='name_biz'?' selected':''}>상호·사업자번호</option>
+      <option value="ceo"${cur==='ceo'?' selected':''}>대표자</option>
+      <option value="addr"${cur==='addr'?' selected':''}>주소</option>
+    </select>`;
+  }
 
   function applyStoreFilter(q, opts) {
     opts = opts || {};
@@ -9932,18 +9964,9 @@ ${text.slice(0, 3000)}`;
     }
 
     // 검색어 있으면 → 전체 점포 데이터에서 매칭 결과만 렌더 (DOM 외부 점포까지 포함)
-    // 검색 범위는 사용자가 선택한 컬럼만 (상호+사업자 / 대표자 / 주소)
     const scope = (document.getElementById('storeSearchScope')||{}).value || 'name_biz';
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
-    const matched = stores.filter(s => {
-      const aliasNames = Array.isArray(s.aliases) ? s.aliases : [];
-      let fields = [];
-      if (scope === 'ceo')      fields = [s.ceo, s.owner];
-      else if (scope === 'addr') fields = [s.addr, s.address];
-      else                       fields = [s.name, ...aliasNames, s.biz, s.bizno, s.code];
-      const blob = _normalizeSearch(fields.filter(Boolean).join(' | '));
-      return blob.includes(qNorm);
-    });
+    const matched = stores.filter(s => _matchStore(s, qNorm, scope));
 
     // 렌더 (성능: 최대 500건) — 정렬 상태 반영, 없으면 등록순
     if (_storeSort) {
