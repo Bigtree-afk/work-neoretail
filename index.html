@@ -864,6 +864,17 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <!-- ═══════════════════════════════════════ -->
     <div class="screen active" id="screen-dashboard">
 
+      <!-- LINE 메시지 등록 대기 배너 -->
+      <div id="linePendingBanner" style="display:none;margin-bottom:14px;background:linear-gradient(135deg,#06C755 0%,#04A047 100%);color:#fff;padding:14px 18px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(6,199,85,0.25);display:flex;align-items:center;gap:14px"
+           onclick="openLinePendingReview()">
+        <div style="font-size:28px">💬</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:800"><span id="linePendingCount">0</span>개 등록 대기 업무가 있습니다</div>
+          <div style="font-size:11px;opacity:0.9;margin-top:2px">Line 채팅방에서 파싱된 항목 — 매장·담당자·상태 확인 후 등록</div>
+        </div>
+        <div style="font-size:13px;font-weight:700;background:rgba(255,255,255,0.2);padding:8px 14px;border-radius:8px">검토하기 →</div>
+      </div>
+
       <!-- STAT CARDS -->
       <div class="stat-grid">
         <div class="stat-card blue" style="cursor:pointer" onclick="showDashList('newOpen')" title="클릭 — 이번달 신규 작업 목록 보기">
@@ -2322,6 +2333,33 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <!-- ═══════════════════════════════════════ -->
 <!-- MODAL: Line 메시지 가져오기              -->
 <!-- ═══════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════ -->
+<!-- Line 등록 대기 업무 검토 모달                     -->
+<!-- ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="linePendingReviewModal" onclick="if(event.target===this)closeModal('linePendingReviewModal')">
+  <div class="modal" style="width:1000px;max-width:98vw;max-height:92vh">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span style="display:inline-flex;align-items:center;gap:6px">
+          <span style="display:inline-block;width:24px;height:24px;background:#06C755;color:#fff;border-radius:6px;text-align:center;font-weight:800;line-height:24px;font-size:13px">L</span>
+          Line 등록 대기 업무 — <span id="linePendingTotal" style="color:#06C755">0</span>건
+        </span>
+      </div>
+      <button class="modal-close" onclick="closeModal('linePendingReviewModal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div style="padding:10px 16px;background:#F0FDF4;border-bottom:1px solid #BBF7D0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px">
+        <span style="font-weight:700;color:#065F46">💡 검토 가이드</span>
+        <span style="color:var(--gray-600)">매장·카테고리·담당자·진행상태를 확인/수정 후 [등록] — 잘못된 항목은 [삭제]</span>
+        <button class="btn btn-sm btn-outline" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="refreshLinePending()">🔄 새로고침</button>
+      </div>
+      <div id="linePendingList" style="padding:10px 16px;max-height:calc(92vh - 140px);overflow-y:auto">
+        <div style="text-align:center;padding:40px;color:var(--gray-400);font-size:13px">로딩 중…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="lineImportModal" onclick="if(event.target===this)closeModal('lineImportModal')">
   <div class="modal" style="width:660px;max-width:96vw;max-height:90vh">
     <div class="modal-header">
@@ -5107,10 +5145,407 @@ ${text.slice(0, 4000)}`;
     }
   }
 
-  function registerLineItems() {
+  /* 파싱된 항목을 즉시 등록하지 않고 'Line 등록 대기 큐'에 푸시 — 직원 검토 후 승인 */
+  async function registerLineItems() {
     const toRegister = lineParseData.filter(i => i.checked && i.action !== 'skip' && i.type !== 'ignore');
     if (!toRegister.length) { showToast('등록할 항목이 없습니다'); return; }
 
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const kstNow = (() => {
+      const d = new Date();
+      const p = new Intl.DateTimeFormat('sv-SE', { timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }).format(d);
+      return p.replace('T',' ').replace(',',' ');
+    })();
+    const room = (getLineRooms() || []).find(r => r.id === selectedRoomId);
+
+    // 매장 자동 매칭 (이름 기반)
+    const norm = (s) => String(s||'').toLowerCase().replace(/\s+/g,'');
+    const findStore = (name) => {
+      if (!name) return null;
+      const wn = norm(name);
+      return stores.find(s => {
+        if (norm(s.name) === wn || norm(s.name).includes(wn) || wn.includes(norm(s.name))) return true;
+        const aliases = Array.isArray(s.aliases) ? s.aliases : [];
+        return aliases.some(a => norm(a) === wn);
+      }) || null;
+    };
+
+    // 라인 메시지 시각 → ISO 추정 (HH:MM 만 있으면 오늘 KST 로 합성)
+    const buildLineMsgAt = (item) => {
+      const t = String(item.time||'').trim();
+      const todayKst = kstNow.slice(0,10);
+      if (/^\d{2}:\d{2}$/.test(t)) return `${todayKst} ${t}`;
+      if (/^\d{2}\.\d{2}\.\d{2}/.test(t)) {
+        const [d, hm] = t.split(/\s+/);
+        const [y, mo, da] = d.split('.');
+        return `20${y}-${mo}-${da} ${hm||'00:00'}`;
+      }
+      return kstNow;
+    };
+
+    const pendingItems = toRegister.map((item, idx) => {
+      const storeMatch = findStore(item.store);
+      // 상태 정규화 (라인 status → 진행상태 토글)
+      let status = '접수';
+      if (item.status === '완료') status = '완료';
+      else if (item.status === '진행중') status = '진행중';
+      else if (item.status === '재방문필요' || item.status === '심사중') status = '추가처리';
+
+      return {
+        id: `pend-${Date.now().toString(36)}-${idx}-${Math.random().toString(36).slice(2,6)}`,
+        lineMsgAt:    buildLineMsgAt(item),
+        lineSender:   item.sender || '',
+        lineRoom:     room?.name || selectedRoomId || '',
+        lineRoomId:   selectedRoomId || '',
+        lineCategory: item.type,
+        lineRaw:      item.original || '',
+        lineParsed:   item.parsed || '',
+        lineRequest:  item.request || '',
+        lineDevice:   item.device || '',
+        store:        item.store || '',
+        storeId:      storeMatch ? storeMatch.id : '',
+        assignee:     item.assignee || '',
+        status,
+        memo:         '',
+        action:       item.action || 'new',
+        targetJobId:  item.targetJobId || '',
+      };
+    });
+
+    try {
+      const res = await fetch('/api/line-pending', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ items: pendingItems }),
+      });
+      const data = await res.json();
+      showToast(`✅ ${data.added || pendingItems.length}건 등록 대기 큐에 추가됨 — 대시보드에서 검토`);
+      closeModal('lineImportModal');
+      refreshLinePendingBanner();
+    } catch(e) {
+      console.error('[Line Pending] add 실패:', e);
+      showToast('❌ 등록 대기 큐 저장 실패: ' + e.message);
+    }
+  }
+
+  /* ════════════════════════════════════════
+     Line 등록 대기 큐 — 대시보드 배너 + 검토 모달
+  ════════════════════════════════════════ */
+  let _linePending = [];
+
+  async function refreshLinePendingBanner() {
+    try {
+      const res = await fetch('/api/line-pending');
+      const data = await res.json();
+      _linePending = data.items || [];
+      const banner = document.getElementById('linePendingBanner');
+      const countEl = document.getElementById('linePendingCount');
+      if (banner && countEl) {
+        if (_linePending.length > 0) {
+          banner.style.display = 'flex';
+          countEl.textContent = _linePending.length;
+        } else {
+          banner.style.display = 'none';
+        }
+      }
+    } catch(e) { console.warn('[Line Pending] 배너 조회 실패:', e); }
+  }
+  window.refreshLinePendingBanner = refreshLinePendingBanner;
+
+  async function refreshLinePending() {
+    await refreshLinePendingBanner();
+    renderLinePendingList();
+  }
+  window.refreshLinePending = refreshLinePending;
+
+  async function openLinePendingReview() {
+    showModal('linePendingReviewModal');
+    await refreshLinePending();
+  }
+  window.openLinePendingReview = openLinePendingReview;
+
+  const PENDING_STATUS_CYCLE = ['접수', '진행중', '추가처리', '완료'];
+  const PENDING_STATUS_META = {
+    '접수':   { bg:'#FEF3C7', color:'#92400E', icon:'📨' },
+    '진행중': { bg:'#DBEAFE', color:'#1D4ED8', icon:'⚙️' },
+    '추가처리':{ bg:'#FCE7F3', color:'#9D174D', icon:'🔄' },
+    '완료':   { bg:'#D1FAE5', color:'#065F46', icon:'✅' },
+  };
+
+  function renderLinePendingList() {
+    const list = document.getElementById('linePendingList');
+    const totalEl = document.getElementById('linePendingTotal');
+    if (totalEl) totalEl.textContent = _linePending.length;
+    if (!list) return;
+    if (!_linePending.length) {
+      list.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--gray-400)">
+        <div style="font-size:48px;margin-bottom:12px">📭</div>
+        <div style="font-weight:700;color:var(--gray-500);font-size:14px">등록 대기 업무가 없습니다</div>
+        <div style="font-size:11px;margin-top:4px">Line 메시지를 가져오면 여기에 표시됩니다</div>
+      </div>`;
+      return;
+    }
+
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const users = (typeof getUsers === 'function') ? (getUsers() || []) : [];
+
+    // 매장 옵션
+    const storeOpts = stores.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+    // 담당자 옵션 (사용자 + 자유 입력)
+    const userOpts = users.map(u => `<option value="${esc(u.name||u.email||'')}">${esc(u.name||u.email||'')}</option>`).join('');
+
+    list.innerHTML = _linePending.map((p, idx) => {
+      const meta = LINE_TYPE_META[p.lineCategory] || LINE_TYPE_META.ignore;
+      const stMeta = PENDING_STATUS_META[p.status] || PENDING_STATUS_META['접수'];
+      const isUpdate = p.action === 'update' && p.targetJobId;
+      return `
+      <div style="border:1.5px solid var(--gray-200);border-left:5px solid ${meta.color};border-radius:8px;padding:12px;margin-bottom:10px;background:#fff">
+        <!-- 헤더 -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;font-size:11px">
+          <span style="background:${meta.bg};color:${meta.color};padding:3px 8px;border-radius:4px;font-weight:700">${meta.label}</span>
+          ${isUpdate ? `<span style="background:#FEF3C7;color:#92400E;padding:3px 8px;border-radius:4px;font-weight:700">↻ 기존 작업 업데이트</span>` : `<span style="background:#EFF6FF;color:#1D4ED8;padding:3px 8px;border-radius:4px;font-weight:700">＋ 신규 등록</span>`}
+          <span style="color:var(--gray-500)">🕒 ${esc(p.lineMsgAt||'-')}</span>
+          <span style="color:var(--gray-500)">·</span>
+          <span style="color:var(--gray-700);font-weight:600">${esc(p.lineSender||'-')}</span>
+          ${p.lineRoom ? `<span style="color:var(--gray-400)">@ ${esc(p.lineRoom)}</span>` : ''}
+        </div>
+
+        <!-- 라인 원문 -->
+        <div style="background:#F9FAFB;border:1px solid var(--gray-200);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:12px;color:var(--gray-700)">
+          ${p.lineParsed ? `<div style="font-weight:700;margin-bottom:2px;color:var(--gray-800)">→ ${esc(p.lineParsed)}</div>` : ''}
+          <div style="font-size:11px;color:var(--gray-500)">${esc(p.lineRaw||p.lineRequest||'-')}</div>
+        </div>
+
+        <!-- 편집 그리드 -->
+        <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+          <!-- 매장 -->
+          <div>
+            <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">🏪 매장</label>
+            <select onchange="updatePending('${p.id}', {storeId:this.value, store: this.options[this.selectedIndex].text})"
+                    style="width:100%;padding:5px 6px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px">
+              <option value="">— 미연결 (원문: ${esc(p.store||'없음')}) —</option>
+              ${storeOpts.replace(`value="${esc(p.storeId)}"`, `value="${esc(p.storeId)}" selected`)}
+            </select>
+          </div>
+          <!-- 카테고리 -->
+          <div>
+            <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">📂 업무 구분</label>
+            <select onchange="updatePending('${p.id}', {lineCategory:this.value})"
+                    style="width:100%;padding:5px 6px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px;background:${meta.bg};color:${meta.color};font-weight:700">
+              <option value="as_pos_van"  ${p.lineCategory==='as_pos_van'?'selected':''}>🛠 A/S (POS/VAN)</option>
+              <option value="open_store"  ${p.lineCategory==='open_store'?'selected':''}>🏪 오픈 작업</option>
+              <option value="van_doc"     ${p.lineCategory==='van_doc'?'selected':''}>📑 밴서류</option>
+              <option value="device_mgmt" ${p.lineCategory==='device_mgmt'?'selected':''}>📱 단말기 AS</option>
+            </select>
+          </div>
+          <!-- 담당자 -->
+          <div>
+            <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">👤 담당자</label>
+            <input type="text" list="lpUsers-${p.id}" value="${esc(p.assignee||'')}"
+                   oninput="updatePending('${p.id}', {assignee:this.value}, true)"
+                   onblur="updatePending('${p.id}', {assignee:this.value})"
+                   style="width:100%;padding:5px 6px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px"
+                   placeholder="이름 입력/선택">
+            <datalist id="lpUsers-${p.id}">${userOpts}</datalist>
+          </div>
+          <!-- 진행 상황 -->
+          <div>
+            <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">📊 진행 상황</label>
+            <div style="display:flex;gap:3px;flex-wrap:wrap">
+              ${PENDING_STATUS_CYCLE.map(s => {
+                const m = PENDING_STATUS_META[s];
+                const active = p.status === s;
+                return `<button onclick="cyclePendingStatus('${p.id}', '${s}')"
+                          style="flex:1;font-size:10px;padding:4px 2px;border:1px solid ${active?m.color:'var(--gray-300)'};background:${active?m.bg:'#fff'};color:${active?m.color:'var(--gray-500)'};border-radius:4px;font-weight:${active?700:500};cursor:pointer"
+                          title="${esc(s)}">${m.icon}</button>`;
+              }).join('')}
+            </div>
+            <div style="font-size:10px;text-align:center;margin-top:2px;color:${stMeta.color};font-weight:700">${stMeta.icon} ${esc(p.status)}</div>
+          </div>
+        </div>
+
+        <!-- 추가 메모 (추가처리 일 때 필수 안내) -->
+        <div style="margin-bottom:8px">
+          <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">📝 추가 메모 ${p.status==='추가처리'?'<span style="color:#9D174D">(추가처리 시 필수 권장)</span>':''}</label>
+          <textarea oninput="updatePending('${p.id}', {memo:this.value}, true)"
+                    onblur="updatePending('${p.id}', {memo:this.value})"
+                    placeholder="검토자 메모 — 추가 정보, 처리 방향, 특이사항"
+                    style="width:100%;min-height:36px;padding:6px 8px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px;resize:vertical;font-family:inherit">${esc(p.memo||'')}</textarea>
+        </div>
+
+        <!-- 액션 버튼 -->
+        <div style="display:flex;gap:6px;justify-content:flex-end">
+          <button onclick="deletePending('${p.id}')" style="font-size:12px;padding:6px 12px;background:#fff;color:var(--danger);border:1px solid var(--danger);border-radius:5px;font-weight:700;cursor:pointer">🗑 삭제</button>
+          <button onclick="approvePending('${p.id}')" style="font-size:12px;padding:6px 14px;background:#06C755;color:#fff;border:none;border-radius:5px;font-weight:700;cursor:pointer">✅ 등록</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // 인메모리 + 디바운스 서버 PUT
+  let _pendingPutTimers = {};
+  function updatePending(id, patch, debounce) {
+    const it = _linePending.find(x => x.id === id);
+    if (!it) return;
+    Object.assign(it, patch);
+    if (debounce) {
+      clearTimeout(_pendingPutTimers[id]);
+      _pendingPutTimers[id] = setTimeout(() => _flushPending(id, patch), 600);
+    } else {
+      _flushPending(id, patch);
+    }
+  }
+  window.updatePending = updatePending;
+
+  async function _flushPending(id, patch) {
+    try {
+      await fetch('/api/line-pending?id=' + encodeURIComponent(id), {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+    } catch(e) { console.warn('[Line Pending] update 실패:', e); }
+  }
+
+  function cyclePendingStatus(id, status) {
+    const it = _linePending.find(x => x.id === id);
+    if (!it) return;
+    it.status = status;
+    _flushPending(id, { status });
+    renderLinePendingList();
+  }
+  window.cyclePendingStatus = cyclePendingStatus;
+
+  async function deletePending(id) {
+    if (!confirm('이 등록 대기 항목을 삭제하시겠습니까?')) return;
+    try {
+      await fetch('/api/line-pending?id=' + encodeURIComponent(id), { method: 'DELETE' });
+      _linePending = _linePending.filter(x => x.id !== id);
+      renderLinePendingList();
+      refreshLinePendingBanner();
+      showToast('삭제됨');
+    } catch(e) { showToast('❌ 삭제 실패: ' + e.message); }
+  }
+  window.deletePending = deletePending;
+
+  async function approvePending(id) {
+    const p = _linePending.find(x => x.id === id);
+    if (!p) return;
+    // 매장 미연결 + 추가처리 메모 누락 경고
+    if (!p.storeId && !p.store) {
+      if (!confirm('매장이 미연결 상태입니다. 미등록 작업으로 진행할까요?')) return;
+    }
+    if (p.status === '추가처리' && !p.memo) {
+      if (!confirm('추가처리 상태인데 메모가 비어있습니다. 그대로 등록할까요?')) return;
+    }
+
+    const jobs = getJobs();
+    const meta = LINE_TYPE_META[p.lineCategory] || LINE_TYPE_META.open_store;
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const storeMatch = p.storeId ? stores.find(s => s.id === p.storeId) : null;
+
+    // 등록 시점 = 라인 메시지 시각
+    const lineTs = p.lineMsgAt ? new Date(p.lineMsgAt.replace(' ', 'T') + ':00+09:00').getTime() : Date.now();
+
+    // 진행 상황 → job status 매핑
+    const isAsCat = (p.lineCategory === 'as_pos_van' || p.lineCategory === 'device_mgmt');
+    const statusMap = {
+      '접수':    isAsCat ? '접수' : '예정',
+      '진행중':  '진행중',
+      '추가처리': isAsCat ? '재방문필요' : '진행중',
+      '완료':    isAsCat ? '처리완료' : '완료',
+    };
+    const jobStatus = statusMap[p.status] || '진행중';
+
+    // ── UPDATE 경로 ──────────────────────────────────────
+    if (p.action === 'update' && p.targetJobId) {
+      const job = jobs.find(j => j.id === p.targetJobId);
+      if (job) {
+        if (!Array.isArray(job.memos)) job.memos = [];
+        const memoLines = [
+          `[${meta.label}] ${p.status}`,
+          p.lineParsed || p.lineRequest || p.lineRaw || '',
+          p.memo ? `📝 ${p.memo}` : '',
+        ].filter(Boolean);
+        job.memos.push({
+          at: (p.lineMsgAt||'').slice(2),
+          author: p.lineSender || 'Line',
+          text: memoLines.join(' / '),
+        });
+        if (jobStatus === '처리완료' || jobStatus === '완료') {
+          job.status = jobStatus;
+          job.completedAt = new Date().toISOString();
+        } else {
+          job.status = jobStatus;
+        }
+        if (p.assignee && !job.engineer) job.engineer = p.assignee;
+        if (p.storeId && !job.storeId) { job.storeId = p.storeId; job.unregistered = false; }
+        saveJobs(jobs);
+      }
+    } else {
+      // ── NEW 경로 ────────────────────────────────────────
+      const isAs = isAsCat;
+      const job = {
+        id: 'JOB-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2,5),
+        type: isAs ? 'AS 처리' : meta.jobType,
+        storeName: storeMatch?.name || p.store || '',
+        store:     storeMatch?.name || p.store || '',
+        storeId:   p.storeId || '',
+        unregistered: !p.storeId,
+        engineer: p.assignee || '',
+        notes: [p.lineParsed, p.lineRaw, p.memo ? '검토메모: '+p.memo : ''].filter(Boolean).join(' / '),
+        status: jobStatus,
+        createdAt: lineTs,                  // ← 라인 메시지 시각 기준
+        source: 'line',
+        lineCategory: p.lineCategory,
+        lineSender: p.lineSender || '',
+        lineMsgAt: p.lineMsgAt || '',
+        reviewMemo: p.memo || '',
+        memos: p.memo ? [{
+          at: (p.lineMsgAt||'').slice(2),
+          author: p.lineSender || 'Line',
+          text: `📝 검토메모: ${p.memo}`,
+        }] : [],
+      };
+      if (isAs) {
+        job.asReceivedAt = (p.lineMsgAt || '').replace('T',' ').slice(0,16);
+        job.asRequest = p.lineRequest || p.lineParsed || '';
+        job.asTargets = p.lineCategory === 'device_mgmt' ? ['이동단말기']
+          : (/키오스크|키오/.test(p.lineRaw||p.lineParsed||'') ? ['키오스크']
+             : /VAN|단말|카드/i.test(p.lineRaw||p.lineParsed||'') ? ['VAN']
+             : /POS|영수증|프린터/i.test(p.lineRaw||p.lineParsed||'') ? ['POS']
+             : []);
+        if (jobStatus === '처리완료') job.completedAt = new Date().toISOString();
+      } else {
+        job.date = (p.lineMsgAt || '').slice(0,10);
+      }
+      jobs.unshift(job);
+      saveJobs(jobs);
+    }
+
+    try { pushJobsToCloud({ toast:false }); } catch(e){}
+
+    // 큐에서 제거
+    try {
+      await fetch('/api/line-pending?id=' + encodeURIComponent(id), { method: 'DELETE' });
+    } catch(e) { console.warn('queue delete 실패', e); }
+    _linePending = _linePending.filter(x => x.id !== id);
+    renderLinePendingList();
+    refreshLinePendingBanner();
+
+    // 관련 화면 갱신
+    try { hydrateDashboardJobs(); } catch(e){}
+    try { hydrateNewopen('all'); } catch(e){}
+    try { hydrateAsMgmt(); } catch(e){}
+    try { rebuildJobsGrid(); } catch(e){}
+    showToast('✅ 업무 등록 완료');
+  }
+  window.approvePending = approvePending;
+
+  /* ════════════════════════════════════════
+     (구) registerLineItems 의 잔여 호환 코드 — 제거됨, 위 신규 함수가 대체
+  ════════════════════════════════════════ */
+  function _legacyRegisterLineItems_REMOVED() {
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     const jobs = getJobs();
     const cats = { as_pos_van:0, open_store:0, van_doc:0, device_mgmt:0 };
@@ -7143,6 +7578,7 @@ ${text.slice(0, 4000)}`;
   function hydrateDashboardJobs() {
     let jobs = [];
     try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e) {}
+    try { if (typeof refreshLinePendingBanner === 'function') refreshLinePendingBanner(); } catch(e) {}
     const today = new Date();
     const todayStr = today.toISOString().slice(0,10);
     const ym = todayStr.slice(0,7); // YYYY-MM
