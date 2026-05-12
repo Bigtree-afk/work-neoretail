@@ -1,0 +1,41 @@
+name: Line 메시지 자동 파싱 (1시간 주기)
+
+# 업무시간 KST 09:00~18:00 (UTC 00:00~09:00), 평일 (월~금)
+# UTC 분 0 으로 매시각 호출 → 서버측에서 KST 업무시간 재검증
+on:
+  schedule:
+    - cron: '0 0-9 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '업무시간 무시하고 강제 실행'
+        type: boolean
+        default: false
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call line-parse-cron
+        env:
+          PARSE_SECRET: ${{ secrets.LINE_PARSE_SECRET }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          if [ -z "$PARSE_SECRET" ]; then
+            echo "❌ LINE_PARSE_SECRET secret not set"
+            exit 1
+          fi
+          BODY='{}'
+          if [ "$FORCE" = "true" ]; then BODY='{"force":true}'; fi
+          echo "▶ POST /api/line-parse-cron  body=$BODY"
+          RESP=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" \
+            -X POST https://work.neoretail.net/api/line-parse-cron \
+            -H "authorization: Bearer $PARSE_SECRET" \
+            -H "content-type: application/json" \
+            -d "$BODY")
+          echo "$RESP"
+          STATUS=$(echo "$RESP" | grep HTTP_STATUS | cut -d: -f2)
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ parse failed (status $STATUS)"
+            exit 1
+          fi
