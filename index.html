@@ -1156,7 +1156,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <option>이기사</option>
           <option>박기사</option>
         </select>
-        <button class="btn btn-sm" onclick="showModal('lineImportModal')"
+        <button class="btn btn-sm" onclick="syncLineRoomsFromKV().then(()=>showModal('lineImportModal'))"
           style="margin-left:auto; background:#06C755; color:#fff; font-size:12px; padding:6px 14px; gap:5px; white-space:nowrap; flex-shrink:0">
           <span style="font-size:14px">💬</span> Line 메시지 가져오기
         </button>
@@ -2901,6 +2901,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
 
         <div id="lineCfgQueueInfo" style="margin-top:8px;font-size:11px;color:var(--gray-600)"></div>
+
+        <!-- 수신 채팅방 매핑 -->
+        <div style="margin-top:14px;padding:10px;background:#fff;border:1px solid #BBF7D0;border-radius:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:12px;font-weight:800;color:#065F46">📡 수신 채팅방 매핑</div>
+            <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 8px" onclick="loadLineRooms()">🔄 조회</button>
+          </div>
+          <div style="font-size:10px;color:var(--gray-500);margin-bottom:8px;line-height:1.5">
+            봇이 수신한 LINE 채팅방 ID 에 사이트 표시명·타입을 매핑 — Line 가져오기 모달과 등록 대기 큐 양쪽에서 같은 이름 표시.
+            (1:1 메시지 = user, 그룹 = group)
+          </div>
+          <div id="lineRoomList" style="font-size:11px"></div>
+        </div>
 
         <!-- GitHub Actions cron 안내 -->
         <div style="margin-top:10px;padding:8px 10px;background:#EEF2FF;border-radius:6px;font-size:11px;color:var(--gray-700);line-height:1.6">
@@ -6206,6 +6219,7 @@ ${text.slice(0, 4000)}`;
 
     // LINE 봇 설정 로드
     try { loadLineConfig(); } catch(e){}
+    try { loadLineRooms(); } catch(e){}
 
     showModal('adminModal');
   }
@@ -6315,6 +6329,131 @@ ${text.slice(0, 4000)}`;
     } catch(e) { info.innerHTML = `<span style="color:var(--danger)">❌ ${esc(e.message)}</span>`; }
   }
   window.peekLineQueue = peekLineQueue;
+
+  /* LINE 수신 채팅방 매핑 — 봇이 받은 ID 에 사이트 이름·타입 부여 */
+  let _lineRooms = [];
+  async function loadLineRooms() {
+    const list = document.getElementById('lineRoomList');
+    if (!list) return;
+    list.innerHTML = '⏳ 조회 중…';
+    try {
+      const r = await fetch('/api/line-rooms');
+      const d = await r.json();
+      _lineRooms = d.rooms || [];
+      renderLineRoomList();
+      // localStorage 동기화 — Line 가져오기 모달이 같은 이름을 보게
+      syncRoomsToLocal();
+    } catch(e) { list.innerHTML = `<span style="color:var(--danger)">❌ ${esc(e.message)}</span>`; }
+  }
+  window.loadLineRooms = loadLineRooms;
+
+  function renderLineRoomList() {
+    const list = document.getElementById('lineRoomList');
+    if (!list) return;
+    if (!_lineRooms.length) {
+      list.innerHTML = `<div style="color:var(--gray-400);font-size:11px;padding:8px;text-align:center">아직 수신한 채팅방이 없습니다 — 그룹에 메시지 1개 작성 후 조회</div>`;
+      return;
+    }
+    const typeOpts = [
+      { v:'general',  l:'일반 대화' },
+      { v:'as',       l:'AS/작업 접수' },
+      { v:'work',     l:'업무 지시' },
+      { v:'schedule', l:'일정 관리' },
+    ];
+    const roomTypeIcon = (t) => t === 'group' ? '👥' : t === 'room' ? '💬' : t === 'user' ? '👤' : '❓';
+    list.innerHTML = `
+      <table style="width:100%;font-size:11px;border-collapse:collapse">
+        <thead style="background:#F3F4F6">
+          <tr>
+            <th style="text-align:left;padding:5px 6px;font-weight:700;color:var(--gray-700)">종류</th>
+            <th style="text-align:left;padding:5px 6px;font-weight:700;color:var(--gray-700)">최근 메시지</th>
+            <th style="text-align:left;padding:5px 6px;font-weight:700;color:var(--gray-700)">표시명</th>
+            <th style="text-align:left;padding:5px 6px;font-weight:700;color:var(--gray-700)">사이트 타입</th>
+            <th style="width:60px"></th>
+          </tr>
+        </thead>
+        <tbody>
+        ${_lineRooms.map(r => `
+          <tr style="border-top:1px solid var(--gray-200);${r.mapped?'background:#F0FDF4':''}">
+            <td style="padding:5px 6px;font-family:monospace;font-size:10px" title="${esc(r.id)}">
+              ${roomTypeIcon(r.roomType)} ${esc((r.roomType||'?').slice(0,5))}
+              <div style="color:var(--gray-400);font-size:9px">${esc(r.id.slice(0,12))}…</div>
+            </td>
+            <td style="padding:5px 6px;color:var(--gray-600);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.lastText||'')}">
+              ${r.msgCount ? `<b>${r.msgCount}건</b> · ${esc(r.lastSender||'')}: ${esc((r.lastText||'').slice(0,30))}` : '<span style="color:var(--gray-400)">메시지 없음</span>'}
+            </td>
+            <td style="padding:5px 6px">
+              <input type="text" value="${esc(r.name||'')}" placeholder="예: 업무 그룹"
+                     onchange="updateLineRoom('${esc(r.id)}', 'name', this.value)"
+                     style="width:100%;padding:3px 5px;border:1px solid var(--gray-300);border-radius:3px;font-size:11px">
+            </td>
+            <td style="padding:5px 6px">
+              <select onchange="updateLineRoom('${esc(r.id)}', 'type', this.value)"
+                      style="width:100%;padding:3px 5px;border:1px solid var(--gray-300);border-radius:3px;font-size:11px">
+                <option value="">— 선택 —</option>
+                ${typeOpts.map(o => `<option value="${o.v}" ${r.type===o.v?'selected':''}>${o.l}</option>`).join('')}
+              </select>
+            </td>
+            <td style="padding:5px 6px;text-align:center">
+              ${r.mapped ? '<span style="color:var(--success);font-size:14px" title="매핑됨">✓</span>' : ''}
+            </td>
+          </tr>
+        `).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  let _roomUpdateTimers = {};
+  function updateLineRoom(id, field, value) {
+    const r = _lineRooms.find(x => x.id === id);
+    if (!r) return;
+    r[field] = value;
+    clearTimeout(_roomUpdateTimers[id]);
+    _roomUpdateTimers[id] = setTimeout(async () => {
+      try {
+        await fetch('/api/line-rooms', {
+          method:'PUT',
+          headers:{'content-type':'application/json'},
+          body: JSON.stringify({ id, name: r.name, type: r.type }),
+        });
+        r.mapped = true;
+        renderLineRoomList();
+        syncRoomsToLocal();
+        showToast('💾 매핑 저장됨');
+      } catch(e) { showToast('❌ ' + e.message); }
+    }, 500);
+  }
+  window.updateLineRoom = updateLineRoom;
+
+  /* KV roomMap → localStorage(neo_line_rooms) 동기화 — Line 가져오기 모달이 동일 이름 사용 */
+  function syncRoomsToLocal() {
+    try {
+      const existing = JSON.parse(localStorage.getItem('neo_line_rooms') || '[]');
+      const byId = {};
+      for (const e of existing) byId[e.id] = e;
+      for (const r of _lineRooms) {
+        if (r.mapped && r.name) {
+          byId[r.id] = { id: r.id, name: r.name, type: r.type || 'general' };
+        }
+      }
+      const merged = Object.values(byId);
+      localStorage.setItem('neo_line_rooms', JSON.stringify(merged));
+      // 임포트 모달이 열려있으면 즉시 재렌더
+      try { if (typeof renderLineRoomChips === 'function') renderLineRoomChips(); } catch(e){}
+    } catch(e) {}
+  }
+
+  /* 라인 임포트 모달 열기 전에 KV 룸 가져와 병합 — 메뉴 클릭 시 자동 동기화 */
+  async function syncLineRoomsFromKV() {
+    try {
+      const r = await fetch('/api/line-rooms');
+      if (!r.ok) return;
+      const d = await r.json();
+      _lineRooms = d.rooms || [];
+      syncRoomsToLocal();
+    } catch(e) {}
+  }
+  window.syncLineRoomsFromKV = syncLineRoomsFromKV;
 
   function toggleAdminApiKeyVisibility() {
     const inp = document.getElementById('adminApiKey');
