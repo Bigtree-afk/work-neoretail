@@ -2878,6 +2878,33 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
+      <!-- ═══════════ 이카운트 등록일 부분 패치 (안전 업로드) ═══════════ -->
+      <div style="background:#FFFBEB;border:2px solid #FCD34D;border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="font-size:14px;font-weight:800;color:#92400E;margin-bottom:8px">📅 이카운트 등록일 일괄 추가</div>
+        <div style="background:#fff;border:1px solid #FCD34D;border-radius:6px;padding:8px 10px;font-size:11px;color:#78350F;margin-bottom:10px;line-height:1.6">
+          <b>✅ 안전한 부분 패치 — 기존 데이터 모두 보존됩니다.</b><br>
+          • Excel/CSV 파일 업로드 → 사업자번호로 매장 찾기 → <b>이카운트 등록일 + 사업자번호 표준 포맷</b> 만 갱신<br>
+          • 자동 처리: 사업자번호 하이픈 표준화(<code>***-**-*****</code>), 일자 <code>YYYY-MM-DD</code> 변환<br>
+          • 매장 ID, 별칭, 작업 연결, 병합 정보, 메모 등 <b>다른 모든 데이터 절대 안 건드림</b>
+        </div>
+        <div style="background:#fff;border:1px solid var(--gray-200);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--gray-700);margin-bottom:10px">
+          <b>📋 파일 형식 (2컬럼):</b><br>
+          <code>사업자번호, 이카운트 등록일</code> (또는 헤더 없이 첫 컬럼=사업자번호, 둘째 컬럼=일자)<br>
+          • 사업자번호: <code>123-45-67890</code> 또는 <code>1234567890</code> 모두 인식<br>
+          • 일자: <code>2024-03-15</code>, <code>2024.03.15</code>, <code>2024/3/15</code>, Excel 일자 시리얼 모두 인식
+        </div>
+
+        <input type="file" id="ecountFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="parseEcountFile(this)">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-sm btn-outline" onclick="document.getElementById('ecountFileInput').click()" style="font-size:12px;padding:6px 12px">📁 파일 선택</button>
+          <button class="btn btn-sm btn-outline" onclick="runEcountPatch(true)" id="ecountDryRunBtn" disabled style="font-size:12px;padding:6px 12px">👁 미리보기 (Dry Run)</button>
+          <button class="btn btn-sm btn-primary" onclick="runEcountPatch(false)" id="ecountApplyBtn" disabled style="font-size:12px;padding:6px 12px;background:#F59E0B;border-color:#F59E0B">💾 실제 적용</button>
+          <span id="ecountFileLabel" style="font-size:11px;color:var(--gray-500);margin-left:4px"></span>
+        </div>
+        <div id="ecountPreview" style="margin-top:10px;font-size:11px"></div>
+        <div id="ecountResult" style="margin-top:10px;font-size:11px"></div>
+      </div>
+
       <!-- ═══════════════════════ LINE 봇 연동 섹션 ═══════════════════════ -->
       <div style="background:linear-gradient(135deg,#F0FDF4,#fff);border:2px solid #06C755;border-radius:10px;padding:14px;margin-bottom:16px">
         <div style="font-size:14px;font-weight:800;color:#065F46;margin-bottom:10px;display:flex;align-items:center;gap:8px">
@@ -6783,6 +6810,157 @@ ${text.slice(0, 4000)}`;
     showToast('24시간 후 다시 표시됩니다');
   }
   window.dismissHaikuBanner = dismissHaikuBanner;
+
+  /* ════════════ 이카운트 등록일 부분 패치 ════════════ */
+  let _ecountParsedRows = [];
+
+  function parseEcountFile(inputEl) {
+    const f = inputEl.files && inputEl.files[0];
+    if (!f) return;
+    document.getElementById('ecountFileLabel').textContent = '📄 ' + f.name;
+    const preview = document.getElementById('ecountPreview');
+    preview.innerHTML = '⏳ 파일 분석 중…';
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type:'array', cellDates:true });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header:1, raw:false, defval:'' });
+
+        // 헤더 자동 감지: 첫 행에 '사업자' 또는 '등록일' 글자 포함 시 헤더로 처리
+        let startIdx = 0;
+        if (rows.length && rows[0].some(c => /사업자|등록일|biz|reg|date/i.test(String(c||'')))) startIdx = 1;
+
+        const parsed = [];
+        const invalid = [];
+        for (let i = startIdx; i < rows.length; i++) {
+          const r = rows[i];
+          if (!r || r.length < 2) continue;
+          const bizRaw = String(r[0]||'').trim();
+          const dateRaw = r[1];
+          if (!bizRaw) continue;
+          const bizDigits = bizRaw.replace(/\D/g,'');
+          if (bizDigits.length !== 10) {
+            invalid.push({ row: i+1, biz: bizRaw, reason: '사업자번호 길이 ' + bizDigits.length });
+            continue;
+          }
+          const biz = `${bizDigits.slice(0,3)}-${bizDigits.slice(3,5)}-${bizDigits.slice(5,10)}`;
+          const regDate = _normalizeDate(dateRaw);
+          if (!regDate) {
+            invalid.push({ row: i+1, biz, reason: '일자 인식 실패: ' + String(dateRaw||'') });
+            continue;
+          }
+          parsed.push({ biz, regDate, _row: i+1 });
+        }
+        _ecountParsedRows = parsed;
+        preview.innerHTML = `
+          <div style="background:#F0FDF4;border:1px solid var(--success);border-radius:6px;padding:8px 10px;color:#065F46">
+            ✅ 파싱 완료: <b>${parsed.length}건</b> / 총 ${rows.length - startIdx}행
+            ${invalid.length ? `<br>⚠ 변환 실패 ${invalid.length}건:<br>` + invalid.slice(0,5).map(x=>`&nbsp;&nbsp;• ${x.row}행: ${esc(x.biz)} — ${esc(x.reason)}`).join('<br>') + (invalid.length>5?'<br>&nbsp;&nbsp;… 외 '+(invalid.length-5)+'건':'') : ''}
+          </div>
+          ${parsed.length ? `<div style="margin-top:6px;padding:6px 10px;background:#fff;border:1px solid var(--gray-200);border-radius:6px">
+            <div style="font-size:10px;color:var(--gray-500);font-weight:600;margin-bottom:3px">미리보기 (앞 5건)</div>
+            ${parsed.slice(0,5).map(p => `<div style="font-family:monospace;font-size:11px">${esc(p.biz)} → ${esc(p.regDate)}</div>`).join('')}
+          </div>` : ''}
+        `;
+        document.getElementById('ecountDryRunBtn').disabled = parsed.length === 0;
+        document.getElementById('ecountApplyBtn').disabled = parsed.length === 0;
+      } catch(err) {
+        preview.innerHTML = `<span style="color:var(--danger)">❌ 파일 파싱 실패: ${esc(err.message)}</span>`;
+      }
+    };
+    reader.readAsArrayBuffer(f);
+  }
+  window.parseEcountFile = parseEcountFile;
+
+  function _normalizeDate(v) {
+    if (!v && v !== 0) return '';
+    // Excel cellDates:true 로 Date 객체일 수 있음
+    if (v instanceof Date && !isNaN(v.getTime())) {
+      return v.toISOString().slice(0,10);
+    }
+    // Excel 일자 시리얼 (숫자)
+    if (typeof v === 'number') {
+      // Excel epoch: 1900-01-01 = 1. 윤년 버그 보정.
+      const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+      const d = new Date(excelEpoch.getTime() + v * 86400000);
+      if (!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+    }
+    const s = String(v).trim();
+    if (!s) return '';
+    // 다양한 포맷 시도
+    let m;
+    // YYYY-MM-DD 또는 YYYY/MM/DD 또는 YYYY.MM.DD
+    m = s.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);
+    if (m) {
+      const [_, y, mo, d] = m;
+      return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    }
+    // YYYYMMDD
+    m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    // DD-MM-YYYY / DD/MM/YYYY  (덜 일반적)
+    m = s.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{4})/);
+    if (m) {
+      const [_, d, mo, y] = m;
+      return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    }
+    // Date 파싱 시도
+    const dt = new Date(s);
+    if (!isNaN(dt.getTime())) return dt.toISOString().slice(0,10);
+    return '';
+  }
+
+  async function runEcountPatch(dryRun) {
+    if (!_ecountParsedRows.length) { showToast('파일을 먼저 선택하세요'); return; }
+    const resultEl = document.getElementById('ecountResult');
+    resultEl.innerHTML = '⏳ ' + (dryRun ? '미리보기' : '적용') + ' 중…';
+
+    // 적용 시 확인
+    if (!dryRun) {
+      if (!confirm(`${_ecountParsedRows.length}건의 매장에 이카운트 등록일을 추가합니다.\n\n• 사업자번호 포맷도 표준화 (***-**-*****)\n• 다른 매장 데이터는 절대 변경되지 않음\n\n진행하시겠습니까?`)) {
+        resultEl.innerHTML = '';
+        return;
+      }
+    }
+
+    try {
+      const r = await fetch('/api/stores-patch-ecount', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ rows: _ecountParsedRows, dryRun }),
+      });
+      const d = await r.json();
+      if (!r.ok) { resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${esc(d.error||JSON.stringify(d))}</span>`; return; }
+      const unmatchedHtml = (d.unmatched && d.unmatched.length) ? `
+        <details style="margin-top:6px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;padding:6px 10px">
+          <summary style="cursor:pointer;font-weight:700;color:#92400E">⚠ 매칭 실패 ${d.unmatchedTotal||d.unmatched.length}건 (펼치기)</summary>
+          <div style="max-height:200px;overflow-y:auto;margin-top:6px;font-size:10px">
+            ${d.unmatched.map(x => `<div>${esc(x.biz)} (${esc(x.regDate||'')}) — ${esc(x.reason||'')}</div>`).join('')}
+            ${d.unmatchedTotal > d.unmatched.length ? `<div style="color:var(--gray-500);margin-top:4px">… 외 ${d.unmatchedTotal - d.unmatched.length}건 더</div>` : ''}
+          </div>
+        </details>` : '';
+      resultEl.innerHTML = `
+        <div style="background:${dryRun?'#EFF6FF':'#F0FDF4'};border:1px solid ${dryRun?'#1D4ED8':'var(--success)'};border-radius:6px;padding:10px 12px">
+          <b style="font-size:12px">${dryRun ? '👁 미리보기 결과' : '✅ 적용 완료'}</b><br>
+          • 매칭: <b>${d.matched}</b> 건<br>
+          • ${dryRun ? '갱신 예상' : '실제 갱신'}: <b style="color:var(--success)">${d.updated}</b> 건<br>
+          • 사업자번호 표준화: <b>${d.bizNormalized}</b> 건<br>
+          • 이미 동일값: ${d.alreadySet} 건
+        </div>
+        ${unmatchedHtml}
+      `;
+      if (!dryRun && d.updated > 0) {
+        // KV 갱신 — 로컬 sync 권장
+        try { if (typeof syncFromCloud === 'function') await syncFromCloud({ toast:false }); } catch(e){}
+        showToast(`✅ ${d.updated}건 갱신 완료`);
+      }
+    } catch(e) {
+      resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${esc(e.message)}</span>`;
+    }
+  }
+  window.runEcountPatch = runEcountPatch;
 
   /* 골드 셋 통계 로드 */
   async function loadGoldStats() {
