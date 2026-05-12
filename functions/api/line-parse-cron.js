@@ -38,13 +38,16 @@ export async function onRequestPost({ request, env }) {
   try { body = await request.json(); } catch(e){}
   const force = !!body.force;
 
-  // 업무시간 체크 (KST)
+  // 업무시간 체크 (KST 평일 08:30 ~ 17:59 — 매시 45분 cron 커버)
   if (!force) {
     const nowKst = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Seoul' }));
     const dow = nowKst.getDay();
     const hr = nowKst.getHours();
-    if (dow === 0 || dow === 6 || hr < 9 || hr >= 19) {
-      return json({ ok:true, skipped:true, reason:'outside business hours' }, 200);
+    const mn = nowKst.getMinutes();
+    const tooEarly = (hr < 8) || (hr === 8 && mn < 30);
+    const tooLate  = (hr >= 18);
+    if (dow === 0 || dow === 6 || tooEarly || tooLate) {
+      return json({ ok:true, skipped:true, reason:'outside business hours (KST 평일 08:45~17:45)' }, 200);
     }
   }
 
