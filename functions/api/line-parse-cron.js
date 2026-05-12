@@ -71,6 +71,9 @@ export async function onRequestPost({ request, env }) {
   }
 
   const pendingCur = (await env.STORES_KV.get(PENDING_KEY, 'json')) || { items: [] };
+  // 매장 목록 로드 — 서버측 자동 매칭에 사용
+  const storesData = (await env.STORES_KV.get('stores', 'json')) || { stores: [] };
+  const storeList = Array.isArray(storesData.stores) ? storesData.stores : (Array.isArray(storesData) ? storesData : []);
   let totalAdded = 0;
   const errors = [];
   const runAt = new Date().toISOString();
@@ -146,10 +149,13 @@ export async function onRequestPost({ request, env }) {
       const addItems = items
         .filter(it => it.type && it.type !== 'ignore')
         .map((it, i) => {
-          const pend = buildPending(it, msgs, roomId, roomInfo, now, i);
-          // 매칭된 로그에 pendingId 채우기
+          const pend = buildPending(it, msgs, roomId, roomInfo, now, i, storeList);
+          // 매칭된 로그에 pendingId 채우기 + 매장 자동연결 정보 반영
           for (const log of allLogs) {
-            if (log.matchedItem === it) log.logEntry.pendingId = pend.id;
+            if (log.matchedItem === it) {
+              log.logEntry.pendingId = pend.id;
+              if (pend.storeId) log.logEntry.store = pend.store + ' ✓';
+            }
           }
           return pend;
         });
@@ -229,7 +235,51 @@ function _findItemForMsg(items, m) {
   return found || null;
 }
 
-function buildPending(it, msgs, roomId, roomInfo, now, idx) {
+/* 매장 점수 매칭 — 다중 토큰 + 이름/별칭/주소 가중 */
+function _matchStoreOnServer(storeText, storeList) {
+  if (!storeText || !storeList || !storeList.length) return null;
+  const norm = (x) => String(x||'').toLowerCase().replace(/\s+/g,'');
+  const tokens = String(storeText).trim().split(/\s+/).filter(t => t.length > 0);
+  if (!tokens.length) return null;
+
+  const score = (s) => {
+    const name = norm(s.name);
+    const addr = norm(s.addr || s.address);
+    const aliases = (Array.isArray(s.aliases) ? s.aliases : []).map(norm);
+    let sc = 0, matched = 0;
+    for (const t of tokens) {
+      const nt = norm(t);
+      if (!nt) continue;
+      let hit = false;
+      if (name === nt)             { sc += 10; hit = true; }
+      else if (name.includes(nt))  { sc += 4;  hit = true; }
+      if (aliases.some(a => a === nt))            { sc += 8; hit = true; }
+      else if (aliases.some(a => a.includes(nt))) { sc += 3; hit = true; }
+      if (addr.includes(nt))       { sc += 2;  hit = true; }
+      if (hit) matched++;
+    }
+    if (matched === tokens.length && tokens.length >= 2) sc += 5;
+    return { score: sc, matched };
+  };
+
+  const ranked = storeList
+    .map(s => ({ s, ...score(s) }))
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score || b.matched - a.matched);
+
+  if (!ranked.length) return null;
+  const top = ranked[0];
+  const second = ranked[1];
+  // 자동 연결 임계값:
+  //   - 점수 >= 5 (이름 부분일치 1회 + 주소 일치 = 6 정도, 또는 다중토큰 보너스)
+  //   - 2위와 1.3배 이상 차이 (안전 마진 — 동점이면 사람 검토)
+  if (top.score >= 5 && (!second || top.score >= second.score * 1.3)) {
+    return top.s;
+  }
+  return null;
+}
+
+function buildPending(it, msgs, roomId, roomInfo, now, idx, storeList) {
   // 라인 메시지 시각 (HH:MM → 오늘 KST, 또는 가장 비슷한 메시지 시각)
   const time = it.time || '';
   let lineMsgAt = '';
@@ -256,6 +306,9 @@ function buildPending(it, msgs, roomId, roomInfo, now, idx) {
   else if (it.status === '진행중') status = '진행중';
   else if (it.status === '재방문필요' || it.status === '심사중') status = '추가처리';
 
+  // 매장 자동 매칭 — 임계값 통과하면 storeId 채워서 '연결됨' 상태로 등록
+  const matchedStore = _matchStoreOnServer(it.store, storeList);
+
   return {
     id: `cron-${now.toString(36)}-${idx}-${Math.random().toString(36).slice(2,5)}`,
     lineMsgAt,
@@ -267,8 +320,9 @@ function buildPending(it, msgs, roomId, roomInfo, now, idx) {
     lineParsed: it.parsed || '',
     lineRequest: it.request || '',
     lineDevice: it.device || '',
-    store:      it.store || '',
-    storeId:    '',
+    store:      matchedStore ? matchedStore.name : (it.store || ''),
+    storeId:    matchedStore ? matchedStore.id : '',
+    storeOriginal: it.store || '',   // Claude 가 추출한 원본 매장명 — 자동 매칭이 잘못된 경우 대조용
     assignee:   it.assignee || '',
     status,
     memo:       '',
