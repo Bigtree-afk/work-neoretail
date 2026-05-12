@@ -5895,20 +5895,25 @@ ${text.slice(0, 4000)}`;
         storeName: storeMatch?.name || p.store || '',
         store:     storeMatch?.name || p.store || '',
         storeId:   p.storeId || '',
-        // 매장 부가정보 — 작업 카드/상세에서 빠른 참조용
+        // 매장 부가정보
         address:   storeMatch?.addr || storeMatch?.address || '',
         storeTel:  storeMatch?.tel  || storeMatch?.phone   || '',
         storeCeo:  storeMatch?.ceo  || '',
         storeBizNo: storeMatch?.biz || storeMatch?.bizNo   || '',
         unregistered: !p.storeId,
         engineer: p.assignee || '',
-        notes: [p.lineParsed, p.lineRaw, p.memo ? '검토메모: '+p.memo : ''].filter(Boolean).join(' / '),
+        // 비고는 검토자 메모만 (LINE 원문은 별도 패널로 분리)
+        notes: p.memo || '',
         status: jobStatus,
         createdAt: lineTs,                  // ← 라인 메시지 시각 기준
         source: 'line',
         lineCategory: p.lineCategory,
         lineSender: p.lineSender || '',
         lineMsgAt: p.lineMsgAt || '',
+        lineRoom:  p.lineRoom || '',
+        lineRaw:   p.lineRaw || '',         // LINE 원문
+        lineParsed: p.lineParsed || '',     // Claude 요약
+        lineRequest: p.lineRequest || '',   // 요청·증상 핵심
         reviewMemo: p.memo || '',
         memos: p.memo ? [{
           at: (p.lineMsgAt||'').slice(2),
@@ -9950,7 +9955,35 @@ ${text.slice(0, 4000)}`;
           </tr>`;
         }).join('');
 
-    body.innerHTML = `
+    // LINE 출처 작업이면 상단에 업무 내역 패널 추가
+    const lineInfoHtml = (j.source === 'line' && (j.lineRaw || j.lineParsed)) ? (() => {
+      const isAs = /AS|에이에스/i.test(j.type || '');
+      const cat = j.lineCategory || '';
+      const catLabel = (typeof LINE_TYPE_META === 'object' && LINE_TYPE_META[cat]) ? LINE_TYPE_META[cat].label : '';
+      const isCompleted = (j.status === '완료' || j.status === '처리완료' || j.status === 'done');
+      const panelLabel = isCompleted ? '✅ 처리 내역' : (isAs ? '🛠 업무 요청' : '📋 업무 내역');
+      return `
+        <div style="margin-bottom:14px;border:1.5px solid #06C755;border-radius:10px;overflow:hidden;background:#fff">
+          <!-- 헤더: 카테고리·일자·시간·발신자 -->
+          <div style="background:linear-gradient(135deg,#06C755,#04A047);color:#fff;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px">
+            <span style="font-weight:800">${panelLabel}</span>
+            ${catLabel ? `<span style="background:rgba(255,255,255,0.25);padding:2px 8px;border-radius:10px;font-weight:700">${esc(catLabel)}</span>` : ''}
+            <span style="margin-left:auto;display:flex;gap:10px;align-items:center;font-size:11px;opacity:0.95">
+              <span>📅 ${esc(j.lineMsgAt || '-')}</span>
+              <span>👤 ${esc(j.lineSender || '-')}</span>
+              ${j.lineRoom ? `<span>💬 ${esc(j.lineRoom)}</span>` : ''}
+            </span>
+          </div>
+          <!-- 본문: 요약 + 원문 -->
+          <div style="padding:10px 12px;font-size:13px">
+            ${j.lineParsed ? `<div style="font-weight:700;color:var(--gray-900);margin-bottom:6px;line-height:1.5">▸ ${esc(j.lineParsed)}</div>` : ''}
+            ${j.lineRaw ? `<div style="background:#F3F4F6;border-left:3px solid #06C755;padding:8px 10px;border-radius:5px;font-size:12px;color:var(--gray-700);white-space:pre-wrap;line-height:1.5">${esc(j.lineRaw)}</div>` : ''}
+            ${(j.lineRequest && j.lineRequest !== j.lineParsed) ? `<div style="margin-top:6px;font-size:11px;color:var(--gray-500)">핵심: ${esc(j.lineRequest)}</div>` : ''}
+          </div>
+        </div>`;
+    })() : '';
+
+    body.innerHTML = lineInfoHtml + `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;padding:14px;background:#F9FAFB;border-radius:10px;border:1px solid var(--gray-200)">
         <div>
           <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
