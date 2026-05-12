@@ -5500,21 +5500,22 @@ ${text.slice(0, 4000)}`;
                 </div>`;
               })()}
             </div>
-            <!-- 2단: 검색 입력 -->
+            <!-- 2단: 검색 입력 + 커스텀 드롭다운 -->
             <div style="position:relative">
               <input type="text"
-                     list="lpStores-${p.id}"
                      id="storeInput-${p.id}"
                      value=""
-                     placeholder="🔍 매장 변경 검색 — 매장명·지역·주소·사업자번호 (예: 자연들 오이도)"
+                     autocomplete="off"
+                     placeholder="🔍 매장 변경 검색 — 입력하면 결과가 아래에 표시됩니다 (↑↓ Enter 로도 선택 가능)"
                      oninput="onStoreSearchLive('${p.id}', this)"
-                     onchange="onStoreSearchCommit('${p.id}', this)"
-                     onblur="onStoreSearchCommit('${p.id}', this)"
+                     onkeydown="onStoreSearchKey(event, '${p.id}')"
+                     onfocus="onStoreSearchLive('${p.id}', this)"
+                     onblur="setTimeout(()=>hideStoreSuggest('${p.id}'), 200)"
                      style="width:100%;padding:5px 6px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px">
-              <datalist id="lpStores-${p.id}">${storeOpts}</datalist>
+              <!-- 라이브 검색 결과 — input 바로 아래 떠 있는 dropdown 형태 -->
+              <div id="storeSuggest-${p.id}"
+                   style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:#fff;border:1px solid var(--gray-300);border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-height:240px;overflow-y:auto;margin-top:2px"></div>
             </div>
-            <!-- 라이브 검색 결과 -->
-            <div id="storeSuggest-${p.id}" style="margin-top:3px;font-size:10px"></div>
           </div>
           <!-- 카테고리 -->
           <div>
@@ -5614,74 +5615,94 @@ ${text.slice(0, 4000)}`;
     return scored.slice(0, limit).map(x => x.s);
   }
 
-  /* oninput — 라이브 검색만 (리렌더 X) */
+  /* 검색 상태 — pendId 별 결과/하이라이트 인덱스 */
+  const _storeSearchState = {};
+
+  /* oninput — 라이브 검색 (자동 등록 X, 결과만 표시) */
   function onStoreSearchLive(pendId, inputEl) {
     const val = inputEl.value;
     const suggestEl = document.getElementById('storeSuggest-' + pendId);
     if (!suggestEl) return;
-    if (!val.trim()) { suggestEl.innerHTML = ''; return; }
-    const matches = _searchStores(val, 5);
-    if (matches.length === 0) {
-      suggestEl.innerHTML = `<span style="color:var(--warning)">매칭되는 매장 없음 — 그대로 두면 미연결로 저장됨</span>`;
+    if (!val.trim()) {
+      suggestEl.style.display = 'none';
+      suggestEl.innerHTML = '';
+      _storeSearchState[pendId] = { results: [], activeIdx: -1 };
       return;
     }
-    suggestEl.innerHTML = matches.map((s, i) => {
-      const label = `${s.name}${s.address ? ' · '+s.address.slice(0,25) : ''}`;
-      const top = i === 0;
-      return `<div onclick="selectStoreForPending('${pendId}', '${esc(s.id)}')"
-                   style="padding:3px 6px;background:${top?'#DBEAFE':'#fff'};border:1px solid ${top?'#1D4ED8':'var(--gray-200)'};border-radius:4px;cursor:pointer;margin-top:2px;font-size:10px"
-                   onmouseover="this.style.background='#EFF6FF'"
-                   onmouseout="this.style.background='${top?'#DBEAFE':'#fff'}'">
-                ${top?'🎯 ':''}${esc(label)}
-              </div>`;
-    }).join('');
+    const matches = _searchStores(val, 8);
+    _storeSearchState[pendId] = { results: matches, activeIdx: matches.length ? 0 : -1 };
+    _renderStoreSuggest(pendId);
   }
   window.onStoreSearchLive = onStoreSearchLive;
 
-  /* onchange/onblur — 입력 확정. 정확 일치하면 자동 연결, 아니면 텍스트만 보존 */
-  function onStoreSearchCommit(pendId, inputEl) {
-    const it = _linePending.find(x => x.id === pendId);
-    if (!it) return;
-    const val = inputEl.value.trim();
-    if (!val) {
-      it.storeId = ''; it.store = '';
-      _flushPending(pendId, { storeId:'', store:'' });
-      _updateStoreInputStyle(pendId, false);
+  function _renderStoreSuggest(pendId) {
+    const suggestEl = document.getElementById('storeSuggest-' + pendId);
+    if (!suggestEl) return;
+    const st = _storeSearchState[pendId] || { results: [], activeIdx: -1 };
+    const { results, activeIdx } = st;
+    suggestEl.style.display = '';
+    if (!results.length) {
+      suggestEl.innerHTML = `<div style="padding:10px;color:var(--gray-500);font-size:11px;text-align:center">매칭되는 매장 없음 — 다른 키워드로 검색해 주세요</div>`;
       return;
     }
-    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
-    const norm = (s) => String(s||'').toLowerCase().replace(/\s+/g,'');
-    // 1) 정확히 매장명 입력했으면 그 매장
-    let match = stores.find(s => norm(s.name) === norm(val));
-    // 2) 검색해서 최상위 점수가 압도적이면 자동 선택 (안전장치: 최소 점수 8 이상)
-    if (!match) {
-      const matches = _searchStores(val, 2);
-      if (matches.length === 1) match = matches[0];
-      else if (matches.length >= 2) {
-        // 최상위가 두번째보다 1.5배 이상이면 자동 선택
-        const top = _scoreStore(matches[0], val.split(/\s+/));
-        const second = _scoreStore(matches[1], val.split(/\s+/));
-        if (top.score >= 8 && top.score >= second.score * 1.5) match = matches[0];
-      }
-    }
-    if (match) {
-      it.storeId = match.id;
-      it.store = match.name;
-      inputEl.value = '';   // 검색창 비움 — 연결 상태는 상단 패널에서 표시
-      _flushPending(pendId, { storeId: match.id, store: match.name });
-      _updateStoreStatusPanel(pendId);
-      const sg = document.getElementById('storeSuggest-' + pendId);
-      if (sg) sg.innerHTML = '';
-    } else if (val) {
-      // 검색은 했는데 매칭 없음 — 현재 연결은 그대로 유지하고 toast 만
-      // (입력 텍스트가 원본 LINE 메시지의 store 를 덮어쓰면 안 됨)
-      const sg = document.getElementById('storeSuggest-' + pendId);
-      if (sg) sg.innerHTML = `<span style="color:var(--warning)">매칭되는 매장 없음 — 위 검색 결과에서 선택하거나 다시 입력해 주세요</span>`;
+    suggestEl.innerHTML = results.map((s, i) => {
+      const active = i === activeIdx;
+      return `<div data-idx="${i}"
+                   onclick="selectStoreForPending('${pendId}', '${esc(s.id)}')"
+                   onmouseenter="_setStoreActive('${pendId}', ${i})"
+                   style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--gray-100);background:${active?'#DBEAFE':'#fff'}">
+                <div style="font-size:12px;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:6px">
+                  <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name||'-')}</span>
+                  ${s.bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace;font-weight:500">${esc(s.bizNo)}</span>` : ''}
+                </div>
+                <div style="font-size:10px;color:var(--gray-500);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
+                  ${s.ceo ? `<span>👤 ${esc(s.ceo)}</span>` : ''}
+                  ${s.address ? `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 ${esc(s.address)}</span>` : ''}
+                </div>
+              </div>`;
+    }).join('');
+  }
+
+  function _setStoreActive(pendId, idx) {
+    const st = _storeSearchState[pendId];
+    if (!st) return;
+    st.activeIdx = idx;
+    _renderStoreSuggest(pendId);
+  }
+  window._setStoreActive = _setStoreActive;
+
+  /* 키보드 — ↑↓ 이동, Enter / Tab 선택, Esc 닫기 */
+  function onStoreSearchKey(ev, pendId) {
+    const st = _storeSearchState[pendId];
+    if (ev.key === 'Escape') { hideStoreSuggest(pendId); return; }
+    if (!st || !st.results.length) return;
+    const max = st.results.length - 1;
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      st.activeIdx = Math.min(max, (st.activeIdx < 0 ? 0 : st.activeIdx + 1));
+      _renderStoreSuggest(pendId);
+    } else if (ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      st.activeIdx = Math.max(0, st.activeIdx - 1);
+      _renderStoreSuggest(pendId);
+    } else if (ev.key === 'Enter') {
+      ev.preventDefault();
+      const sel = st.results[st.activeIdx];
+      if (sel) selectStoreForPending(pendId, sel.id);
+    } else if (ev.key === 'Tab' && st.activeIdx >= 0 && !ev.shiftKey) {
+      const sel = st.results[st.activeIdx];
+      if (sel) selectStoreForPending(pendId, sel.id);
     }
   }
-  window.onStoreSearchCommit = onStoreSearchCommit;
+  window.onStoreSearchKey = onStoreSearchKey;
 
-  /* 라이브 검색 결과 클릭 — 매장 즉시 연결, 검색창은 비움 */
+  function hideStoreSuggest(pendId) {
+    const el = document.getElementById('storeSuggest-' + pendId);
+    if (el) el.style.display = 'none';
+  }
+  window.hideStoreSuggest = hideStoreSuggest;
+
+  /* 결과 선택 — 매장 연결 + 상단 패널 갱신 + 드롭다운 닫기 + 검색창 비움 */
   function selectStoreForPending(pendId, storeId) {
     const it = _linePending.find(x => x.id === pendId);
     if (!it) return;
@@ -5692,10 +5713,11 @@ ${text.slice(0, 4000)}`;
     it.store = s.name;
     _flushPending(pendId, { storeId: s.id, store: s.name });
     const input = document.getElementById('storeInput-' + pendId);
-    if (input) input.value = '';   // 검색창 비움 (현재 연결은 위쪽 패널에 표시됨)
-    const suggestEl = document.getElementById('storeSuggest-' + pendId);
-    if (suggestEl) suggestEl.innerHTML = '';
+    if (input) input.value = '';
+    hideStoreSuggest(pendId);
+    _storeSearchState[pendId] = { results: [], activeIdx: -1 };
     _updateStoreStatusPanel(pendId);
+    showToast('🏪 매장 연결: ' + s.name);
   }
   window.selectStoreForPending = selectStoreForPending;
 
