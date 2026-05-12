@@ -2915,6 +2915,25 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
         <div id="lineCfgQueueInfo" style="margin-top:8px;font-size:11px;color:var(--gray-600)"></div>
 
+        <!-- 파싱 이력 로그 -->
+        <div style="margin-top:14px;padding:10px;background:#fff;border:1px solid #BBF7D0;border-radius:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap">
+            <div style="font-size:12px;font-weight:800;color:#065F46">📜 파싱 이력 (등록 대기 / 무시 / 오류)</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <select id="parseLogDate" onchange="loadParseLog()" style="font-size:11px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:4px"></select>
+              <select id="parseLogFilter" onchange="loadParseLog()" style="font-size:11px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:4px">
+                <option value="all">전체</option>
+                <option value="pending">등록 대기로</option>
+                <option value="ignore">무시됨</option>
+                <option value="error">오류</option>
+              </select>
+              <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 8px" onclick="loadParseLog()">🔄</button>
+            </div>
+          </div>
+          <div id="parseLogStats" style="font-size:11px;color:var(--gray-600);margin-bottom:6px"></div>
+          <div id="parseLogList" style="max-height:300px;overflow-y:auto;font-size:11px"></div>
+        </div>
+
         <!-- 수신 채팅방 매핑 -->
         <div style="margin-top:14px;padding:10px;background:#fff;border:1px solid #BBF7D0;border-radius:6px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -6445,6 +6464,7 @@ ${text.slice(0, 4000)}`;
     // LINE 봇 설정 로드
     try { loadLineConfig(); } catch(e){}
     try { loadLineRooms(); } catch(e){}
+    try { loadParseLog(); } catch(e){}
 
     showModal('adminModal');
   }
@@ -6554,6 +6574,88 @@ ${text.slice(0, 4000)}`;
     } catch(e) { info.innerHTML = `<span style="color:var(--danger)">❌ ${esc(e.message)}</span>`; }
   }
   window.peekLineQueue = peekLineQueue;
+
+  /* LINE 파싱 이력 — 어느 메시지가 pending/ignore/error 되었는지 */
+  async function loadParseLog() {
+    const dateEl = document.getElementById('parseLogDate');
+    const filtEl = document.getElementById('parseLogFilter');
+    const statsEl = document.getElementById('parseLogStats');
+    const listEl = document.getElementById('parseLogList');
+    if (!listEl) return;
+
+    listEl.innerHTML = '⏳ 조회 중…';
+    const date = dateEl?.value || '';
+    const result = filtEl?.value || 'all';
+    try {
+      const url = '/api/line-parse-log?' + new URLSearchParams({ date, result, limit: 300 });
+      const r = await fetch(url);
+      const d = await r.json();
+
+      // 날짜 셀렉터 populate (최초 호출 시)
+      if (dateEl && dateEl.options.length === 0 && d.datesList) {
+        dateEl.innerHTML = d.datesList.map(x => `<option value="${x}" ${x===d.date?'selected':''}>${x}</option>`).join('');
+      }
+
+      const st = d.stats || {};
+      statsEl.innerHTML = `
+        <span style="margin-right:10px">📊 <b>${st.total||0}</b>건</span>
+        <span style="color:#16A34A;margin-right:10px">✅ 등록 대기: <b>${st.pending||0}</b></span>
+        <span style="color:var(--gray-500);margin-right:10px">⚪ 무시: <b>${st.ignore||0}</b></span>
+        ${st.error ? `<span style="color:var(--danger)">⚠ 오류: <b>${st.error}</b></span>` : ''}
+      `;
+
+      const items = d.items || [];
+      if (!items.length) {
+        listEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--gray-400)">조회된 항목이 없습니다</div>`;
+        return;
+      }
+      const resultMeta = {
+        pending: { bg:'#D1FAE5', color:'#065F46', icon:'✅', label:'등록 대기' },
+        ignore:  { bg:'#F3F4F6', color:'#6B7280', icon:'⚪', label:'무시' },
+        error:   { bg:'#FEE2E2', color:'#991B1B', icon:'⚠', label:'오류' },
+      };
+      const catMeta = {
+        as_pos_van:  '🛠 A/S',
+        open_store:  '🏪 오픈',
+        van_doc:     '📑 밴서류',
+        device_mgmt: '📱 단말기',
+      };
+      listEl.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead style="background:#F3F4F6;position:sticky;top:0">
+            <tr>
+              <th style="text-align:left;padding:5px 6px">시각</th>
+              <th style="text-align:left;padding:5px 6px">발신</th>
+              <th style="text-align:left;padding:5px 6px">메시지</th>
+              <th style="text-align:left;padding:5px 6px;width:90px">결과</th>
+              <th style="text-align:left;padding:5px 6px;width:80px">분류</th>
+              <th style="text-align:left;padding:5px 6px">매장/사유</th>
+            </tr>
+          </thead>
+          <tbody>
+          ${items.map(it => {
+            const rm = resultMeta[it.result] || resultMeta.ignore;
+            return `<tr style="border-top:1px solid var(--gray-200)">
+              <td style="padding:5px 6px;font-family:monospace;color:var(--gray-600);white-space:nowrap">${esc((it.msgAtKst||'').slice(11))}</td>
+              <td style="padding:5px 6px;font-weight:600;white-space:nowrap">${esc(it.sender||'-')}</td>
+              <td style="padding:5px 6px;max-width:280px;color:var(--gray-700)" title="${esc(it.text||'')}">${esc((it.text||'').slice(0,80))}${(it.text||'').length>80?'…':''}</td>
+              <td style="padding:5px 6px"><span style="background:${rm.bg};color:${rm.color};padding:2px 7px;border-radius:4px;font-weight:700;font-size:10px">${rm.icon} ${rm.label}</span></td>
+              <td style="padding:5px 6px;font-size:10px;color:var(--gray-600)">${it.category ? esc(catMeta[it.category] || it.category) : '-'}</td>
+              <td style="padding:5px 6px;font-size:10px;color:var(--gray-500)" title="${esc(it.reason||'')}">
+                ${it.store ? `🏪 ${esc(it.store)}` : ''}
+                ${it.assignee ? ` · 👤 ${esc(it.assignee)}` : ''}
+                ${it.result === 'ignore' && it.reason ? `<span style="color:var(--gray-400)">${esc(it.reason.slice(0,40))}</span>` : ''}
+                ${it.result === 'error' ? `<span style="color:var(--danger)">${esc((it.reason||'').slice(0,40))}</span>` : ''}
+              </td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table>`;
+    } catch(e) {
+      listEl.innerHTML = `<span style="color:var(--danger)">❌ ${esc(e.message)}</span>`;
+    }
+  }
+  window.loadParseLog = loadParseLog;
 
   /* LINE 수신 채팅방 매핑 — 봇이 받은 ID 에 사이트 이름·타입 부여 */
   let _lineRooms = [];

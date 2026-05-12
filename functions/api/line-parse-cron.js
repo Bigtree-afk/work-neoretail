@@ -13,6 +13,8 @@
  *   5) 'line_parse_lastrun' 갱신
  */
 
+import { appendParseLog } from './line-parse-log.js';
+
 const RAW_KEY    = 'line_raw_queue';
 const PENDING_KEY= 'line_pending';
 const LASTRUN_KEY= 'line_parse_lastrun';
@@ -68,6 +70,9 @@ export async function onRequestPost({ request, env }) {
   const pendingCur = (await env.STORES_KV.get(PENDING_KEY, 'json')) || { items: [] };
   let totalAdded = 0;
   const errors = [];
+  const runAt = new Date().toISOString();
+  const parseSource = force ? 'manual' : 'cron';
+  const allLogs = [];
 
   for (const [roomId, msgs] of Object.entries(byRoom)) {
     const roomInfo = (cfg.roomMap||{})[roomId] || { name: roomId, type:'general' };
@@ -81,16 +86,104 @@ export async function onRequestPost({ request, env }) {
     try {
       const parsed = await parseWithClaude(apiKey, blob, roomInfo);
       const items = parsed.items || [];
+
+      // Claude 가 반환한 항목들을 원본 메시지와 매칭 — original 텍스트 일치로
+      const itemByText = new Map();
+      for (const it of items) {
+        const k = (it.original || '').slice(0, 40);
+        if (k) itemByText.set(k, it);
+      }
+
+      // 모든 원본 메시지에 대해 결과 로그 작성
+      for (const m of msgs) {
+        const matched = _findItemForMsg(items, m);
+        const t = new Date(Number(m.ts||0));
+        const kstHH = String(t.getUTCHours()+9).padStart(2,'0').slice(-2);
+        const kstMI = String(t.getUTCMinutes()).padStart(2,'0');
+        const msgKstDate = new Date(t.getTime()+9*3600*1000).toISOString().slice(0,10);
+        const msgAtKst = `${msgKstDate} ${kstHH}:${kstMI}`;
+
+        const logEntry = {
+          logId:       `log-${m.id || (m.ts+'-'+Math.random().toString(36).slice(2,6))}`,
+          msgTs:       m.ts || 0,
+          msgAtKst,
+          room:        roomId,
+          roomName:    roomInfo.name || roomId,
+          sender:      m.sender || '',
+          text:        (m.text||'').slice(0, 300),
+          result:      'ignore',
+          category:    '',
+          pendingId:   '',
+          status:      '',
+          store:       '',
+          assignee:    '',
+          parseRunAt:  runAt,
+          parseSource,
+          reason:      'Claude 가 무관 메시지로 분류',
+        };
+
+        if (matched) {
+          if (matched.type === 'ignore') {
+            logEntry.result = 'ignore';
+            logEntry.reason = matched.parsed || matched.request || '잡담/인사/확인';
+          } else {
+            logEntry.result = 'pending';
+            logEntry.category = matched.type;
+            logEntry.status = matched.status || '';
+            logEntry.store = matched.store || '';
+            logEntry.assignee = matched.assignee || '';
+            // pendingId 는 buildPending 에서 할당됨 — 아래에서 채움
+          }
+        }
+        allLogs.push({ logEntry, matchedItem: matched });
+      }
+
       // pending 큐 형식으로 변환
       const now = Date.now();
       const addItems = items
         .filter(it => it.type && it.type !== 'ignore')
-        .map((it, i) => buildPending(it, msgs, roomId, roomInfo, now, i));
+        .map((it, i) => {
+          const pend = buildPending(it, msgs, roomId, roomInfo, now, i);
+          // 매칭된 로그에 pendingId 채우기
+          for (const log of allLogs) {
+            if (log.matchedItem === it) log.logEntry.pendingId = pend.id;
+          }
+          return pend;
+        });
       pendingCur.items = [...addItems, ...pendingCur.items].slice(0, MAX_PENDING);
       totalAdded += addItems.length;
     } catch(e) {
       errors.push({ room: roomId, error: e.message });
+      // 실패한 채팅방 메시지들도 로그에 'error' 로 기록
+      for (const m of msgs) {
+        const t = new Date(Number(m.ts||0));
+        const kstHH = String(t.getUTCHours()+9).padStart(2,'0').slice(-2);
+        const kstMI = String(t.getUTCMinutes()).padStart(2,'0');
+        const msgKstDate = new Date(t.getTime()+9*3600*1000).toISOString().slice(0,10);
+        allLogs.push({
+          logEntry: {
+            logId:       `log-err-${m.id || m.ts}`,
+            msgTs:       m.ts || 0,
+            msgAtKst:    `${msgKstDate} ${kstHH}:${kstMI}`,
+            room:        roomId,
+            roomName:    roomInfo.name || roomId,
+            sender:      m.sender || '',
+            text:        (m.text||'').slice(0, 300),
+            result:      'error',
+            reason:      e.message,
+            parseRunAt:  runAt,
+            parseSource,
+          }, matchedItem: null
+        });
+      }
     }
+  }
+
+  // 로그 적재
+  try {
+    await appendParseLog(env, allLogs.map(x => x.logEntry));
+  } catch(e) {
+    console.warn('log append failed', e.message);
   }
 
   if (totalAdded > 0) await env.STORES_KV.put(PENDING_KEY, JSON.stringify(pendingCur));
@@ -104,6 +197,33 @@ export async function onRequestPost({ request, env }) {
     errors,
     runAt: new Date().toISOString(),
   }, 200);
+}
+
+/* Claude 파싱 결과 항목을 원본 메시지에 매칭 — text 부분 일치 + sender 일치 */
+function _findItemForMsg(items, m) {
+  if (!items || !items.length || !m) return null;
+  const text = String(m.text||'').toLowerCase().replace(/\s+/g,'');
+  if (!text) return null;
+  const sender = String(m.sender||'');
+  // 1) original 부분 일치 + sender 일치
+  let found = items.find(it => {
+    const o = String(it.original||'').toLowerCase().replace(/\s+/g,'');
+    return o && (text.includes(o.slice(0,20)) || o.includes(text.slice(0,20)))
+        && (!it.sender || !sender || it.sender === sender);
+  });
+  if (found) return found;
+  // 2) original 부분 일치
+  found = items.find(it => {
+    const o = String(it.original||'').toLowerCase().replace(/\s+/g,'');
+    return o && (text.includes(o.slice(0,15)) || o.includes(text.slice(0,15)));
+  });
+  if (found) return found;
+  // 3) request/parsed 일치 (마지막 시도)
+  found = items.find(it => {
+    const blob = String((it.request||'') + ' ' + (it.parsed||'')).toLowerCase().replace(/\s+/g,'');
+    return blob && (blob.includes(text.slice(0,15)) || text.includes(blob.slice(0,15)));
+  });
+  return found || null;
 }
 
 function buildPending(it, msgs, roomId, roomInfo, now, idx) {
