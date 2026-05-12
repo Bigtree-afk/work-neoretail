@@ -3258,20 +3258,15 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       localStorage.removeItem('neo_analysis_date');
     } catch(e){}
 
-    // 매장 데이터 스키마 마이그레이션 — storeRegDate 필드 도입 (v2)
-    // 이전 버전의 localStorage 매장 데이터에는 storeRegDate 가 없어서 KV 머지가 필요함.
-    // 한 번만 강제로 KV 전체 재로드해서 storeRegDate 적용.
+    // 매장 데이터 스키마 마이그레이션 — storeRegDate 검증/정리 (v3)
+    // 이전 버그 업로드로 localStorage 의 storeRegDate 가 모두 같은 날짜로 채워진 경우 제거.
     try {
-      const SCHEMA_VERSION = 'stores-schema-v2-2026-05-12';
+      const SCHEMA_VERSION = 'stores-schema-v3-2026-05-12';
       const cur = localStorage.getItem('ns_stores_schema_ver');
       if (cur !== SCHEMA_VERSION) {
-        const stores = JSON.parse(localStorage.getItem('ns_stores') || '[]');
-        const hasRegDate = stores.some(s => s && s.storeRegDate);
-        if (!hasRegDate && stores.length > 0) {
-          console.log('[migration] storeRegDate 없는 매장 발견 — KV 재로드');
-          // localStorage 의 ns_stores 를 비우고 KV 에서 새로 가져오게 함
-          localStorage.removeItem('ns_stores');
-        }
+        // 통째로 localStorage 매장 비우고 KV 에서 새로 받음 (가장 확실)
+        localStorage.removeItem('ns_stores');
+        console.log('[migration v3] localStorage 매장 초기화 — KV 에서 신선한 데이터 재로드');
         localStorage.setItem('ns_stores_schema_ver', SCHEMA_VERSION);
       }
     } catch(e) { console.warn('[migration]', e); }
