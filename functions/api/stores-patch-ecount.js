@@ -69,12 +69,17 @@ export async function onRequestPost({ env, request }) {
         store.biz = stdBiz;
         bizNormalized++;
       }
-      // 이카운트 등록일 추가/갱신
+      // 매장 등록일 추가/갱신 (storeRegDate 가 표준 필드, ecountRegDate 도 호환 유지)
       if (newRegDate) {
-        if (store.ecountRegDate === newRegDate) {
+        if (store.storeRegDate === newRegDate || store.ecountRegDate === newRegDate) {
           alreadySet++;
+          // 호환: ecountRegDate 만 있던 경우 storeRegDate 도 채움
+          if (!store.storeRegDate && store.ecountRegDate === newRegDate) {
+            store.storeRegDate = newRegDate;
+          }
         } else {
-          store.ecountRegDate = newRegDate;
+          store.storeRegDate = newRegDate;
+          store.ecountRegDate = newRegDate;  // 구버전 호환
           updated++;
         }
       }

@@ -1443,7 +1443,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             </tr>
           </thead>
           <tbody id="asMgmtTbody">
-            <tr><td colspan="9" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+            <tr><td colspan="10" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
               <div style="font-size:36px;margin-bottom:10px">🔧</div>
               <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">AS 접수 내역이 없습니다</div>
               <div style="font-size:11px">"+ AS 등록"으로 추가하세요.</div>
@@ -1491,6 +1491,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <table class="store-list-table" id="storeListTable" style="min-width:1100px">
           <thead>
             <tr>
+              <th data-sort="regdate" style="cursor:pointer;user-select:none;min-width:90px" title="기본 정렬 — 최신 등록순">매장 등록일 <span class="sort-ind" data-for="regdate" style="color:var(--primary);font-size:10px;margin-left:2px">↓</span></th>
               <th data-sort="name" style="cursor:pointer;user-select:none" title="클릭하여 정렬">점포명 (간판) <span class="sort-ind" data-for="name" style="color:var(--gray-300);font-size:10px;margin-left:2px">↕</span></th>
               <th data-sort="biz"  style="cursor:pointer;user-select:none" title="클릭하여 정렬">사업자번호 <span class="sort-ind" data-for="biz"  style="color:var(--gray-300);font-size:10px;margin-left:2px">↕</span></th>
               <th data-sort="ceo"  style="cursor:pointer;user-select:none" title="클릭하여 정렬">대표자 <span class="sort-ind" data-for="ceo"  style="color:var(--gray-300);font-size:10px;margin-left:2px">↕</span></th>
@@ -1504,7 +1505,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </thead>
           <tbody id="storeListTbody">
             <tr id="storeListEmptyRow">
-              <td colspan="9" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+              <td colspan="10" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
                 <div style="font-size:36px;margin-bottom:10px">🏪</div>
                 <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">등록된 점포가 없습니다</div>
                 <div style="font-size:11px">상단 "엑셀 일괄 업로드"로 점포를 등록하세요.</div>
@@ -2880,16 +2881,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
       <!-- ═══════════ 이카운트 등록일 부분 패치 (안전 업로드) ═══════════ -->
       <div style="background:#FFFBEB;border:2px solid #FCD34D;border-radius:10px;padding:14px;margin-bottom:16px">
-        <div style="font-size:14px;font-weight:800;color:#92400E;margin-bottom:8px">📅 이카운트 등록일 일괄 추가</div>
+        <div style="font-size:14px;font-weight:800;color:#92400E;margin-bottom:8px">📅 매장 등록일 일괄 추가 (이카운트 → 사이트)</div>
         <div style="background:#fff;border:1px solid #FCD34D;border-radius:6px;padding:8px 10px;font-size:11px;color:#78350F;margin-bottom:10px;line-height:1.6">
           <b>✅ 안전한 부분 패치 — 기존 데이터 모두 보존됩니다.</b><br>
-          • Excel/CSV 파일 업로드 → 사업자번호로 매장 찾기 → <b>이카운트 등록일 + 사업자번호 표준 포맷</b> 만 갱신<br>
+          • Excel/CSV 파일 업로드 → 사업자번호로 매장 찾기 → <b>매장 등록일 + 사업자번호 표준 포맷</b> 만 갱신<br>
           • 자동 처리: 사업자번호 하이픈 표준화(<code>***-**-*****</code>), 일자 <code>YYYY-MM-DD</code> 변환<br>
           • 매장 ID, 별칭, 작업 연결, 병합 정보, 메모 등 <b>다른 모든 데이터 절대 안 건드림</b>
         </div>
         <div style="background:#fff;border:1px solid var(--gray-200);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--gray-700);margin-bottom:10px">
           <b>📋 파일 형식 (2컬럼):</b><br>
-          <code>사업자번호, 이카운트 등록일</code> (또는 헤더 없이 첫 컬럼=사업자번호, 둘째 컬럼=일자)<br>
+          <code>사업자번호, 매장 등록일</code> (또는 헤더 없이 첫 컬럼=사업자번호, 둘째 컬럼=일자)<br>
           • 사업자번호: <code>123-45-67890</code> 또는 <code>1234567890</code> 모두 인식<br>
           • 일자: <code>2024-03-15</code>, <code>2024.03.15</code>, <code>2024/3/15</code>, Excel 일자 시리얼 모두 인식
         </div>
@@ -4553,15 +4554,21 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     const store = existing.slice();
     const batchSize = Math.max(1, Math.min(100, Math.ceil(total / 200)));
 
+    const todayYmd = new Date().toISOString().slice(0,10);
     for (let i = 0; i < total; i++) {
       const s = toInsert[i];
+      // 사업자번호 표준 포맷화 (10자리만)
+      const bizDigits = String(s.bizno || '').replace(/\D/g,'');
+      const bizFmt = bizDigits.length === 10
+        ? `${bizDigits.slice(0,3)}-${bizDigits.slice(3,5)}-${bizDigits.slice(5,10)}`
+        : (s.bizno || '');
       store.push({
         id: s.code ? ('EC-' + s.code) : ('EC-' + Date.now().toString().slice(-5) + i),
         code: s.code || '',
         name: s.name || '',
         ceo:  s.owner || '',
         tel:  s.phone || '',
-        biz:  s.bizno || '',
+        biz:  bizFmt,
         addr: s.address || '',
         van:  '',
         tid:  '',
@@ -4569,6 +4576,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         memo: '이카운트 일괄 업로드',
         status: '거래중',
         createdAt: Date.now(),
+        storeRegDate: todayYmd,    // ← 매장 등록일 = 업로드 당일
       });
 
       if ((i + 1) % batchSize === 0 || i === total - 1) {
@@ -8215,12 +8223,20 @@ ${text.slice(0, 4000)}`;
     const name = (document.getElementById('f-name') || {}).value?.trim();
     if (!name) { showToast('점포명을 입력하세요'); document.getElementById('f-name')?.focus(); return; }
 
+    // 사업자번호 표준 포맷화
+    const bizRaw = (document.getElementById('f-biz') || {}).value?.trim() || '';
+    const bizDigits = bizRaw.replace(/\D/g,'');
+    const bizFmt = bizDigits.length === 10
+      ? `${bizDigits.slice(0,3)}-${bizDigits.slice(3,5)}-${bizDigits.slice(5,10)}`
+      : bizRaw;
+    const todayYmd = new Date().toISOString().slice(0,10);
+
     const store = {
       id: 'EC-' + Date.now().toString().slice(-5),
       name,
       ceo:  (document.getElementById('f-ceo')  || {}).value?.trim() || '',
       tel:  (document.getElementById('f-tel')  || {}).value?.trim() || '',
-      biz:  (document.getElementById('f-biz')  || {}).value?.trim() || '',
+      biz:  bizFmt,
       addr: (document.getElementById('f-addr') || {}).value?.trim() || '',
       van:  (document.getElementById('f-van')  || {}).value || '',
       tid:  (document.getElementById('f-tid')  || {}).value?.trim() || '',
@@ -8228,7 +8244,8 @@ ${text.slice(0, 4000)}`;
       pos:  (document.getElementById('f-pos')  || {}).value || '0',
       memo: (document.getElementById('f-memo') || {}).value?.trim() || '',
       status: '거래중',
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      storeRegDate: todayYmd,    // ← 매장 등록일 = 등록 당일
     };
 
     const stores = getStores();
@@ -8602,7 +8619,9 @@ ${text.slice(0, 4000)}`;
     const aliasBadge = aliases.length
       ? `<div style="font-size:10px;color:var(--gray-500);margin-top:2px" title="이전 상호: ${esc(aliases.join(', '))}">↳ (구) ${esc(aliases[0])}${aliases.length>1?` 외 ${aliases.length-1}건`:''}</div>`
       : '';
+    const regDate = store.storeRegDate || store.ecountRegDate || '';
     tr.innerHTML = `
+      <td style="font-family:monospace;font-size:11px;color:${regDate?'var(--gray-700)':'var(--gray-300)'};white-space:nowrap">${esc(regDate || '—')}</td>
       <td><b>${esc(store.name)}</b>${aliasBadge}</td>
       <td style="font-family:monospace;font-size:11px">${esc(store.biz||'-')}</td>
       <td>${esc(store.ceo||'-')}</td>
@@ -8634,17 +8653,36 @@ ${text.slice(0, 4000)}`;
     if (key === 'ceo')  return String(s.ceo || s.owner || '');
     if (key === 'addr') return String(s.addr || s.address || '');
     if (key === 'name') return String(s.name || '');
+    if (key === 'regdate') return String(s.storeRegDate || s.ecountRegDate || '');
     return '';
   }
   function _sortedStores(stores) {
     if (!_storeSort) {
-      return [...stores].sort((a,b) => (Number(b.createdAt)||0) - (Number(a.createdAt)||0));
+      // 기본 정렬: 매장 등록일 내림차순 (최신 등록 → 과거)
+      // storeRegDate(신규필드) > ecountRegDate(구필드) > createdAt 순서로 fallback
+      const dateOf = (s) => {
+        const dr = s.storeRegDate || s.ecountRegDate;
+        if (dr) {
+          const t = new Date(dr + 'T00:00:00').getTime();
+          if (!isNaN(t)) return t;
+        }
+        return Number(s.createdAt) || 0;
+      };
+      return [...stores].sort((a,b) => dateOf(b) - dateOf(a));
     }
     const { key, dir } = _storeSort;
     const cmp = (a, b) => {
+      if (key === 'regdate') {
+        // 매장 등록일은 빈 값을 항상 뒤로
+        const va = _storeFieldVal(a, key);
+        const vb = _storeFieldVal(b, key);
+        if (!va && !vb) return 0;
+        if (!va) return 1;
+        if (!vb) return -1;
+        return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      }
       const va = _storeFieldVal(a, key);
       const vb = _storeFieldVal(b, key);
-      // 한국어 자연 정렬
       const r = va.localeCompare(vb, 'ko');
       return dir === 'asc' ? r : -r;
     };
@@ -8701,16 +8739,16 @@ ${text.slice(0, 4000)}`;
         const showCount = Math.min(sorted.length, 200);
         sorted.slice(0, showCount).forEach(s => tb.appendChild(buildStoreRowEl(s)));
         const sortLabel = _storeSort
-          ? ` · 정렬: ${({name:'점포명',biz:'사업자번호',ceo:'대표자',addr:'주소'})[_storeSort.key]} ${_storeSort.dir==='asc'?'오름차순↑':'내림차순↓'}`
-          : ' · 정렬: 등록순(최신)';
+          ? ` · 정렬: ${({name:'점포명',biz:'사업자번호',ceo:'대표자',addr:'주소',regdate:'매장 등록일'})[_storeSort.key]} ${_storeSort.dir==='asc'?'오름차순↑':'내림차순↓'}`
+          : ' · 정렬: 매장 등록일 최신순';
         const countRow = document.createElement('tr');
         countRow.style.color = 'var(--gray-400)';
-        countRow.innerHTML = `<td colspan="9" style="text-align:center;padding:10px;font-size:11px;background:#F9FAFB">총 ${stores.length.toLocaleString()}개 점포 · 최신 ${showCount.toLocaleString()}개 표시${sortLabel}</td>`;
+        countRow.innerHTML = `<td colspan="10" style="text-align:center;padding:10px;font-size:11px;background:#F9FAFB">총 ${stores.length.toLocaleString()}개 점포 · 최신 ${showCount.toLocaleString()}개 표시${sortLabel}</td>`;
         tb.appendChild(countRow);
         _updateSortIndicators();
       } else {
         tb.innerHTML = `<tr id="storeListEmptyRow">
-          <td colspan="9" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+          <td colspan="10" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
             <div style="font-size:36px;margin-bottom:10px">🏪</div>
             <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">등록된 점포가 없습니다</div>
             <div style="font-size:11px">상단 "엑셀 일괄 업로드"로 점포를 등록하세요.</div>
@@ -10146,7 +10184,7 @@ ${text.slice(0, 4000)}`;
     const tb = document.getElementById('asMgmtTbody');
     if (!tb) return;
     if (view.length === 0) {
-      tb.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
+      tb.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
         <div style="font-size:36px;margin-bottom:10px">🔧</div>
         <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">해당 조건에 맞는 AS 가 없습니다</div>
       </td></tr>`;
