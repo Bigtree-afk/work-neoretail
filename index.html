@@ -3257,6 +3257,25 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       localStorage.removeItem('neo_analysis_result');
       localStorage.removeItem('neo_analysis_date');
     } catch(e){}
+
+    // 매장 데이터 스키마 마이그레이션 — storeRegDate 필드 도입 (v2)
+    // 이전 버전의 localStorage 매장 데이터에는 storeRegDate 가 없어서 KV 머지가 필요함.
+    // 한 번만 강제로 KV 전체 재로드해서 storeRegDate 적용.
+    try {
+      const SCHEMA_VERSION = 'stores-schema-v2-2026-05-12';
+      const cur = localStorage.getItem('ns_stores_schema_ver');
+      if (cur !== SCHEMA_VERSION) {
+        const stores = JSON.parse(localStorage.getItem('ns_stores') || '[]');
+        const hasRegDate = stores.some(s => s && s.storeRegDate);
+        if (!hasRegDate && stores.length > 0) {
+          console.log('[migration] storeRegDate 없는 매장 발견 — KV 재로드');
+          // localStorage 의 ns_stores 를 비우고 KV 에서 새로 가져오게 함
+          localStorage.removeItem('ns_stores');
+        }
+        localStorage.setItem('ns_stores_schema_ver', SCHEMA_VERSION);
+      }
+    } catch(e) { console.warn('[migration]', e); }
+
     setTimeout(() => {
       syncFromCloud({ toast: false });
       try { if (typeof syncCatalogFromCloud === 'function') syncCatalogFromCloud(); } catch(e){}
