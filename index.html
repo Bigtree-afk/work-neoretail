@@ -864,6 +864,26 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <!-- ═══════════════════════════════════════ -->
     <div class="screen active" id="screen-dashboard">
 
+      <!-- Haiku 전환 검토 알림 — zoolex 전용, 2026-06-12 이후만 표시 -->
+      <div id="haikuMigrationBanner" style="display:none;margin-bottom:14px;background:linear-gradient(135deg,#7C3AED 0%,#5B21B6 100%);color:#fff;padding:14px 18px;border-radius:10px;box-shadow:0 4px 14px rgba(124,58,237,0.25);position:relative">
+        <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">
+          <div style="font-size:28px">🎯</div>
+          <div style="flex:1;min-width:240px">
+            <div style="font-size:15px;font-weight:800">Haiku 4.5 전환 검토 시점입니다</div>
+            <div style="font-size:11px;opacity:0.95;margin-top:3px;line-height:1.5">
+              1개월 운영 데이터가 누적되었습니다. 골드 셋 검토 후 <b>Haiku 모델로 전환</b>하면 월 비용이 <b>$5~7 → $1~2 로 70% 절감</b>됩니다.<br>
+              관리자 페이지 → LINE 봇 자동 연동 → 🎯 골드 셋 통계 확인 + Claude Code 의 1개월 전 예약된 검토 작업 결과 확인.
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+            <button onclick="openAdminPage(); setTimeout(()=>document.getElementById('goldStats')?.scrollIntoView({behavior:'smooth',block:'center'}),300)"
+                    style="background:#fff;color:#5B21B6;border:none;padding:8px 14px;border-radius:6px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap">📊 통계 보기</button>
+            <button onclick="dismissHaikuBanner()"
+                    style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:5px 10px;border-radius:6px;font-size:10px;cursor:pointer">나중에 확인</button>
+          </div>
+        </div>
+      </div>
+
       <!-- LINE 메시지 등록 대기 배너 -->
       <div id="linePendingBanner" style="display:none;margin-bottom:14px;background:linear-gradient(135deg,#06C755 0%,#04A047 100%);color:#fff;padding:14px 18px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(6,199,85,0.25);display:flex;align-items:center;gap:14px"
            onclick="openLinePendingReview()">
@@ -6716,6 +6736,39 @@ ${text.slice(0, 4000)}`;
   }
   window.peekLineQueue = peekLineQueue;
 
+  /* Haiku 전환 알림 배너 — zoolex 전용, 2026-06-12 ~ 2026-07-31 사이만 노출 */
+  function checkHaikuMigrationBanner() {
+    const banner = document.getElementById('haikuMigrationBanner');
+    if (!banner) return;
+    const auth = (typeof getAuthState === 'function') ? getAuthState() : null;
+    const email = (auth?.email || '').toLowerCase();
+    if (email !== 'zoolex@gmail.com') { banner.style.display = 'none'; return; }
+    const todayKst = (() => {
+      const d = new Date();
+      const k = new Date(d.getTime() + 9*3600*1000);
+      return k.toISOString().slice(0,10);
+    })();
+    const START = '2026-06-12';
+    const END   = '2026-07-31';   // 약 7주 노출 후 자동 사라짐
+    if (todayKst < START || todayKst > END) { banner.style.display = 'none'; return; }
+    // 사용자가 '나중에 확인' 누른 경우 — 24시간 숨김
+    const dismissed = Number(localStorage.getItem('haikuBannerDismissAt') || '0');
+    if (dismissed && (Date.now() - dismissed) < 24*3600*1000) {
+      banner.style.display = 'none';
+      return;
+    }
+    banner.style.display = '';
+  }
+  window.checkHaikuMigrationBanner = checkHaikuMigrationBanner;
+
+  function dismissHaikuBanner() {
+    localStorage.setItem('haikuBannerDismissAt', String(Date.now()));
+    const banner = document.getElementById('haikuMigrationBanner');
+    if (banner) banner.style.display = 'none';
+    showToast('24시간 후 다시 표시됩니다');
+  }
+  window.dismissHaikuBanner = dismissHaikuBanner;
+
   /* 골드 셋 통계 로드 */
   async function loadGoldStats() {
     const el = document.getElementById('goldStats');
@@ -8399,6 +8452,7 @@ ${text.slice(0, 4000)}`;
     let jobs = [];
     try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e) {}
     try { if (typeof refreshLinePendingBanner === 'function') refreshLinePendingBanner(); } catch(e) {}
+    try { if (typeof checkHaikuMigrationBanner === 'function') checkHaikuMigrationBanner(); } catch(e) {}
     const today = new Date();
     const todayStr = today.toISOString().slice(0,10);
     const ym = todayStr.slice(0,7); // YYYY-MM
