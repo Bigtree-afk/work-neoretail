@@ -8684,22 +8684,11 @@ ${text.slice(0, 4000)}`;
     const aliasBadge = aliases.length
       ? `<div style="font-size:10px;color:var(--gray-500);margin-top:2px" title="이전 상호: ${esc(aliases.join(', '))}">↳ (구) ${esc(aliases[0])}${aliases.length>1?` 외 ${aliases.length-1}건`:''}</div>`
       : '';
-    // 매장 등록일 표시: storeRegDate > ecountRegDate > createdAt(자동 변환) 순으로 fallback
-    const regDateDisplay = (() => {
-      if (store.storeRegDate) return store.storeRegDate;
-      if (store.ecountRegDate) return store.ecountRegDate;
-      // createdAt(ms) → YYYY-MM-DD 변환
-      const ts = Number(store.createdAt);
-      if (ts && isFinite(ts)) {
-        const d = new Date(ts);
-        if (!isNaN(d.getTime())) {
-          return d.toISOString().slice(0,10) + ' *';  // *: 등록일 미설정, 시스템 추정값
-        }
-      }
-      return '';
-    })();
+    // 매장 등록일 표시: 명시적 storeRegDate / ecountRegDate 만 표시
+    // (createdAt 은 시스템 업로드 시각이라 실제 등록일 아님 → fallback 안 함)
+    const regDateDisplay = store.storeRegDate || store.ecountRegDate || '';
     tr.innerHTML = `
-      <td style="font-family:monospace;font-size:11px;color:${regDateDisplay?'var(--gray-700)':'var(--gray-300)'};white-space:nowrap" title="${regDateDisplay.endsWith('*')?'시스템 등록 시각으로부터 추정 — 매장 등록일 패치 업로드 시 정확한 일자로 갱신됩니다':''}">${esc(regDateDisplay || '—')}</td>
+      <td style="font-family:monospace;font-size:11px;color:${regDateDisplay?'var(--gray-700)':'var(--gray-300)'};white-space:nowrap" title="${regDateDisplay?'':'매장 등록일 미설정 — 이카운트 일괄 추가 또는 매장 상세에서 입력 가능'}">${esc(regDateDisplay || '—')}</td>
       <td><b>${esc(store.name)}</b>${aliasBadge}</td>
       <td style="font-family:monospace;font-size:11px">${esc(store.biz||'-')}</td>
       <td>${esc(store.ceo||'-')}</td>
@@ -8732,29 +8721,20 @@ ${text.slice(0, 4000)}`;
     if (key === 'addr') return String(s.addr || s.address || '');
     if (key === 'name') return String(s.name || '');
     if (key === 'regdate') {
-      // 명시적 등록일이 있으면 그걸로, 없으면 createdAt(ms) 을 YYYY-MM-DD 로 변환해 fallback
-      if (s.storeRegDate) return s.storeRegDate;
-      if (s.ecountRegDate) return s.ecountRegDate;
-      const ts = Number(s.createdAt);
-      if (ts && isFinite(ts)) {
-        const d = new Date(ts);
-        if (!isNaN(d.getTime())) return d.toISOString().slice(0,10);
-      }
-      return '';
+      // 명시적 등록일만 사용 (createdAt fallback 안 함)
+      return s.storeRegDate || s.ecountRegDate || '';
     }
     return '';
   }
   function _sortedStores(stores) {
     if (!_storeSort) {
-      // 기본 정렬: 매장 등록일 내림차순 (최신 등록 → 과거)
-      // storeRegDate(신규필드) > ecountRegDate(구필드) > createdAt 순서로 fallback
+      // 기본 정렬: 매장 등록일 내림차순 (최신 → 과거)
+      // 등록일 없는 매장은 항상 맨 뒤로
       const dateOf = (s) => {
         const dr = s.storeRegDate || s.ecountRegDate;
-        if (dr) {
-          const t = new Date(dr + 'T00:00:00').getTime();
-          if (!isNaN(t)) return t;
-        }
-        return Number(s.createdAt) || 0;
+        if (!dr) return -1;   // 없으면 음수 → 뒤로 배치
+        const t = new Date(dr + 'T00:00:00').getTime();
+        return isNaN(t) ? -1 : t;
       };
       return [...stores].sort((a,b) => dateOf(b) - dateOf(a));
     }
