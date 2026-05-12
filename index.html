@@ -6874,42 +6874,124 @@ ${text.slice(0, 4000)}`;
   }
   window.parseEcountFile = parseEcountFile;
 
+  /* 일자 정규화 — 다양한 포맷 → YYYY-MM-DD
+     처리 가능:
+       Date 객체, Excel 일자 시리얼,
+       YYYY-MM-DD / YYYY.MM.DD / YYYY/MM/DD / YYYYMMDD,
+       YY.MM.DD / YY-M-DD / YY/M/DD  (2자리 년: 00-69→20xx, 70-99→19xx),
+       YYMMDD (6자리, 2자리 년),
+       YYYY-MM (월까지만 → -01 첨가),
+       한글 접미사 ("25.10.17 부터", "23.12.07 영업확인") → 일자 부분만 추출,
+       기타 깨진 값(".", "-", 한글만 등) → '' */
   function _normalizeDate(v) {
-    if (!v && v !== 0) return '';
-    // Excel cellDates:true 로 Date 객체일 수 있음
+    if (v == null) return '';
+
+    // 1) Date 객체
     if (v instanceof Date && !isNaN(v.getTime())) {
-      return v.toISOString().slice(0,10);
+      return _toYmd(v);
     }
-    // Excel 일자 시리얼 (숫자)
-    if (typeof v === 'number') {
-      // Excel epoch: 1900-01-01 = 1. 윤년 버그 보정.
+
+    // 2) Excel 일자 시리얼 (숫자)
+    if (typeof v === 'number' && isFinite(v) && v > 1) {
       const excelEpoch = new Date(Date.UTC(1899, 11, 30));
       const d = new Date(excelEpoch.getTime() + v * 86400000);
-      if (!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+      if (!isNaN(d.getTime())) return _toYmd(d);
     }
-    const s = String(v).trim();
+
+    let s = String(v).trim();
     if (!s) return '';
-    // 다양한 포맷 시도
+
+    // 괄호 안 일자 추출 — "신규등록보류(22/6/13)" → "22/6/13"
+    const paren = s.match(/[(（]\s*(\d{1,4}[-./]\d{1,2}[-./]\d{1,4})\s*[)）]/);
+    if (paren) s = paren[1];
+
+    // 비표준 구분자 정리 — '*', '.-', '..' 같은 깨진 입력 보정
+    //   "2019*09-19"  → "2019-09-19"
+    //   "2021-01.-21" → "2021-01-21"
+    s = s.replace(/[*]/g, '-').replace(/\.-/g, '-').replace(/\.\./g, '.');
+
+    // 한글/영문 잔여 텍스트 제거 — 일자 부분만 추출 시도
+    // 예: "25.10.17 부터" → "25.10.17"
+    const cleaned = s.replace(/\s*[가-힣].*$/, '').trim();
+    if (cleaned) s = cleaned;
+
+    // 깨진/너무 짧은 값
+    if (s.length < 5) return '';
+
     let m;
-    // YYYY-MM-DD 또는 YYYY/MM/DD 또는 YYYY.MM.DD
+
+    // 3) YYYY-MM-DD / YYYY.MM.DD / YYYY/MM/DD (4자리 년 우선)
     m = s.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);
     if (m) {
       const [_, y, mo, d] = m;
-      return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
+      return _validYmd(y, mo, d);
     }
-    // YYYYMMDD
-    m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
-    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-    // DD-MM-YYYY / DD/MM/YYYY  (덜 일반적)
-    m = s.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{4})/);
+
+    // 4) YY.MM.DD / YY-M-DD / YY/M/DD  (2자리 년)
+    m = s.match(/^(\d{2})[-./](\d{1,2})[-./](\d{1,2})/);
     if (m) {
-      const [_, d, mo, y] = m;
-      return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
+      const [_, yy, mo, d] = m;
+      const y = _twoDigitYearToFull(yy);
+      return _validYmd(y, mo, d);
     }
-    // Date 파싱 시도
+
+    // 5) YYYYMMDD (8자리 무구분자)
+    m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (m) return _validYmd(m[1], m[2], m[3]);
+
+    // 6) YYMMDD (6자리 무구분자, 2자리 년)
+    m = s.match(/^(\d{2})(\d{2})(\d{2})$/);
+    if (m) {
+      const y = _twoDigitYearToFull(m[1]);
+      return _validYmd(y, m[2], m[3]);
+    }
+
+    // 7) YYYY-MM (월까지만) → 1일로 보정
+    m = s.match(/^(\d{4})[-./](\d{1,2})$/);
+    if (m) return _validYmd(m[1], m[2], '01');
+
+    // 8) YY-MM (월까지만, 2자리 년) → 1일로 보정
+    m = s.match(/^(\d{2})[-./](\d{1,2})$/);
+    if (m) {
+      const y = _twoDigitYearToFull(m[1]);
+      return _validYmd(y, m[2], '01');
+    }
+
+    // 9) DD-MM-YYYY 또는 DD/MM/YYYY (덜 일반적)
+    m = s.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{4})/);
+    if (m) return _validYmd(m[3], m[2], m[1]);
+
+    // 10) Date 파싱 마지막 시도
     const dt = new Date(s);
-    if (!isNaN(dt.getTime())) return dt.toISOString().slice(0,10);
+    if (!isNaN(dt.getTime())) return _toYmd(dt);
+
     return '';
+  }
+
+  /* 2자리 연도 → 4자리 연도 (한국 비즈니스 컨벤션) */
+  function _twoDigitYearToFull(yy) {
+    const n = parseInt(String(yy), 10);
+    if (!isFinite(n)) return '';
+    // 00-69 → 20xx (2000~2069)
+    // 70-99 → 19xx (1970~1999)
+    return n < 70 ? (2000 + n) : (1900 + n);
+  }
+
+  /* YMD 유효성 검사 + 포맷 */
+  function _validYmd(y, m, d) {
+    const yy = parseInt(y, 10), mm = parseInt(m, 10), dd = parseInt(d, 10);
+    if (!yy || !mm || !dd) return '';
+    if (mm < 1 || mm > 12) return '';
+    if (dd < 1 || dd > 31) return '';
+    if (yy < 1900 || yy > 2100) return '';
+    return `${String(yy).padStart(4,'0')}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+  }
+
+  function _toYmd(d) {
+    const y = d.getUTCFullYear ? d.getUTCFullYear() : d.getFullYear();
+    const m = (d.getUTCMonth ? d.getUTCMonth() : d.getMonth()) + 1;
+    const dd = d.getUTCDate ? d.getUTCDate() : d.getDate();
+    return `${y}-${String(m).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
   }
 
   async function runEcountPatch(dryRun) {
