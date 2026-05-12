@@ -3163,16 +3163,62 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       const data = await res.json();
       const remote = Array.isArray(data.stores) ? data.stores : [];
       const meta = data.meta || {};
-      // id / biz / code / name 우선순위로 키 결정해 중복 제거
       const local = (typeof getStores === 'function') ? (getStores() || []) : [];
-      const keyOf = (s) => s.id || s.biz || s.code || s.name || JSON.stringify(s);
-      const map = new Map();
-      local.forEach(s => map.set(keyOf(s), s));
-      remote.forEach(s => {
-        const k = keyOf(s);
-        if (!map.has(k)) map.set(k, s);
-      });
-      const merged = Array.from(map.values());
+      // 다중 키 인덱스 (id / biz / code) — 한쪽이 결손이어도 매칭 가능
+      const normBiz = (b) => String(b||'').replace(/\D/g, '');
+      const indexBy = (arr) => {
+        const m = { id:new Map(), biz:new Map(), code:new Map() };
+        for (const s of arr) {
+          if (s.id) m.id.set(s.id, s);
+          const nb = normBiz(s.biz || s.bizno);
+          if (nb && nb.length === 10) m.biz.set(nb, s);
+          if (s.code) m.code.set(s.code, s);
+        }
+        return m;
+      };
+      const remoteIdx = indexBy(remote);
+      const localIdx = indexBy(local);
+      const findIn = (idx, s) => idx.id.get(s.id) || idx.biz.get(normBiz(s.biz||s.bizno)) || idx.code.get(s.code);
+
+      // 서버 권위 필드(KV 가 정답) — 로컬이 비어 있으면 KV 값 채움
+      const SERVER_FIELDS = ['storeRegDate', 'ecountRegDate'];
+      // 로컬 전용 필드(브라우저가 관리) — KV 덮어쓰지 않음
+      const LOCAL_FIELDS  = ['aliases', 'changeLog', 'mergedFrom', 'mergedSnapshot'];
+
+      const mergeStore = (loc, rem) => {
+        if (!rem) return loc;
+        if (!loc) return rem;
+        const out = { ...loc };
+        // 서버 권위 필드 — KV 값 우선 (로컬에 같은 필드 있어도 KV 가 갱신)
+        for (const f of SERVER_FIELDS) {
+          if (rem[f] != null && rem[f] !== '') out[f] = rem[f];
+        }
+        // KV 의 신선한 일반 필드도 머지 (이름·주소·전화 등이 KV 에서 갱신된 경우)
+        for (const k of Object.keys(rem)) {
+          if (SERVER_FIELDS.includes(k)) continue;
+          if (LOCAL_FIELDS.includes(k)) continue;
+          // 로컬에 값이 없으면 KV 값 사용
+          if (out[k] == null || out[k] === '') out[k] = rem[k];
+        }
+        // 로컬 전용 필드는 그대로 유지 (이미 ...loc 로 들어감)
+        return out;
+      };
+
+      const result = [];
+      const seen = new Set();
+      // 1) 로컬 매장 순회 — 각각에 대응하는 KV 매장 찾아 머지
+      for (const loc of local) {
+        const rem = findIn(remoteIdx, loc);
+        result.push(mergeStore(loc, rem));
+        if (rem?.id) seen.add('id:' + rem.id);
+      }
+      // 2) KV 에만 있는 매장 추가
+      for (const rem of remote) {
+        if (rem.id && seen.has('id:' + rem.id)) continue;
+        if (findIn(localIdx, rem)) continue;
+        result.push(rem);
+      }
+      const merged = result;
       if (merged.length > 0 && typeof saveStores === 'function') saveStores(merged);
       if (typeof hydrateSavedStores === 'function') hydrateSavedStores();
       // 로컬이 클라우드보다 많으면 (= Excel 업로드 등으로 추가됨) 즉시 푸시 → 다른 PC 자동 반영
