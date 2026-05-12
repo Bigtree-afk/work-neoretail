@@ -10829,17 +10829,18 @@ ${text.slice(0, 4000)}`;
           </div>
           <div class="modal-body">
             <div id="linkStoreCurrentInfo" style="margin-bottom:14px;padding:10px 14px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:12px;color:#92400E"></div>
-            <div style="display:flex;gap:6px;margin-bottom:10px">
-              <select id="linkStoreScope" onchange="runLinkStoreSearch()" style="padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;font-weight:600;color:var(--gray-700);flex-shrink:0">
+            <!-- 검색 한 줄: 범위 셀렉트(120px) + 입력란(flex) + 조회 버튼 — 화면 좁으면 자동 줄바꿈 -->
+            <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:stretch">
+              <select id="linkStoreScope" onchange="runLinkStoreSearch()" style="width:120px;flex:0 0 120px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;font-weight:600;color:var(--gray-700)">
                 <option value="name_biz">상호·사업자</option>
                 <option value="ceo">대표자</option>
                 <option value="addr">주소</option>
               </select>
-              <input type="text" id="linkStoreSearchInput" placeholder="검색어 입력..." autocomplete="off"
+              <input type="text" id="linkStoreSearchInput" placeholder="검색어 입력 (2자 이상 자동 검색)" autocomplete="off"
                      oninput="onLinkStoreInput(this.value)"
                      onkeydown="if(event.key==='Enter'){event.preventDefault();runLinkStoreSearch();}"
-                     style="flex:1;padding:10px 12px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px">
-              <button class="btn btn-primary btn-sm" onclick="runLinkStoreSearch()" style="padding:8px 18px">🔍 조회</button>
+                     style="flex:1 1 200px;min-width:0;padding:8px 12px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px">
+              <button class="btn btn-primary btn-sm" onclick="runLinkStoreSearch()" style="flex:0 0 auto;padding:8px 16px;white-space:nowrap">🔍 조회</button>
             </div>
             <div style="font-size:11px;color:var(--gray-400);margin-bottom:6px" id="linkStoreCountLabel">검색어를 입력하고 조회 또는 2자 이상 입력 시 자동 검색</div>
             <div id="linkStoreResults" style="max-height:360px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px"></div>
