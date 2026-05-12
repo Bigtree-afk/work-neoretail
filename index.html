@@ -1109,6 +1109,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <!-- SCREEN: JOBS                            -->
     <!-- ═══════════════════════════════════════ -->
     <div class="screen" id="screen-jobs">
+      <!-- Line 등록 대기 패널 (작업/일정 페이지 상단) -->
+      <div id="jobsLinePendingPanel" style="display:none;background:linear-gradient(135deg,#06C755 0%,#04A047 100%);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:14px;box-shadow:0 4px 14px rgba(6,199,85,0.2)">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="font-size:22px">💬</div>
+          <div style="flex:1;min-width:200px">
+            <div style="font-size:14px;font-weight:800">Line 채팅방에서 <span id="jobsLinePendingCount">0</span>개 업무가 검토 대기 중</div>
+            <div style="font-size:10px;opacity:0.9;margin-top:2px">자동 파싱 결과 — 매장/카테고리/담당자/진행상태 확인 후 등록</div>
+          </div>
+          <button onclick="openLinePendingReview()" style="background:rgba(255,255,255,0.2);color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">📋 검토하기 →</button>
+        </div>
+        <div id="jobsLinePendingPreview" style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;font-size:11px"></div>
+      </div>
+
       <!-- 월간 캘린더 (상단 이동) -->
       <div class="card" style="padding:14px 16px;margin-bottom:16px">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;flex-wrap:wrap">
@@ -3180,9 +3193,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     if (id === 'consult' && typeof hydrateConsult === 'function') {
       try { hydrateConsult('active'); } catch(e) {}
     }
-    // 작업/일정 진입 시 캘린더 갱신
+    // 작업/일정 진입 시 캘린더 + Line 등록 대기 패널 갱신
     if ((id === 'jobs' || id === 'calendar') && typeof renderCalendar === 'function') {
       try { renderCalendar(); } catch(e) {}
+      try { if (typeof refreshLinePendingBanner === 'function') refreshLinePendingBanner(); } catch(e) {}
     }
     // 대시보드 진입 시 데이터 갱신 (데모 HTML 잔존 방지)
     if (id === 'dashboard' && typeof hydrateDashboardJobs === 'function') {
@@ -5317,6 +5331,7 @@ ${text.slice(0, 4000)}`;
       const res = await fetch('/api/line-pending');
       const data = await res.json();
       _linePending = data.items || [];
+      // 대시보드 배너
       const banner = document.getElementById('linePendingBanner');
       const countEl = document.getElementById('linePendingCount');
       if (banner && countEl) {
@@ -5327,9 +5342,47 @@ ${text.slice(0, 4000)}`;
           banner.style.display = 'none';
         }
       }
+      // 작업/일정 페이지 패널
+      const jobsPanel = document.getElementById('jobsLinePendingPanel');
+      const jobsCount = document.getElementById('jobsLinePendingCount');
+      const jobsPreview = document.getElementById('jobsLinePendingPreview');
+      if (jobsPanel && jobsCount) {
+        if (_linePending.length > 0) {
+          jobsPanel.style.display = '';
+          jobsCount.textContent = _linePending.length;
+          if (jobsPreview) {
+            // 카테고리별 카운트
+            const byCat = {};
+            _linePending.forEach(p => { byCat[p.lineCategory] = (byCat[p.lineCategory]||0)+1; });
+            const chips = Object.entries(byCat).map(([cat, n]) => {
+              const m = LINE_TYPE_META[cat] || LINE_TYPE_META.ignore;
+              return `<span style="background:rgba(255,255,255,0.25);padding:3px 9px;border-radius:10px;font-weight:600">${m.label} ${n}</span>`;
+            }).join('');
+            // 최근 매장 미리보기 (최대 3건)
+            const recent = _linePending.slice(0,3).map(p => esc(p.store || '?')).join(' · ');
+            jobsPreview.innerHTML = chips + (recent ? `<span style="opacity:0.8;margin-left:auto">최근: ${recent}</span>` : '');
+          }
+        } else {
+          jobsPanel.style.display = 'none';
+        }
+      }
     } catch(e) { console.warn('[Line Pending] 배너 조회 실패:', e); }
   }
   window.refreshLinePendingBanner = refreshLinePendingBanner;
+
+  /* 페이지 로드 후 5분마다 자동 폴링 — 다른 사용자가 cron 으로 추가한 항목도 자동 반영 */
+  let _linePendingPollTimer = null;
+  function startLinePendingPolling() {
+    if (_linePendingPollTimer) return;
+    refreshLinePendingBanner();
+    _linePendingPollTimer = setInterval(refreshLinePendingBanner, 5 * 60 * 1000);
+  }
+  // 로그인 후 자동 시작 — DOMContentLoaded 또는 즉시
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(startLinePendingPolling, 2000));
+  } else {
+    setTimeout(startLinePendingPolling, 2000);
+  }
 
   async function refreshLinePending() {
     await refreshLinePendingBanner();
