@@ -924,7 +924,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       </div>
 
       <!-- MODAL: 대시보드 통계 카드 클릭 시 — 작업 목록 -->
-      <div class="modal-overlay" id="dashListModal" onclick="if(event.target===this)closeModal('dashListModal')">
+      <div class="modal-overlay" id="dashListModal" >
         <div class="modal" style="max-width:760px;width:92vw;max-height:80vh;display:flex;flex-direction:column;background:#fff">
           <div class="modal-header">
             <div class="modal-title" id="dashListTitle">목록</div>
@@ -1518,7 +1518,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     </div>
 
     <!-- MODAL: 점포 상세 (점포관리에서 매장 클릭 시) -->
-    <div class="modal-overlay" id="storeDetailModal" onclick="if(event.target===this)closeModal('storeDetailModal')">
+    <div class="modal-overlay" id="storeDetailModal" >
       <div class="modal" style="max-width:1100px;width:95vw;max-height:90vh;display:flex;flex-direction:column;background:#fff">
         <div class="modal-header">
           <div class="modal-title">🏪 점포 상세</div>
@@ -1603,7 +1603,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     </div>
 
     <!-- MODAL: 점포 정보 변경 -->
-    <div class="modal-overlay" id="storeChangeModal" onclick="if(event.target===this)closeModal('storeChangeModal')">
+    <div class="modal-overlay" id="storeChangeModal" >
       <div class="modal" style="max-width:560px;width:92vw;background:#fff">
         <div class="modal-header">
           <div class="modal-title">ℹ 점포 정보 변경</div>
@@ -1620,7 +1620,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     </div>
 
     <!-- MODAL: 매장 병합 -->
-    <div class="modal-overlay" id="storeMergeModal" onclick="if(event.target===this)closeModal('storeMergeModal')">
+    <div class="modal-overlay" id="storeMergeModal" >
       <div class="modal" style="max-width:680px;width:92vw;background:#fff">
         <div class="modal-header">
           <div class="modal-title">🔗 매장 병합</div>
@@ -1857,7 +1857,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <!-- ═══════════════════════════════════════ -->
 <!-- MODAL: 점포 등록 (스크린샷 자동입력)   -->
 <!-- ═══════════════════════════════════════ -->
-<div class="modal-overlay" id="newStoreModal" onclick="if(event.target===this)closeModal('newStoreModal')">
+<div class="modal-overlay" id="newStoreModal" >
   <div class="modal" style="width:680px; max-width:96vw">
     <div class="modal-header" style="align-items:flex-start">
       <div>
@@ -2033,7 +2033,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <!-- ═══════════════════════════════════════ -->
 <!-- MODAL: 새 작업 등록                    -->
 <!-- ═══════════════════════════════════════ -->
-<div class="modal-overlay" id="newJobModal" onclick="if(event.target===this)closeModal('newJobModal')">
+<div class="modal-overlay" id="newJobModal" >
   <div class="modal" style="width:min(960px,96vw)">
     <div class="modal-header">
       <div>
@@ -2257,7 +2257,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <!-- ═══════════════════════════════════════ -->
 <!-- MODAL: 엑셀 업로드                     -->
 <!-- ═══════════════════════════════════════ -->
-<div class="modal-overlay" id="excelUploadModal" onclick="if(event.target===this)closeModal('excelUploadModal')">
+<div class="modal-overlay" id="excelUploadModal" >
   <div class="modal" style="width:min(740px,96vw)">
     <div class="modal-header">
       <div>
@@ -2369,7 +2369,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <!-- ═══════════════════════════════════════ -->
 <!-- Line 등록 대기 업무 검토 모달                     -->
 <!-- ═══════════════════════════════════════ -->
-<div class="modal-overlay" id="linePendingReviewModal" onclick="if(event.target===this)closeModal('linePendingReviewModal')">
+<div class="modal-overlay" id="linePendingReviewModal" >
   <div class="modal" style="width:1000px;max-width:98vw;max-height:92vh">
     <div class="modal-header">
       <div class="modal-title">
@@ -2393,7 +2393,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   </div>
 </div>
 
-<div class="modal-overlay" id="lineImportModal" onclick="if(event.target===this)closeModal('lineImportModal')">
+<div class="modal-overlay" id="lineImportModal" >
   <div class="modal" style="width:660px;max-width:96vw;max-height:90vh">
     <div class="modal-header">
       <div class="modal-title">
@@ -2513,7 +2513,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <!-- ═══════════════════════════════════════ -->
 <!-- MODAL: AI 설정                          -->
 <!-- ═══════════════════════════════════════ -->
-<div class="modal-overlay" id="settingsModal" onclick="if(event.target===this)closeModal('settingsModal')">
+<div class="modal-overlay" id="settingsModal" >
   <div class="modal" style="width:480px;max-width:96vw">
     <div class="modal-header">
       <div class="modal-title">⚙️ AI 설정</div>
@@ -2648,7 +2648,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <!-- ═══════════════════════════════════════ -->
 <!-- MODAL: 관리자 페이지                    -->
 <!-- ═══════════════════════════════════════ -->
-<div class="modal-overlay" id="adminModal" onclick="if(event.target===this)closeModal('adminModal')">
+<div class="modal-overlay" id="adminModal" >
   <div class="modal" style="width:540px;max-width:96vw">
     <div class="modal-header">
       <div class="modal-title">⚙️ 관리자 페이지</div>
@@ -2997,7 +2997,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 </div>
 
 <!-- MODAL: 마이페이지 (모든 사용자) — 장비 품목 관리 -->
-<div class="modal-overlay" id="myPageModal" onclick="if(event.target===this)closeModal('myPageModal')">
+<div class="modal-overlay" id="myPageModal" >
   <div class="modal" style="max-width:1100px;width:95vw;max-height:90vh;display:flex;flex-direction:column;background:#fff">
     <div class="modal-header">
       <div class="modal-title">📦 장비 품목 관리 / 📑 서류 확인</div>
@@ -3288,8 +3288,23 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   }
 
   function closeModal(id) {
-    document.getElementById(id).classList.remove('show');
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('show');
   }
+  window.closeModal = closeModal;
+
+  /* 백드롭 클릭으로 모달이 닫히는 동작 비활성화
+     — 모달 안에서 입력 도중 실수로 바깥쪽 클릭/포커스 이동 시 데이터 손실 방지
+     — 닫기는 ✕ 버튼 또는 ESC 키로만 */
+  window.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Escape') return;
+    // 화면에 떠 있는 모달 중 가장 위(마지막에 열린 것) 닫기
+    const open = Array.from(document.querySelectorAll('.modal-overlay.show'));
+    if (!open.length) return;
+    const top = open[open.length - 1];
+    top.classList.remove('show');
+    ev.preventDefault();
+  });
 
   document.querySelectorAll('.filter-chip').forEach(chip => {
     chip.addEventListener('click', function() {
@@ -9999,7 +10014,7 @@ ${text.slice(0, 4000)}`;
       modal = document.createElement('div');
       modal.id = 'newopenDetailModal';
       modal.className = 'modal-overlay';
-      modal.onclick = (e) => { if (e.target === modal) modal.classList.remove('show'); };
+      /* backdrop close disabled — use ✕ or ESC */
       modal.innerHTML = `
         <div class="modal" style="max-width:920px;width:96%">
           <div class="modal-header">
@@ -10820,7 +10835,7 @@ ${text.slice(0, 4000)}`;
       modal = document.createElement('div');
       modal.id = 'linkStoreModal';
       modal.className = 'modal-overlay';
-      modal.onclick = (e) => { if (e.target === modal) modal.classList.remove('show'); };
+      /* backdrop close disabled — use ✕ or ESC */
       modal.innerHTML = `
         <div class="modal" style="max-width:640px;width:96%">
           <div class="modal-header">
@@ -11753,7 +11768,17 @@ ${text.slice(0, 4000)}`;
 
   // 공백 무시 정규화 — "이마트 에브리데이" 와 "이마트에브리데이" 모두 매칭되게
   function _normalizeSearch(s) {
-    return String(s||'').toLowerCase().replace(/\s+/g, '');
+    return String(s||'')
+      .toLowerCase()
+      // 회사 형태 토큰 제거 — "다봄(주)" / "(주)다봄" / "다봄주식회사" → "다봄"
+      .replace(/\(주\)|\(유\)|\(합\)|\(재\)|\(사\)/g, '')
+      .replace(/주식회사|유한회사|합자회사|합명회사|유한책임회사|재단법인|사단법인/g, '')
+      // 괄호 자체도 제거
+      .replace(/[()[\]{}<>「」]/g, '')
+      // 구두점·기호 제거
+      .replace(/[._\-·\/\\,'"!?@#%&*+=:;|~`]/g, '')
+      // 모든 공백 제거
+      .replace(/\s+/g, '');
   }
   /* 검색 범위 → 매장에서 검색 대상이 되는 필드만 추출 (모든 검색 지점 공통) */
   function _storeFieldsForScope(s, scope) {
@@ -12066,9 +12091,7 @@ ${text.slice(0, 4000)}`;
           </div>
           <div class="modal-body" id="sdmBody" style="padding:16px 20px 20px"></div>
         </div>`;
-      modal.addEventListener('click', function(e) {
-        if (e.target === modal) modal.classList.remove('show');
-      });
+      /* backdrop close disabled — use ✕ or ESC */
       document.body.appendChild(modal);
     }
 
