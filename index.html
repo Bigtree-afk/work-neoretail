@@ -2915,6 +2915,18 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
         <div id="lineCfgQueueInfo" style="margin-top:8px;font-size:11px;color:var(--gray-600)"></div>
 
+        <!-- 골드 셋 (Haiku 학습용 데이터) -->
+        <div style="margin-top:14px;padding:10px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:12px;font-weight:800;color:#92400E">🎯 골드 셋 (Haiku 전환 학습 데이터)</div>
+            <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 8px" onclick="loadGoldStats()">🔄</button>
+          </div>
+          <div style="font-size:10px;color:var(--gray-600);margin-bottom:6px;line-height:1.5">
+            직원이 [등록] 한 LINE 분류 결과를 자동 수집 — 1개월 후 Haiku 4.5 전환 시 few-shot 예시로 사용 (목표: 100~200건 누적)
+          </div>
+          <div id="goldStats" style="font-size:11px;color:var(--gray-700)"></div>
+        </div>
+
         <!-- 파싱 이력 로그 -->
         <div style="margin-top:14px;padding:10px;background:#fff;border:1px solid #BBF7D0;border-radius:6px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap">
@@ -5939,6 +5951,43 @@ ${text.slice(0, 4000)}`;
 
     try { pushJobsToCloud({ toast:false }); } catch(e){}
 
+    // 골드 셋 누적 — 검토·승인된 분류 결과를 학습 데이터로 저장 (Haiku 전환용)
+    try {
+      const auth = getAuthState();
+      const goldPayload = {
+        input: {
+          text:   p.lineRaw || '',
+          sender: p.lineSender || '',
+          time:   (p.lineMsgAt || '').slice(11),  // HH:MM
+          room:   p.lineRoom || '',
+        },
+        output: {
+          type:         p.lineCategory,
+          store:        storeMatch?.name || p.store || '',
+          storeMatched: !!p.storeId,
+          status:       p.status,
+          assignee:     p.assignee || '',
+          device:       p.lineDevice || '',
+          request:      p.lineRequest || '',
+          parsed:       p.lineParsed || '',
+        },
+        meta: {
+          originalCategory:  p.lineCategory,   // 검토 중 변경 추적은 추후 구현
+          categoryChanged:   false,
+          reviewMemo:        p.memo || '',
+          storeOriginal:     p.storeOriginal || '',
+          action:            p.action || 'new',
+        },
+        approvedBy: auth?.email || auth?.name || 'unknown',
+        approvedAt: new Date().toISOString(),
+      };
+      fetch('/api/line-gold', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(goldPayload),
+      }).catch(e => console.warn('gold save failed:', e));
+    } catch(e) { console.warn('gold collection skipped:', e); }
+
     // 큐에서 제거
     try {
       await fetch('/api/line-pending?id=' + encodeURIComponent(id), { method: 'DELETE' });
@@ -6556,6 +6605,7 @@ ${text.slice(0, 4000)}`;
     try { loadLineConfig(); } catch(e){}
     try { loadLineRooms(); } catch(e){}
     try { loadParseLog(); } catch(e){}
+    try { loadGoldStats(); } catch(e){}
 
     showModal('adminModal');
   }
@@ -6665,6 +6715,44 @@ ${text.slice(0, 4000)}`;
     } catch(e) { info.innerHTML = `<span style="color:var(--danger)">❌ ${esc(e.message)}</span>`; }
   }
   window.peekLineQueue = peekLineQueue;
+
+  /* 골드 셋 통계 로드 */
+  async function loadGoldStats() {
+    const el = document.getElementById('goldStats');
+    if (!el) return;
+    try {
+      const r = await fetch('/api/line-gold');
+      const d = await r.json();
+      const s = d.stats || {};
+      const cats = s.byCategory || {};
+      const catMeta = {
+        as_pos_van: '🛠 A/S', open_store: '🏪 오픈',
+        van_doc: '📑 밴서류', device_mgmt: '📱 단말기',
+      };
+      const catParts = Object.entries(cats).map(([k,v]) => `${catMeta[k]||k}: <b>${v}</b>`).join('  ·  ');
+      const progressBar = (() => {
+        const target = 200;
+        const pct = Math.min(100, Math.round((s.total||0) * 100 / target));
+        const color = pct >= 50 ? '#16A34A' : pct >= 25 ? '#F59E0B' : '#94A3B8';
+        return `<div style="margin-top:6px"><div style="height:6px;background:#fff;border-radius:3px;overflow:hidden;border:1px solid var(--gray-200)"><div style="height:100%;width:${pct}%;background:${color};transition:width .3s"></div></div><div style="font-size:9px;color:var(--gray-500);margin-top:2px">목표 200건 대비 <b>${pct}%</b></div></div>`;
+      })();
+      el.innerHTML = `
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+          <span>총 <b style="font-size:14px;color:#92400E">${s.total||0}</b>건</span>
+          <span style="color:var(--gray-400)">|</span>
+          ${catParts || '<span style="color:var(--gray-400)">데이터 없음</span>'}
+        </div>
+        <div style="margin-top:4px;font-size:10px;color:var(--gray-500)">
+          ${s.storeMatched ? `매장 연결: ${s.storeMatched}건` : ''}
+          ${s.categoryChanged ? ` · 카테고리 변경: ${s.categoryChanged}건` : ''}
+          ${s.firstAt ? ` · 시작: ${(s.firstAt||'').slice(0,10)}` : ''}
+          ${s.lastAt ? ` · 최근: ${(s.lastAt||'').slice(0,10)}` : ''}
+        </div>
+        ${progressBar}
+      `;
+    } catch(e) { el.innerHTML = `<span style="color:var(--danger)">❌ ${esc(e.message)}</span>`; }
+  }
+  window.loadGoldStats = loadGoldStats;
 
   /* LINE 파싱 이력 — 어느 메시지가 pending/ignore/error 되었는지 */
   async function loadParseLog() {
