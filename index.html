@@ -5473,25 +5473,40 @@ ${text.slice(0, 4000)}`;
 
         <!-- 편집 그리드 -->
         <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-          <!-- 매장 (검색형 콤보박스 — 토큰 단위 매칭) -->
+          <!-- 매장 — 2단 레이아웃: (1) 현재 연결 매장 표시  (2) 검색해서 변경 -->
           <div>
-            <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">
-              🏪 매장 <span id="storeStatus-${p.id}">${p.storeId ? `<span style="color:var(--success)">✓ 연결됨</span>` : `<span style="color:var(--warning)">⚠ 미연결 (원문: ${esc(p.store||'없음')})</span>`}</span>
-            </label>
+            <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">🏪 매장</label>
+            <!-- 1단: 현재 연결 상태 -->
+            <div id="storeStatus-${p.id}" style="margin-bottom:3px">
+              ${p.storeId
+                ? (() => {
+                    const s = stores.find(x => x.id === p.storeId);
+                    return `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#F0FDF4;border:1px solid var(--success);border-radius:5px">
+                      <span style="font-size:11px;font-weight:700;color:var(--success);flex-shrink:0">✓ 연결됨</span>
+                      <span style="font-size:12px;font-weight:700;color:var(--gray-800);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s?.address || '')}">${esc(s?.name || p.store || '?')}</span>
+                      ${s?.bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace">${esc(s.bizNo)}</span>` : ''}
+                      <span onclick="clearPendingStore('${p.id}')" title="연결 해제" style="cursor:pointer;color:var(--gray-400);font-size:14px;font-weight:700;padding:0 4px">✕</span>
+                    </div>`;
+                  })()
+                : `<div style="padding:5px 8px;background:#FFFBEB;border:1px solid var(--warning);border-radius:5px;font-size:11px;color:#92400E">
+                    ⚠ 미연결 — 원문: <b>${esc(p.store || '없음')}</b>
+                  </div>`
+              }
+            </div>
+            <!-- 2단: 검색 입력 -->
             <div style="position:relative">
               <input type="text"
                      list="lpStores-${p.id}"
                      id="storeInput-${p.id}"
-                     value="${esc((stores.find(s => s.id === p.storeId)?.name) || p.store || '')}"
-                     placeholder="🔍 매장명·지역·주소·사업자번호 (공백으로 여러 단어 — 예: 자연들 오이도)"
+                     value=""
+                     placeholder="🔍 매장 변경 검색 — 매장명·지역·주소·사업자번호 (예: 자연들 오이도)"
                      oninput="onStoreSearchLive('${p.id}', this)"
                      onchange="onStoreSearchCommit('${p.id}', this)"
                      onblur="onStoreSearchCommit('${p.id}', this)"
-                     style="width:100%;padding:5px 24px 5px 6px;border:1px solid ${p.storeId ? 'var(--success)' : 'var(--warning)'};border-radius:5px;font-size:12px;background:${p.storeId ? '#F0FDF4' : '#FFFBEB'}">
-              ${p.storeId ? `<span onclick="clearPendingStore('${p.id}')" title="연결 해제" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--gray-400);font-size:12px;font-weight:700">✕</span>` : ''}
+                     style="width:100%;padding:5px 6px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px">
               <datalist id="lpStores-${p.id}">${storeOpts}</datalist>
             </div>
-            <!-- 라이브 검색 결과 (최대 5개 — 클릭해서 선택) -->
+            <!-- 라이브 검색 결과 -->
             <div id="storeSuggest-${p.id}" style="margin-top:3px;font-size:10px"></div>
           </div>
           <!-- 카테고리 -->
@@ -5645,20 +5660,21 @@ ${text.slice(0, 4000)}`;
     if (match) {
       it.storeId = match.id;
       it.store = match.name;
-      inputEl.value = match.name;
+      inputEl.value = '';   // 검색창 비움 — 연결 상태는 상단 패널에서 표시
       _flushPending(pendId, { storeId: match.id, store: match.name });
-      _updateStoreInputStyle(pendId, true);
-    } else {
-      // 텍스트만 보존
-      it.storeId = '';
-      it.store = val;
-      _flushPending(pendId, { storeId:'', store: val });
-      _updateStoreInputStyle(pendId, false);
+      _updateStoreStatusPanel(pendId);
+      const sg = document.getElementById('storeSuggest-' + pendId);
+      if (sg) sg.innerHTML = '';
+    } else if (val) {
+      // 검색은 했는데 매칭 없음 — 현재 연결은 그대로 유지하고 toast 만
+      // (입력 텍스트가 원본 LINE 메시지의 store 를 덮어쓰면 안 됨)
+      const sg = document.getElementById('storeSuggest-' + pendId);
+      if (sg) sg.innerHTML = `<span style="color:var(--warning)">매칭되는 매장 없음 — 위 검색 결과에서 선택하거나 다시 입력해 주세요</span>`;
     }
   }
   window.onStoreSearchCommit = onStoreSearchCommit;
 
-  /* 라이브 검색 결과 클릭 — 매장 즉시 연결 */
+  /* 라이브 검색 결과 클릭 — 매장 즉시 연결, 검색창은 비움 */
   function selectStoreForPending(pendId, storeId) {
     const it = _linePending.find(x => x.id === pendId);
     if (!it) return;
@@ -5669,39 +5685,48 @@ ${text.slice(0, 4000)}`;
     it.store = s.name;
     _flushPending(pendId, { storeId: s.id, store: s.name });
     const input = document.getElementById('storeInput-' + pendId);
-    if (input) input.value = s.name;
+    if (input) input.value = '';   // 검색창 비움 (현재 연결은 위쪽 패널에 표시됨)
     const suggestEl = document.getElementById('storeSuggest-' + pendId);
     if (suggestEl) suggestEl.innerHTML = '';
-    _updateStoreInputStyle(pendId, true);
+    _updateStoreStatusPanel(pendId);
   }
   window.selectStoreForPending = selectStoreForPending;
 
-  /* 입력칸 색상·상태 라벨만 갱신 — 전체 리렌더 회피로 포커스 유지 */
-  function _updateStoreInputStyle(pendId, linked) {
-    const inp = document.getElementById('storeInput-' + pendId);
-    if (inp) {
-      inp.style.borderColor = linked ? 'var(--success)' : 'var(--warning)';
-      inp.style.background  = linked ? '#F0FDF4' : '#FFFBEB';
-    }
+  /* 연결 상태 패널만 다시 그리기 — 전체 리렌더 회피로 검색 입력 포커스 유지 가능 */
+  function _updateStoreStatusPanel(pendId) {
+    const it = _linePending.find(x => x.id === pendId);
+    if (!it) return;
     const statusEl = document.getElementById('storeStatus-' + pendId);
-    if (statusEl) {
-      const it = _linePending.find(x => x.id === pendId);
-      statusEl.innerHTML = linked
-        ? `<span style="color:var(--success)">✓ 연결됨</span>`
-        : `<span style="color:var(--warning)">⚠ 미연결 (원문: ${esc(it?.store||'없음')})</span>`;
+    if (!statusEl) return;
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    if (it.storeId) {
+      const s = stores.find(x => x.id === it.storeId);
+      statusEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#F0FDF4;border:1px solid var(--success);border-radius:5px">
+        <span style="font-size:11px;font-weight:700;color:var(--success);flex-shrink:0">✓ 연결됨</span>
+        <span style="font-size:12px;font-weight:700;color:var(--gray-800);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s?.address || '')}">${esc(s?.name || it.store || '?')}</span>
+        ${s?.bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace">${esc(s.bizNo)}</span>` : ''}
+        <span onclick="clearPendingStore('${pendId}')" title="연결 해제" style="cursor:pointer;color:var(--gray-400);font-size:14px;font-weight:700;padding:0 4px">✕</span>
+      </div>`;
+    } else {
+      statusEl.innerHTML = `<div style="padding:5px 8px;background:#FFFBEB;border:1px solid var(--warning);border-radius:5px;font-size:11px;color:#92400E">
+        ⚠ 미연결 — 원문: <b>${esc(it.store || '없음')}</b>
+      </div>`;
     }
   }
+
+  // 구 함수명 호환
+  const _updateStoreInputStyle = (pendId) => _updateStoreStatusPanel(pendId);
 
   function clearPendingStore(pendId) {
     const it = _linePending.find(x => x.id === pendId);
     if (!it) return;
+    // 연결만 해제 — 원문 store 텍스트는 보존 (재검색 단서로 남김)
+    const originalStore = it.store;
     it.storeId = '';
-    it.store = '';
-    _flushPending(pendId, { storeId:'', store:'' });
+    _flushPending(pendId, { storeId:'' });
     const inp = document.getElementById('storeInput-' + pendId);
     if (inp) inp.value = '';
-    _updateStoreInputStyle(pendId, false);
-    renderLinePendingList();
+    _updateStoreStatusPanel(pendId);
   }
   window.clearPendingStore = clearPendingStore;
 
