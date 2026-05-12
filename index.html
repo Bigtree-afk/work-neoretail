@@ -10139,7 +10139,19 @@ ${text.slice(0, 4000)}`;
             ${j.storeId ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-600);border-color:var(--gray-300);font-size:11px;padding:4px 10px" onclick="document.getElementById('newopenDetailModal').classList.remove('show');unlinkStore('${j.id}')">🔓 연결 해제</button>` : ''}
           </div>
         </div>
-        <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">작업 유형</div><div style="font-weight:700">${esc(j.type || '-')}</div></div>
+        <div>
+          <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;display:flex;align-items:center;gap:4px">
+            작업 유형 <span style="font-size:10px;color:var(--gray-400)">— 변경 시 분류·필터에 반영</span>
+          </div>
+          <select onchange="updateJobType('${j.id}', this.value)"
+                  style="width:100%;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;font-weight:700;background:#fff">
+            ${(() => {
+              const types = ['신규','신규가맹','POS교체','VAN교체','SW교체','AS 처리','상담','장비 추가','이동단말기 개통','이동단말기 해지','밴서류','정보변경','재신고','기타'];
+              if (j.type && !types.includes(j.type)) types.push(j.type);
+              return types.map(t => `<option value="${esc(t)}" ${j.type===t?'selected':''}>${esc(t)}</option>`).join('');
+            })()}
+          </select>
+        </div>
         <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">담당</div><div>${esc(j.engineer || j.assignee || '미배정')}</div></div>
         <div style="grid-column:1/-1">
           <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">📌 매장 주요 일정 <span style="font-size:10px;color:var(--gray-400)">— 입력 즉시 자동 저장</span></div>
@@ -10453,6 +10465,46 @@ ${text.slice(0, 4000)}`;
   window.removeJobEquip = removeJobEquip;
 
   /* 작업 날짜 필드 업데이트 (상세 모달에서 사용) */
+  /* 작업 유형 변경 — type + lineCategory 자동 동기화 (필터/뱃지 일관성) */
+  function updateJobType(jobId, value) {
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const oldType = job.type;
+    job.type = value;
+    // type → lineCategory 매핑 (작업/일정·신규/AS 화면 필터 일관성)
+    if (/AS|에이에스|이동단말기/i.test(value)) {
+      if (/이동단말기|단말기/i.test(value)) job.lineCategory = 'device_mgmt';
+      else job.lineCategory = 'as_pos_van';
+    } else if (/신규가맹|밴서류|정보변경|재신고|상호변경|주소변경/i.test(value)) {
+      job.lineCategory = 'van_doc';
+    } else if (/신규|개업|오픈|POS교체|VAN교체|SW교체/i.test(value)) {
+      job.lineCategory = 'open_store';
+    }
+    // 작업 카드에 변경 로그 메모 자동 추가
+    if (!Array.isArray(job.memos)) job.memos = [];
+    const now = new Date();
+    const stamp = new Intl.DateTimeFormat('sv-SE', { timeZone:'Asia/Seoul', year:'2-digit', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }).format(now).replace('T',' ');
+    const auth = (typeof getAuthState === 'function') ? getAuthState() : null;
+    job.memos.push({
+      at: stamp,
+      author: auth?.name || auth?.email || '직원',
+      text: `🔄 작업 유형 변경: ${oldType || '-'} → ${value}`,
+    });
+    saveJobs(jobs);
+    try { pushJobsToCloud({ toast:false }); } catch(e){}
+    if (typeof showToast === 'function') showToast(`✅ 작업 유형: ${oldType||'-'} → ${value}`);
+    // 모든 관련 화면 갱신
+    try { hydrateNewopen('all'); } catch(e){}
+    try { hydrateAsMgmt(); } catch(e){}
+    try { hydrateDashboardJobs(); } catch(e){}
+    try { rebuildJobsGrid(); } catch(e){}
+    try { renderCalendar(); } catch(e){}
+    // 모달 다시 그려서 조건부 UI (AS 패널 등) 반영
+    try { editNewopen(jobId); } catch(e){}
+  }
+  window.updateJobType = updateJobType;
+
   function updateJobDate(jobId, field, value) {
     if (!['installDate','softOpenDate','openDate'].includes(field)) return;
     const jobs = getJobs();
