@@ -5481,14 +5481,7 @@ ${text.slice(0, 4000)}`;
               ${(() => {
                 const linkedStore = p.storeId ? stores.find(x => x.id === p.storeId) : null;
                 if (linkedStore) {
-                  const showOriginal = p.storeOriginal && p.storeOriginal !== linkedStore.name;
-                  return `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#F0FDF4;border:1px solid var(--success);border-radius:5px;flex-wrap:wrap">
-                    <span style="font-size:11px;font-weight:700;color:var(--success);flex-shrink:0">✓ 연결됨</span>
-                    <span style="font-size:12px;font-weight:700;color:var(--gray-800);flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(linkedStore.address || linkedStore.addr || '')}">${esc(linkedStore.name)}</span>
-                    ${linkedStore.bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace">${esc(linkedStore.bizNo)}</span>` : ''}
-                    ${showOriginal ? `<span style="font-size:10px;color:#92400E;background:#FEF3C7;padding:1px 6px;border-radius:3px" title="LINE 원문에서 추출된 매장명">원문: ${esc(p.storeOriginal)}</span>` : ''}
-                    <span onclick="clearPendingStore('${p.id}')" title="연결 해제" style="cursor:pointer;color:var(--gray-400);font-size:14px;font-weight:700;padding:0 4px">✕</span>
-                  </div>`;
+                  return _renderConnectedStorePanel(p.id, linkedStore, p.storeOriginal);
                 }
                 if (p.storeId) {
                   return `<div style="padding:5px 8px;background:#FEE2E2;border:1px solid var(--danger);border-radius:5px;font-size:11px;color:#991B1B;display:flex;align-items:center;gap:6px">
@@ -5649,17 +5642,21 @@ ${text.slice(0, 4000)}`;
     }
     suggestEl.innerHTML = results.map((s, i) => {
       const active = i === activeIdx;
+      const addr = s.addr || s.address || '';
+      const tel = s.tel || s.phone || '';
+      const bizNo = s.bizNo || s.biz || '';
       return `<div data-idx="${i}"
                    onclick="selectStoreForPending('${pendId}', '${esc(s.id)}')"
                    onmouseenter="_setStoreActive('${pendId}', ${i})"
                    style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--gray-100);background:${active?'#DBEAFE':'#fff'}">
                 <div style="font-size:12px;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:6px">
                   <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name||'-')}</span>
-                  ${s.bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace;font-weight:500">${esc(s.bizNo)}</span>` : ''}
+                  ${bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace;font-weight:500">${esc(bizNo)}</span>` : ''}
                 </div>
                 <div style="font-size:10px;color:var(--gray-500);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
                   ${s.ceo ? `<span>👤 ${esc(s.ceo)}</span>` : ''}
-                  ${s.address ? `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 ${esc(s.address)}</span>` : ''}
+                  ${tel ? `<span style="color:#1D4ED8">📞 ${esc(tel)}</span>` : ''}
+                  ${addr ? `<span style="flex:1;min-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 ${esc(addr)}</span>` : ''}
                 </div>
               </div>`;
     }).join('');
@@ -5723,6 +5720,33 @@ ${text.slice(0, 4000)}`;
   }
   window.selectStoreForPending = selectStoreForPending;
 
+  /* 연결된 매장 패널 — 2행 레이아웃 (헤더 + 주소·전화) */
+  function _renderConnectedStorePanel(pendId, s, originalStoreText) {
+    const showOriginal = originalStoreText && originalStoreText !== s.name;
+    const addr = s.addr || s.address || '';
+    const tel = s.tel || s.phone || '';
+    const bizNo = s.bizNo || s.biz || '';
+    const ceo = s.ceo || '';
+    const telLink = tel ? `<a href="tel:${esc(tel)}" style="color:#1D4ED8;text-decoration:none;font-weight:700">📞 ${esc(tel)}</a>` : '';
+    return `<div style="background:#F0FDF4;border:1px solid var(--success);border-radius:5px;padding:6px 10px">
+      <!-- 1행: 연결됨 + 매장명 + 사업자 + 원문 + 해제 -->
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;color:var(--success);flex-shrink:0">✓ 연결됨</span>
+        <span style="font-size:13px;font-weight:800;color:var(--gray-900);flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name||'-')}</span>
+        ${bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace">${esc(bizNo)}</span>` : ''}
+        ${showOriginal ? `<span style="font-size:10px;color:#92400E;background:#FEF3C7;padding:1px 6px;border-radius:3px" title="LINE 원문에서 추출된 매장명">원문: ${esc(originalStoreText)}</span>` : ''}
+        <span onclick="clearPendingStore('${pendId}')" title="연결 해제" style="cursor:pointer;color:var(--gray-400);font-size:14px;font-weight:700;padding:0 4px">✕</span>
+      </div>
+      <!-- 2행: 주소 · 전화 · 대표자 (있을 때만) -->
+      ${(addr || tel || ceo) ? `
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px;font-size:11px;color:var(--gray-700);flex-wrap:wrap">
+          ${ceo ? `<span>👤 ${esc(ceo)}</span>` : ''}
+          ${tel ? `<span>${telLink}</span>` : ''}
+          ${addr ? `<span style="flex:1;min-width:150px;color:var(--gray-600)" title="${esc(addr)}">📍 ${esc(addr)}</span>` : ''}
+        </div>` : ''}
+    </div>`;
+  }
+
   /* 연결 상태 패널만 다시 그리기 — 전체 리렌더 회피로 검색 입력 포커스 유지 가능 */
   function _updateStoreStatusPanel(pendId) {
     const it = _linePending.find(x => x.id === pendId);
@@ -5732,14 +5756,7 @@ ${text.slice(0, 4000)}`;
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     const linkedStore = it.storeId ? stores.find(x => x.id === it.storeId) : null;
     if (linkedStore) {
-      const showOriginal = it.storeOriginal && it.storeOriginal !== linkedStore.name;
-      statusEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#F0FDF4;border:1px solid var(--success);border-radius:5px;flex-wrap:wrap">
-        <span style="font-size:11px;font-weight:700;color:var(--success);flex-shrink:0">✓ 연결됨</span>
-        <span style="font-size:12px;font-weight:700;color:var(--gray-800);flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(linkedStore.address || linkedStore.addr || '')}">${esc(linkedStore.name)}</span>
-        ${linkedStore.bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace">${esc(linkedStore.bizNo)}</span>` : ''}
-        ${showOriginal ? `<span style="font-size:10px;color:#92400E;background:#FEF3C7;padding:1px 6px;border-radius:3px" title="LINE 원문에서 추출된 매장명">원문: ${esc(it.storeOriginal)}</span>` : ''}
-        <span onclick="clearPendingStore('${pendId}')" title="연결 해제" style="cursor:pointer;color:var(--gray-400);font-size:14px;font-weight:700;padding:0 4px">✕</span>
-      </div>`;
+      statusEl.innerHTML = _renderConnectedStorePanel(pendId, linkedStore, it.storeOriginal);
     } else if (it.storeId) {
       statusEl.innerHTML = `<div style="padding:5px 8px;background:#FEE2E2;border:1px solid var(--danger);border-radius:5px;font-size:11px;color:#991B1B;display:flex;align-items:center;gap:6px">
         <span style="font-weight:700">⚠ 잘못된 연결</span>
@@ -5878,6 +5895,11 @@ ${text.slice(0, 4000)}`;
         storeName: storeMatch?.name || p.store || '',
         store:     storeMatch?.name || p.store || '',
         storeId:   p.storeId || '',
+        // 매장 부가정보 — 작업 카드/상세에서 빠른 참조용
+        address:   storeMatch?.addr || storeMatch?.address || '',
+        storeTel:  storeMatch?.tel  || storeMatch?.phone   || '',
+        storeCeo:  storeMatch?.ceo  || '',
+        storeBizNo: storeMatch?.biz || storeMatch?.bizNo   || '',
         unregistered: !p.storeId,
         engineer: p.assignee || '',
         notes: [p.lineParsed, p.lineRaw, p.memo ? '검토메모: '+p.memo : ''].filter(Boolean).join(' / '),
