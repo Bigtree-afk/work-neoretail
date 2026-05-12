@@ -5476,22 +5476,29 @@ ${text.slice(0, 4000)}`;
           <!-- 매장 — 2단 레이아웃: (1) 현재 연결 매장 표시  (2) 검색해서 변경 -->
           <div>
             <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">🏪 매장</label>
-            <!-- 1단: 현재 연결 상태 -->
+            <!-- 1단: 현재 연결 상태 (storeId 가 실제 매장과 매칭되는지 검증) -->
             <div id="storeStatus-${p.id}" style="margin-bottom:3px">
-              ${p.storeId
-                ? (() => {
-                    const s = stores.find(x => x.id === p.storeId);
-                    return `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#F0FDF4;border:1px solid var(--success);border-radius:5px">
-                      <span style="font-size:11px;font-weight:700;color:var(--success);flex-shrink:0">✓ 연결됨</span>
-                      <span style="font-size:12px;font-weight:700;color:var(--gray-800);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s?.address || '')}">${esc(s?.name || p.store || '?')}</span>
-                      ${s?.bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace">${esc(s.bizNo)}</span>` : ''}
-                      <span onclick="clearPendingStore('${p.id}')" title="연결 해제" style="cursor:pointer;color:var(--gray-400);font-size:14px;font-weight:700;padding:0 4px">✕</span>
-                    </div>`;
-                  })()
-                : `<div style="padding:5px 8px;background:#FFFBEB;border:1px solid var(--warning);border-radius:5px;font-size:11px;color:#92400E">
-                    ⚠ 미연결 — 원문: <b>${esc(p.store || '없음')}</b>
-                  </div>`
-              }
+              ${(() => {
+                const linkedStore = p.storeId ? stores.find(x => x.id === p.storeId) : null;
+                if (linkedStore) {
+                  return `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#F0FDF4;border:1px solid var(--success);border-radius:5px">
+                    <span style="font-size:11px;font-weight:700;color:var(--success);flex-shrink:0">✓ 연결됨</span>
+                    <span style="font-size:12px;font-weight:700;color:var(--gray-800);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(linkedStore.address || '')}">${esc(linkedStore.name)}</span>
+                    ${linkedStore.bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace">${esc(linkedStore.bizNo)}</span>` : ''}
+                    <span onclick="clearPendingStore('${p.id}')" title="연결 해제" style="cursor:pointer;color:var(--gray-400);font-size:14px;font-weight:700;padding:0 4px">✕</span>
+                  </div>`;
+                }
+                if (p.storeId) {
+                  return `<div style="padding:5px 8px;background:#FEE2E2;border:1px solid var(--danger);border-radius:5px;font-size:11px;color:#991B1B;display:flex;align-items:center;gap:6px">
+                    <span style="font-weight:700">⚠ 잘못된 연결</span>
+                    <span style="flex:1">존재하지 않는 매장 ID — 원문: <b>${esc(p.store || '없음')}</b></span>
+                    <button onclick="clearPendingStore('${p.id}')" style="font-size:10px;padding:2px 8px;background:var(--danger);color:#fff;border:none;border-radius:3px;cursor:pointer;font-weight:700">🔧 정리</button>
+                  </div>`;
+                }
+                return `<div style="padding:5px 8px;background:#FFFBEB;border:1px solid var(--warning);border-radius:5px;font-size:11px;color:#92400E">
+                  ⚠ 미연결 — 원문: <b>${esc(p.store || '없음')}</b>
+                </div>`;
+              })()}
             </div>
             <!-- 2단: 검색 입력 -->
             <div style="position:relative">
@@ -5699,13 +5706,19 @@ ${text.slice(0, 4000)}`;
     const statusEl = document.getElementById('storeStatus-' + pendId);
     if (!statusEl) return;
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
-    if (it.storeId) {
-      const s = stores.find(x => x.id === it.storeId);
+    const linkedStore = it.storeId ? stores.find(x => x.id === it.storeId) : null;
+    if (linkedStore) {
       statusEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#F0FDF4;border:1px solid var(--success);border-radius:5px">
         <span style="font-size:11px;font-weight:700;color:var(--success);flex-shrink:0">✓ 연결됨</span>
-        <span style="font-size:12px;font-weight:700;color:var(--gray-800);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s?.address || '')}">${esc(s?.name || it.store || '?')}</span>
-        ${s?.bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace">${esc(s.bizNo)}</span>` : ''}
+        <span style="font-size:12px;font-weight:700;color:var(--gray-800);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(linkedStore.address || '')}">${esc(linkedStore.name)}</span>
+        ${linkedStore.bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace">${esc(linkedStore.bizNo)}</span>` : ''}
         <span onclick="clearPendingStore('${pendId}')" title="연결 해제" style="cursor:pointer;color:var(--gray-400);font-size:14px;font-weight:700;padding:0 4px">✕</span>
+      </div>`;
+    } else if (it.storeId) {
+      statusEl.innerHTML = `<div style="padding:5px 8px;background:#FEE2E2;border:1px solid var(--danger);border-radius:5px;font-size:11px;color:#991B1B;display:flex;align-items:center;gap:6px">
+        <span style="font-weight:700">⚠ 잘못된 연결</span>
+        <span style="flex:1">존재하지 않는 매장 ID — 원문: <b>${esc(it.store || '없음')}</b></span>
+        <button onclick="clearPendingStore('${pendId}')" style="font-size:10px;padding:2px 8px;background:var(--danger);color:#fff;border:none;border-radius:3px;cursor:pointer;font-weight:700">🔧 정리</button>
       </div>`;
     } else {
       statusEl.innerHTML = `<div style="padding:5px 8px;background:#FFFBEB;border:1px solid var(--warning);border-radius:5px;font-size:11px;color:#92400E">
