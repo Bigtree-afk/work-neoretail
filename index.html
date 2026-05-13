@@ -5738,15 +5738,21 @@ ${text.slice(0, 4000)}`;
               <option value="delivery"    ${p.lineCategory==='delivery'?'selected':''}>🚚 택배</option>
             </select>
           </div>
-          <!-- 담당자 -->
-          <div>
+          <!-- 담당자 (커스텀 autocomplete — 클릭/탭 즉시 선택, 자유 입력도 가능) -->
+          <div style="position:relative">
             <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">👤 담당자</label>
-            <input type="text" list="lpUsers-${p.id}" value="${esc(p.assignee||'')}"
-                   oninput="updatePending('${p.id}', {assignee:this.value}, true)"
-                   onblur="updatePending('${p.id}', {assignee:this.value})"
+            <input type="text"
+                   id="assigneeInput-${p.id}"
+                   value="${esc(p.assignee||'')}"
+                   autocomplete="off"
+                   oninput="onAssigneeSearchLive('${p.id}', this)"
+                   onfocus="onAssigneeSearchLive('${p.id}', this)"
+                   onkeydown="onAssigneeSearchKey(event, '${p.id}')"
+                   onblur="setTimeout(()=>hideAssigneeSuggest('${p.id}'), 200); updatePending('${p.id}', {assignee:this.value})"
                    style="width:100%;padding:5px 6px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px"
-                   placeholder="이름 입력/선택">
-            <datalist id="lpUsers-${p.id}">${userOpts}</datalist>
+                   placeholder="이름 클릭 또는 입력">
+            <div id="assigneeSuggest-${p.id}"
+                 style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:#fff;border:1px solid var(--gray-300);border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-height:200px;overflow-y:auto;margin-top:2px"></div>
           </div>
           <!-- 진행 상황 -->
           <div>
@@ -5991,6 +5997,92 @@ ${text.slice(0, 4000)}`;
 
   // 구 함수명 호환
   const _updateStoreInputStyle = (pendId) => _updateStoreStatusPanel(pendId);
+
+  /* ── 담당자 autocomplete (커스텀) ─────────────────────────────────
+     datalist 는 모바일 클릭/터치 동작이 불안정해서 커스텀 dropdown 사용 */
+  const _assigneeState = {};   // pendId → { results, activeIdx }
+  function _getAssigneeList() {
+    const users = (typeof getUsers === 'function') ? (getUsers() || []) : [];
+    return users.map(u => (u.name || u.email || '')).filter(Boolean);
+  }
+  function onAssigneeSearchLive(pendId, inputEl) {
+    const q = (inputEl.value || '').trim().toLowerCase();
+    const all = _getAssigneeList();
+    const results = q
+      ? all.filter(n => n.toLowerCase().includes(q)).slice(0, 8)
+      : all.slice(0, 8);
+    _assigneeState[pendId] = { results, activeIdx: results.length ? 0 : -1 };
+    _renderAssigneeSuggest(pendId);
+  }
+  window.onAssigneeSearchLive = onAssigneeSearchLive;
+
+  function _renderAssigneeSuggest(pendId) {
+    const el = document.getElementById('assigneeSuggest-' + pendId);
+    if (!el) return;
+    const st = _assigneeState[pendId] || { results: [], activeIdx: -1 };
+    const { results, activeIdx } = st;
+    if (!results.length) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.innerHTML = results.map((name, i) => {
+      const active = i === activeIdx;
+      return `<div data-idx="${i}"
+                   onmousedown="event.preventDefault(); selectAssigneeForPending('${pendId}', ${JSON.stringify(name).replace(/"/g,'&quot;')})"
+                   ontouchstart="event.preventDefault(); selectAssigneeForPending('${pendId}', ${JSON.stringify(name).replace(/"/g,'&quot;')})"
+                   onmouseenter="_setAssigneeActive('${pendId}', ${i})"
+                   role="button"
+                   style="padding:7px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--gray-100);background:${active?'#DBEAFE':'#fff'};user-select:none;-webkit-tap-highlight-color:rgba(59,130,246,.2);font-weight:600">
+                👤 ${esc(name)}
+              </div>`;
+    }).join('');
+  }
+  function _setAssigneeActive(pendId, idx) {
+    const st = _assigneeState[pendId];
+    if (!st) return;
+    st.activeIdx = idx;
+    _renderAssigneeSuggest(pendId);
+  }
+  window._setAssigneeActive = _setAssigneeActive;
+
+  function onAssigneeSearchKey(ev, pendId) {
+    const st = _assigneeState[pendId];
+    if (ev.key === 'Escape') { hideAssigneeSuggest(pendId); return; }
+    if (!st || !st.results.length) return;
+    const max = st.results.length - 1;
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      st.activeIdx = Math.min(max, (st.activeIdx < 0 ? 0 : st.activeIdx + 1));
+      _renderAssigneeSuggest(pendId);
+    } else if (ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      st.activeIdx = Math.max(0, st.activeIdx - 1);
+      _renderAssigneeSuggest(pendId);
+    } else if (ev.key === 'Enter') {
+      ev.preventDefault();
+      const sel = st.results[st.activeIdx];
+      if (sel) selectAssigneeForPending(pendId, sel);
+      else hideAssigneeSuggest(pendId);   // 자유 입력 유지
+    } else if (ev.key === 'Tab' && st.activeIdx >= 0 && !ev.shiftKey) {
+      const sel = st.results[st.activeIdx];
+      if (sel) selectAssigneeForPending(pendId, sel);
+    }
+  }
+  window.onAssigneeSearchKey = onAssigneeSearchKey;
+
+  function hideAssigneeSuggest(pendId) {
+    const el = document.getElementById('assigneeSuggest-' + pendId);
+    if (el) el.style.display = 'none';
+  }
+  window.hideAssigneeSuggest = hideAssigneeSuggest;
+
+  function selectAssigneeForPending(pendId, name) {
+    const inp = document.getElementById('assigneeInput-' + pendId);
+    if (inp) inp.value = name;
+    updatePending(pendId, { assignee: name });
+    hideAssigneeSuggest(pendId);
+    _assigneeState[pendId] = { results: [], activeIdx: -1 };
+    showToast('👤 담당자: ' + name);
+  }
+  window.selectAssigneeForPending = selectAssigneeForPending;
 
   function clearPendingStore(pendId) {
     const it = _linePending.find(x => x.id === pendId);
