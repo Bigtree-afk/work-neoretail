@@ -2936,6 +2936,17 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
           <label style="font-weight:700;color:var(--gray-700)">Claude API Key</label>
           <input type="password" id="lineCfgClaudeKey" placeholder="서버측 자동 파싱용 (sk-ant-...)" style="padding:6px 10px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px;font-family:monospace">
+
+          <label style="font-weight:700;color:var(--gray-700)">🚨 오류 알림 수신자</label>
+          <div style="display:flex;gap:6px">
+            <select id="lineCfgAlertRecipient" style="flex:1;padding:6px 10px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px;background:#fff">
+              <option value="">— 선택 (수신 채팅방에서) —</option>
+            </select>
+            <button class="btn btn-sm btn-outline" onclick="testAlertSend()" style="font-size:11px;padding:5px 10px;white-space:nowrap">📤 테스트 발송</button>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--gray-500);margin:-4px 0 10px 128px">
+          파싱 실패(재시도 한계 초과) · Claude API 키 누락 · 메시지 적체 시 선택한 1:1/그룹 채팅에 LINE 메시지 자동 발송
         </div>
 
         <div style="background:#F3F4F6;border-radius:6px;padding:10px;margin-bottom:10px;font-size:11px">
@@ -6802,11 +6813,15 @@ ${text.slice(0, 4000)}`;
       showMask('lineCfgParseSecret', d.parseSecret,        d.hasParseSecret);
       showMask('lineCfgClaudeKey',   d.claudeApiKey,       d.hasClaudeKey);
 
+      // 알림 수신자 셀렉트 채우기 — _lineRooms 가 로드되어 있어야 옵션이 보임
+      _populateAlertRecipientSelect(d.alertRecipientId || '', d.alertRecipientName || '');
+
       const parts = [];
       parts.push(d.hasToken  ? '✅ Channel Token'    : '❌ Channel Token');
       parts.push(d.hasSecret ? '✅ Channel Secret'   : '❌ Channel Secret');
       parts.push(d.hasParseSecret ? '✅ 파싱 토큰'    : '❌ 파싱 토큰');
       parts.push(d.hasClaudeKey ? '✅ Claude Key'    : '❌ Claude Key');
+      parts.push(d.hasAlertRecipient ? `✅ 알림 수신자(${esc(d.alertRecipientName||'')})` : '⚠️ 알림 수신자 미설정');
       statusEl.innerHTML = parts.join('  ·  ');
     } catch(e) {
       statusEl.innerHTML = `<span style="color:var(--danger)">❌ ${esc(e.message)}</span>`;
@@ -6822,6 +6837,12 @@ ${text.slice(0, 4000)}`;
     const s = document.getElementById('lineCfgSecret').value.trim();        if (s) payload.channelSecret = s;
     const p = document.getElementById('lineCfgParseSecret').value.trim();   if (p) payload.parseSecret = p;
     const c = document.getElementById('lineCfgClaudeKey').value.trim();     if (c) payload.claudeApiKey = c;
+    // 알림 수신자 — 셀렉트 값 + 표시명
+    const alertSel = document.getElementById('lineCfgAlertRecipient');
+    if (alertSel && alertSel.value) {
+      payload.alertRecipientId   = alertSel.value;
+      payload.alertRecipientName = alertSel.options[alertSel.selectedIndex]?.text?.replace(/\s*\(.*?\)\s*$/,'').trim() || '';
+    }
     if (Object.keys(payload).length === 0) { showToast('변경할 값 없음 (마스킹된 값은 빈칸으로 두기)'); return; }
     try {
       const r = await fetch('/api/line-config?admin=' + encodeURIComponent(pin), {
@@ -6844,6 +6865,62 @@ ${text.slice(0, 4000)}`;
     showToast('🔑 토큰 생성됨 — [저장] 클릭 후 GitHub Secret 에도 등록');
   }
   window.generateParseSecret = generateParseSecret;
+
+  /* 알림 수신자 셀렉트 — _lineRooms 에서 선택 가능 옵션 채움
+     1:1 채팅(roomType='user') 을 우선, 그 다음 그룹 채팅 */
+  function _populateAlertRecipientSelect(currentId, currentName){
+    const sel = document.getElementById('lineCfgAlertRecipient');
+    if (!sel) return;
+    const rooms = Array.isArray(_lineRooms) ? _lineRooms : [];
+    // 정렬: user → group/room, 그 안에서 lastSender 가 있는 것 우선
+    const sorted = [...rooms].sort((a,b)=>{
+      const ua = a.roomType==='user'?0:1;
+      const ub = b.roomType==='user'?0:1;
+      return ua - ub;
+    });
+    const opts = ['<option value="">— 선택 (수신 채팅방에서) —</option>'];
+    let foundCurrent = false;
+    for (const r of sorted) {
+      const icon = r.roomType==='user'?'👤':r.roomType==='group'?'👥':'💬';
+      const label = r.name || r.lastSender || r.id.slice(0,16)+'…';
+      const detail = r.roomType==='user' && r.lastSender && r.lastSender !== r.name ? ` (${r.lastSender})` : '';
+      const isSel = r.id === currentId;
+      if (isSel) foundCurrent = true;
+      opts.push(`<option value="${esc(r.id)}" ${isSel?'selected':''}>${icon} ${esc(label)}${esc(detail)}</option>`);
+    }
+    // 현재 선택값이 _lineRooms 에 없으면 별도 옵션으로 보존
+    if (currentId && !foundCurrent) {
+      opts.splice(1, 0, `<option value="${esc(currentId)}" selected>🔒 ${esc(currentName||currentId.slice(0,16)+'…')} (저장된 값)</option>`);
+    }
+    sel.innerHTML = opts.join('');
+  }
+
+  /* 테스트 알림 발송 — 현재 선택된 수신자에게 테스트 메시지 보냄 */
+  async function testAlertSend(){
+    const sel = document.getElementById('lineCfgAlertRecipient');
+    const id = sel?.value;
+    if (!id) { showToast('⚠️ 수신자를 먼저 선택하세요'); return; }
+    const pin = _lineAdminPin();
+    if (!pin) { showToast('⚠️ 관리자 PIN 을 입력하세요'); return; }
+    // 저장 안 된 변경 사항이 있을 수 있으니 먼저 저장
+    const name = sel.options[sel.selectedIndex]?.text?.replace(/\s*\(.*?\)\s*$/,'').trim() || '';
+    try {
+      await fetch('/api/line-config?admin=' + encodeURIComponent(pin), {
+        method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({ alertRecipientId:id, alertRecipientName:name }),
+      });
+      // 테스트 발송 — line-parse-cron 의 force 모드 없이는 직접 안 됨.
+      // 임시 방법: 서버에 테스트용 엔드포인트 호출 (없으면 사용자에게 안내)
+      const r = await fetch('/api/line-alert-test?admin=' + encodeURIComponent(pin), { method:'POST' });
+      if (r.ok) {
+        const d = await r.json();
+        showToast(d.ok ? '📤 테스트 메시지 발송됨 — LINE 확인하세요' : '❌ ' + (d.error || '발송 실패'));
+      } else {
+        showToast('💾 수신자 저장됨 — 다음 파싱 실패 시 자동 발송됩니다');
+      }
+    } catch(e) { showToast('❌ ' + e.message); }
+  }
+  window.testAlertSend = testAlertSend;
 
   async function runParseNow(force) {
     // 파싱 토큰을 별도로 요구 — KV 의 값을 모르므로 입력란에 값이 있으면 그걸 사용
@@ -7279,6 +7356,13 @@ ${text.slice(0, 4000)}`;
       renderLineRoomList();
       // localStorage 동기화 — Line 가져오기 모달이 같은 이름을 보게
       syncRoomsToLocal();
+      // 알림 수신자 셀렉트 갱신 — 현재 선택값 유지
+      try {
+        const sel = document.getElementById('lineCfgAlertRecipient');
+        const curId = sel?.value || '';
+        const curName = sel?.options[sel.selectedIndex]?.text?.replace(/\s*\(.*?\)\s*$/,'').trim() || '';
+        _populateAlertRecipientSelect(curId, curName);
+      } catch(e){}
     } catch(e) { list.innerHTML = `<span style="color:var(--danger)">❌ ${esc(e.message)}</span>`; }
   }
   window.loadLineRooms = loadLineRooms;

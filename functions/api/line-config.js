@@ -43,10 +43,13 @@ export async function onRequestGet({ env, request }) {
     parseSecret:        mask(cfg.parseSecret),
     claudeApiKey:       mask(cfg.claudeApiKey),
     roomMap:            cfg.roomMap || {},
+    alertRecipientId:   cfg.alertRecipientId || '',
+    alertRecipientName: cfg.alertRecipientName || '',
     hasToken:           !!cfg.channelAccessToken,
     hasSecret:          !!cfg.channelSecret,
     hasParseSecret:     !!cfg.parseSecret,
     hasClaudeKey:       !!cfg.claudeApiKey,
+    hasAlertRecipient:  !!cfg.alertRecipientId,
   }, 200);
 }
 
@@ -56,7 +59,7 @@ export async function onRequestPost({ env, request }) {
   let body;
   try { body = await request.json(); } catch(e){ return text('invalid json', 400); }
   const cur = (await env.STORES_KV.get(KV_KEY, 'json')) || {};
-  const keys = ['channelAccessToken', 'channelSecret', 'parseSecret', 'claudeApiKey', 'roomMap'];
+  const keys = ['channelAccessToken', 'channelSecret', 'parseSecret', 'claudeApiKey', 'roomMap', 'alertRecipientId', 'alertRecipientName'];
   for (const k of keys) {
     if (body[k] !== undefined && body[k] !== null && body[k] !== '') cur[k] = body[k];
   }

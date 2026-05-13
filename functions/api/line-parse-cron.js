@@ -23,6 +23,41 @@ const CLAUDE_MODEL = 'claude-sonnet-4-5-20250929';
 const MAX_MSGS_PER_RUN = 200;
 const MAX_PENDING = 500;
 const MAX_RETRY = 3;   // 룸 파싱 실패 시 최대 재시도 횟수 — 초과 시 cursor 강제 이동(영구 미처리 메시지로 표시)
+const ALERT_THROTTLE_KEY = 'line_alert_lastsent';
+const ALERT_THROTTLE_SEC = 600;   // 같은 종류 알림 10분 내 중복 송신 차단
+
+/* LINE Messaging API push — cfg.alertRecipientId 로 텍스트 전송 */
+async function notifyLineAlert(env, cfg, kind, text) {
+  if (!cfg.alertRecipientId || !cfg.channelAccessToken) return { ok:false, reason:'no recipient or token' };
+  // 쓰로틀: 같은 kind 가 ALERT_THROTTLE_SEC 내 송신됐으면 skip
+  try {
+    const last = (await env.STORES_KV.get(ALERT_THROTTLE_KEY, 'json')) || {};
+    const t = Number(last[kind] || 0);
+    if (Date.now() - t < ALERT_THROTTLE_SEC * 1000) return { ok:false, reason:'throttled', skipped:true };
+    last[kind] = Date.now();
+    await env.STORES_KV.put(ALERT_THROTTLE_KEY, JSON.stringify(last));
+  } catch(e) {}
+  try {
+    const r = await fetch('https://api.line.me/v2/bot/message/push', {
+      method:'POST',
+      headers:{
+        'authorization': `Bearer ${cfg.channelAccessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: cfg.alertRecipientId,
+        messages: [{ type:'text', text: String(text).slice(0, 4900) }],
+      }),
+    });
+    if (!r.ok) {
+      const errText = await r.text().catch(()=>'');
+      return { ok:false, status:r.status, error: errText.slice(0,200) };
+    }
+    return { ok:true };
+  } catch(e) {
+    return { ok:false, error:e.message };
+  }
+}
 
 export async function onRequestPost({ request, env }) {
   if (!env.STORES_KV) return json({ error:'KV not bound' }, 500);
@@ -53,7 +88,11 @@ export async function onRequestPost({ request, env }) {
   }
 
   const apiKey = cfg.claudeApiKey;
-  if (!apiKey) return json({ error:'claudeApiKey not configured' }, 503);
+  if (!apiKey) {
+    await notifyLineAlert(env, cfg, 'no_api_key',
+      '🚨 [NeoRetail 파싱 알림]\nClaude API 키가 설정되지 않아 파싱 cron 이 실행되지 않습니다.\n관리자 페이지 → LINE 설정에서 Claude API key 를 입력하세요.');
+    return json({ error:'claudeApiKey not configured' }, 503);
+  }
 
   const lastRun = Number(await env.STORES_KV.get(LASTRUN_KEY) || '0');
   const queue = (await env.STORES_KV.get(RAW_KEY, 'json')) || { items: [] };
@@ -324,6 +363,30 @@ export async function onRequestPost({ request, env }) {
     console.warn('queue meta merge failed:', e.message);
   }
 
+  // === 알림 발송 ===
+  // 1) giveup 발생 시 — 사람이 봐야 하는 영구 실패 메시지 안내
+  let alertResults = [];
+  if (giveUpMsgIds.size > 0) {
+    const sample = [];
+    for (const m of fresh) {
+      if (giveUpMsgIds.has(m.id) && sample.length < 3) {
+        sample.push(`• ${m.sender||'?'}: ${(m.text||'').slice(0,40)}…`);
+      }
+    }
+    const msg = `🚨 [NeoRetail 파싱 알림]\n메시지 ${giveUpMsgIds.size}건이 ${MAX_RETRY}회 재시도 후에도 분석 실패로 영구 건너뜀 처리되었습니다.\n\n샘플:\n${sample.join('\n')}\n\n원인: Claude API 호출 실패 또는 응답 파싱 오류.\n관리자 페이지 → 파싱 로그에서 'error_giveup' 항목을 확인하세요.`;
+    alertResults.push(await notifyLineAlert(env, cfg, 'giveup', msg));
+  }
+  // 2) 룸 에러가 다수 발생 시 — Claude API 문제일 가능성
+  if (errors.length >= 3) {
+    const msg = `⚠️ [NeoRetail 파싱 경고]\n이번 cron 에서 ${errors.length}개 채팅방의 파싱이 실패했습니다.\n\n원인: ${errors[0].error.slice(0,80)}\n\nClaude API 키나 네트워크를 확인하세요. 자동 재시도 진행 중.`;
+    alertResults.push(await notifyLineAlert(env, cfg, 'many_errors', msg));
+  }
+  // 3) overflow — 메시지 적체가 심한 경우
+  if (overflowCount >= 100) {
+    const msg = `📥 [NeoRetail 파싱 알림]\n메시지 누적 ${fresh.length + overflowCount}건 (한 회 처리 한도 ${MAX_MSGS_PER_RUN} 초과 ${overflowCount}건).\n다음 cron 들이 자동으로 이어서 처리합니다.`;
+    alertResults.push(await notifyLineAlert(env, cfg, 'overflow', msg));
+  }
+
   return json({
     ok: true,
     processed: fresh.length,
@@ -334,6 +397,7 @@ export async function onRequestPost({ request, env }) {
     retried: failedRoomMsgIds.size,
     gaveUp: giveUpMsgIds.size,
     cursorAdvanced: newCursor > lastRun,
+    alerts: alertResults,
     runAt: new Date().toISOString(),
   }, 200);
 }
