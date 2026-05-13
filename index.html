@@ -9733,7 +9733,18 @@ ${text.slice(0, 4000)}`;
       const videos = files.filter(f => f.isVideo);
       const others = files.filter(f => !f.isImage && !f.isVideo);
 
-      const bodyHtml = (n.body || '').split('\n').map(line => esc(line)).join('<br>');
+      // 본문 — XSS 방지를 위해 escape 먼저, 그 다음 URL/이메일 패턴을 <a> 로 변환
+      const linkify = (escapedText) => {
+        return escapedText
+          // http/https URL — 단어 경계에서 시작, 공백·줄바꿈·괄호·꺾쇠 전까지
+          .replace(/(\b(?:https?:\/\/|www\.)[^\s<>"')\]]+)/gi, (m) => {
+            const href = m.startsWith('www.') ? 'http://' + m : m;
+            return `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color:#1D4ED8;text-decoration:underline;word-break:break-all">${m}</a>`;
+          })
+          // 이메일 — mailto 링크
+          .replace(/([\w.+-]+@[\w-]+\.[\w.-]+)/g, '<a href="mailto:$1" style="color:#1D4ED8;text-decoration:underline">$1</a>');
+      };
+      const bodyHtml = (n.body || '').split('\n').map(line => linkify(esc(line))).join('<br>');
 
       let mediaHtml = '';
       if (images.length) {
