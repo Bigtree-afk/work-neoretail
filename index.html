@@ -7297,11 +7297,11 @@ ${text.slice(0, 4000)}`;
             <td style="padding:5px 6px">
               <input type="text" value="${esc(r.name||'')}" placeholder="예: 업무 그룹"
                      onchange="updateLineRoom('${esc(r.id)}', 'name', this.value)"
-                     style="width:100%;padding:3px 5px;border:1px solid var(--gray-300);border-radius:3px;font-size:11px">
+                     style="width:100%;padding:6px 8px;border:1px solid var(--gray-400);border-radius:4px;font-size:13px;color:#111;background:#fff;font-weight:500">
             </td>
             <td style="padding:5px 6px">
               <select onchange="updateLineRoom('${esc(r.id)}', 'type', this.value)"
-                      style="width:100%;padding:3px 5px;border:1px solid var(--gray-300);border-radius:3px;font-size:11px">
+                      style="width:100%;padding:6px 8px;border:1px solid var(--gray-400);border-radius:4px;font-size:13px;color:#111;background:#fff;font-weight:500;min-width:130px">
                 <option value="">— 선택 —</option>
                 ${typeOpts.map(o => `<option value="${o.v}" ${r.type===o.v?'selected':''}>${o.l}</option>`).join('')}
               </select>
