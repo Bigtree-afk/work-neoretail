@@ -3260,14 +3260,21 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
     // 매장 데이터 스키마 마이그레이션 — storeRegDate 검증/정리 (v3)
     // 이전 버그 업로드로 localStorage 의 storeRegDate 가 모두 같은 날짜로 채워진 경우 제거.
+    // URL 에 ?force_resync=1 붙이면 강제로 다시 동기화 (Console 없이 클릭 한 번으로 해결)
     try {
       const SCHEMA_VERSION = 'stores-schema-v3-2026-05-12';
       const cur = localStorage.getItem('ns_stores_schema_ver');
-      if (cur !== SCHEMA_VERSION) {
+      const forceResync = new URLSearchParams(location.search).has('force_resync');
+      if (cur !== SCHEMA_VERSION || forceResync) {
         // 통째로 localStorage 매장 비우고 KV 에서 새로 받음 (가장 확실)
         localStorage.removeItem('ns_stores');
-        console.log('[migration v3] localStorage 매장 초기화 — KV 에서 신선한 데이터 재로드');
+        localStorage.removeItem('ns_stores_meta');
+        console.log('[migration v3] localStorage 매장 초기화 — KV 에서 신선한 데이터 재로드' + (forceResync ? ' (force_resync)' : ''));
         localStorage.setItem('ns_stores_schema_ver', SCHEMA_VERSION);
+        if (forceResync) {
+          // 깨끗한 URL 로 갱신 (파라미터 제거)
+          try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){}
+        }
       }
     } catch(e) { console.warn('[migration]', e); }
 
@@ -5091,7 +5098,7 @@ ${contextData}
 
     const rooms = getLineRooms();
     const room  = rooms.find(r => r.id === selectedRoomId);
-    const roomTypeLabel = { as:'AS/작업 접수 목적', schedule:'일정 관리 목적', work:'업무 지시 목적', general:'일반 대화' }[room?.type] || '일반';
+    const roomTypeLabel = { as:'AS/작업 접수 목적', schedule:'일정 관리 목적', work:'업무 지시 목적', general:'일반 대화', equip_out:'장비 출고 목적', delivery:'택배 관리 목적', label:'라벨지 작업 목적' }[room?.type] || '일반';
 
     // UI 전환
     document.getElementById('lineAnalyzeBtn').style.display = 'none';
@@ -7257,10 +7264,13 @@ ${text.slice(0, 4000)}`;
       return;
     }
     const typeOpts = [
-      { v:'general',  l:'일반 대화' },
-      { v:'as',       l:'AS/작업 접수' },
-      { v:'work',     l:'업무 지시' },
-      { v:'schedule', l:'일정 관리' },
+      { v:'general',   l:'일반 대화' },
+      { v:'as',        l:'AS/작업 접수' },
+      { v:'work',      l:'업무 지시' },
+      { v:'schedule',  l:'일정 관리' },
+      { v:'equip_out', l:'장비 출고' },
+      { v:'delivery',  l:'택배 관리' },
+      { v:'label',     l:'라벨지' },
     ];
     const roomTypeIcon = (t) => t === 'group' ? '👥' : t === 'room' ? '💬' : t === 'user' ? '👤' : '❓';
     list.innerHTML = `
