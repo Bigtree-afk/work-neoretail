@@ -76,15 +76,17 @@ export async function appendParseLog(env, entries) {
   }
   for (const [date, items] of Object.entries(byDate)) {
     const key = LOG_PREFIX + date;
-    const cur = (await env.STORES_KV.get(key, 'json')) || { items: [], stats: { total:0, pending:0, ignore:0, error:0 } };
+    const cur = (await env.STORES_KV.get(key, 'json')) || { items: [], stats: { total:0, pending:0, ignore:0, error:0, error_giveup:0, overflow:0 } };
     cur.items = [...items, ...cur.items].slice(0, 1000);
     // 통계 재계산
-    const stats = { total:0, pending:0, ignore:0, error:0 };
+    const stats = { total:0, pending:0, ignore:0, error:0, error_giveup:0, overflow:0 };
     for (const it of cur.items) {
       stats.total++;
       if (it.result === 'pending') stats.pending++;
       else if (it.result === 'ignore') stats.ignore++;
       else if (it.result === 'error') stats.error++;
+      else if (it.result === 'error_giveup') stats.error_giveup++;
+      else if (it.result === 'overflow') stats.overflow++;
     }
     cur.stats = stats;
     await env.STORES_KV.put(key, JSON.stringify(cur));

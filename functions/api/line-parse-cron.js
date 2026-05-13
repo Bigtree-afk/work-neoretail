@@ -20,8 +20,9 @@ const PENDING_KEY= 'line_pending';
 const LASTRUN_KEY= 'line_parse_lastrun';
 const CFG_KEY    = 'line_config';
 const CLAUDE_MODEL = 'claude-sonnet-4-5-20250929';
-const MAX_MSGS_PER_RUN = 80;
+const MAX_MSGS_PER_RUN = 200;
 const MAX_PENDING = 500;
+const MAX_RETRY = 3;   // 룸 파싱 실패 시 최대 재시도 횟수 — 초과 시 cursor 강제 이동(영구 미처리 메시지로 표시)
 
 export async function onRequestPost({ request, env }) {
   if (!env.STORES_KV) return json({ error:'KV not bound' }, 500);
@@ -57,10 +58,16 @@ export async function onRequestPost({ request, env }) {
   const lastRun = Number(await env.STORES_KV.get(LASTRUN_KEY) || '0');
   const queue = (await env.STORES_KV.get(RAW_KEY, 'json')) || { items: [] };
 
-  // 마지막 처리 이후 메시지만 (시간 기반 + 최대 80개)
-  const fresh = queue.items.filter(m => Number(m.ts||0) > lastRun).slice(0, MAX_MSGS_PER_RUN);
+  // 미처리 메시지만 (m.processedAt 없는 것 + ts > lastRun 빠른 필터)
+  // - processedAt: 성공/giveup 시 Date.now() 로 마크
+  // - failed-retryable 메시지는 processedAt 없음 → 다음 cron 에서 재시도
+  const allFresh = queue.items
+    .filter(m => !m.processedAt && Number(m.ts||0) > lastRun)
+    .sort((a,b) => Number(a.ts||0) - Number(b.ts||0));
+  const fresh = allFresh.slice(0, MAX_MSGS_PER_RUN);
+  const overflowCount = Math.max(0, allFresh.length - MAX_MSGS_PER_RUN);
   if (!fresh.length) {
-    await env.STORES_KV.put(LASTRUN_KEY, String(Date.now()));
+    // cursor 는 손대지 않음 — Date.now() 로 옮기면 큐에 늦게 추가된 메시지(시각이 과거인) 누락 위험
     return json({ ok:true, parsed:0, msg:'no new messages' }, 200);
   }
 
@@ -79,6 +86,8 @@ export async function onRequestPost({ request, env }) {
   const runAt = new Date().toISOString();
   const parseSource = force ? 'manual' : 'cron';
   const allLogs = [];
+  const failedRoomMsgIds = new Set();   // Claude 호출 실패한 룸의 메시지 id — cursor 미이동 대상
+  const giveUpMsgIds = new Set();       // 재시도 한계 초과로 강제 이동된 메시지 id
 
   const FIXED_TYPES = ['equip_out','delivery','label'];
 
@@ -189,31 +198,70 @@ export async function onRequestPost({ request, env }) {
         });
       pendingCur.items = [...addItems, ...pendingCur.items].slice(0, MAX_PENDING);
       totalAdded += addItems.length;
+
+      // 성공 처리된 메시지들 — processedAt 마킹 (다음 cron 에서 재처리 방지)
+      const processedStamp = Date.now();
+      for (const m of msgs) {
+        m.processedAt = processedStamp;
+        if (m.parseAttempts) delete m.lastParseError;  // 이전 시도 에러 정리
+      }
     } catch(e) {
       errors.push({ room: roomId, error: e.message });
-      // 실패한 채팅방 메시지들도 로그에 'error' 로 기록
+      // 실패한 채팅방 메시지들 — 재시도 카운트 체크
       for (const m of msgs) {
+        const attempts = Number(m.parseAttempts || 0) + 1;
+        m.parseAttempts = attempts;   // 큐 객체에 직접 갱신 (아래에서 KV 에 다시 저장)
+        m.lastParseError = e.message;
+        const giveUp = attempts >= MAX_RETRY;
+        if (giveUp) {
+          giveUpMsgIds.add(m.id);
+          m.processedAt = Date.now();  // 재시도 한계 초과 — 영구 건너뜀
+          m.processedStatus = 'giveup';
+        } else {
+          failedRoomMsgIds.add(m.id);
+          // processedAt 미설정 → 다음 cron 에서 재시도
+        }
+
         const t = new Date(Number(m.ts||0));
         const kstHH = String(t.getUTCHours()+9).padStart(2,'0').slice(-2);
         const kstMI = String(t.getUTCMinutes()).padStart(2,'0');
         const msgKstDate = new Date(t.getTime()+9*3600*1000).toISOString().slice(0,10);
         allLogs.push({
           logEntry: {
-            logId:       `log-err-${m.id || m.ts}`,
+            logId:       `log-err-${m.id || m.ts}-${attempts}`,
             msgTs:       m.ts || 0,
             msgAtKst:    `${msgKstDate} ${kstHH}:${kstMI}`,
             room:        roomId,
             roomName:    roomInfo.name || roomId,
             sender:      m.sender || '',
             text:        (m.text||'').slice(0, 300),
-            result:      'error',
-            reason:      e.message,
+            result:      giveUp ? 'error_giveup' : 'error',
+            reason:      `${e.message} (시도 ${attempts}/${MAX_RETRY}${giveUp ? ' — 재시도 한계 초과, 건너뜀' : ' — 다음 cron 에서 재시도'})`,
             parseRunAt:  runAt,
             parseSource,
           }, matchedItem: null
         });
       }
     }
+  }
+
+  // Overflow 경고 로그 — 200건 cap 초과 시 다음 cron 이 자동으로 이어 처리됨을 알림
+  if (overflowCount > 0) {
+    allLogs.push({
+      logEntry: {
+        logId:       `log-overflow-${Date.now().toString(36)}`,
+        msgTs:       Date.now(),
+        msgAtKst:    new Date(Date.now()+9*3600*1000).toISOString().slice(0,16).replace('T',' '),
+        room:        '*',
+        roomName:    '(시스템)',
+        sender:      'cron',
+        text:        `이번 cron 처리량 ${fresh.length}건 — 추가로 ${overflowCount}건 누적 (다음 cron 에서 처리 예정)`,
+        result:      'overflow',
+        reason:      `MAX_MSGS_PER_RUN=${MAX_MSGS_PER_RUN} 초과`,
+        parseRunAt:  runAt,
+        parseSource,
+      }, matchedItem: null
+    });
   }
 
   // 로그 적재
@@ -224,14 +272,68 @@ export async function onRequestPost({ request, env }) {
   }
 
   if (totalAdded > 0) await env.STORES_KV.put(PENDING_KEY, JSON.stringify(pendingCur));
-  await env.STORES_KV.put(LASTRUN_KEY, String(Date.now()));
+
+  // === Cursor 진행 ===
+  // - 처리 완료(processedAt 마킹된) 메시지 중 최소 ts 직전까지만 cursor 이동
+  //   즉 retry 대기 중인 가장 오래된 메시지의 ts 직전까지만 이동
+  // - retry 대기 메시지가 없으면 fresh 중 max ts 로 이동
+  // - lastRun 은 빠른 필터일 뿐 — 실제 재처리 방지는 m.processedAt 가 담당
+  let newCursor = lastRun;
+  const retryPending = fresh.filter(m => !m.processedAt).sort((a,b)=>Number(a.ts||0)-Number(b.ts||0));
+  if (retryPending.length > 0) {
+    // retry 메시지의 (min ts - 1) 까지만 이동 — retry 메시지 자체는 다음 run 에서도 잡혀야 함
+    newCursor = Math.max(lastRun, Number(retryPending[0].ts||0) - 1);
+  } else {
+    // 전부 처리됨 — fresh 중 max ts 로 이동
+    for (const m of fresh) {
+      const t = Number(m.ts || 0);
+      if (t > newCursor) newCursor = t;
+    }
+  }
+  if (newCursor > lastRun) {
+    await env.STORES_KV.put(LASTRUN_KEY, String(newCursor));
+  }
+
+  // 큐 다시 저장 — processedAt / parseAttempts 등 메타 변경 반영
+  // 동시 webhook write 와의 충돌 완화: 다시 읽어와서 id 기준으로 메타만 병합
+  try {
+    const latest = (await env.STORES_KV.get(RAW_KEY, 'json')) || { items: [] };
+    const metaById = new Map();
+    for (const m of fresh) {
+      if (m.processedAt || m.parseAttempts) {
+        metaById.set(m.id, {
+          processedAt: m.processedAt,
+          processedStatus: m.processedStatus,
+          parseAttempts: m.parseAttempts,
+          lastParseError: m.lastParseError,
+        });
+      }
+    }
+    for (const lm of latest.items) {
+      const meta = metaById.get(lm.id);
+      if (meta) {
+        if (meta.processedAt != null) lm.processedAt = meta.processedAt;
+        if (meta.processedStatus)     lm.processedStatus = meta.processedStatus;
+        if (meta.parseAttempts != null) lm.parseAttempts = meta.parseAttempts;
+        if (meta.lastParseError)      lm.lastParseError = meta.lastParseError;
+        else delete lm.lastParseError;
+      }
+    }
+    await env.STORES_KV.put(RAW_KEY, JSON.stringify(latest));
+  } catch(e) {
+    console.warn('queue meta merge failed:', e.message);
+  }
 
   return json({
     ok: true,
     processed: fresh.length,
+    overflowed: overflowCount,
     rooms: Object.keys(byRoom).length,
     pendingAdded: totalAdded,
     errors,
+    retried: failedRoomMsgIds.size,
+    gaveUp: giveUpMsgIds.size,
+    cursorAdvanced: newCursor > lastRun,
     runAt: new Date().toISOString(),
   }, 200);
 }
