@@ -940,6 +940,24 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
+      <!-- MODAL: 완료된 작업 전체 보기 (카테고리 탭 + 그리드) -->
+      <div class="modal-overlay" id="doneJobsModal">
+        <div class="modal" style="max-width:1100px;width:95vw;max-height:88vh;display:flex;flex-direction:column;background:#fff">
+          <div class="modal-header">
+            <div>
+              <div class="modal-title">✅ 완료된 작업 — 전체 보기</div>
+              <div style="font-size:11px;color:var(--gray-400);margin-top:3px">카테고리 탭을 클릭해 유형별로 필터링하세요</div>
+            </div>
+            <button class="modal-close" onclick="closeModal('doneJobsModal')">✕</button>
+          </div>
+          <!-- 카테고리 탭 -->
+          <div id="doneJobsTabs" style="display:flex;gap:4px;padding:10px 18px;border-bottom:1px solid var(--gray-200);background:#FAFAFA;overflow-x:auto;flex-wrap:wrap"></div>
+          <div class="modal-body" style="overflow-y:auto;flex:1;padding:14px 18px;background:#F9FAFB">
+            <div id="doneJobsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="grid-2" style="margin-bottom:20px">
         <!-- 오늘 일정 -->
         <div class="card">
@@ -979,8 +997,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
         <!-- 최근 완료 작업 -->
         <div class="card">
-          <div style="padding:16px 18px; border-bottom:1px solid var(--gray-100)">
+          <div style="padding:16px 18px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; justify-content:space-between">
             <div class="section-title">✅ 최근 완료 작업</div>
+            <button class="btn btn-outline btn-sm" onclick="openDoneJobsModal('all')" style="font-size:11px;padding:5px 10px">전체 보기</button>
           </div>
           <table>
             <thead>
@@ -9420,6 +9439,138 @@ ${text.slice(0, 4000)}`;
     if (typeof showModal === 'function') showModal('dashListModal');
   }
   window.showDashList = showDashList;
+
+  /* ══════════════════════════════════════════════
+     완료된 작업 전체 보기 — 카테고리 탭 + 그리드
+  ══════════════════════════════════════════════ */
+  // job → 카테고리 코드 추론 (lineCategory 우선, 없으면 type 으로 추론)
+  function _doneJobCategory(j) {
+    const lc = j.lineCategory;
+    if (lc && LINE_TYPE_META[lc]) {
+      // as_pos_van 호환
+      return lc === 'as_pos_van' ? 'pos_as' : lc;
+    }
+    const t = (j.type || '') + ' ' + (j.title || '');
+    if (/이동단말기|단말기/i.test(t)) return 'device_mgmt';
+    if (/VAN|밴|체크기|결제기|IC/i.test(t)) return 'van_as';
+    if (/AS|에이에스/i.test(t)) return 'pos_as';
+    if (/신규가맹|밴서류|상호변경|주소변경|계좌변경|정보변경|재신고/i.test(t)) return 'van_doc';
+    if (/신규|개업|오픈/i.test(t)) return 'open_store';
+    if (/라벨/i.test(t)) return 'label';
+    if (/택배|배송/i.test(t)) return 'delivery';
+    if (/출고|발주|반품|장비/i.test(t)) return 'equip_out';
+    return 'other';
+  }
+
+  // 탭 정의 — 표시 순서대로
+  const _DONE_CAT_TABS = [
+    { v:'all',         l:'🔁 전체' },
+    { v:'pos_as',      l:'🖥 POS A/S' },
+    { v:'van_as',      l:'💳 VAN A/S' },
+    { v:'device_mgmt', l:'📱 단말기 A/S' },
+    { v:'open_store',  l:'🏪 오픈 작업' },
+    { v:'van_doc',     l:'📑 밴서류' },
+    { v:'label',       l:'🏷 라벨지' },
+    { v:'equip_out',   l:'📦 장비 출고' },
+    { v:'delivery',    l:'🚚 택배' },
+    { v:'other',       l:'⚪ 기타' },
+  ];
+
+  let _doneJobsActiveTab = 'all';
+  function openDoneJobsModal(category) {
+    _doneJobsActiveTab = category || 'all';
+    _renderDoneJobsModal();
+    if (typeof showModal === 'function') showModal('doneJobsModal');
+  }
+  window.openDoneJobsModal = openDoneJobsModal;
+
+  function _renderDoneJobsModal() {
+    let jobs = [];
+    try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e){}
+    const isDone = (j) => (j.status === '완료' || j.status === 'done');
+    const doneJobs = jobs.filter(isDone)
+      .sort((a,b) => new Date(b.completedAt || b.date || b.createdAt || 0) - new Date(a.completedAt || a.date || a.createdAt || 0));
+
+    // 카테고리별 카운트
+    const counts = { all: doneJobs.length };
+    for (const j of doneJobs) {
+      const c = _doneJobCategory(j);
+      counts[c] = (counts[c] || 0) + 1;
+    }
+
+    // 탭 렌더
+    const tabsEl = document.getElementById('doneJobsTabs');
+    if (tabsEl) {
+      tabsEl.innerHTML = _DONE_CAT_TABS
+        .filter(t => t.v === 'all' || (counts[t.v] || 0) > 0)   // 0건 카테고리는 숨김 (전체는 항상 표시)
+        .map(t => {
+          const active = t.v === _doneJobsActiveTab;
+          const cnt = counts[t.v] || 0;
+          const bg = active ? '#1A1614' : '#fff';
+          const fg = active ? '#FFF8E7' : 'var(--gray-700)';
+          const border = active ? '#1A1614' : 'var(--gray-300)';
+          return `<button onclick="setDoneJobsTab('${t.v}')"
+                    style="padding:6px 12px;border:1px solid ${border};background:${bg};color:${fg};border-radius:18px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.15s">
+                    ${esc(t.l)} <span style="opacity:.7;font-weight:500">${cnt}</span>
+                  </button>`;
+        }).join('');
+    }
+
+    // 그리드 렌더
+    const gridEl = document.getElementById('doneJobsGrid');
+    if (!gridEl) return;
+    const filtered = _doneJobsActiveTab === 'all'
+      ? doneJobs
+      : doneJobs.filter(j => _doneJobCategory(j) === _doneJobsActiveTab);
+
+    if (filtered.length === 0) {
+      gridEl.innerHTML = `<div style="grid-column:1/-1;padding:40px 24px;text-align:center;color:var(--gray-400);font-size:13px">
+        <div style="font-size:36px;margin-bottom:8px">📭</div>
+        <div>완료된 작업이 없습니다</div>
+      </div>`;
+      return;
+    }
+
+    const fmtDate = (s) => {
+      if (!s) return '—';
+      const d = String(s).slice(0, 10);
+      return d.length === 10 ? d.slice(5).replace('-','.') : d;
+    };
+
+    gridEl.innerHTML = filtered.map(j => {
+      const cat = _doneJobCategory(j);
+      const meta = LINE_TYPE_META[cat] || LINE_TYPE_META.ignore;
+      const store = j.store || j.storeName || '-';
+      const eng = j.engineer || j.assignee || '미배정';
+      const doneDate = fmtDate(j.completedAt || j.date || j.createdAt);
+      const memo = j.notes || j.note || j.description || '';
+      const lineRaw = j.lineRaw || j.lineParsed || j.lineRequest || '';
+      const isLine = j.source === 'line' || j.source === 'cron';
+      return `<div onclick="closeModal('doneJobsModal');window.editNewopen && window.editNewopen('${j.id}')"
+                   style="background:#fff;border:1px solid var(--gray-200);border-left:4px solid ${meta.color};border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s;display:flex;flex-direction:column;gap:6px"
+                   onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'"
+                   onmouseout="this.style.boxShadow=''"
+                   title="클릭 — 상세 보기">
+        <div style="display:flex;align-items:flex-start;gap:6px">
+          <div style="font-size:13px;font-weight:800;color:var(--gray-900);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(store)}</div>
+          <span style="background:${meta.bg};color:${meta.color};font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;white-space:nowrap">${esc(meta.label)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--gray-600)">
+          <span style="color:var(--gray-400)">✅ ${esc(doneDate)}</span>
+          <span style="color:var(--gray-300)">·</span>
+          <span>👤 ${esc(eng)}</span>
+          ${isLine ? '<span style="margin-left:auto;background:#EFF6FF;color:#1E40AF;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700">LINE</span>' : ''}
+        </div>
+        ${memo || lineRaw ? `<div style="font-size:11px;color:var(--gray-500);line-height:1.4;max-height:36px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc((memo || lineRaw).slice(0, 120))}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function setDoneJobsTab(category) {
+    _doneJobsActiveTab = category;
+    _renderDoneJobsModal();
+  }
+  window.setDoneJobsTab = setDoneJobsTab;
 
   /* ══════════════════════════════════════════════
      VAN 서류 — 마이페이지 목록 + 대시보드 알림
