@@ -3007,6 +3007,24 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <div id="lineRoomList" style="font-size:11px"></div>
         </div>
 
+<!-- 채팅방 매핑 편집 모달 -->
+<div class="modal-overlay" id="lineRoomEditModal">
+  <div class="modal" style="width:560px;max-width:96vw">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">채팅방 매핑 편집</div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:3px">최근 메시지를 참고해 채팅방의 표시명과 사이트 타입을 지정하세요</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('lineRoomEditModal')">✕</button>
+    </div>
+    <div class="modal-body" id="lineRoomEditBody" style="padding:20px 24px"></div>
+    <div style="padding:14px 24px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--gray-200);background:#FAFAFA">
+      <button class="btn btn-outline" onclick="closeModal('lineRoomEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveLineRoomEdit()" id="lineRoomEditSaveBtn">저장</button>
+    </div>
+  </div>
+</div>
+
         <!-- GitHub Actions cron 안내 -->
         <div style="margin-top:10px;padding:8px 10px;background:#EEF2FF;border-radius:6px;font-size:11px;color:var(--gray-700);line-height:1.6">
           <b style="color:#3730A3">🤖 자동 파싱 (1시간 주기):</b><br>
@@ -7256,6 +7274,21 @@ ${text.slice(0, 4000)}`;
   }
   window.loadLineRooms = loadLineRooms;
 
+  const LINE_ROOM_TYPE_OPTS = [
+    { v:'general',   l:'일반 대화' },
+    { v:'as',        l:'AS/작업 접수' },
+    { v:'work',      l:'업무 지시' },
+    { v:'schedule',  l:'일정 관리' },
+    { v:'equip_out', l:'장비 출고' },
+    { v:'delivery',  l:'택배 관리' },
+    { v:'label',     l:'라벨지' },
+  ];
+  function _lineRoomTypeLabel(v){
+    const o = LINE_ROOM_TYPE_OPTS.find(x=>x.v===v);
+    return o ? o.l : '';
+  }
+  function _roomTypeIcon(t){ return t === 'group' ? '👥' : t === 'room' ? '💬' : t === 'user' ? '👤' : '❓'; }
+
   function renderLineRoomList() {
     const list = document.getElementById('lineRoomList');
     if (!list) return;
@@ -7263,57 +7296,100 @@ ${text.slice(0, 4000)}`;
       list.innerHTML = `<div style="color:var(--gray-400);font-size:11px;padding:8px;text-align:center">아직 수신한 채팅방이 없습니다 — 그룹에 메시지 1개 작성 후 조회</div>`;
       return;
     }
-    const typeOpts = [
-      { v:'general',   l:'일반 대화' },
-      { v:'as',        l:'AS/작업 접수' },
-      { v:'work',      l:'업무 지시' },
-      { v:'schedule',  l:'일정 관리' },
-      { v:'equip_out', l:'장비 출고' },
-      { v:'delivery',  l:'택배 관리' },
-      { v:'label',     l:'라벨지' },
-    ];
-    const roomTypeIcon = (t) => t === 'group' ? '👥' : t === 'room' ? '💬' : t === 'user' ? '👤' : '❓';
+    // 미매핑 먼저, 매핑된 것 뒤로
+    const sorted = [..._lineRooms].sort((a,b)=>{
+      if (a.mapped !== b.mapped) return a.mapped ? 1 : -1;
+      return (b.lastTs||0) - (a.lastTs||0);
+    });
     list.innerHTML = `
-      <table style="width:100%;font-size:11px;border-collapse:collapse">
-        <thead style="background:#F3F4F6">
-          <tr>
-            <th style="text-align:left;padding:5px 6px;font-weight:700;color:var(--gray-700)">종류</th>
-            <th style="text-align:left;padding:5px 6px;font-weight:700;color:var(--gray-700)">최근 메시지</th>
-            <th style="text-align:left;padding:5px 6px;font-weight:700;color:var(--gray-700)">표시명</th>
-            <th style="text-align:left;padding:5px 6px;font-weight:700;color:var(--gray-700)">사이트 타입</th>
-            <th style="width:60px"></th>
-          </tr>
-        </thead>
-        <tbody>
-        ${_lineRooms.map(r => `
-          <tr style="border-top:1px solid var(--gray-200);${r.mapped?'background:#F0FDF4':''}">
-            <td style="padding:5px 6px;font-family:monospace;font-size:10px" title="${esc(r.id)}">
-              ${roomTypeIcon(r.roomType)} ${esc((r.roomType||'?').slice(0,5))}
-              <div style="color:var(--gray-400);font-size:9px">${esc(r.id.slice(0,12))}…</div>
-            </td>
-            <td style="padding:5px 6px;color:var(--gray-600);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.lastText||'')}">
-              ${r.msgCount ? `<b>${r.msgCount}건</b> · ${esc(r.lastSender||'')}: ${esc((r.lastText||'').slice(0,30))}` : '<span style="color:var(--gray-400)">메시지 없음</span>'}
-            </td>
-            <td style="padding:5px 6px">
-              <input type="text" value="${esc(r.name||'')}" placeholder="예: 업무 그룹"
-                     onchange="updateLineRoom('${esc(r.id)}', 'name', this.value)"
-                     style="width:100%;padding:6px 8px;border:1px solid var(--gray-400);border-radius:4px;font-size:13px;color:#111;background:#fff;font-weight:500">
-            </td>
-            <td style="padding:5px 6px">
-              <select onchange="updateLineRoom('${esc(r.id)}', 'type', this.value)"
-                      style="width:100%;padding:6px 8px;border:1px solid var(--gray-400);border-radius:4px;font-size:13px;color:#111;background:#fff;font-weight:500;min-width:130px">
-                <option value="">— 선택 —</option>
-                ${typeOpts.map(o => `<option value="${o.v}" ${r.type===o.v?'selected':''}>${o.l}</option>`).join('')}
-              </select>
-            </td>
-            <td style="padding:5px 6px;text-align:center">
-              ${r.mapped ? '<span style="color:var(--success);font-size:14px" title="매핑됨">✓</span>' : ''}
-            </td>
-          </tr>
-        `).join('')}
-        </tbody>
-      </table>`;
+      <div style="display:flex;flex-direction:column;gap:8px">
+      ${sorted.map(r => {
+        const typeLabel = _lineRoomTypeLabel(r.type);
+        const preview = r.msgCount
+          ? `<b>${esc(r.lastSender||'')}</b>: ${esc((r.lastText||'').slice(0,80))}${(r.lastText||'').length>80?'…':''}`
+          : '<span style="color:var(--gray-400)">메시지 없음</span>';
+        return `
+          <div style="border:1px solid ${r.mapped?'var(--success)':'var(--gray-300)'};${r.mapped?'background:#F0FDF4':'background:#fff'};border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:12px">
+            <div style="font-size:18px;line-height:1">${_roomTypeIcon(r.roomType)}</div>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+                <span style="font-weight:700;font-size:13px;color:${r.name?'#111':'#9CA3AF'}">${r.name?esc(r.name):'(표시명 미설정)'}</span>
+                ${typeLabel
+                  ? `<span style="background:#DBEAFE;color:#1D4ED8;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700">${esc(typeLabel)}</span>`
+                  : `<span style="background:#FEE2E2;color:#991B1B;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700">사이트 타입 미설정</span>`}
+                ${r.mapped?'<span style="color:var(--success);font-size:11px;font-weight:700">✓ 매핑됨</span>':''}
+                <span style="color:var(--gray-400);font-size:10px;margin-left:auto">${r.msgCount||0}건</span>
+              </div>
+              <div style="font-size:11px;color:var(--gray-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.lastText||'')}">${preview}</div>
+            </div>
+            <button class="btn btn-sm" onclick="openLineRoomEdit('${esc(r.id)}')" style="white-space:nowrap;background:#1A1614;color:#FFF8E7;padding:6px 12px;font-size:12px">편집</button>
+          </div>`;
+      }).join('')}
+      </div>`;
   }
+
+  let _editingRoomId = null;
+  function openLineRoomEdit(id){
+    const r = _lineRooms.find(x=>x.id===id);
+    if(!r){ showToast('채팅방 정보를 찾을 수 없습니다'); return; }
+    _editingRoomId = id;
+    const body = document.getElementById('lineRoomEditBody');
+    if(!body) return;
+    const date = r.lastTs ? new Date(r.lastTs).toLocaleString('ko-KR') : '-';
+    body.innerHTML = `
+      <div style="background:#F9FAFB;border:1px solid var(--gray-200);border-radius:8px;padding:12px 14px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:18px">${_roomTypeIcon(r.roomType)}</span>
+          <span style="font-size:12px;color:var(--gray-600);font-family:monospace">${esc(r.roomType||'?')} · ${esc(r.id.slice(0,16))}…</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--gray-500)">${r.msgCount||0}건 수신</span>
+        </div>
+        <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">최근 메시지 (${esc(date)})</div>
+        <div style="font-size:12px;color:var(--gray-500);margin-bottom:4px">발신: <b style="color:#111">${esc(r.lastSender||'-')}</b></div>
+        <div style="background:#fff;border:1px solid var(--gray-200);border-radius:6px;padding:10px;font-size:13px;color:#111;max-height:200px;overflow:auto;white-space:pre-wrap;line-height:1.5">${esc(r.lastText||'(메시지 없음)')}</div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px">표시명 <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="lineRoomEditName" value="${esc(r.name||'')}" placeholder="예: AS 접수방 / 신규 오픈방 / 장비 출고방"
+               style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-400);border-radius:6px;font-size:14px;color:#111;background:#fff;font-weight:500">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px">사이트 타입 <span style="color:var(--danger)">*</span></label>
+        <select id="lineRoomEditType"
+                style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-400);border-radius:6px;font-size:14px;color:#111;background:#fff;font-weight:500">
+          <option value="">— 선택 —</option>
+          ${LINE_ROOM_TYPE_OPTS.map(o=>`<option value="${o.v}" ${r.type===o.v?'selected':''}>${o.l}</option>`).join('')}
+        </select>
+        <div style="font-size:11px;color:var(--gray-500);margin-top:6px">선택한 타입에 따라 파싱 프롬프트가 채팅방 성격을 인지합니다</div>
+      </div>`;
+    showModal('lineRoomEditModal');
+    setTimeout(()=>document.getElementById('lineRoomEditName')?.focus(), 200);
+  }
+  window.openLineRoomEdit = openLineRoomEdit;
+
+  async function saveLineRoomEdit(){
+    if(!_editingRoomId){ closeModal('lineRoomEditModal'); return; }
+    const r = _lineRooms.find(x=>x.id===_editingRoomId);
+    if(!r) return;
+    const name = (document.getElementById('lineRoomEditName')?.value||'').trim();
+    const type = (document.getElementById('lineRoomEditType')?.value||'').trim();
+    if(!name){ showToast('⚠️ 표시명을 입력하세요'); return; }
+    if(!type){ showToast('⚠️ 사이트 타입을 선택하세요'); return; }
+    const btn = document.getElementById('lineRoomEditSaveBtn');
+    if(btn){ btn.disabled = true; btn.textContent = '저장 중…'; }
+    try{
+      await fetch('/api/line-rooms', {
+        method:'PUT', headers:{'content-type':'application/json'},
+        body: JSON.stringify({ id:_editingRoomId, name, type }),
+      });
+      r.name = name; r.type = type; r.mapped = true;
+      renderLineRoomList();
+      syncRoomsToLocal();
+      closeModal('lineRoomEditModal');
+      showToast('💾 매핑 저장됨 — ' + name);
+    }catch(e){ showToast('❌ ' + e.message); }
+    finally{ if(btn){ btn.disabled = false; btn.textContent = '저장'; } _editingRoomId = null; }
+  }
+  window.saveLineRoomEdit = saveLineRoomEdit;
 
   let _roomUpdateTimers = {};
   function updateLineRoom(id, field, value) {
