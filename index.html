@@ -267,6 +267,10 @@
   }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
   textarea { resize: vertical; min-height: 80px; }
+  /* 공통 패턴 — flex row 안에서 [select(검색범위) + input(검색어)] 같이 쓸 때 */
+  .search-row { display: flex; gap: 6px; align-items: stretch; }
+  .search-row > select { width: auto !important; flex: 0 0 auto; min-width: 140px; }
+  .search-row > input  { flex: 1 1 auto; min-width: 0; }
 
   /* ── MODAL ── */
   .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(2px); z-index: 200; display: none; align-items: center; justify-content: center; }
@@ -12050,13 +12054,13 @@ ${text.slice(0, 4000)}`;
       </div>
       <div style="margin-bottom:10px">
         <label style="font-size:11px;color:var(--gray-600);font-weight:600;display:block;margin-bottom:4px">병합할 다른 매장 검색</label>
-        <div style="display:flex;gap:6px">
-          <select id="mergeScope" style="padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:13px;background:#fff;font-weight:600;color:var(--gray-700);flex-shrink:0">
+        <div class="search-row">
+          <select id="mergeScope" style="padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:13px;background:#fff;font-weight:600;color:var(--gray-700)">
             <option value="name_biz">상호·사업자번호</option>
             <option value="ceo">대표자</option>
             <option value="addr">주소</option>
           </select>
-          <input type="text" id="mergeSearch" placeholder="검색어 입력..." style="flex:1;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:13px">
+          <input type="text" id="mergeSearch" placeholder="검색어 입력..." style="padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:13px">
         </div>
       </div>
       <div id="mergeResults" style="max-height:280px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px;padding:4px"></div>
@@ -12441,7 +12445,7 @@ ${text.slice(0, 4000)}`;
   /* 검색창 옆에 끼워 넣을 scope selector HTML 생성 */
   function _scopeSelectorHTML(id, current) {
     const cur = current || 'name_biz';
-    return `<select id="${id}" style="padding:6px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;font-weight:600;color:var(--gray-700);flex-shrink:0;margin-right:6px">
+    return `<select id="${id}" style="width:auto;flex:0 0 auto;min-width:140px;padding:6px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;font-weight:600;color:var(--gray-700);margin-right:6px">
       <option value="name_biz"${cur==='name_biz'?' selected':''}>상호·사업자번호</option>
       <option value="ceo"${cur==='ceo'?' selected':''}>대표자</option>
       <option value="addr"${cur==='addr'?' selected':''}>주소</option>
