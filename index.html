@@ -5708,7 +5708,7 @@ ${text.slice(0, 4000)}`;
                      id="storeInput-${p.id}"
                      value=""
                      autocomplete="off"
-                     placeholder="🔍 매장 변경 검색 — 입력하면 결과가 아래에 표시됩니다 (↑↓ Enter 로도 선택 가능)"
+                     placeholder="🔍 매장 변경 검색 — 입력 후 클릭/탭 하거나 ↑↓ + Enter 로 선택"
                      oninput="onStoreSearchLive('${p.id}', this)"
                      onkeydown="onStoreSearchKey(event, '${p.id}')"
                      onfocus="onStoreSearchLive('${p.id}', this)"
@@ -5856,10 +5856,14 @@ ${text.slice(0, 4000)}`;
       const addr = s.addr || s.address || '';
       const tel = s.tel || s.phone || '';
       const bizNo = s.bizNo || s.biz || '';
+      // onmousedown/ontouchstart 에서 preventDefault — input blur 가 먼저 일어나 dropdown 이
+      // 사라지는 것을 막고, 즉시 선택 처리. onclick 만 쓰면 onblur→hide 가 먼저 발동해서 클릭 실패.
       return `<div data-idx="${i}"
-                   onclick="selectStoreForPending('${pendId}', '${esc(s.id)}')"
+                   onmousedown="event.preventDefault(); selectStoreForPending('${pendId}', '${esc(s.id)}')"
+                   ontouchstart="event.preventDefault(); selectStoreForPending('${pendId}', '${esc(s.id)}')"
                    onmouseenter="_setStoreActive('${pendId}', ${i})"
-                   style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--gray-100);background:${active?'#DBEAFE':'#fff'}">
+                   role="button"
+                   style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--gray-100);background:${active?'#DBEAFE':'#fff'};user-select:none;-webkit-tap-highlight-color:rgba(59,130,246,.2)">
                 <div style="font-size:12px;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:6px">
                   <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name||'-')}</span>
                   ${bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace;font-weight:500">${esc(bizNo)}</span>` : ''}
