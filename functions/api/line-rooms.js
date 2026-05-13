@@ -54,9 +54,10 @@ export async function onRequestGet({ env }) {
     const info = roomMap[r.id] || {};
     return {
       ...r,
-      name:   info.name || '',
-      type:   info.type || '',
-      mapped: !!roomMap[r.id],
+      name:      info.name || '',
+      type:      info.type || '',
+      parseMode: info.parseMode || (info.type ? 'mixed' : ''),  // 기존 매핑 호환
+      mapped:    !!roomMap[r.id],
     };
   });
   // 최근 메시지순 정렬 (매핑 안 된 게 위로)
@@ -74,9 +75,13 @@ export async function onRequestPut({ env, request }) {
 
   const cfg = (await env.STORES_KV.get(CFG_KEY, 'json')) || {};
   cfg.roomMap = cfg.roomMap || {};
+  const type = String(body.type || 'general');
+  const FIXED_TYPES = ['equip_out','delivery','label'];
+  const inferredMode = FIXED_TYPES.includes(type) ? 'fixed' : 'mixed';
   cfg.roomMap[id] = {
-    name: String(body.name || '').slice(0, 100),
-    type: String(body.type || 'general'),
+    name:      String(body.name || '').slice(0, 100),
+    type,
+    parseMode: String(body.parseMode || inferredMode),
   };
   await env.STORES_KV.put(CFG_KEY, JSON.stringify(cfg));
   return json({ ok:true, room: { id, ...cfg.roomMap[id] } }, 200);

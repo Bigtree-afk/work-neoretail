@@ -80,8 +80,11 @@ export async function onRequestPost({ request, env }) {
   const parseSource = force ? 'manual' : 'cron';
   const allLogs = [];
 
+  const FIXED_TYPES = ['equip_out','delivery','label'];
+
   for (const [roomId, msgs] of Object.entries(byRoom)) {
     const roomInfo = (cfg.roomMap||{})[roomId] || { name: roomId, type:'general' };
+    const isFixedRoom = roomInfo.parseMode === 'fixed' && FIXED_TYPES.includes(roomInfo.type);
     const blob = msgs.map(m => {
       const t = new Date(Number(m.ts||0));
       const hh = String(t.getUTCHours()+9).padStart(2,'0').slice(-2);
@@ -90,8 +93,33 @@ export async function onRequestPost({ request, env }) {
     }).join('\n');
 
     try {
-      const parsed = await parseWithClaude(apiKey, blob, roomInfo);
-      const items = parsed.items || [];
+      let items;
+      if (isFixedRoom) {
+        // 고정 분류 룸 — Claude 호출 안 함. 각 메시지를 룸 타입으로 분류.
+        items = msgs
+          .filter(m => (m.text||'').trim().length > 1)  // 1글자 잡담 제외
+          .map(m => {
+            const t = new Date(Number(m.ts||0));
+            const hh = String(t.getUTCHours()+9).padStart(2,'0').slice(-2);
+            const mi = String(t.getUTCMinutes()).padStart(2,'0');
+            return {
+              type: roomInfo.type,
+              status: '접수',
+              sender: m.sender || '',
+              time: `${hh}:${mi}`,
+              store: '',       // 고정룸은 매장이 메시지에서 직접 추출 안 됨 — 사람이 검토 시 지정
+              storeMatched: false,
+              assignee: '',
+              device: '',
+              request: m.text || '',
+              parsed: (m.text || '').slice(0, 80),
+              original: m.text || '',
+            };
+          });
+      } else {
+        const parsed = await parseWithClaude(apiKey, blob, roomInfo);
+        items = parsed.items || [];
+      }
 
       // Claude 가 반환한 항목들을 원본 메시지와 매칭 — original 텍스트 일치로
       const itemByText = new Map();
@@ -334,8 +362,13 @@ function buildPending(it, msgs, roomId, roomInfo, now, idx, storeList) {
 }
 
 async function parseWithClaude(apiKey, chatBlob, roomInfo) {
+  const ROOM_TYPE_LABELS = {
+    general:'일반 대화', as:'AS/작업 접수 목적', work:'업무 지시 목적', schedule:'일정 관리 목적',
+    equip_out:'장비 출고 목적', delivery:'택배 관리 목적', label:'라벨지 작업 목적',
+  };
+  const typeLabel = ROOM_TYPE_LABELS[roomInfo.type] || '일반';
   const prompt = `당신은 POS/VAN 설치·AS 관리 회사의 운영 어시스턴트입니다.
-아래는 '${roomInfo.name}' (${roomInfo.type||'일반'}) Line 그룹 채팅 내용입니다.
+아래는 '${roomInfo.name}' (${typeLabel}) Line 그룹 채팅 내용입니다.
 
 각 메시지를 분석해서 업무적으로 의미 있는 항목을 추출하고 4개 카테고리로 분류해 주세요.
 

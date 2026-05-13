@@ -5242,6 +5242,9 @@ ${text.slice(0, 4000)}`;
     open_store:   { label:'🏪 오픈 작업',     bg:'#DBEAFE', color:'#1D4ED8', jobType:'신규',         menu:'newopen' },
     van_doc:      { label:'📑 밴서류',        bg:'#EDE9FE', color:'#5B21B6', jobType:'신규가맹',     menu:'newopen' },
     device_mgmt:  { label:'📱 단말기 AS',     bg:'#D1FAE5', color:'#065F46', jobType:'AS 처리',     menu:'asmgmt' },
+    equip_out:    { label:'📦 장비 출고',     bg:'#FFEDD5', color:'#9A3412', jobType:'장비출고',     menu:'jobs' },
+    delivery:     { label:'🚚 택배 관리',     bg:'#FAE8FF', color:'#86198F', jobType:'택배',         menu:'jobs' },
+    label:        { label:'🏷 라벨지',        bg:'#FEE2E2', color:'#991B1B', jobType:'라벨지',       menu:'jobs' },
     ignore:       { label:'⚪ 기타',          bg:'#F3F4F6', color:'#6B7280', jobType:null,          menu:null },
   };
 
@@ -5332,6 +5335,9 @@ ${text.slice(0, 4000)}`;
           <option value="open_store"  ${item.type==='open_store'?'selected':''}>🏪 오픈 작업</option>
           <option value="van_doc"     ${item.type==='van_doc'?'selected':''}>📑 밴서류</option>
           <option value="device_mgmt" ${item.type==='device_mgmt'?'selected':''}>📱 단말기 AS</option>
+          <option value="equip_out"   ${item.type==='equip_out'?'selected':''}>📦 장비 출고</option>
+          <option value="delivery"    ${item.type==='delivery'?'selected':''}>🚚 택배 관리</option>
+          <option value="label"       ${item.type==='label'?'selected':''}>🏷 라벨지</option>
           <option value="ignore"      ${item.type==='ignore'?'selected':''}>⚪ 기타/무시</option>
         </select>`;
       return `
@@ -5688,6 +5694,9 @@ ${text.slice(0, 4000)}`;
               <option value="open_store"  ${p.lineCategory==='open_store'?'selected':''}>🏪 오픈 작업</option>
               <option value="van_doc"     ${p.lineCategory==='van_doc'?'selected':''}>📑 밴서류</option>
               <option value="device_mgmt" ${p.lineCategory==='device_mgmt'?'selected':''}>📱 단말기 AS</option>
+              <option value="equip_out"   ${p.lineCategory==='equip_out'?'selected':''}>📦 장비 출고</option>
+              <option value="delivery"    ${p.lineCategory==='delivery'?'selected':''}>🚚 택배 관리</option>
+              <option value="label"       ${p.lineCategory==='label'?'selected':''}>🏷 라벨지</option>
             </select>
           </div>
           <!-- 담당자 -->
@@ -7274,19 +7283,24 @@ ${text.slice(0, 4000)}`;
   }
   window.loadLineRooms = loadLineRooms;
 
-  const LINE_ROOM_TYPE_OPTS = [
-    { v:'general',   l:'일반 대화' },
-    { v:'as',        l:'AS/작업 접수' },
-    { v:'work',      l:'업무 지시' },
-    { v:'schedule',  l:'일정 관리' },
-    { v:'equip_out', l:'장비 출고' },
-    { v:'delivery',  l:'택배 관리' },
-    { v:'label',     l:'라벨지' },
+  // 혼합 분류 룸 — Claude 가 메시지마다 분류 (룸 성격은 힌트로만 사용)
+  const LINE_ROOM_MIXED_OPTS = [
+    { v:'general',  l:'일반 대화' },
+    { v:'as',       l:'AS/작업 접수' },
+    { v:'work',     l:'업무 지시' },
+    { v:'schedule', l:'일정 관리' },
+  ];
+  // 고정 분류 룸 — 모든 메시지가 이 카테고리로 자동 분류 (Claude 호출 안 함)
+  const LINE_ROOM_FIXED_OPTS = [
+    { v:'equip_out', l:'📦 장비 출고' },
+    { v:'delivery',  l:'🚚 택배 관리' },
+    { v:'label',     l:'🏷 라벨지 발주' },
   ];
   function _lineRoomTypeLabel(v){
-    const o = LINE_ROOM_TYPE_OPTS.find(x=>x.v===v);
+    const o = [...LINE_ROOM_MIXED_OPTS, ...LINE_ROOM_FIXED_OPTS].find(x=>x.v===v);
     return o ? o.l : '';
   }
+  function _isFixedType(v){ return LINE_ROOM_FIXED_OPTS.some(o=>o.v===v); }
   function _roomTypeIcon(t){ return t === 'group' ? '👥' : t === 'room' ? '💬' : t === 'user' ? '👤' : '❓'; }
 
   function renderLineRoomList() {
@@ -7305,6 +7319,12 @@ ${text.slice(0, 4000)}`;
       <div style="display:flex;flex-direction:column;gap:8px">
       ${sorted.map(r => {
         const typeLabel = _lineRoomTypeLabel(r.type);
+        const isFixed = _isFixedType(r.type);
+        const modeBadge = r.mapped
+          ? (isFixed
+              ? '<span style="background:#FFF7ED;color:#9A3412;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700">🎯 고정 분류</span>'
+              : '<span style="background:#EFF6FF;color:#1E40AF;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700">🔀 메시지별 분류</span>')
+          : '';
         const preview = r.msgCount
           ? `<b>${esc(r.lastSender||'')}</b>: ${esc((r.lastText||'').slice(0,80))}${(r.lastText||'').length>80?'…':''}`
           : '<span style="color:var(--gray-400)">메시지 없음</span>';
@@ -7316,7 +7336,8 @@ ${text.slice(0, 4000)}`;
                 <span style="font-weight:700;font-size:13px;color:${r.name?'#111':'#9CA3AF'}">${r.name?esc(r.name):'(표시명 미설정)'}</span>
                 ${typeLabel
                   ? `<span style="background:#DBEAFE;color:#1D4ED8;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700">${esc(typeLabel)}</span>`
-                  : `<span style="background:#FEE2E2;color:#991B1B;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700">사이트 타입 미설정</span>`}
+                  : `<span style="background:#FEE2E2;color:#991B1B;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700">타입 미설정</span>`}
+                ${modeBadge}
                 ${r.mapped?'<span style="color:var(--success);font-size:11px;font-weight:700">✓ 매핑됨</span>':''}
                 <span style="color:var(--gray-400);font-size:10px;margin-left:auto">${r.msgCount||0}건</span>
               </div>
@@ -7336,6 +7357,7 @@ ${text.slice(0, 4000)}`;
     const body = document.getElementById('lineRoomEditBody');
     if(!body) return;
     const date = r.lastTs ? new Date(r.lastTs).toLocaleString('ko-KR') : '-';
+    const initialMode = _isFixedType(r.type) ? 'fixed' : 'mixed';
     body.innerHTML = `
       <div style="background:#F9FAFB;border:1px solid var(--gray-200);border-radius:8px;padding:12px 14px;margin-bottom:16px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -7347,41 +7369,95 @@ ${text.slice(0, 4000)}`;
         <div style="font-size:12px;color:var(--gray-500);margin-bottom:4px">발신: <b style="color:#111">${esc(r.lastSender||'-')}</b></div>
         <div style="background:#fff;border:1px solid var(--gray-200);border-radius:6px;padding:10px;font-size:13px;color:#111;max-height:200px;overflow:auto;white-space:pre-wrap;line-height:1.5">${esc(r.lastText||'(메시지 없음)')}</div>
       </div>
+
       <div style="margin-bottom:14px">
         <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px">표시명 <span style="color:var(--danger)">*</span></label>
         <input type="text" id="lineRoomEditName" value="${esc(r.name||'')}" placeholder="예: AS 접수방 / 신규 오픈방 / 장비 출고방"
                style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-400);border-radius:6px;font-size:14px;color:#111;background:#fff;font-weight:500">
       </div>
-      <div>
-        <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px">사이트 타입 <span style="color:var(--danger)">*</span></label>
+
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:8px">분류 방식 <span style="color:var(--danger)">*</span></label>
+        <div style="display:flex;gap:8px">
+          <label class="line-mode-card" data-mode="mixed" onclick="onLineRoomModeChange('mixed')"
+                 style="flex:1;border:2px solid ${initialMode==='mixed'?'#1D4ED8':'var(--gray-300)'};border-radius:8px;padding:10px 12px;cursor:pointer;background:${initialMode==='mixed'?'#EFF6FF':'#fff'}">
+            <div style="font-size:12px;font-weight:700;color:#1D4ED8;margin-bottom:3px">🔀 메시지별 분류</div>
+            <div style="font-size:11px;color:var(--gray-600);line-height:1.4">Claude 가 메시지마다 자동 분류<br>(AS / 밴서류 / 신규 / 단말기 등 혼합)</div>
+          </label>
+          <label class="line-mode-card" data-mode="fixed" onclick="onLineRoomModeChange('fixed')"
+                 style="flex:1;border:2px solid ${initialMode==='fixed'?'#9A3412':'var(--gray-300)'};border-radius:8px;padding:10px 12px;cursor:pointer;background:${initialMode==='fixed'?'#FFF7ED':'#fff'}">
+            <div style="font-size:12px;font-weight:700;color:#9A3412;margin-bottom:3px">🎯 고정 분류</div>
+            <div style="font-size:11px;color:var(--gray-600);line-height:1.4">모든 메시지를 동일 타입으로<br>(장비 출고 / 택배 / 라벨지 전용방)</div>
+          </label>
+        </div>
+        <input type="hidden" id="lineRoomEditMode" value="${initialMode}">
+      </div>
+
+      <div id="lineRoomEditTypeWrap">
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px">
+          <span id="lineRoomEditTypeLabel">${initialMode==='fixed'?'고정 카테고리':'채팅방 성격'}</span>
+          <span style="color:var(--danger)">*</span>
+        </label>
         <select id="lineRoomEditType"
                 style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-400);border-radius:6px;font-size:14px;color:#111;background:#fff;font-weight:500">
           <option value="">— 선택 —</option>
-          ${LINE_ROOM_TYPE_OPTS.map(o=>`<option value="${o.v}" ${r.type===o.v?'selected':''}>${o.l}</option>`).join('')}
         </select>
-        <div style="font-size:11px;color:var(--gray-500);margin-top:6px">선택한 타입에 따라 파싱 프롬프트가 채팅방 성격을 인지합니다</div>
+        <div id="lineRoomEditTypeHint" style="font-size:11px;color:var(--gray-500);margin-top:6px"></div>
       </div>`;
+    _refreshLineRoomTypeOptions(initialMode, r.type);
     showModal('lineRoomEditModal');
     setTimeout(()=>document.getElementById('lineRoomEditName')?.focus(), 200);
   }
   window.openLineRoomEdit = openLineRoomEdit;
+
+  function _refreshLineRoomTypeOptions(mode, currentValue){
+    const sel = document.getElementById('lineRoomEditType');
+    const label = document.getElementById('lineRoomEditTypeLabel');
+    const hint = document.getElementById('lineRoomEditTypeHint');
+    if (!sel) return;
+    const opts = mode === 'fixed' ? LINE_ROOM_FIXED_OPTS : LINE_ROOM_MIXED_OPTS;
+    // 모드 전환 시 이전 값이 새 옵션에 없으면 초기화
+    const keep = opts.some(o => o.v === currentValue) ? currentValue : '';
+    sel.innerHTML = '<option value="">— 선택 —</option>' +
+      opts.map(o=>`<option value="${o.v}" ${o.v===keep?'selected':''}>${o.l}</option>`).join('');
+    if (label) label.textContent = mode === 'fixed' ? '고정 카테고리' : '채팅방 성격';
+    if (hint) hint.textContent = mode === 'fixed'
+      ? '이 룸의 모든 메시지가 선택한 카테고리로 자동 분류됩니다 (Claude 미호출, 토큰 절약).'
+      : 'Claude 가 메시지 내용을 보고 AS·밴서류·신규 등으로 분류합니다. 룸 성격은 분류 힌트로 사용됩니다.';
+  }
+
+  function onLineRoomModeChange(mode){
+    document.getElementById('lineRoomEditMode').value = mode;
+    document.querySelectorAll('.line-mode-card').forEach(el=>{
+      const m = el.getAttribute('data-mode');
+      const active = m === mode;
+      const accent = m === 'fixed' ? '#9A3412' : '#1D4ED8';
+      const bg = m === 'fixed' ? '#FFF7ED' : '#EFF6FF';
+      el.style.borderColor = active ? accent : 'var(--gray-300)';
+      el.style.background  = active ? bg : '#fff';
+    });
+    const curType = document.getElementById('lineRoomEditType')?.value || '';
+    _refreshLineRoomTypeOptions(mode, curType);
+  }
+  window.onLineRoomModeChange = onLineRoomModeChange;
 
   async function saveLineRoomEdit(){
     if(!_editingRoomId){ closeModal('lineRoomEditModal'); return; }
     const r = _lineRooms.find(x=>x.id===_editingRoomId);
     if(!r) return;
     const name = (document.getElementById('lineRoomEditName')?.value||'').trim();
+    const mode = (document.getElementById('lineRoomEditMode')?.value||'mixed').trim();
     const type = (document.getElementById('lineRoomEditType')?.value||'').trim();
     if(!name){ showToast('⚠️ 표시명을 입력하세요'); return; }
-    if(!type){ showToast('⚠️ 사이트 타입을 선택하세요'); return; }
+    if(!type){ showToast(mode==='fixed'?'⚠️ 고정 카테고리를 선택하세요':'⚠️ 채팅방 성격을 선택하세요'); return; }
     const btn = document.getElementById('lineRoomEditSaveBtn');
     if(btn){ btn.disabled = true; btn.textContent = '저장 중…'; }
     try{
       await fetch('/api/line-rooms', {
         method:'PUT', headers:{'content-type':'application/json'},
-        body: JSON.stringify({ id:_editingRoomId, name, type }),
+        body: JSON.stringify({ id:_editingRoomId, name, type, parseMode: mode }),
       });
-      r.name = name; r.type = type; r.mapped = true;
+      r.name = name; r.type = type; r.parseMode = mode; r.mapped = true;
       renderLineRoomList();
       syncRoomsToLocal();
       closeModal('lineRoomEditModal');
