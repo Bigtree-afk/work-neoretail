@@ -5712,11 +5712,11 @@ ${text.slice(0, 4000)}`;
                      id="storeInput-${p.id}"
                      value=""
                      autocomplete="off"
-                     placeholder="🔍 매장 변경 검색 — 입력 후 클릭/탭 하거나 ↑↓ + Enter 로 선택"
-                     oninput="onStoreSearchLive('${p.id}', this)"
-                     onkeydown="onStoreSearchKey(event, '${p.id}')"
-                     onfocus="onStoreSearchLive('${p.id}', this)"
-                     onblur="setTimeout(()=>hideStoreSuggest('${p.id}'), 200)"
+                     placeholder="🔍 매장 변경 검색 — 클릭/탭 또는 ↑↓ + Enter 선택"
+                     oninput="Autocomplete.live('store', '${p.id}', this)"
+                     onkeydown="Autocomplete.key('store', '${p.id}', event)"
+                     onfocus="Autocomplete.live('store', '${p.id}', this)"
+                     onblur="setTimeout(()=>Autocomplete.hide('store', '${p.id}'), 200)"
                      style="width:100%;padding:5px 6px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px">
               <!-- 라이브 검색 결과 — input 바로 아래 떠 있는 dropdown 형태 -->
               <div id="storeSuggest-${p.id}"
@@ -5738,17 +5738,17 @@ ${text.slice(0, 4000)}`;
               <option value="delivery"    ${p.lineCategory==='delivery'?'selected':''}>🚚 택배</option>
             </select>
           </div>
-          <!-- 담당자 (커스텀 autocomplete — 클릭/탭 즉시 선택, 자유 입력도 가능) -->
+          <!-- 담당자 — 공통 Autocomplete 사용 -->
           <div style="position:relative">
             <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">👤 담당자</label>
             <input type="text"
                    id="assigneeInput-${p.id}"
                    value="${esc(p.assignee||'')}"
                    autocomplete="off"
-                   oninput="onAssigneeSearchLive('${p.id}', this)"
-                   onfocus="onAssigneeSearchLive('${p.id}', this)"
-                   onkeydown="onAssigneeSearchKey(event, '${p.id}')"
-                   onblur="setTimeout(()=>hideAssigneeSuggest('${p.id}'), 200); updatePending('${p.id}', {assignee:this.value})"
+                   oninput="Autocomplete.live('assignee', '${p.id}', this)"
+                   onfocus="Autocomplete.live('assignee', '${p.id}', this)"
+                   onkeydown="Autocomplete.key('assignee', '${p.id}', event)"
+                   onblur="setTimeout(()=>Autocomplete.hide('assignee', '${p.id}'), 200); updatePending('${p.id}', {assignee:this.value})"
                    style="width:100%;padding:5px 6px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px"
                    placeholder="이름 클릭 또는 입력">
             <div id="assigneeSuggest-${p.id}"
@@ -5831,100 +5831,171 @@ ${text.slice(0, 4000)}`;
     return scored.slice(0, limit).map(x => x.s);
   }
 
-  /* 검색 상태 — pendId 별 결과/하이라이트 인덱스 */
-  const _storeSearchState = {};
+  /* ═════════════════════════════════════════════════════════════
+     공통 자동완성 헬퍼 (Autocomplete)
+     ─────────────────────────────────────────────────────────────
+     [규칙] 사이트의 모든 input 자동완성/제안 드롭다운은 반드시 이
+     헬퍼를 사용한다. HTML5 <datalist> 금지, 직접 dropdown 구현 금지.
+     blur/click race, 모바일 터치 누락 같은 버그가 한 곳에서 해결됨.
 
-  /* oninput — 라이브 검색 (자동 등록 X, 결과만 표시) */
-  function onStoreSearchLive(pendId, inputEl) {
-    const val = inputEl.value;
-    const suggestEl = document.getElementById('storeSuggest-' + pendId);
-    if (!suggestEl) return;
-    if (!val.trim()) {
-      suggestEl.style.display = 'none';
-      suggestEl.innerHTML = '';
-      _storeSearchState[pendId] = { results: [], activeIdx: -1 };
-      return;
-    }
-    const matches = _searchStores(val, 8);
-    _storeSearchState[pendId] = { results: matches, activeIdx: matches.length ? 0 : -1 };
-    _renderStoreSuggest(pendId);
-  }
-  window.onStoreSearchLive = onStoreSearchLive;
+     사용:
+       Autocomplete.register('store', {
+         search: (q, key) => 결과 배열,
+         renderItem: (item, isActive) => HTML 문자열 (inner),
+         onPick: (item, key) => void,
+         maxItems: 8,
+       });
 
-  function _renderStoreSuggest(pendId) {
-    const suggestEl = document.getElementById('storeSuggest-' + pendId);
-    if (!suggestEl) return;
-    const st = _storeSearchState[pendId] || { results: [], activeIdx: -1 };
-    const { results, activeIdx } = st;
-    suggestEl.style.display = '';
-    if (!results.length) {
-      suggestEl.innerHTML = `<div style="padding:10px;color:var(--gray-500);font-size:11px;text-align:center">매칭되는 매장 없음 — 다른 키워드로 검색해 주세요</div>`;
-      return;
-    }
-    suggestEl.innerHTML = results.map((s, i) => {
-      const active = i === activeIdx;
+     HTML:
+       <div style="position:relative">
+         <input id="storeInput-${key}"
+                oninput="Autocomplete.live('store', '${key}', this)"
+                onfocus="Autocomplete.live('store', '${key}', this)"
+                onkeydown="Autocomplete.key('store', '${key}', event)"
+                onblur="setTimeout(()=>Autocomplete.hide('store', '${key}'), 200)">
+         <div id="storeSuggest-${key}" style="display:none;position:absolute;..."></div>
+       </div>
+     ═══════════════════════════════════════════════════════════*/
+  const _ACReg = {};
+  const _ACState = {};
+  window.Autocomplete = {
+    register(kind, cfg) {
+      _ACReg[kind] = {
+        search: cfg.search,
+        renderItem: cfg.renderItem,
+        onPick: cfg.onPick,
+        maxItems: cfg.maxItems || 8,
+        inputPrefix: cfg.inputPrefix || (kind + 'Input-'),
+        suggestPrefix: cfg.suggestPrefix || (kind + 'Suggest-'),
+        emptyMessage: cfg.emptyMessage || '매칭 결과 없음',
+      };
+    },
+    live(kind, key, inputEl) {
+      const cfg = _ACReg[kind];
+      if (!cfg) { console.warn('[Autocomplete] not registered:', kind); return; }
+      const q = (inputEl.value || '').trim();
+      const results = (cfg.search(q, key) || []).slice(0, cfg.maxItems);
+      const stateKey = kind + ':' + key;
+      _ACState[stateKey] = { results, activeIdx: results.length ? 0 : -1, kind, key };
+      Autocomplete._render(stateKey);
+    },
+    key(kind, key, ev) {
+      const cfg = _ACReg[kind]; if (!cfg) return;
+      const stateKey = kind + ':' + key;
+      const st = _ACState[stateKey];
+      if (ev.key === 'Escape') { Autocomplete.hide(kind, key); return; }
+      if (!st || !st.results.length) return;
+      const max = st.results.length - 1;
+      if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        st.activeIdx = Math.min(max, (st.activeIdx < 0 ? 0 : st.activeIdx + 1));
+        Autocomplete._render(stateKey);
+      } else if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        st.activeIdx = Math.max(0, st.activeIdx - 1);
+        Autocomplete._render(stateKey);
+      } else if (ev.key === 'Enter') {
+        ev.preventDefault();
+        const sel = st.results[st.activeIdx];
+        if (sel) cfg.onPick(sel, key);
+        else Autocomplete.hide(kind, key);
+      } else if (ev.key === 'Tab' && st.activeIdx >= 0 && !ev.shiftKey) {
+        const sel = st.results[st.activeIdx];
+        if (sel) cfg.onPick(sel, key);
+      }
+    },
+    hide(kind, key) {
+      const cfg = _ACReg[kind]; if (!cfg) return;
+      const el = document.getElementById(cfg.suggestPrefix + key);
+      if (el) el.style.display = 'none';
+    },
+    setActive(kind, key, idx) {
+      const stateKey = kind + ':' + key;
+      const st = _ACState[stateKey]; if (!st) return;
+      st.activeIdx = idx;
+      Autocomplete._render(stateKey);
+    },
+    pick(kind, key, idx) {
+      const cfg = _ACReg[kind]; if (!cfg) return;
+      const stateKey = kind + ':' + key;
+      const st = _ACState[stateKey]; if (!st) return;
+      const sel = st.results[idx];
+      if (sel) cfg.onPick(sel, key);
+    },
+    _render(stateKey) {
+      const st = _ACState[stateKey]; if (!st) return;
+      const cfg = _ACReg[st.kind]; if (!cfg) return;
+      const el = document.getElementById(cfg.suggestPrefix + st.key);
+      if (!el) return;
+      const { results, activeIdx } = st;
+      el.style.display = '';
+      if (!results.length) {
+        el.innerHTML = `<div style="padding:10px;color:var(--gray-500);font-size:11px;text-align:center">${cfg.emptyMessage}</div>`;
+        return;
+      }
+      el.innerHTML = results.map((item, i) => {
+        const active = i === activeIdx;
+        const inner = cfg.renderItem(item, active);
+        // onmousedown + ontouchstart + preventDefault → input blur 차단 후 즉시 onPick 실행
+        return `<div data-idx="${i}"
+                     onmousedown="event.preventDefault(); Autocomplete.pick('${st.kind}', '${esc(st.key)}', ${i})"
+                     ontouchstart="event.preventDefault(); Autocomplete.pick('${st.kind}', '${esc(st.key)}', ${i})"
+                     onmouseenter="Autocomplete.setActive('${st.kind}', '${esc(st.key)}', ${i})"
+                     role="button"
+                     style="cursor:pointer;border-bottom:1px solid var(--gray-100);background:${active?'#DBEAFE':'#fff'};user-select:none;-webkit-tap-highlight-color:rgba(59,130,246,.2)">${inner}</div>`;
+      }).join('');
+    },
+  };
+
+  // 사이트 시작 시 1회 등록 — store / assignee 두 kind 사용
+  Autocomplete.register('store', {
+    search: (q) => _searchStores(q, 8),
+    renderItem: (s, active) => {
       const addr = s.addr || s.address || '';
       const tel = s.tel || s.phone || '';
       const bizNo = s.bizNo || s.biz || '';
-      // onmousedown/ontouchstart 에서 preventDefault — input blur 가 먼저 일어나 dropdown 이
-      // 사라지는 것을 막고, 즉시 선택 처리. onclick 만 쓰면 onblur→hide 가 먼저 발동해서 클릭 실패.
-      return `<div data-idx="${i}"
-                   onmousedown="event.preventDefault(); selectStoreForPending('${pendId}', '${esc(s.id)}')"
-                   ontouchstart="event.preventDefault(); selectStoreForPending('${pendId}', '${esc(s.id)}')"
-                   onmouseenter="_setStoreActive('${pendId}', ${i})"
-                   role="button"
-                   style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--gray-100);background:${active?'#DBEAFE':'#fff'};user-select:none;-webkit-tap-highlight-color:rgba(59,130,246,.2)">
-                <div style="font-size:12px;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:6px">
-                  <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name||'-')}</span>
-                  ${bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace;font-weight:500">${esc(bizNo)}</span>` : ''}
-                </div>
-                <div style="font-size:10px;color:var(--gray-500);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
-                  ${s.ceo ? `<span>👤 ${esc(s.ceo)}</span>` : ''}
-                  ${tel ? `<span style="color:#1D4ED8">📞 ${esc(tel)}</span>` : ''}
-                  ${addr ? `<span style="flex:1;min-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 ${esc(addr)}</span>` : ''}
-                </div>
-              </div>`;
-    }).join('');
-  }
+      return `<div style="padding:7px 10px">
+        <div style="font-size:12px;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:6px">
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name||'-')}</span>
+          ${bizNo ? `<span style="font-size:10px;color:var(--gray-500);font-family:monospace;font-weight:500">${esc(bizNo)}</span>` : ''}
+        </div>
+        <div style="font-size:10px;color:var(--gray-500);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
+          ${s.ceo ? `<span>👤 ${esc(s.ceo)}</span>` : ''}
+          ${tel ? `<span style="color:#1D4ED8">📞 ${esc(tel)}</span>` : ''}
+          ${addr ? `<span style="flex:1;min-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 ${esc(addr)}</span>` : ''}
+        </div>
+      </div>`;
+    },
+    onPick: (s, pendId) => selectStoreForPending(pendId, s.id),
+    emptyMessage: '매칭되는 매장 없음 — 다른 키워드로 검색해 주세요',
+  });
 
-  function _setStoreActive(pendId, idx) {
-    const st = _storeSearchState[pendId];
-    if (!st) return;
-    st.activeIdx = idx;
-    _renderStoreSuggest(pendId);
-  }
-  window._setStoreActive = _setStoreActive;
+  Autocomplete.register('assignee', {
+    search: (q) => {
+      const users = (typeof getUsers === 'function') ? (getUsers() || []) : [];
+      const names = users.map(u => (u.name || u.email || '')).filter(Boolean);
+      if (!q) return names;
+      const qLow = q.toLowerCase();
+      return names.filter(n => n.toLowerCase().includes(qLow));
+    },
+    renderItem: (name, active) => `<div style="padding:7px 10px;font-size:12px;font-weight:600">👤 ${esc(name)}</div>`,
+    onPick: (name, pendId) => selectAssigneeForPending(pendId, name),
+    emptyMessage: '일치하는 사용자 없음 (이름 입력 후 Enter 로 자유 입력 가능)',
+  });
 
-  /* 키보드 — ↑↓ 이동, Enter / Tab 선택, Esc 닫기 */
-  function onStoreSearchKey(ev, pendId) {
-    const st = _storeSearchState[pendId];
-    if (ev.key === 'Escape') { hideStoreSuggest(pendId); return; }
-    if (!st || !st.results.length) return;
-    const max = st.results.length - 1;
-    if (ev.key === 'ArrowDown') {
-      ev.preventDefault();
-      st.activeIdx = Math.min(max, (st.activeIdx < 0 ? 0 : st.activeIdx + 1));
-      _renderStoreSuggest(pendId);
-    } else if (ev.key === 'ArrowUp') {
-      ev.preventDefault();
-      st.activeIdx = Math.max(0, st.activeIdx - 1);
-      _renderStoreSuggest(pendId);
-    } else if (ev.key === 'Enter') {
-      ev.preventDefault();
-      const sel = st.results[st.activeIdx];
-      if (sel) selectStoreForPending(pendId, sel.id);
-    } else if (ev.key === 'Tab' && st.activeIdx >= 0 && !ev.shiftKey) {
-      const sel = st.results[st.activeIdx];
-      if (sel) selectStoreForPending(pendId, sel.id);
-    }
-  }
-  window.onStoreSearchKey = onStoreSearchKey;
+  /* 검색 상태 — pendId 별 결과/하이라이트 인덱스 — (구버전 호환, 점진 제거) */
+  const _storeSearchState = {};
 
-  function hideStoreSuggest(pendId) {
-    const el = document.getElementById('storeSuggest-' + pendId);
-    if (el) el.style.display = 'none';
+  /* oninput — 라이브 검색 — 구버전 호환 wrapper (Autocomplete 헬퍼로 위임) */
+  function onStoreSearchLive(pendId, inputEl) {
+    Autocomplete.live('store', pendId, inputEl);
   }
-  window.hideStoreSuggest = hideStoreSuggest;
+  window.onStoreSearchLive = onStoreSearchLive;
+
+  /* 구버전 함수들 — Autocomplete 헬퍼로 위임. 다른 코드에서 직접 호출 시 호환 보장. */
+  window.onStoreSearchKey = (ev, pendId) => Autocomplete.key('store', pendId, ev);
+  window.hideStoreSuggest = (pendId) => Autocomplete.hide('store', pendId);
+  window._setStoreActive  = (pendId, idx) => Autocomplete.setActive('store', pendId, idx);
 
   /* 결과 선택 — 매장 연결 + 상단 패널 갱신 + 드롭다운 닫기 + 검색창 비움 */
   function selectStoreForPending(pendId, storeId) {
@@ -5998,88 +6069,20 @@ ${text.slice(0, 4000)}`;
   // 구 함수명 호환
   const _updateStoreInputStyle = (pendId) => _updateStoreStatusPanel(pendId);
 
-  /* ── 담당자 autocomplete (커스텀) ─────────────────────────────────
-     datalist 는 모바일 클릭/터치 동작이 불안정해서 커스텀 dropdown 사용 */
-  const _assigneeState = {};   // pendId → { results, activeIdx }
-  function _getAssigneeList() {
-    const users = (typeof getUsers === 'function') ? (getUsers() || []) : [];
-    return users.map(u => (u.name || u.email || '')).filter(Boolean);
-  }
-  function onAssigneeSearchLive(pendId, inputEl) {
-    const q = (inputEl.value || '').trim().toLowerCase();
-    const all = _getAssigneeList();
-    const results = q
-      ? all.filter(n => n.toLowerCase().includes(q)).slice(0, 8)
-      : all.slice(0, 8);
-    _assigneeState[pendId] = { results, activeIdx: results.length ? 0 : -1 };
-    _renderAssigneeSuggest(pendId);
-  }
-  window.onAssigneeSearchLive = onAssigneeSearchLive;
+  /* 담당자 autocomplete — Autocomplete 헬퍼로 위임 (구버전 호환) */
+  window.onAssigneeSearchLive = (pendId, inputEl) => Autocomplete.live('assignee', pendId, inputEl);
 
-  function _renderAssigneeSuggest(pendId) {
-    const el = document.getElementById('assigneeSuggest-' + pendId);
-    if (!el) return;
-    const st = _assigneeState[pendId] || { results: [], activeIdx: -1 };
-    const { results, activeIdx } = st;
-    if (!results.length) { el.style.display = 'none'; return; }
-    el.style.display = '';
-    el.innerHTML = results.map((name, i) => {
-      const active = i === activeIdx;
-      return `<div data-idx="${i}"
-                   onmousedown="event.preventDefault(); selectAssigneeForPending('${pendId}', ${JSON.stringify(name).replace(/"/g,'&quot;')})"
-                   ontouchstart="event.preventDefault(); selectAssigneeForPending('${pendId}', ${JSON.stringify(name).replace(/"/g,'&quot;')})"
-                   onmouseenter="_setAssigneeActive('${pendId}', ${i})"
-                   role="button"
-                   style="padding:7px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--gray-100);background:${active?'#DBEAFE':'#fff'};user-select:none;-webkit-tap-highlight-color:rgba(59,130,246,.2);font-weight:600">
-                👤 ${esc(name)}
-              </div>`;
-    }).join('');
-  }
-  function _setAssigneeActive(pendId, idx) {
-    const st = _assigneeState[pendId];
-    if (!st) return;
-    st.activeIdx = idx;
-    _renderAssigneeSuggest(pendId);
-  }
-  window._setAssigneeActive = _setAssigneeActive;
+  /* 구버전 호환 wrapper — Autocomplete 헬퍼로 위임 */
+  window.onAssigneeSearchKey = (ev, pendId) => Autocomplete.key('assignee', pendId, ev);
+  window.hideAssigneeSuggest = (pendId) => Autocomplete.hide('assignee', pendId);
+  window._setAssigneeActive  = (pendId, idx) => Autocomplete.setActive('assignee', pendId, idx);
 
-  function onAssigneeSearchKey(ev, pendId) {
-    const st = _assigneeState[pendId];
-    if (ev.key === 'Escape') { hideAssigneeSuggest(pendId); return; }
-    if (!st || !st.results.length) return;
-    const max = st.results.length - 1;
-    if (ev.key === 'ArrowDown') {
-      ev.preventDefault();
-      st.activeIdx = Math.min(max, (st.activeIdx < 0 ? 0 : st.activeIdx + 1));
-      _renderAssigneeSuggest(pendId);
-    } else if (ev.key === 'ArrowUp') {
-      ev.preventDefault();
-      st.activeIdx = Math.max(0, st.activeIdx - 1);
-      _renderAssigneeSuggest(pendId);
-    } else if (ev.key === 'Enter') {
-      ev.preventDefault();
-      const sel = st.results[st.activeIdx];
-      if (sel) selectAssigneeForPending(pendId, sel);
-      else hideAssigneeSuggest(pendId);   // 자유 입력 유지
-    } else if (ev.key === 'Tab' && st.activeIdx >= 0 && !ev.shiftKey) {
-      const sel = st.results[st.activeIdx];
-      if (sel) selectAssigneeForPending(pendId, sel);
-    }
-  }
-  window.onAssigneeSearchKey = onAssigneeSearchKey;
-
-  function hideAssigneeSuggest(pendId) {
-    const el = document.getElementById('assigneeSuggest-' + pendId);
-    if (el) el.style.display = 'none';
-  }
-  window.hideAssigneeSuggest = hideAssigneeSuggest;
-
+  /* 담당자 선택 시 비즈니스 로직 — Autocomplete.onPick 에서 호출 */
   function selectAssigneeForPending(pendId, name) {
     const inp = document.getElementById('assigneeInput-' + pendId);
     if (inp) inp.value = name;
     updatePending(pendId, { assignee: name });
-    hideAssigneeSuggest(pendId);
-    _assigneeState[pendId] = { results: [], activeIdx: -1 };
+    Autocomplete.hide('assignee', pendId);
     showToast('👤 담당자: ' + name);
   }
   window.selectAssigneeForPending = selectAssigneeForPending;

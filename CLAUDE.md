@@ -1,5 +1,63 @@
 # work.neoretail.net — 프로젝트 규칙
 
+## UI 규칙 (글로벌 — 필수)
+
+### 자동완성 / 검색 제안 드롭다운 — `Autocomplete` 헬퍼 사용 의무
+새로운 input 자동완성·제안 드롭다운 UI 를 만들 때 **반드시** `index.html` 에 정의된 `Autocomplete` 헬퍼 사용. 다음 패턴 **금지**:
+
+| 금지 패턴 | 이유 |
+|---|---|
+| HTML5 `<datalist>` | 모바일 클릭/터치 처리 불안정, JS 이벤트 가로채기 불가 |
+| 직접 `onclick` 으로 항목 선택 | input `onblur → display:none` 이 먼저 발동해 클릭 누락 |
+| 자체 dropdown state 관리 | blur/click race, 키보드 이동, ESC 닫기 등 동일 버그 반복 발생 |
+
+**올바른 사용:**
+```js
+// 1) 한 번만 등록
+Autocomplete.register('myKind', {
+  search:     (q, key) => 결과배열,
+  renderItem: (item, isActive) => '<div ...>내용</div>',
+  onPick:     (item, key) => { /* 선택 처리 */ },
+  maxItems:   8,                     // 선택 (기본 8)
+  emptyMessage: '결과 없음',          // 선택
+});
+
+// 2) HTML 에서 표준 inline 핸들러 사용
+//    input id 는 'myKindInput-${key}', dropdown div id 는 'myKindSuggest-${key}'
+```
+```html
+<div style="position:relative">
+  <input id="myKindInput-${key}"
+         autocomplete="off"
+         oninput="Autocomplete.live('myKind', '${key}', this)"
+         onfocus="Autocomplete.live('myKind', '${key}', this)"
+         onkeydown="Autocomplete.key('myKind', '${key}', event)"
+         onblur="setTimeout(()=>Autocomplete.hide('myKind', '${key}'), 200)">
+  <div id="myKindSuggest-${key}"
+       style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;
+              background:#fff;border:1px solid var(--gray-300);border-radius:5px;
+              box-shadow:0 4px 12px rgba(0,0,0,0.1);max-height:240px;overflow-y:auto;margin-top:2px"></div>
+</div>
+```
+
+**헬퍼가 자동 처리하는 항목:**
+- ↑↓ 키보드 이동, Enter / Tab 선택, Esc 닫기
+- 마우스 클릭 + 모바일 터치 (`onmousedown` + `ontouchstart` + `preventDefault` — input blur 차단)
+- 활성 항목 하이라이트, `onmouseenter` 호버 변경
+- 빈 결과 메시지
+
+현재 등록된 kind: `store` (매장 검색), `assignee` (담당자 선택).
+
+### Form 내 select + input 가로 배치 — `.search-row` 클래스 사용
+검색 범위 셀렉트 + 검색어 입력 같은 한 줄 폼은 `<div class="search-row">` 로 감싸기. 전역 `select { width:100% }` 규칙 때문에 그냥 flex 로 묶으면 select 가 100% 폭을 차지하고 input 이 찌부러짐.
+
+```html
+<div class="search-row">
+  <select>...</select>
+  <input type="text">
+</div>
+```
+
 ## 운영 규칙
 
 ### 🚨 파싱 오류 알림 (필수)
