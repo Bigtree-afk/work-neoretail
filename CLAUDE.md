@@ -58,6 +58,42 @@ Autocomplete.register('myKind', {
 </div>
 ```
 
+## 데이터 규칙 (필수)
+
+### 작업 완료 판정 — `_isJobDone(j)` 헬퍼 사용
+모든 작업의 "완료 여부" 판정은 **반드시** `window._isJobDone(j)` 함수 사용. 인라인 `j.status === '완료'` 체크 금지.
+
+완료로 인정되는 상태값:
+| 값 | 사용처 |
+|---|---|
+| `'완료'` | 신규/오픈/밴서류 등 일반 작업 |
+| `'처리완료'` | A/S · POS · VAN · 단말기 처리 |
+| `'done'` | 영문 호환 (구버전 데이터) |
+
+**위치별 영향:** 진행중 카운트, AS 미처리 리스트, 신규관리 리스트, 최근 완료 작업, 완료 그리드 모달 — 모두 이 헬퍼 일관 사용. 새 종료 상태값(예: `'취소'`) 추가 시 이 헬퍼만 수정하면 전 화면 자동 적용.
+
+### 담당자(engineer) vs 기록자(recordedBy) 분리
+모든 작업 메모/상태 변경은 **두 사람을 구분해 기록**:
+
+- **담당 (assignee/engineer)** = 실제 현장 처리자
+- **기록 (recordedBy)** = 시스템에서 클릭한 사용자 (`_currentUserName()`)
+
+두 사람이 다를 때 메모/일지에 `[담당 : *** / 기록 : ***]` 로 표시.
+같을 때는 `[기록 : ***]` 로 간략화.
+
+**저장 필드:**
+- `job.createdBy` — 등록한 사용자
+- `job.completedBy` — 완료 처리한 사용자
+- `job.lastEditedBy` / `job.lastEditedAt` — 마지막 수정자/시각
+- `job.memos[].assignee` / `job.memos[].recordedBy` — 메모별 두 사람 정보
+- `pending.statusChangedBy` / `pending.statusChangedAt` — 등록 대기 상태 변경 추적
+
+**공통 헬퍼:**
+- `_currentUserName()` — 현재 로그인 사용자 이름 (없으면 '익명')
+- `addJobMemo(job, text, opts)` — 표준 헤더 자동 부착 후 memos 추가
+
+새 메모/이력 기록 시 `addJobMemo` 사용 권장. 직접 `job.memos.push()` 할 경우 위 필드들 수동 채워야 함.
+
 ## 운영 규칙
 
 ### 🚨 파싱 오류 알림 (필수)

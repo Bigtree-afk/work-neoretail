@@ -5653,6 +5653,60 @@ ${text.slice(0, 4000)}`;
     '완료':   { bg:'#D1FAE5', color:'#065F46', icon:'✅' },
   };
 
+  /* ── 글로벌 헬퍼 ─────────────────────────────────────────────
+     모든 작업의 "완료 여부" 판정은 반드시 이 함수 사용.
+     완료 상태 종류:
+       - '완료'      : 신규/오픈/밴서류 등 일반 작업의 완료
+       - '처리완료'  : A/S·단말기·POS·VAN 처리의 완료
+       - 'done'      : 영문 호환 (구버전)
+     [규칙] j.status === '완료' 같은 인라인 체크 금지 — _isJobDone(j) 사용
+  ─────────────────────────────────────────────────────────────*/
+  window._isJobDone = function(j) {
+    if (!j) return false;
+    const s = String(j.status || '');
+    return s === '완료' || s === '처리완료' || s === 'done';
+  };
+
+  /* 현재 사용자 이름 — 기록자/감사 로그용 */
+  window._currentUserName = function() {
+    try {
+      const auth = (typeof getAuthState === 'function') ? getAuthState() : null;
+      if (auth) {
+        return auth.name || auth.displayName || auth.email || '익명';
+      }
+    } catch(e) {}
+    return '익명';
+  };
+
+  /* 작업 메모 추가 — 담당자(engineer)와 기록자(현재 사용자) 다르면 둘 다 기록
+     usage: addJobMemo(job, '상태 변경: 진행중 → 처리완료', { tag:'status' })
+  */
+  window.addJobMemo = function(job, text, opts) {
+    if (!job) return;
+    if (!Array.isArray(job.memos)) job.memos = [];
+    opts = opts || {};
+    const now = new Date();
+    const kstAt = new Date(now.getTime()+9*3600*1000).toISOString().slice(0,16).replace('T',' ');
+    const recordedBy = opts.recordedBy || _currentUserName();
+    const assignee = opts.assignee || job.engineer || job.assignee || '';
+    let header;
+    if (assignee && assignee !== recordedBy) {
+      header = `담당 : ${assignee} / 기록 : ${recordedBy}`;
+    } else if (recordedBy) {
+      header = `기록 : ${recordedBy}`;
+    } else {
+      header = '';
+    }
+    job.memos.push({
+      at:        kstAt,
+      author:    recordedBy,
+      assignee:  assignee || '',
+      recordedBy,
+      text:      header ? `[${header}] ${text}` : text,
+      tag:       opts.tag || '',
+    });
+  };
+
   function renderLinePendingList() {
     const list = document.getElementById('linePendingList');
     const totalEl = document.getElementById('linePendingTotal');
@@ -6147,9 +6201,15 @@ ${text.slice(0, 4000)}`;
   function cyclePendingStatus(id, status) {
     const it = _linePending.find(x => x.id === id);
     if (!it) return;
+    const prev = it.status;
     it.status = status;
-    _flushPending(id, { status });
+    it.statusChangedBy = _currentUserName();
+    it.statusChangedAt = new Date().toISOString();
+    _flushPending(id, { status, statusChangedBy: it.statusChangedBy, statusChangedAt: it.statusChangedAt });
     renderLinePendingList();
+    if (status === '완료' && prev !== '완료') {
+      showToast(`✅ 처리 완료 — ${it.statusChangedBy} 기록`);
+    }
   }
   window.cyclePendingStatus = cyclePendingStatus;
 
@@ -6204,17 +6264,29 @@ ${text.slice(0, 4000)}`;
           p.lineParsed || p.lineRequest || p.lineRaw || '',
           p.memo ? `📝 ${p.memo}` : '',
         ].filter(Boolean);
+        // 담당(assignee=engineer)과 기록자(현재 사용자) 분리 기록
+        const assignee = p.assignee || job.engineer || '';
+        const recordedBy = _currentUserName();
+        const header = (assignee && assignee !== recordedBy)
+          ? `담당 : ${assignee} / 기록 : ${recordedBy}`
+          : (recordedBy ? `기록 : ${recordedBy}` : '');
         job.memos.push({
-          at: (p.lineMsgAt||'').slice(2),
-          author: p.lineSender || 'Line',
-          text: memoLines.join(' / '),
+          at:        (p.lineMsgAt||'').slice(2),
+          author:    p.lineSender || 'Line',
+          assignee:  assignee,
+          recordedBy,
+          text:      header ? `[${header}] ${memoLines.join(' / ')}` : memoLines.join(' / '),
+          tag:       'line-update',
         });
         if (jobStatus === '처리완료' || jobStatus === '완료') {
           job.status = jobStatus;
           job.completedAt = new Date().toISOString();
+          job.completedBy = recordedBy;   // 누가 완료 처리했는지 기록
         } else {
           job.status = jobStatus;
         }
+        job.lastEditedBy = recordedBy;
+        job.lastEditedAt = new Date().toISOString();
         if (p.assignee && !job.engineer) job.engineer = p.assignee;
         if (p.storeId && !job.storeId) { job.storeId = p.storeId; job.unregistered = false; }
         saveJobs(jobs);
@@ -6222,6 +6294,11 @@ ${text.slice(0, 4000)}`;
     } else {
       // ── NEW 경로 ────────────────────────────────────────
       const isAs = isAsCat;
+      const recordedBy = _currentUserName();
+      const assignee = p.assignee || '';
+      const memoHeader = (assignee && assignee !== recordedBy)
+        ? `담당 : ${assignee} / 기록 : ${recordedBy}`
+        : (recordedBy ? `기록 : ${recordedBy}` : '');
       const job = {
         id: 'JOB-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2,5),
         type: isAs ? 'AS 처리' : meta.jobType,
@@ -6234,11 +6311,12 @@ ${text.slice(0, 4000)}`;
         storeCeo:  storeMatch?.ceo  || '',
         storeBizNo: storeMatch?.biz || storeMatch?.bizNo   || '',
         unregistered: !p.storeId,
-        engineer: p.assignee || '',
+        engineer: assignee,
         // 비고는 검토자 메모만 (LINE 원문은 별도 패널로 분리)
         notes: p.memo || '',
         status: jobStatus,
         createdAt: lineTs,                  // ← 라인 메시지 시각 기준
+        createdBy: recordedBy,              // ← 누가 등록 처리했는지
         source: 'line',
         lineCategory: p.lineCategory,
         lineSender: p.lineSender || '',
@@ -6249,11 +6327,18 @@ ${text.slice(0, 4000)}`;
         lineRequest: p.lineRequest || '',   // 요청·증상 핵심
         reviewMemo: p.memo || '',
         memos: p.memo ? [{
-          at: (p.lineMsgAt||'').slice(2),
-          author: p.lineSender || 'Line',
-          text: `📝 검토메모: ${p.memo}`,
+          at:        (p.lineMsgAt||'').slice(2),
+          author:    p.lineSender || 'Line',
+          assignee,
+          recordedBy,
+          text:      memoHeader ? `[${memoHeader}] 📝 검토메모: ${p.memo}` : `📝 검토메모: ${p.memo}`,
+          tag:       'line-review',
         }] : [],
       };
+      if (jobStatus === '처리완료' || jobStatus === '완료') {
+        job.completedAt = new Date().toISOString();
+        job.completedBy = recordedBy;
+      }
       if (isAs) {
         job.asReceivedAt = (p.lineMsgAt || '').replace('T',' ').slice(0,16);
         job.asRequest = p.lineRequest || p.lineParsed || '';
@@ -9007,7 +9092,7 @@ ${text.slice(0, 4000)}`;
 
   function buildJobCardEl(job) {
     const typeIcon = { '신규':'🏪','POS교체':'🔄','VAN교체':'💳','AS':'🔧','기타':'📋' }[job.type] || '📋';
-    const isJobDone = (job.status === '완료' || job.status === 'done');
+    const isJobDone = _isJobDone(job);
     const card = document.createElement('div');
     card.className = 'job-card';
     card.setAttribute('data-jobtype', job.type || '기타');
@@ -9233,7 +9318,7 @@ ${text.slice(0, 4000)}`;
     const ym = todayStr.slice(0,7); // YYYY-MM
 
     /* ── 상단 통계 카드 ── */
-    const isDone = (j) => (j.status === '완료' || j.status === 'done');
+    const isDone = _isJobDone;  // 글로벌 헬퍼 사용 (완료/처리완료/done 모두 포함)
     // 이번달 신규 = 신규 작업 중 openDate 가 이번달 (등록/미등록 무관)
     const newOpenThisMonth = jobs.filter(j => /신규|개업|오픈/.test(j.type||'') && (j.openDate||'').slice(0,7) === ym).length;
     const inProgress = jobs.filter(j => !isDone(j)).length;
@@ -9268,7 +9353,7 @@ ${text.slice(0, 4000)}`;
       const todayLabels = { installDate:'🔧 설치 예정', softOpenDate:'🌅 가오픈', openDate:'🎉 오픈' };
       const todays = [];
       jobs.forEach(j => {
-        if (j.status === '완료' || j.status === 'done') return;
+        if (_isJobDone(j)) return;
         ['installDate','softOpenDate','openDate'].forEach(field => {
           if ((j[field] || '').slice(0,10) === todayStr) {
             todays.push({ ...j, _kind: field });
@@ -9306,8 +9391,8 @@ ${text.slice(0, 4000)}`;
     // 최근 완료 작업 (jobs에서 status=완료, 최신 5건)
     const recentBody = document.getElementById('dashRecentBody');
     if (recentBody) {
-      const done = jobs.filter(j => (j.status === '완료' || j.status === 'done'))
-                       .sort((a,b)=> new Date(b.date||b.createdAt||0) - new Date(a.date||a.createdAt||0))
+      const done = jobs.filter(_isJobDone)
+                       .sort((a,b)=> new Date(b.completedAt||b.date||b.createdAt||0) - new Date(a.completedAt||a.date||a.createdAt||0))
                        .slice(0, 5);
       if (done.length > 0) {
         recentBody.innerHTML = done.map(j => `
@@ -9327,8 +9412,7 @@ ${text.slice(0, 4000)}`;
     if (asBody) {
       const asJobs = jobs.filter(j => {
         const t = (j.type || '').toLowerCase();
-        const done = (j.status === '완료' || j.status === 'done');
-        return /as|에이에스/i.test(t) && !done;
+        return /as|에이에스/i.test(t) && !_isJobDone(j);
       });
       if (asJobs.length === 0) {
         asBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">미처리 AS가 없습니다.</td></tr>`;
@@ -9362,7 +9446,7 @@ ${text.slice(0, 4000)}`;
     try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e){}
     const today = new Date();
     const ym = today.toISOString().slice(0,7);
-    const isDone = (j) => (j.status === '완료' || j.status === 'done');
+    const isDone = _isJobDone;
 
     let title = '목록';
     let list = [];
@@ -9487,8 +9571,7 @@ ${text.slice(0, 4000)}`;
   function _renderDoneJobsModal() {
     let jobs = [];
     try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e){}
-    const isDone = (j) => (j.status === '완료' || j.status === 'done');
-    const doneJobs = jobs.filter(isDone)
+    const doneJobs = jobs.filter(_isJobDone)
       .sort((a,b) => new Date(b.completedAt || b.date || b.createdAt || 0) - new Date(a.completedAt || a.date || a.createdAt || 0));
 
     // 카테고리별 카운트
@@ -10211,7 +10294,7 @@ ${text.slice(0, 4000)}`;
     const colsEl  = document.getElementById('neoSummaryColumns');
     if (!statsEl && !colsEl) return;
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
-    const isDone = (j) => (j.status === '완료' || j.status === 'done');
+    const isDone = _isJobDone;
     const today = new Date().toISOString().slice(0,10);
     const ym = today.slice(0,7);
 
@@ -10382,7 +10465,7 @@ ${text.slice(0, 4000)}`;
     const today = new Date();
     const todayStr = today.toISOString().slice(0,10);
     const ym = todayStr.slice(0,7);
-    const isDone = (j) => (j.status === '완료' || j.status === 'done');
+    const isDone = _isJobDone;
     // 통계 — 미등록(미연결) 매장 작업도 동일하게 포함됨 (isNewopenJob 은 type 만 검사)
     const inProg = items.filter(j => !isDone(j) && (j.status === '진행중' || /설치|진행/i.test(j.status||''))).length;
     // 이번달 오픈 예정 = openDate 가 이번달인 작업 (등록/미등록 관계없이)
@@ -10943,7 +11026,7 @@ ${text.slice(0, 4000)}`;
           ${j.completedAt ? `<span style="margin-left:8px;font-size:11px;color:var(--gray-500)">완료 ${esc((j.completedAt||'').slice(0,16).replace('T',' '))}</span>` : ''}
         </div>`;
       } else {
-        const isJobDone = (j.status === '완료' || j.status === 'done');
+        const isJobDone = _isJobDone(j);
         footerLeft.innerHTML = isJobDone
           ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-700);border-color:var(--gray-400);font-weight:700" onclick="reopenNewopen('${j.id}');document.getElementById('newopenDetailModal').classList.remove('show')">↩ 진행으로 되돌리기</button>
              <span style="margin-left:10px;font-size:11px;color:var(--gray-500)">완료: ${esc((j.completedAt||'').slice(0,16).replace('T',' '))}</span>`
@@ -12014,7 +12097,7 @@ ${text.slice(0, 4000)}`;
           </div>`;
       } else {
         tlEl.innerHTML = matched.map((j, idx) => {
-          const done = (j.status === '완료' || j.status === 'done');
+          const done = _isJobDone(j);
           const dotClass = done ? 'done' : (idx === 0 ? 'current' : '');
           const dotIcon  = done ? '✓' : '!';
           const title    = (j.type ? `${j.type} — ` : '') + (j.title || '작업');
