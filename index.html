@@ -5141,14 +5141,24 @@ ${contextData}
     const prompt = `당신은 POS/VAN 설치·AS 관리 회사의 운영 어시스턴트입니다.
 아래는 '${room?.name || '채팅방'}' (${roomTypeLabel}) Line 그룹 채팅 내용입니다.
 
-각 메시지를 분석해서 업무적으로 의미 있는 항목을 추출하고 4개 카테고리로 분류해 주세요.
+각 메시지를 분석해서 업무적으로 의미 있는 항목을 추출하고 8개 카테고리 중 하나로 분류해 주세요.
 
 ## 카테고리 (필수)
-1. **as_pos_van** — A/S 관리: POS/VAN 단말기 고장, 키오스크 이슈, 영수증 프린터/카드단말 통신 오류, 매장 방문 수리 요청·완료 등
-2. **open_store** — 오픈 작업: 신규 매장 설치, 키오스크/POS 설치·세팅, 가오픈/오픈 일정, 미설치 잔여 작업, 인터넷 연결 후 재방문 등 매장 오픈 관련 모든 진행 업무
-3. **van_doc** — 밴서류 작업: 신용카드 가맹점 신청·심사·완료, 가맹점번호 발급, 결제계좌 변경, 상호변경, 주소변경, 대표자 변경, 제신고, [Web발신] 자동완료 알림 등 서류성 업무
-4. **device_mgmt** — 단말기 관리: 이동단말기(휴대용/무선) AS·수리완료·대체품 회수/발송·신규개통·전산등록·발주·반품·SN 관리, 라우터 설치 등
-5. **ignore** — 단순 인사, 확인 응답, 관련 없는 잡담, 파일 공유 알림
+1. **pos_as** — POS A/S: POS 단말기·키오스크 고장, 영수증/주방프린터 이슈, POS SW 오류, 매장 방문 수리 요청·완료 등
+2. **van_as** — VAN A/S: 카드결제기(VAN 단말기) 통신 오류, IC/리더기 인식 불량, 체크기 오류, 결제 단말 교체 등
+3. **device_mgmt** — 단말기 A/S: 이동단말기(휴대용/무선) AS·수리완료·대체품 회수/발송·신규개통·전산등록·발주·반품·SN 관리, 라우터 설치 등
+4. **open_store** — 오픈 작업: 신규 매장 설치, 키오스크/POS 설치·세팅, 가오픈/오픈 일정, 미설치 잔여 작업, 인터넷 연결 후 재방문 등 매장 오픈 관련 모든 진행 업무
+5. **van_doc** — 밴서류 작업: 신용카드 가맹점 신청·심사·완료, 가맹점번호 발급, 결제계좌 변경, 상호변경, 주소변경, 대표자 변경, 제신고, [Web발신] 자동완료 알림 등 서류성 업무
+6. **label** — 라벨지: 라벨지 발주·출고·재고 관련
+7. **equip_out** — 장비 출고: 장비 출고·발주·반품 (단말기 외 일반 장비)
+8. **delivery** — 택배: 택배 발송·수령·반품
+9. **ignore** — 단순 인사, 확인 응답, 관련 없는 잡담, 파일 공유 알림
+
+## A/S 구분 가이드
+- POS 본체/키오스크/영수증프린터 → **pos_as**
+- 카드결제기/VAN 통신/IC 리더기 → **van_as**
+- 이동단말기/무선단말기/핸드스캐너/PDA → **device_mgmt**
+- "체크기" 단독 표현은 보통 VAN 단말기 → **van_as**
 
 ## 단일 매장에 여러 카드사 상태가 묶인 경우 (예: "우리 - 심사중 / 나머지 완료")
 → **하나의 항목**으로 처리 (van_doc), parsed 필드에 모든 카드사 상태를 요약
@@ -5164,10 +5174,10 @@ ${contextData}
 
 ## JSON 응답 형식 (다른 텍스트 없이 JSON만, 최대 20개)
 {
-  "summary": "총 N건: A/S X · 오픈 Y · 밴서류 Z · 단말기 W",
+  "summary": "총 N건: POS A/S A · VAN A/S B · 단말기 C · 오픈 D · 밴서류 E · 라벨지 F · 장비출고 G · 택배 H",
   "items": [
     {
-      "type": "as_pos_van|open_store|van_doc|device_mgmt|ignore",
+      "type": "pos_as|van_as|device_mgmt|open_store|van_doc|label|equip_out|delivery|ignore",
       "status": "신규접수|진행중|완료|재방문필요|심사중",
       "sender": "발신자",
       "time": "HH:MM",
@@ -5249,15 +5259,22 @@ ${text.slice(0, 4000)}`;
   //   jobType: 화면 필터 정규식과 매칭되어야 함 (/as|에이에스/i 또는 /신규|개업|오픈/)
   //   lineCategory: job 객체에 저장되어 화면 안에서 세부 구분 뱃지로 표시
   const LINE_TYPE_META = {
-    as_pos_van:   { label:'🛠 A/S (POS/VAN)', bg:'#FEF3C7', color:'#92400E', jobType:'AS 처리',     menu:'asmgmt' },
+    pos_as:       { label:'🖥 POS A/S',       bg:'#FEF3C7', color:'#92400E', jobType:'AS 처리',     menu:'asmgmt' },
+    van_as:       { label:'💳 VAN A/S',       bg:'#FFE4E6', color:'#9F1239', jobType:'AS 처리',     menu:'asmgmt' },
+    device_mgmt:  { label:'📱 단말기 A/S',    bg:'#D1FAE5', color:'#065F46', jobType:'AS 처리',     menu:'asmgmt' },
     open_store:   { label:'🏪 오픈 작업',     bg:'#DBEAFE', color:'#1D4ED8', jobType:'신규',         menu:'newopen' },
     van_doc:      { label:'📑 밴서류',        bg:'#EDE9FE', color:'#5B21B6', jobType:'신규가맹',     menu:'newopen' },
-    device_mgmt:  { label:'📱 단말기 AS',     bg:'#D1FAE5', color:'#065F46', jobType:'AS 처리',     menu:'asmgmt' },
-    equip_out:    { label:'📦 장비 출고',     bg:'#FFEDD5', color:'#9A3412', jobType:'장비출고',     menu:'jobs' },
-    delivery:     { label:'🚚 택배 관리',     bg:'#FAE8FF', color:'#86198F', jobType:'택배',         menu:'jobs' },
     label:        { label:'🏷 라벨지',        bg:'#FEE2E2', color:'#991B1B', jobType:'라벨지',       menu:'jobs' },
+    equip_out:    { label:'📦 장비 출고',     bg:'#FFEDD5', color:'#9A3412', jobType:'장비출고',     menu:'jobs' },
+    delivery:     { label:'🚚 택배',          bg:'#FAE8FF', color:'#86198F', jobType:'택배',         menu:'jobs' },
     ignore:       { label:'⚪ 기타',          bg:'#F3F4F6', color:'#6B7280', jobType:null,          menu:null },
+    // 구버전 호환 — 기존 데이터 표시용
+    as_pos_van:   { label:'🛠 A/S (POS/VAN)', bg:'#FEF3C7', color:'#92400E', jobType:'AS 처리',     menu:'asmgmt' },
   };
+  // 구버전 → 신버전 마이그레이션 (저장 시 변환)
+  function migrateLineCategory(v){
+    return v === 'as_pos_van' ? 'pos_as' : v;
+  }
 
   /* 잘린 JSON 복구 — 마지막 완전한 항목까지 살린 뒤 배열·객체 닫기 */
   function _salvageJson(s) {
@@ -5293,10 +5310,15 @@ ${text.slice(0, 4000)}`;
 
     // 카테고리 → 작업 유형 매핑 (호환 가능한 유형 집합)
     const compatTypes = {
-      as_pos_van:  [/AS|에이에스/i],
+      pos_as:      [/POS\s*AS|AS|에이에스/i],
+      van_as:      [/VAN\s*AS|AS|에이에스/i],
+      as_pos_van:  [/AS|에이에스/i],   // 구버전 호환
       open_store:  [/신규|개업|오픈|POS\s*교체|VAN\s*변경|SW\s*변경|당사매장/i],
       van_doc:     [/신규가맹|신규|VAN|밴서류|상호변경|주소변경|계좌변경|정보변경|재신고/i],
       device_mgmt: [/장비|단말|개통|이동단말기|AS|에이에스/i],
+      label:       [/라벨/i],
+      equip_out:   [/출고|발주|반품|장비/i],
+      delivery:    [/택배|배송/i],
     };
     const pats = compatTypes[item.type] || [];
 
@@ -5342,13 +5364,14 @@ ${text.slice(0, 4000)}`;
       const catSelector = `
         <select onclick="event.stopPropagation()" onchange="setLineCategory(${item.id}, this.value)"
                 style="background:${meta.bg};color:${meta.color};font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid ${meta.color};cursor:pointer">
-          <option value="as_pos_van"  ${item.type==='as_pos_van'?'selected':''}>🛠 A/S (POS/VAN)</option>
+          <option value="pos_as"      ${item.type==='pos_as'||item.type==='as_pos_van'?'selected':''}>🖥 POS A/S</option>
+          <option value="van_as"      ${item.type==='van_as'?'selected':''}>💳 VAN A/S</option>
+          <option value="device_mgmt" ${item.type==='device_mgmt'?'selected':''}>📱 단말기 A/S</option>
           <option value="open_store"  ${item.type==='open_store'?'selected':''}>🏪 오픈 작업</option>
           <option value="van_doc"     ${item.type==='van_doc'?'selected':''}>📑 밴서류</option>
-          <option value="device_mgmt" ${item.type==='device_mgmt'?'selected':''}>📱 단말기 AS</option>
-          <option value="equip_out"   ${item.type==='equip_out'?'selected':''}>📦 장비 출고</option>
-          <option value="delivery"    ${item.type==='delivery'?'selected':''}>🚚 택배 관리</option>
           <option value="label"       ${item.type==='label'?'selected':''}>🏷 라벨지</option>
+          <option value="equip_out"   ${item.type==='equip_out'?'selected':''}>📦 장비 출고</option>
+          <option value="delivery"    ${item.type==='delivery'?'selected':''}>🚚 택배</option>
           <option value="ignore"      ${item.type==='ignore'?'selected':''}>⚪ 기타/무시</option>
         </select>`;
       return `
@@ -5701,13 +5724,14 @@ ${text.slice(0, 4000)}`;
             <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">📂 업무 구분</label>
             <select onchange="updatePending('${p.id}', {lineCategory:this.value})"
                     style="width:100%;padding:5px 6px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px;background:${meta.bg};color:${meta.color};font-weight:700">
-              <option value="as_pos_van"  ${p.lineCategory==='as_pos_van'?'selected':''}>🛠 A/S (POS/VAN)</option>
+              <option value="pos_as"      ${p.lineCategory==='pos_as'||p.lineCategory==='as_pos_van'?'selected':''}>🖥 POS A/S</option>
+              <option value="van_as"      ${p.lineCategory==='van_as'?'selected':''}>💳 VAN A/S</option>
+              <option value="device_mgmt" ${p.lineCategory==='device_mgmt'?'selected':''}>📱 단말기 A/S</option>
               <option value="open_store"  ${p.lineCategory==='open_store'?'selected':''}>🏪 오픈 작업</option>
               <option value="van_doc"     ${p.lineCategory==='van_doc'?'selected':''}>📑 밴서류</option>
-              <option value="device_mgmt" ${p.lineCategory==='device_mgmt'?'selected':''}>📱 단말기 AS</option>
-              <option value="equip_out"   ${p.lineCategory==='equip_out'?'selected':''}>📦 장비 출고</option>
-              <option value="delivery"    ${p.lineCategory==='delivery'?'selected':''}>🚚 택배 관리</option>
               <option value="label"       ${p.lineCategory==='label'?'selected':''}>🏷 라벨지</option>
+              <option value="equip_out"   ${p.lineCategory==='equip_out'?'selected':''}>📦 장비 출고</option>
+              <option value="delivery"    ${p.lineCategory==='delivery'?'selected':''}>🚚 택배</option>
             </select>
           </div>
           <!-- 담당자 -->
@@ -6039,7 +6063,7 @@ ${text.slice(0, 4000)}`;
     const lineTs = p.lineMsgAt ? new Date(p.lineMsgAt.replace(' ', 'T') + ':00+09:00').getTime() : Date.now();
 
     // 진행 상황 → job status 매핑
-    const isAsCat = (p.lineCategory === 'as_pos_van' || p.lineCategory === 'device_mgmt');
+    const isAsCat = ['pos_as','van_as','device_mgmt','as_pos_van'].includes(p.lineCategory);
     const statusMap = {
       '접수':    isAsCat ? '접수' : '예정',
       '진행중':  '진행중',
@@ -6186,7 +6210,7 @@ ${text.slice(0, 4000)}`;
   function _legacyRegisterLineItems_REMOVED() {
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     const jobs = getJobs();
-    const cats = { as_pos_van:0, open_store:0, van_doc:0, device_mgmt:0 };
+    const cats = { pos_as:0, van_as:0, device_mgmt:0, open_store:0, van_doc:0, label:0, equip_out:0, delivery:0 };
     let newCount = 0, updCount = 0;
 
     const kstNow = (() => {
@@ -6255,7 +6279,7 @@ ${text.slice(0, 4000)}`;
         return aliases.some(a => norm(a) === wantNorm);
       }) : null;
 
-      const isAs = (item.type === 'as_pos_van');
+      const isAs = (item.type === 'pos_as' || item.type === 'van_as' || item.type === 'as_pos_van');
       const isDeviceAs = (item.type === 'device_mgmt' && /AS|수리|고장/i.test(item.request || item.parsed || ''));
       const isDeviceDone = (item.type === 'device_mgmt' && item.status === '완료');
 
@@ -6331,7 +6355,7 @@ ${text.slice(0, 4000)}`;
     // 가장 많이 등록된 카테고리로 이동
     const top = Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
     setTimeout(() => {
-      if (top && top[0] === 'as_pos_van') showScreen('asmgmt');
+      if (top && (top[0] === 'pos_as' || top[0] === 'van_as' || top[0] === 'as_pos_van' || top[0] === 'device_mgmt')) showScreen('asmgmt');
       else showScreen('jobs');
     }, 300);
   }
@@ -7233,8 +7257,10 @@ ${text.slice(0, 4000)}`;
       const s = d.stats || {};
       const cats = s.byCategory || {};
       const catMeta = {
-        as_pos_van: '🛠 A/S', open_store: '🏪 오픈',
-        van_doc: '📑 밴서류', device_mgmt: '📱 단말기',
+        pos_as: '🖥 POS A/S', van_as: '💳 VAN A/S', device_mgmt: '📱 단말기 A/S',
+        open_store: '🏪 오픈', van_doc: '📑 밴서류',
+        label: '🏷 라벨지', equip_out: '📦 장비출고', delivery: '🚚 택배',
+        as_pos_van: '🛠 A/S(구)',
       };
       const catParts = Object.entries(cats).map(([k,v]) => `${catMeta[k]||k}: <b>${v}</b>`).join('  ·  ');
       const progressBar = (() => {
@@ -7301,10 +7327,15 @@ ${text.slice(0, 4000)}`;
         error:   { bg:'#FEE2E2', color:'#991B1B', icon:'⚠', label:'오류' },
       };
       const catMeta = {
-        as_pos_van:  '🛠 A/S',
+        pos_as:      '🖥 POS A/S',
+        van_as:      '💳 VAN A/S',
+        device_mgmt: '📱 단말기 A/S',
         open_store:  '🏪 오픈',
         van_doc:     '📑 밴서류',
-        device_mgmt: '📱 단말기',
+        label:       '🏷 라벨지',
+        equip_out:   '📦 장비출고',
+        delivery:    '🚚 택배',
+        as_pos_van:  '🛠 A/S(구)',
       };
       listEl.innerHTML = `
         <table style="width:100%;border-collapse:collapse;font-size:11px">
@@ -10471,7 +10502,7 @@ ${text.slice(0, 4000)}`;
     if (_asMgmtFilter === 'pending')  view = view.filter(j => !isDone(j));
     else if (_asMgmtFilter === 'today') view = view.filter(j => !isDone(j) && (j.asDueDate||'').slice(0,10) === todayStr);
     else if (_asMgmtFilter === 'done')  view = view.filter(isDone);
-    else if (_asMgmtFilter === 'posvan') view = view.filter(j => !isDone(j) && (j.lineCategory === 'as_pos_van' || (!j.lineCategory && !(Array.isArray(j.asTargets) && j.asTargets.includes('이동단말기')))));
+    else if (_asMgmtFilter === 'posvan') view = view.filter(j => !isDone(j) && (['pos_as','van_as','as_pos_van'].includes(j.lineCategory) || (!j.lineCategory && !(Array.isArray(j.asTargets) && j.asTargets.includes('이동단말기')))));
     else if (_asMgmtFilter === 'device') view = view.filter(j => !isDone(j) && (j.lineCategory === 'device_mgmt' || (Array.isArray(j.asTargets) && j.asTargets.includes('이동단말기'))));
     if (q) {
       view = view.filter(j => {
@@ -11097,7 +11128,8 @@ ${text.slice(0, 4000)}`;
     // type → lineCategory 매핑 (작업/일정·신규/AS 화면 필터 일관성)
     if (/AS|에이에스|이동단말기/i.test(value)) {
       if (/이동단말기|단말기/i.test(value)) job.lineCategory = 'device_mgmt';
-      else job.lineCategory = 'as_pos_van';
+      else if (/VAN|밴|체크기|결제기|IC/i.test(value)) job.lineCategory = 'van_as';
+      else job.lineCategory = 'pos_as';   // 기본은 POS A/S (이전 as_pos_van → pos_as)
     } else if (/신규가맹|밴서류|정보변경|재신고|상호변경|주소변경/i.test(value)) {
       job.lineCategory = 'van_doc';
     } else if (/신규|개업|오픈|POS교체|VAN교체|SW교체/i.test(value)) {

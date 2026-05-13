@@ -536,14 +536,23 @@ async function parseWithClaude(apiKey, chatBlob, roomInfo) {
   const prompt = `당신은 POS/VAN 설치·AS 관리 회사의 운영 어시스턴트입니다.
 아래는 '${roomInfo.name}' (${typeLabel}) Line 그룹 채팅 내용입니다.
 
-각 메시지를 분석해서 업무적으로 의미 있는 항목을 추출하고 4개 카테고리로 분류해 주세요.
+각 메시지를 분석해서 업무적으로 의미 있는 항목을 추출하고 8개 카테고리 중 하나로 분류해 주세요.
 
 ## 카테고리
-1. **as_pos_van** — A/S 관리: POS/VAN 단말기 고장, 키오스크 이슈, 카드단말/프린터 오류 등
-2. **open_store** — 오픈 작업: 신규 매장 설치, 키오스크/POS 세팅, 오픈 일정, 미설치 잔여 작업 등
-3. **van_doc** — 밴서류: 신용카드 가맹 신청/심사/완료, 결제계좌·상호·주소·대표자 변경, 재신고, [Web발신] 알림 등
-4. **device_mgmt** — 단말기 관리: 이동단말기(휴대용) AS·수리완료·대체품·신규개통·SN 관리, 라우터 설치 등
-5. **ignore** — 인사, 확인 응답, 잡담, 파일 공유 알림
+1. **pos_as** — POS A/S: POS 본체·키오스크·영수증프린터·POS SW 오류, 매장 방문 수리 등
+2. **van_as** — VAN A/S: 카드결제기(VAN 단말기) 통신·IC/리더기 인식·체크기 오류·단말 교체 등
+3. **device_mgmt** — 단말기 A/S: 이동단말기(휴대용/무선)·핸드스캐너·PDA AS·수리완료·대체품·신규개통·SN 관리, 라우터 설치 등
+4. **open_store** — 오픈 작업: 신규 매장 설치, 키오스크/POS 세팅, 오픈 일정, 미설치 잔여 작업 등
+5. **van_doc** — 밴서류: 신용카드 가맹 신청/심사/완료, 결제계좌·상호·주소·대표자 변경, 재신고, [Web발신] 알림 등
+6. **label** — 라벨지: 라벨지 발주·출고·재고
+7. **equip_out** — 장비 출고: 장비 출고·발주·반품 (단말기 외 일반 장비)
+8. **delivery** — 택배: 택배 발송·수령·반품
+9. **ignore** — 인사, 확인 응답, 잡담, 파일 공유 알림
+
+## A/S 구분 가이드
+- POS 본체/키오스크/영수증프린터/POS SW → pos_as
+- 카드결제기/VAN/IC 인식/체크기 → van_as
+- 이동단말기/무선/핸드스캐너/PDA → device_mgmt
 
 ## 규칙
 - 헤더 메시지(예: "* 신규") 자체는 ignore, 다음 메시지의 분류 힌트로만 사용
@@ -551,7 +560,7 @@ async function parseWithClaude(apiKey, chatBlob, roomInfo) {
 - status: 신규접수|진행중|완료|재방문필요|심사중
 
 ## JSON 응답 (다른 텍스트 없이 JSON만, 최대 30개)
-{ "summary":"...", "items":[ { "type":"...", "status":"...", "sender":"...", "time":"HH:MM", "store":"...","assignee":"...","device":"...","request":"...","parsed":"...","original":"..." } ] }
+{ "summary":"...", "items":[ { "type":"pos_as|van_as|device_mgmt|open_store|van_doc|label|equip_out|delivery|ignore", "status":"...", "sender":"...", "time":"HH:MM", "store":"...","assignee":"...","device":"...","request":"...","parsed":"...","original":"..." } ] }
 
 채팅 내용:
 ${chatBlob.slice(0, 8000)}`;
