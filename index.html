@@ -5767,10 +5767,12 @@ ${text.slice(0, 4000)}`;
     return '익명';
   };
 
-  /* 작업 메모 추가 — 담당자(engineer)와 기록자(현재 사용자) 다르면 둘 다 기록
-     usage: addJobMemo(job, '상태 변경: 진행중 → 처리완료', { tag:'status' })
+  /* 작업 메모 추가 (시스템 로그용) — 담당자(engineer)와 기록자(현재 사용자) 다르면 둘 다 기록
+     ⚠️ 사용자 입력 메모 추가는 L11977 의 addJobMemo(jobId) 사용. 이름 충돌 방지를 위해
+        이 헬퍼는 appendJobMemoLog 로 명명.
+     usage: appendJobMemoLog(job, '상태 변경: 진행중 → 처리완료', { tag:'status' })
   */
-  window.addJobMemo = function(job, text, opts) {
+  window.appendJobMemoLog = function(job, text, opts) {
     if (!job) return;
     if (!Array.isArray(job.memos)) job.memos = [];
     opts = opts || {};
