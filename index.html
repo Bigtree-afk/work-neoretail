@@ -527,6 +527,7 @@
 
   /* ── MOBILE RESPONSIVE ── */
   @media (max-width: 768px) {
+    .dash-as-grid { grid-template-columns: 1fr !important; }
     .topnav { padding: 0 14px; gap: 4px; }
     .topnav-links { display: none; }
     .topnav-date { display: none; }
@@ -1156,7 +1157,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <div class="section-title">🔧 AS 미처리 현황</div>
             <button class="btn btn-outline btn-sm" onclick="showScreen('asmgmt')">전체보기</button>
           </div>
-        <div id="dashAsBody" style="padding:10px 14px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px"></div>
+        <div id="dashAsBody" class="dash-as-grid" style="padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
         <!-- legacy table 호환용 hidden tbody (구코드가 dashAsBody 를 tbody 로 가정하던 경우) -->
         <table style="display:none">
           <tbody id="_legacy_dashAsBody">
