@@ -1,0 +1,14 @@
+{
+  "name": "neoretail-cron",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "secret:put": "wrangler secret put LINE_PARSE_SECRET",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  }
+}

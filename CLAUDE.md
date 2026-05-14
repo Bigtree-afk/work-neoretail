@@ -141,9 +141,26 @@ LINE 메시지 파싱(`/api/line-parse-cron`) 에서 다음 상황 발생 시 **
   - retry 대기 없으면 fresh 중 max ts 로 이동
 - 큐 아이템 메타 필드: `processedAt`, `parseAttempts`, `processedStatus`, `lastParseError`
 
+### 🔁 Cron 이중화 — LINE 파싱 트리거
+LINE 메시지 파싱 cron 은 **3중 방어** 구성:
+
+| 계층 | 트리거 | 일정 (KST) | 비고 |
+|---|---|---|---|
+| 1차 | Cloudflare Worker `neoretail-cron` | 매시 45분 | 가장 안정적, Cloudflare 내부 |
+| 1차-보완 | 같은 Worker (watchdog cron) | 매시 55분 | 1차가 실패해도 10분 후 자동 보완 |
+| 2차 | GitHub Actions `line-parse.yml` | 매시 50분 | GHA 드롭 대비 백업 |
+| 3차 | watchdog 알림 | endpoint 실행시 매번 | 90분 이상 묵은 메시지 감지 → LINE 푸시 |
+
+- 모든 트리거가 동일한 endpoint `/api/line-parse-cron` 을 호출 — endpoint 가 idempotent
+- 한 번 처리된 메시지는 `processedAt` 마크되어 중복 처리 안 됨
+- Cloudflare Worker 배포: `cd cron-worker && npm install && npx wrangler deploy`
+- Worker 시크릿: `npx wrangler secret put LINE_PARSE_SECRET` (= line_config.parseSecret)
+- watchdog 알림 종류: `cron_stale` (10분 throttle)
+
 ## 배포
 
 - Cloudflare Pages 자동 배포 (`master` push 후 1~2분)
+- Cloudflare Worker `neoretail-cron` 는 수동 배포 (`wrangler deploy`) — cron 트리거만 사용
 - 도메인: `work.neoretail.net`
 - KV: `STORES_KV`
 - 주요 KV 키: `stores`, `line_config`, `line_raw_queue`, `line_pending`, `line_parse_lastrun`, `line_parse_log_<YYYY-MM-DD>`, `line_alert_lastsent`

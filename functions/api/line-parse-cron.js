@@ -97,6 +97,28 @@ export async function onRequestPost({ request, env }) {
   const lastRun = Number(await env.STORES_KV.get(LASTRUN_KEY) || '0');
   const queue = (await env.STORES_KV.get(RAW_KEY, 'json')) || { items: [] };
 
+  // Watchdog — cron 드롭 감지: 미처리 메시지가 90분 이상 묵으면 LINE 알림
+  // (이 cron 이 결국 실행되었을 때 알림이 발사됨 — Cloudflare Worker + GHA 이중화로
+  //  한쪽이 드롭되어도 다른 한쪽이 실행되어 watchdog 트리거)
+  try {
+    const STALE_THRESHOLD_MS = 90 * 60 * 1000;
+    const oldestUnprocessed = queue.items
+      .filter(m => !m.processedAt)
+      .reduce((acc, m) => {
+        const t = Number(m.ts || 0);
+        return t > 0 && (acc === 0 || t < acc) ? t : acc;
+      }, 0);
+    if (oldestUnprocessed > 0 && (Date.now() - oldestUnprocessed) > STALE_THRESHOLD_MS) {
+      const ageMin = Math.round((Date.now() - oldestUnprocessed) / 60000);
+      const unprocessedCount = queue.items.filter(m => !m.processedAt).length;
+      await notifyLineAlert(env, cfg, 'cron_stale',
+        `⚠️ [NeoRetail 파싱 알림]\n큐에 미처리 메시지가 ${ageMin}분 이상 누적되어 있습니다.\n` +
+        `미처리: ${unprocessedCount}건, 가장 오래된 메시지: ${ageMin}분 전.\n` +
+        `cron 트리거(Cloudflare Worker 또는 GitHub Actions) 가 일시적으로 누락되었을 가능성.\n` +
+        `이 cron 이 실행되어 알림이 도달했으므로 곧 처리됩니다.`);
+    }
+  } catch(e) { /* watchdog 실패해도 본 처리는 계속 */ }
+
   // 미처리 메시지만 (m.processedAt 없는 것 + ts > lastRun 빠른 필터)
   // - processedAt: 성공/giveup 시 Date.now() 로 마크
   // - failed-retryable 메시지는 processedAt 없음 → 다음 cron 에서 재시도

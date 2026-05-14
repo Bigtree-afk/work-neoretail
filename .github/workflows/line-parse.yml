@@ -1,13 +1,16 @@
-name: Line 메시지 자동 파싱 (매시 45분)
+name: Line 메시지 자동 파싱 (백업 cron)
 
-# 업무시간 KST 평일 08:45 ~ 17:45 (매시 45분, 10회/일)
-#   KST 08:45 = UTC (전일) 23:45  → cron: 45 23 * * 0-4
-#   KST 09:45~17:45 = UTC 00:45~08:45  → cron: 45 0-8 * * 1-5
-# GitHub Actions cron 은 보통 0~15분 지연 — 실제 시작 ~46~60분 사이
+# ⚠️ 주: 이 워크플로우는 백업입니다. 메인 cron 은 Cloudflare Worker (cron-worker/) 가 담당.
+#    GitHub Actions cron 은 가끔 드롭되므로 (예: 2026-05-14) Cloudflare Worker 가 1차 트리거,
+#    이 워크플로우가 5분 어긋나게 추가 보장.
+# 업무시간 KST 평일 08:50 ~ 17:50 (매시 50분, 10회/일)
+#   KST 08:50 = UTC (전일) 23:50  → cron: 50 23 * * 0-4
+#   KST 09:50~17:50 = UTC 00:50~08:50  → cron: 50 0-8 * * 1-5
+# endpoint 가 idempotent — Worker 가 이미 처리했다면 'no new messages' 리턴
 on:
   schedule:
-    - cron: '45 23 * * 0-4'
-    - cron: '45 0-8 * * 1-5'
+    - cron: '50 23 * * 0-4'
+    - cron: '50 0-8 * * 1-5'
   workflow_dispatch:
     inputs:
       force:
