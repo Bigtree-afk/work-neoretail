@@ -1135,39 +1135,31 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
-      <!-- 신규 VAN 서류 + AS 미처리 (2열) -->
-      <div class="grid-2" style="margin-bottom:20px;align-items:stretch">
-
-        <!-- 신규 VAN 서류 알림 -->
-        <div class="card" id="dashVandocsAlert" style="display:none;background:#FFFBEB;border:1px solid #FCD34D">
-          <div style="padding:14px 18px;border-bottom:1px solid #FCD34D;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-            <div class="section-title" style="color:#92400E">📑 신규 VAN 서류 — <span id="dashVandocsCount">0</span>건</div>
-            <div style="display:flex;gap:6px">
-              <button class="btn btn-outline btn-sm" onclick="ackAllVandocs()" style="font-size:11px;padding:5px 10px;color:#92400E;border-color:#92400E">전체 확인</button>
-              <button class="btn btn-outline btn-sm" onclick="openMyPage()" style="font-size:11px;padding:5px 10px">마이페이지</button>
-            </div>
+      <!-- 신규 VAN 서류 알림 (있을 때만) -->
+      <div class="card" id="dashVandocsAlert" style="display:none;margin-bottom:20px;background:#FFFBEB;border:1px solid #FCD34D">
+        <div style="padding:14px 18px;border-bottom:1px solid #FCD34D;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <div class="section-title" style="color:#92400E">📑 신규 VAN 서류 — <span id="dashVandocsCount">0</span>건</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" onclick="ackAllVandocs()" style="font-size:11px;padding:5px 10px;color:#92400E;border-color:#92400E">전체 확인</button>
+            <button class="btn btn-outline btn-sm" onclick="openMyPage()" style="font-size:11px;padding:5px 10px">마이페이지</button>
           </div>
-          <div id="dashVandocsBody" style="padding:10px 14px;display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto"></div>
         </div>
+        <div id="dashVandocsBody" style="padding:10px 14px;display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto"></div>
+      </div>
 
-        <!-- AS 현황 -->
+      <!-- AS 미처리 현황 — 풀폭 2단 그리드 -->
+      <div style="margin-bottom:20px">
+
+        <!-- AS 현황 (풀폭 카드, 내부는 2단 그리드) -->
         <div class="card">
           <div style="padding:16px 18px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; justify-content:space-between">
             <div class="section-title">🔧 AS 미처리 현황</div>
-            <button class="btn btn-outline btn-sm" onclick="showScreen('jobs')">전체보기</button>
+            <button class="btn btn-outline btn-sm" onclick="showScreen('asmgmt')">전체보기</button>
           </div>
-        <table>
-          <thead>
-            <tr>
-              <th>점포</th>
-              <th>증상</th>
-              <th>접수일</th>
-              <th>경과</th>
-              <th>담당</th>
-              <th>상태</th>
-            </tr>
-          </thead>
-          <tbody id="dashAsBody">
+        <div id="dashAsBody" style="padding:10px 14px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px"></div>
+        <!-- legacy table 호환용 hidden tbody (구코드가 dashAsBody 를 tbody 로 가정하던 경우) -->
+        <table style="display:none">
+          <tbody id="_legacy_dashAsBody">
             <tr data-demo="1">
               <td><b>가평1번가마트</b></td>
               <td>바코드 스캐너 인식 불량</td>
@@ -1212,7 +1204,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </table>
         </div>
 
-      </div><!-- /grid-2 (VAN+AS) -->
+      </div><!-- /AS 풀폭 -->
 
       <!-- 신규/상담 현황 요약 패널 -->
       <div class="card" style="margin-top:20px; border:1.5px solid #1D4ED8; overflow:visible" id="aiAnalysisCard">
@@ -9507,22 +9499,32 @@ ${text.slice(0, 4000)}`;
         return /as|에이에스/i.test(t) && !_isJobDone(j);
       });
       if (asJobs.length === 0) {
-        asBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">미처리 AS가 없습니다.</td></tr>`;
+        asBody.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--gray-400);font-size:12px">미처리 AS가 없습니다.</div>`;
       } else {
         asBody.innerHTML = asJobs.map(j => {
           const recv = jobDateStr(j).slice(5,10).replace('-','.') || '미정';
           const hours = j.createdAt ? Math.round((Date.now() - new Date(j.createdAt).getTime())/3600000) : 0;
-          const elapsedTxt = hours >= 72 ? `<span style="color:var(--danger);font-weight:700">${hours}시간</span>`
-                            : hours >= 48 ? `<span style="color:var(--warning);font-weight:700">${hours}시간</span>`
-                            : `${hours}시간`;
-          return `<tr style="cursor:pointer" onclick="window.editNewopen && window.editNewopen('${j.id}')" title="클릭 — 매장 상세 보기">
-            <td><b>${esc(j.store || j.storeName || '-')}</b></td>
-            <td>${esc(j.note || j.description || '-')}</td>
-            <td style="color:var(--gray-400)">${esc(recv)}</td>
-            <td>${elapsedTxt}</td>
-            <td>${esc(j.engineer || j.assignee || '미배정')}</td>
-            <td><span class="badge badge-amber">${esc(j.status || '접수')}</span></td>
-          </tr>`;
+          const elapsedTxt = hours >= 72 ? `<span style="color:var(--danger);font-weight:700">${hours}시간 경과</span>`
+                            : hours >= 48 ? `<span style="color:var(--warning);font-weight:700">${hours}시간 경과</span>`
+                            : `${hours}시간 경과`;
+          const content = j.asRequest || j.note || j.lineParsed || j.lineRequest || j.lineRaw || j.description || '-';
+          const storeName = j.store || j.storeName || '-';
+          return `<div style="cursor:pointer;border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;background:#fff;transition:all 0.15s"
+                       onmouseenter="this.style.background='var(--gray-50)';this.style.borderColor='var(--primary)'"
+                       onmouseleave="this.style.background='#fff';this.style.borderColor='var(--gray-200)'"
+                       onclick="window.editNewopen && window.editNewopen('${j.id}')"
+                       title="클릭 — 매장 상세 보기">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+              <b style="font-size:14px;color:var(--gray-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(storeName)}</b>
+              <span class="badge badge-amber" style="flex-shrink:0">${esc(j.status || '접수')}</span>
+            </div>
+            <div style="font-size:12px;color:var(--gray-600);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(content)}">${esc(content)}</div>
+            <div style="display:flex;gap:8px;font-size:11px;color:var(--gray-400);flex-wrap:wrap">
+              <span>📅 ${esc(recv)}</span>
+              <span>⏱ ${elapsedTxt}</span>
+              <span>👤 ${esc(j.engineer || j.assignee || '미배정')}</span>
+            </div>
+          </div>`;
         }).join('');
       }
     }
