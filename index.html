@@ -2519,6 +2519,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <button class="modal-close" onclick="closeModal('newJobModal')">✕</button>
     </div>
     <div class="modal-body">
+      <!-- ⚠ 동일 매장 진행 업무 미리보기 (안전장치 — 중복 등록 방지) -->
+      <div id="jobSimilarBanner" style="display:none;background:#fffbeb;border:2px solid #fde68a;border-radius:10px;padding:11px 14px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:12.5px;font-weight:900;color:#92400e">⚠️ 이 매장의 진행 중 업무 <span id="jobSimCount" style="background:#92400e;color:#fff;font-size:10px;padding:1px 7px;border-radius:99px;margin-left:3px">0</span></div>
+          <button type="button" id="jobSimToggle" onclick="_toggleSimBanner()" style="background:#92400e;color:#fff;border:none;border-radius:5px;padding:3px 9px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:inherit">펼쳐보기 ▼</button>
+        </div>
+        <div style="font-size:11px;color:#92400e;line-height:1.5">새 업무 등록 전 같은 매장의 진행 중 업무를 확인하세요. 중복 등록 시 기존 업무에 기록을 추가하는 것이 효율적입니다.</div>
+        <div id="jobSimList" style="display:none;margin-top:8px;display:flex;flex-direction:column;gap:5px"></div>
+      </div>
+
       <!-- 상담 등록 전용: 상담일 배너 (상단에 prominent 표시) -->
       <div class="js-consult-only" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:none;align-items:center;gap:12px;flex-wrap:wrap">
         <span style="font-size:13px;font-weight:700;color:#92400E">💬 상담일</span>
@@ -10345,8 +10355,66 @@ ${text.slice(0, 4000)}`;
         info.style.display = 'none';
       }
     }
+    // 매장 선택 시 — 같은 매장 진행 중 업무 미리보기 갱신
+    try { _refreshJobSimilarBanner(name); } catch(e) { console.warn('[similar] ', e); }
   }
   window.pickJobStore = pickJobStore;
+
+  /* ─── 동일 매장 진행 업무 미리보기 (안전장치 ①) ─── */
+  function _refreshJobSimilarBanner(storeName) {
+    const banner = document.getElementById('jobSimilarBanner');
+    if (!banner) return;
+    if (!storeName || !storeName.trim()) {
+      banner.style.display = 'none';
+      return;
+    }
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+    const target = normFn(storeName);
+    const isDone = (typeof window._isJobDone === 'function') ? window._isJobDone : () => false;
+    const matches = jobs.filter(j => {
+      if (isDone(j)) return false; // 진행 중만
+      const s = (j.store || j.storeName || '').trim();
+      if (!s) return false;
+      return normFn(s) === target;
+    });
+    if (matches.length === 0) {
+      banner.style.display = 'none';
+      return;
+    }
+    document.getElementById('jobSimCount').textContent = matches.length;
+    const list = document.getElementById('jobSimList');
+    if (list) {
+      const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+      const catColor = c => ({ new:'#10B981', as:'#F59E0B', van:'#2563EB', supplies:'#8B5CF6', churn:'#EF4444' }[c] || '#6B7280');
+      list.innerHTML = matches.slice(0, 5).map(j => {
+        const cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : 'as';
+        const date = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
+        const who = j.engineer || j.assignee || '';
+        return `<div style="background:#fff;border:1px solid #fde68a;border-radius:7px;padding:7px 10px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;color:var(--gray-900)">
+              <span style="background:${catColor(cat)};color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:99px;margin-right:4px">${escFn(j.type || cat)}</span>
+              ${escFn(j.title || j.type || '업무')}
+            </div>
+            <div style="font-size:10.5px;color:var(--gray-500);margin-top:2px">${date ? '📅 '+date+' · ' : ''}${who}</div>
+          </div>
+          ${j.id ? `<button type="button" onclick="closeModal('newJobModal');setTimeout(()=>{try{editNewopen('${escFn(j.id)}')}catch(e){}},120)" style="background:#92400e;color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:inherit">이 업무로 이동</button>` : ''}
+        </div>`;
+      }).join('') + (matches.length > 5 ? `<div style="font-size:10.5px;color:#92400e;text-align:center;padding-top:4px">외 ${matches.length - 5}건...</div>` : '');
+    }
+    banner.style.display = 'block';
+  }
+  window._refreshJobSimilarBanner = _refreshJobSimilarBanner;
+
+  window._toggleSimBanner = function() {
+    const list = document.getElementById('jobSimList');
+    const btn = document.getElementById('jobSimToggle');
+    if (!list || !btn) return;
+    const shown = list.style.display !== 'none';
+    list.style.display = shown ? 'none' : 'flex';
+    btn.innerHTML = shown ? '펼쳐보기 ▼' : '접기 ▲';
+  };
 
   // 사용자가 다시 타이핑하면 선택 표시 숨김
   function _resetStorePickInfo() {
@@ -15434,19 +15502,46 @@ ${text.slice(0, 4000)}`;
   function _renderEquipFormFields(prefix, current) {
     const c = current || {};
     const catalog = (typeof getEquipmentCatalog === 'function') ? getEquipmentCatalog() : [];
-    // 카탈로그 옵션 → datalist 형태로 선택
-    const catalogOpts = catalog.map(it => `<option value="${esc(it.id)}">${esc(it.name)} (${esc(it.category||'기타')})</option>`).join('');
     const statusOpts = Object.entries(STORE_EQUIP_STATUS).map(([k,v]) =>
       `<option value="${k}" ${c.status===k?'selected':''}>${v.label}</option>`).join('');
     const optsText = c.options && typeof c.options==='object'
       ? Object.entries(c.options).map(([k,v]) => `${k}: ${v}`).join('\n') : '';
+
+    // 카테고리별 그룹화 — optgroup 으로 카탈로그를 종류별로 묶어 표시
+    const byCategory = {};
+    catalog.forEach(it => {
+      const cat = it.category || '기타';
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push(it);
+    });
+    // 카테고리 우선순위 정렬: POS / 키오스크 / VAN / 주변기기 / 영수증 / 라벨 / 기타
+    const catOrder = ['POS','키오스크','VAN','주변기기','영수증','라벨','기타'];
+    const sortedCats = Object.keys(byCategory).sort((a,b) => {
+      const ai = catOrder.findIndex(k => a.includes(k));
+      const bi = catOrder.findIndex(k => b.includes(k));
+      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+    });
+    const catalogGroups = sortedCats.map(cat => {
+      const items = byCategory[cat].map(it =>
+        `<option value="${esc(it.id)}" data-cat="${esc(cat)}" ${c.catalogId===it.id?'selected':''}>${esc(it.name)}</option>`
+      ).join('');
+      return `<optgroup label="${esc(cat)}">${items}</optgroup>`;
+    }).join('');
+
+    // 카테고리 필터 칩 (장비 종류 먼저 선택)
+    const catChips = ['전체', ...sortedCats].map((cat, i) =>
+      `<button type="button" class="seem-catchip${i===0?' active':''}" data-cat="${esc(cat)}" onclick="_seemFilterCat('${prefix}','${esc(cat)}',this)" style="background:${i===0?'#2563EB':'#fff'};color:${i===0?'#fff':'#374151'};border:1px solid ${i===0?'#2563EB':'#D1D5DB'};border-radius:99px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${esc(cat)}</button>`
+    ).join('');
+
     return `
       <div style="display:flex;flex-direction:column;gap:12px;font-size:13px">
         <div>
+          <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:6px">📂 장비 종류 (먼저 선택)</label>
+          <div id="${prefix}_catchips" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${catChips}</div>
           <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:4px">카탈로그 항목 (변경되어도 매장 장비는 유지)</label>
           <select id="${prefix}_catalogId" onchange="_onSeemCatalogChange('${prefix}')" style="width:100%;padding:8px;border:1px solid var(--gray-200);border-radius:6px">
             <option value="">(직접 입력 — 카탈로그에 없음)</option>
-            ${catalog.map(it => `<option value="${esc(it.id)}" ${c.catalogId===it.id?'selected':''}>${esc(it.name)} (${esc(it.category||'기타')})</option>`).join('')}
+            ${catalogGroups}
           </select>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -15515,6 +15610,31 @@ ${text.slice(0, 4000)}`;
     if (catEl  && !catEl.value)  catEl.value  = it.category || '';
   }
   window._onSeemCatalogChange = _onSeemCatalogChange;
+
+  // 장비 종류 칩 클릭 → 카탈로그 셀렉트 필터링
+  window._seemFilterCat = function(prefix, cat, btn) {
+    const chips = document.getElementById(prefix+'_catchips');
+    if (chips) chips.querySelectorAll('.seem-catchip').forEach(c => {
+      const active = (c === btn);
+      c.classList.toggle('active', active);
+      c.style.background = active ? '#2563EB' : '#fff';
+      c.style.color = active ? '#fff' : '#374151';
+      c.style.borderColor = active ? '#2563EB' : '#D1D5DB';
+    });
+    const sel = document.getElementById(prefix+'_catalogId');
+    if (!sel) return;
+    // optgroup 별로 카테고리 매칭 후 보임/숨김 (option 의 data-cat 사용)
+    Array.from(sel.querySelectorAll('optgroup')).forEach(g => {
+      const show = (cat === '전체') || (g.label === cat);
+      g.style.display = show ? '' : 'none';
+      Array.from(g.querySelectorAll('option')).forEach(o => o.disabled = !show);
+    });
+    // 현재 선택값이 숨겨진 카테고리에 속하면 (직접 입력) 으로 reset
+    const selOpt = sel.options[sel.selectedIndex];
+    if (selOpt && selOpt.parentElement && selOpt.parentElement.tagName === 'OPTGROUP' && selOpt.parentElement.style.display === 'none') {
+      sel.value = '';
+    }
+  };
 
   function _collectEquipForm(prefix) {
     const optsText = (document.getElementById(prefix+'_options')?.value || '').trim();
