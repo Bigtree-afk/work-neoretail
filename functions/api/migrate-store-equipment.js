@@ -100,6 +100,14 @@ function buildInstance(e, job, idx, checkedMeta, isDone, checked) {
 }
 
 export async function onRequestPost({ request, env }) {
+  try {
+    return await _run({ request, env });
+  } catch (err) {
+    return json({ error: 'exception', message: String(err && err.message || err), stack: String(err && err.stack || '').slice(0, 2000) }, 500);
+  }
+}
+
+async function _run({ request, env }) {
   if (!env.STORES_KV) return json({ error: 'KV not bound' }, 500);
 
   let body = {};
