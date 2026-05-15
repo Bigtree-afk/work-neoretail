@@ -50,6 +50,10 @@ export async function onRequestPost({ env, request }) {
   let matched = 0, updated = 0, alreadySet = 0, bizNormalized = 0;
   const unmatched = [];
 
+  // 이 patch 가 변경한 store id 와 패치된 필드 추적 (write-time re-read 시 사용)
+  // Map<storeId, { biz?, storeRegDate?, ecountRegDate? }>
+  const patchedFields = new Map();
+
   for (const row of rows) {
     const bizDigits = norm(row.biz);
     if (!bizDigits) { unmatched.push({ biz: row.biz, regDate: row.regDate, reason:'사업자번호 없음' }); continue; }
@@ -64,41 +68,84 @@ export async function onRequestPost({ env, request }) {
     const stdBiz = formatBiz(bizDigits);
 
     if (!dryRun) {
+      const storeKey = store.id || ('biz:' + bizDigits);
+      const myChanges = patchedFields.get(storeKey) || {};
       // 사업자번호 표준 포맷화
       if (store.biz !== stdBiz) {
         store.biz = stdBiz;
+        myChanges.biz = stdBiz;
         bizNormalized++;
       }
-      // 매장 등록일 추가/갱신 (storeRegDate 가 표준 필드, ecountRegDate 도 호환 유지)
+      // 매장 등록일 추가/갱신
       if (newRegDate) {
         if (store.storeRegDate === newRegDate || store.ecountRegDate === newRegDate) {
           alreadySet++;
-          // 호환: ecountRegDate 만 있던 경우 storeRegDate 도 채움
           if (!store.storeRegDate && store.ecountRegDate === newRegDate) {
             store.storeRegDate = newRegDate;
+            myChanges.storeRegDate = newRegDate;
           }
         } else {
           store.storeRegDate = newRegDate;
-          store.ecountRegDate = newRegDate;  // 구버전 호환
+          store.ecountRegDate = newRegDate;
+          myChanges.storeRegDate = newRegDate;
+          myChanges.ecountRegDate = newRegDate;
           updated++;
         }
       }
+      if (Object.keys(myChanges).length > 0) patchedFields.set(storeKey, myChanges);
     } else {
-      // dryRun — 카운트만
       if (store.biz !== stdBiz) bizNormalized++;
       if (newRegDate && store.ecountRegDate === newRegDate) alreadySet++;
       else if (newRegDate) updated++;
     }
   }
 
-  if (!dryRun && (updated > 0 || bizNormalized > 0)) {
-    // 메타 정보 보존하면서 stores 만 갱신
-    if (Array.isArray(cur)) {
-      await env.STORES_KV.put(STORES_KEY, JSON.stringify(stores));
+  let raceMerged = 0;
+  if (!dryRun && patchedFields.size > 0) {
+    // ⚠ Write-time re-read — 동시 client push 와의 race condition 회피
+    // 처음 읽은 cur 가 stale 일 수 있음. 쓰기 직전 KV 를 다시 읽고
+    // 우리가 패치한 필드만 새 KV 위에 다시 덮는다.
+    const freshCur = await env.STORES_KV.get(STORES_KEY, 'json');
+    const freshArr = Array.isArray(freshCur?.stores) ? freshCur.stores
+                    : (Array.isArray(freshCur) ? freshCur : null);
+    if (freshArr && freshArr !== stores) {
+      const freshById = new Map();
+      const freshByBiz = new Map();
+      for (const s of freshArr) {
+        if (s.id) freshById.set(s.id, s);
+        const nb = norm(s.biz || s.bizno);
+        if (nb) freshByBiz.set(nb, s);
+      }
+      // 우리가 패치한 매장만 fresh KV 위에 my changes 다시 적용
+      for (const [storeKey, changes] of patchedFields) {
+        let target = freshById.get(storeKey);
+        if (!target && storeKey.startsWith('biz:')) target = freshByBiz.get(storeKey.slice(4));
+        // freshArr 에도 (사업자번호 정규화 했을 수 있으므로) 우리 변경 후 stdBiz 로 찾기
+        if (!target && changes.biz) target = freshByBiz.get(norm(changes.biz));
+        if (target) {
+          if (changes.biz)            target.biz = changes.biz;
+          if (changes.storeRegDate)   target.storeRegDate = changes.storeRegDate;
+          if (changes.ecountRegDate)  target.ecountRegDate = changes.ecountRegDate;
+          raceMerged++;
+        }
+      }
+      // 변경 후 freshArr 을 stores 로 사용
+      if (Array.isArray(freshCur)) {
+        await env.STORES_KV.put(STORES_KEY, JSON.stringify(freshArr));
+      } else {
+        freshCur.stores = freshArr;
+        freshCur.lastEcountPatch = new Date().toISOString();
+        await env.STORES_KV.put(STORES_KEY, JSON.stringify(freshCur));
+      }
     } else {
-      cur.stores = stores;
-      cur.lastEcountPatch = new Date().toISOString();
-      await env.STORES_KV.put(STORES_KEY, JSON.stringify(cur));
+      // 처음 read 한 그대로 — 변경 없으면 그대로 write
+      if (Array.isArray(cur)) {
+        await env.STORES_KV.put(STORES_KEY, JSON.stringify(stores));
+      } else {
+        cur.stores = stores;
+        cur.lastEcountPatch = new Date().toISOString();
+        await env.STORES_KV.put(STORES_KEY, JSON.stringify(cur));
+      }
     }
   }
 
@@ -107,6 +154,7 @@ export async function onRequestPost({ env, request }) {
     updated,
     alreadySet,
     bizNormalized,
+    raceMerged,
     unmatched: unmatched.slice(0, 200),
     unmatchedTotal: unmatched.length,
     dryRun,
