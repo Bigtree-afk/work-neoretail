@@ -189,10 +189,10 @@ async function _run({ request, env }) {
     }
   }
 
-  // KV 쓰기 (dryRun 아닐 때)
-  if (!dryRun && added > 0) {
-    const newPayload = { stores };
-    const serialized = JSON.stringify(newPayload);
+  // KV 쓰기 — stores.js GET 이 KV 값을 그대로 응답의 .stores 필드로 반환하므로 항상 bare array 로 저장
+  if (!dryRun && (added > 0 || body.fixShape)) {
+    const toWrite = stores;  // bare array
+    const serialized = JSON.stringify(toWrite);
     if (serialized.length > 50_000_000) {
       return json({ error: 'stores payload too large after migration', size: serialized.length }, 413);
     }
