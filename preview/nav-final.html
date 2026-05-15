@@ -198,8 +198,10 @@
   .records-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
   .rec-item{background:var(--gray-50);border-left:3px solid var(--primary);border-radius:6px;padding:8px 10px;font-size:11.5px}
   .rec-item .meta{font-size:10.5px;color:var(--gray-500);margin-bottom:2px;font-weight:700}
-  .rec-add{display:flex;gap:6px}
-  .rec-add input{flex:1}
+  .rec-add{display:grid;grid-template-columns:140px 1fr auto;gap:6px;align-items:center}
+  @media(max-width:580px){.rec-add{grid-template-columns:1fr;gap:5px}}
+  .rec-add input[type="datetime-local"]{font-size:11.5px}
+  .rec-add input{font-family:inherit}
 
   /* 매장 상세 모달 (간단 — 8탭 모달 풀버전) */
   .sd-modal{max-width:1024px}
@@ -1144,22 +1146,32 @@
             <input type="checkbox" class="jf-done-chk"> ✅ 서류 완료
           </label>
         </h4>
-        <div class="form-row"><div class="lab">VAN 사</div>
+        <div class="form-row"><div class="lab">VAN 사 <span style="font-size:9.5px;color:var(--gray-500);font-weight:500">복수 가능</span></div>
           <div style="display:flex;gap:5px;flex-wrap:wrap">
-            <button type="button" class="jf-vanco active" style="background:var(--primary);color:#fff;border:1px solid var(--primary);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:800;font-family:inherit">KOCES</button>
-            <button type="button" class="jf-vanco" style="background:#fff;color:var(--gray-700);border:1px solid var(--gray-300);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:800;font-family:inherit">KIS</button>
-            <button type="button" class="jf-vanco" style="background:#fff;color:var(--gray-700);border:1px solid var(--gray-300);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:800;font-family:inherit">NICE</button>
-            <button type="button" class="jf-vanco" style="background:#fff;color:var(--gray-700);border:1px solid var(--gray-300);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:800;font-family:inherit">KSNET</button>
+            <button type="button" class="jf-vanco active" style="background:var(--primary);color:#fff;border:1px solid var(--primary);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:800;font-family:inherit">☑ KOCES</button>
+            <button type="button" class="jf-vanco active" style="background:var(--primary);color:#fff;border:1px solid var(--primary);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:800;font-family:inherit">☑ KIS</button>
+            <button type="button" class="jf-vanco" style="background:#fff;color:var(--gray-700);border:1px solid var(--gray-300);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:800;font-family:inherit">☐ NICE</button>
+            <button type="button" class="jf-vanco" style="background:#fff;color:var(--gray-700);border:1px solid var(--gray-300);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:800;font-family:inherit">☐ KSNET</button>
           </div>
         </div>
-        <div class="form-row"><div class="lab">QVAN 등록</div>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-            <input type="checkbox" style="width:16px;height:16px"> <span style="font-size:11.5px">📲 QVAN 등록</span>
-          </label>
-        </div>
-        <div class="jf-two-col">
-          <div class="form-row"><div class="lab">TID</div><input placeholder="TID 입력"></div>
-          <div class="form-row"><div class="lab">Serial</div><input placeholder="단말 시리얼"></div>
+        <!-- VAN사별 TID/Serial — 선택된 각 VAN사마다 별도 입력 -->
+        <div style="background:var(--gray-50);border-radius:7px;padding:10px 12px;margin-top:4px">
+          <div style="font-size:11px;color:var(--gray-600);font-weight:700;margin-bottom:8px">📲 VAN사별 단말 정보</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:grid;grid-template-columns:80px 1fr 1fr 80px;gap:6px;align-items:center;font-size:11.5px">
+              <span style="font-weight:800;color:var(--primary)">KOCES</span>
+              <input placeholder="TID 입력" style="border:1px solid var(--gray-300);border-radius:5px;padding:5px 8px;font-family:inherit;font-size:11.5px">
+              <input placeholder="Serial" style="border:1px solid var(--gray-300);border-radius:5px;padding:5px 8px;font-family:inherit;font-size:11.5px">
+              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:10.5px"><input type="checkbox"> QVAN</label>
+            </div>
+            <div style="display:grid;grid-template-columns:80px 1fr 1fr 80px;gap:6px;align-items:center;font-size:11.5px">
+              <span style="font-weight:800;color:var(--primary)">KIS</span>
+              <input placeholder="TID 입력" style="border:1px solid var(--gray-300);border-radius:5px;padding:5px 8px;font-family:inherit;font-size:11.5px">
+              <input placeholder="Serial" style="border:1px solid var(--gray-300);border-radius:5px;padding:5px 8px;font-family:inherit;font-size:11.5px">
+              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:10.5px"><input type="checkbox" checked> QVAN</label>
+            </div>
+          </div>
+          <div style="font-size:10.5px;color:var(--gray-500);margin-top:6px;font-style:italic">상단 VAN사 토글에서 선택한 VAN사만 입력란이 나타납니다</div>
         </div>
       </div>
 
@@ -1245,6 +1257,19 @@
         </div>
       </div>
 
+      <!-- VAN: 접수일 별도 표시 -->
+      <div class="form-section jf-only-van">
+        <h4>📅 일정 정보</h4>
+        <div class="jf-two-col">
+          <div class="form-row"><div class="lab">접수일</div><div class="static">2026-05-10</div></div>
+          <div class="form-row"><div class="lab">진행 시작일</div><input type="date" value="2026-05-11"></div>
+        </div>
+        <div class="jf-two-col">
+          <div class="form-row"><div class="lab">완료 예정일</div><input type="date" value="2026-05-30"></div>
+          <div class="form-row"><div class="lab">완료일</div><input type="date" placeholder="완료 시 입력"></div>
+        </div>
+      </div>
+
       <!-- ⑥-b VAN 미완료 카드사 (간단 — 누가 보완 필요한지만) -->
       <div class="form-section jf-only-van">
         <h4>⚠ 미완료 카드사 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">처리 안 된 카드사만 표시 — 완료 시 자동 제거</span></h4>
@@ -1305,22 +1330,19 @@
           <select><option>저울 라벨지</option><option>프라이스텍 라벨</option><option>POS 영수증용지</option><option>주방프린터 용지</option><option>기타</option></select>
         </div>
         <div class="form-row"><div class="lab">수량 / 단위</div><div style="display:flex;gap:6px"><input value="5" style="flex:0 0 100px"><select style="flex:1"><option>박스</option><option>롤</option><option>매</option></select></div></div>
-        <!-- 판매금액 + VAT 포함 체크 (기본 체크) — 한 줄 -->
+        <!-- 판매금액 + VAT 포함 + 선/후불 — 한 줄에 통합 -->
         <div class="form-row"><div class="lab">판매금액</div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input value="80,000원" style="flex:1">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input value="80,000원" style="flex:1 1 140px;min-width:120px">
             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11.5px;font-weight:700;color:var(--gray-700);white-space:nowrap">
               <input type="checkbox" checked id="jfVatChk"> VAT 포함
             </label>
+            <span style="color:var(--gray-300);margin:0 2px">|</span>
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11.5px;font-weight:700;white-space:nowrap"><input type="radio" name="pay" id="jfPayPre" onchange="document.getElementById('jfArBox').style.display='none'"> 💵 선불</label>
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11.5px;font-weight:700;white-space:nowrap"><input type="radio" name="pay" id="jfPayPost" checked onchange="document.getElementById('jfArBox').style.display='block'"> 💳 후불</label>
           </div>
         </div>
-        <!-- 결제 구분 — 한 줄로 표기 + 후불 선택 시 수금 관리 노출 -->
-        <div class="form-row"><div class="lab">결제 구분</div>
-          <div style="display:flex;gap:14px;align-items:center;font-size:12px">
-            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:700"><input type="radio" name="pay" id="jfPayPre" onchange="document.getElementById('jfArBox').style.display='none'"> 💵 선불 <span style="font-size:10.5px;color:var(--gray-500);font-weight:500">발송만 관리</span></label>
-            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:700"><input type="radio" name="pay" id="jfPayPost" checked onchange="document.getElementById('jfArBox').style.display='block'"> 💳 후불 (미수) <span style="font-size:10.5px;color:var(--gray-500);font-weight:500">발송 + 수금 관리</span></label>
-          </div>
-        </div>
+        <div class="form-row"><div class="lab">거래일</div><input type="date" value="2026-05-15"></div>
       </div>
 
       <!-- ⑨-b 소모품 전용: 발송 관리 (모든 거래) -->
@@ -1345,6 +1367,26 @@
           <span>💰 수금 관리 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">후불일 때만 — 발송 후 수금 추적</span></span>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11.5px;font-weight:700"><input type="checkbox" id="jfPaidDone"> ✅ 수금 완료</label>
         </h4>
+
+        <!-- 금액 요약 — 판매금액 / 입금액 / 미수금액 -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+          <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px">
+            <div style="font-size:10.5px;color:var(--gray-500);font-weight:700">판매 금액</div>
+            <div style="font-size:16px;font-weight:900;color:var(--gray-800);margin-top:3px">80,000<span style="font-size:10.5px;font-weight:700;color:var(--gray-500);margin-left:3px">원</span></div>
+            <div style="font-size:10px;color:var(--gray-500);margin-top:2px">VAT 포함</div>
+          </div>
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px">
+            <div style="font-size:10.5px;color:#1e40af;font-weight:700">입금액</div>
+            <div style="font-size:16px;font-weight:900;color:#1e40af;margin-top:3px"><input value="0" style="width:80px;border:none;background:transparent;font-size:16px;font-weight:900;font-family:inherit;color:#1e40af">원</div>
+            <div style="font-size:10px;color:#1e40af;margin-top:2px">부분 수금 가능</div>
+          </div>
+          <div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:8px;padding:10px 12px">
+            <div style="font-size:10.5px;color:#991b1b;font-weight:700">미수 금액</div>
+            <div style="font-size:18px;font-weight:900;color:#991b1b;margin-top:3px">80,000<span style="font-size:10.5px;font-weight:700;margin-left:3px">원</span></div>
+            <div style="font-size:10px;color:#991b1b;margin-top:2px">⚠ 경과 23일</div>
+          </div>
+        </div>
+
         <div class="jf-two-col">
           <div class="form-row"><div class="lab">수금 예정일</div><input type="date" value="2026-06-15"></div>
           <div class="form-row"><div class="lab">수금일</div><input type="date" placeholder="수금 완료 시 입력"></div>
@@ -1352,7 +1394,22 @@
         <div class="form-row"><div class="lab">수금 방법</div>
           <select><option>현금</option><option>계좌이체</option><option>월정산 차감</option><option>기타</option></select>
         </div>
-        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:7px;padding:8px 12px;font-size:11.5px;color:#991b1b;margin-top:6px">
+
+        <!-- 분할 수금 기록 (부분 입금 누적) -->
+        <div style="margin-top:10px">
+          <div style="font-size:11px;font-weight:800;color:var(--gray-600);margin-bottom:5px">📝 수금 기록 <span style="font-weight:500;color:var(--gray-400)">(분할 수금 시 누적)</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px;font-size:11.5px">
+            <div style="background:var(--gray-50);padding:6px 10px;border-radius:5px;color:var(--gray-500);text-align:center;font-style:italic">아직 수금 기록 없음</div>
+          </div>
+          <div style="display:grid;grid-template-columns:130px 110px 1fr auto;gap:5px;margin-top:6px">
+            <input type="date" style="font-size:11px;padding:4px 6px;border:1px solid var(--gray-300);border-radius:5px;font-family:inherit">
+            <input placeholder="금액" style="font-size:11px;padding:4px 6px;border:1px solid var(--gray-300);border-radius:5px;font-family:inherit">
+            <input placeholder="메모..." style="font-size:11px;padding:4px 6px;border:1px solid var(--gray-300);border-radius:5px;font-family:inherit">
+            <button class="btn primary" style="font-size:11px;padding:4px 10px">+ 추가</button>
+          </div>
+        </div>
+
+        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:7px;padding:8px 12px;font-size:11.5px;color:#991b1b;margin-top:10px">
           ⚠ <strong>미수 경과 23일</strong> — 30일 이상 시 미수금 안내 메시지 자동 발송 권장
         </div>
       </div>
@@ -1379,6 +1436,7 @@
           </div>
         </div>
         <div class="rec-add">
+          <input type="datetime-local" value="2026-05-16T09:30" title="기록 일시">
           <input placeholder="새 기록 입력... (오픈 전까지 들어오는 추가 일정)">
           <button class="btn primary">+ 기록 추가</button>
         </div>
@@ -1391,43 +1449,48 @@
           <span id="jfProgressLabel" style="font-size:11.5px;color:var(--gray-500);font-weight:700">2 / 5 완료</span>
         </h4>
         <div style="display:flex;flex-direction:column;gap:6px">
-          <label style="display:flex;align-items:center;gap:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-left:3px solid var(--success);border-radius:7px;padding:9px 12px;cursor:pointer">
-            <input type="checkbox" checked style="width:16px;height:16px">
+          <div style="display:flex;align-items:center;gap:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-left:3px solid var(--success);border-radius:7px;padding:9px 12px">
+            <input type="checkbox" checked style="width:16px;height:16px;cursor:pointer">
             <div style="flex:1;font-size:12px">
               <div style="font-weight:800;color:#065f46;text-decoration:line-through">📑 서류 처리</div>
-              <div style="font-size:10.5px;color:#065f46">5-14 박기사</div>
+              <div style="font-size:10.5px;color:#065f46">✓ 완료 박기사</div>
             </div>
+            <input type="date" value="2026-05-14" style="font-size:11px;padding:3px 6px;border:1px solid #a7f3d0;border-radius:4px;font-family:inherit;background:#fff">
             <span style="font-size:11px;color:var(--success);font-weight:800">✓</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-left:3px solid var(--success);border-radius:7px;padding:9px 12px;cursor:pointer">
-            <input type="checkbox" checked style="width:16px;height:16px">
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-left:3px solid var(--success);border-radius:7px;padding:9px 12px">
+            <input type="checkbox" checked style="width:16px;height:16px;cursor:pointer">
             <div style="flex:1;font-size:12px">
               <div style="font-weight:800;color:#065f46;text-decoration:line-through">🖥 사무실 설치 (계산대/모니터/POS 본체)</div>
-              <div style="font-size:10.5px;color:#065f46">5-20 김기사</div>
+              <div style="font-size:10.5px;color:#065f46">✓ 완료 김기사</div>
             </div>
+            <input type="date" value="2026-05-20" style="font-size:11px;padding:3px 6px;border:1px solid #a7f3d0;border-radius:4px;font-family:inherit;background:#fff">
             <span style="font-size:11px;color:var(--success);font-weight:800">✓</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:9px 12px;cursor:pointer">
-            <input type="checkbox" style="width:16px;height:16px">
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:9px 12px">
+            <input type="checkbox" style="width:16px;height:16px;cursor:pointer">
             <div style="flex:1;font-size:12px">
               <div style="font-weight:800">💻 POS 설치 (소프트웨어 + 상품DB)</div>
-              <div style="font-size:10.5px;color:var(--gray-500)">미완료</div>
+              <div style="font-size:10.5px;color:var(--gray-500)">예정일 입력 →</div>
             </div>
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:9px 12px;cursor:pointer">
-            <input type="checkbox" style="width:16px;height:16px">
+            <input type="date" placeholder="예정/완료일" style="font-size:11px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:4px;font-family:inherit">
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:9px 12px">
+            <input type="checkbox" style="width:16px;height:16px;cursor:pointer">
             <div style="flex:1;font-size:12px">
               <div style="font-weight:800">🟡 가오픈</div>
               <div style="font-size:10.5px;color:var(--gray-500)">예정 5/25</div>
             </div>
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:9px 12px;cursor:pointer">
-            <input type="checkbox" style="width:16px;height:16px">
+            <input type="date" value="2026-05-25" style="font-size:11px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:4px;font-family:inherit">
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:9px 12px">
+            <input type="checkbox" style="width:16px;height:16px;cursor:pointer">
             <div style="flex:1;font-size:12px">
               <div style="font-weight:800">🎉 오픈</div>
               <div style="font-size:10.5px;color:var(--gray-500)">예정 5/27</div>
             </div>
-          </label>
+            <input type="date" value="2026-05-27" style="font-size:11px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:4px;font-family:inherit">
+          </div>
         </div>
         <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:9px 12px;margin-top:8px;font-size:11.5px;color:#1e40af;line-height:1.5">
           ℹ 5개 항목 모두 체크 시 신규 업무가 자동 <strong>완료 종결</strong>되고, 매장 상태가 '거래중'으로 전환됩니다.
@@ -1447,6 +1510,7 @@
           </div>
         </div>
         <div class="rec-add">
+          <input type="datetime-local" value="2026-05-16T09:30" title="기록 일시">
           <input placeholder="새 기록 입력...">
           <button class="btn primary">+ 기록 추가</button>
         </div>
@@ -1670,11 +1734,13 @@
         if (pBox) pBox.style.display = (st === 'pending') ? 'block' : 'none';
       };
     });
-    // VAN사 토글
+    // VAN사 복수 토글 (multi-select)
     document.querySelectorAll('.jf-vanco').forEach(b => {
       b.onclick = () => {
-        document.querySelectorAll('.jf-vanco').forEach(x => x.classList.remove('active'));
-        b.classList.add('active');
+        b.classList.toggle('active');
+        // 체크 박스 표기 갱신
+        const txt = b.textContent.replace(/^[☑☐]\s*/, '');
+        b.textContent = (b.classList.contains('active') ? '☑ ' : '☐ ') + txt;
       };
     });
   }
