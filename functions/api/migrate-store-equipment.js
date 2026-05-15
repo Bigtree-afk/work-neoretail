@@ -136,10 +136,15 @@ async function _run({ request, env }) {
     if (n) byName.set(n, s);
   }
 
-  let added = 0, skippedDupe = 0, noStoreMatched = 0;
+  let added = 0, skippedDupe = 0, noStoreMatched = 0, stubsCreated = 0;
   const seenStores = new Set();
   const noStoreSamples = [];
   const updatedStoreIds = new Set();
+  const createMissingStores = !!body.createMissingStores;
+
+  function genStubStoreId() {
+    return 'auto-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  }
 
   for (const j of jobs) {
     if (!Array.isArray(j.equipment) || j.equipment.length === 0) continue;
@@ -149,11 +154,31 @@ async function _run({ request, env }) {
       storeName: j.storeName || j.store,
       businessNumber: j.businessNumber || j.biz,
     };
-    const store = findStore(stores, byBiz, byName, ref);
+    let store = findStore(stores, byBiz, byName, ref);
     if (!store) {
-      noStoreMatched++;
-      if (noStoreSamples.length < 10) noStoreSamples.push({ jobId: j.id, store: ref.storeName, eq: j.equipment.length });
-      continue;
+      if (createMissingStores && ref.storeName) {
+        // stub 매장 생성 — 작업에서 발견된 매장명으로 최소 레코드 생성
+        store = {
+          id: genStubStoreId(),
+          storeName: ref.storeName,
+          name: ref.storeName,
+          biz: normBiz(ref.businessNumber) || '',
+          autoCreated: true,
+          autoCreatedAt: new Date().toISOString(),
+          autoCreatedFromJobId: j.id,
+          equipment: [],
+        };
+        stores.push(store);
+        // 인덱스 갱신
+        if (store.biz && store.biz.length === 10) byBiz.set(store.biz, store);
+        const n = normName(store.storeName);
+        if (n) byName.set(n, store);
+        stubsCreated++;
+      } else {
+        noStoreMatched++;
+        if (noStoreSamples.length < 10) noStoreSamples.push({ jobId: j.id, store: ref.storeName, eq: j.equipment.length });
+        continue;
+      }
     }
 
     if (!Array.isArray(store.equipment)) store.equipment = [];
@@ -190,7 +215,7 @@ async function _run({ request, env }) {
   }
 
   // KV 쓰기 — stores.js GET 이 KV 값을 그대로 응답의 .stores 필드로 반환하므로 항상 bare array 로 저장
-  if (!dryRun && (added > 0 || body.fixShape)) {
+  if (!dryRun && (added > 0 || stubsCreated > 0 || body.fixShape)) {
     const toWrite = stores;  // bare array
     const serialized = JSON.stringify(toWrite);
     if (serialized.length > 50_000_000) {
@@ -208,6 +233,7 @@ async function _run({ request, env }) {
       skippedDupe,
       stores: seenStores.size,
       noStoreMatched,
+      stubsCreated,
     },
     noStoreMatchedSamples: noStoreSamples,
     updated: updatedStoreIds.size,
