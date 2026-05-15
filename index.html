@@ -3319,6 +3319,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       // 로컬 전용 필드(브라우저가 관리) — KV 덮어쓰지 않음
       const LOCAL_FIELDS  = ['aliases', 'changeLog', 'mergedFrom', 'mergedSnapshot'];
 
+      // 빈값 판별 — null/undefined/빈 문자열/빈 배열/빈 객체 모두 '없음' 으로 취급
+      const isEmpty = (v) => {
+        if (v == null || v === '') return true;
+        if (Array.isArray(v) && v.length === 0) return true;
+        if (typeof v === 'object' && Object.keys(v).length === 0) return true;
+        return false;
+      };
+      // equipment 같은 인스턴스 배열은 instanceId 기반 additive 머지
+      const INSTANCE_ARRAYS = new Set(['equipment', 'contacts']);
+
       const mergeStore = (loc, rem) => {
         if (!rem) return loc;
         if (!loc) return rem;
@@ -3327,12 +3337,25 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         for (const f of SERVER_FIELDS) {
           if (rem[f] != null && rem[f] !== '') out[f] = rem[f];
         }
-        // KV 의 신선한 일반 필드도 머지 (이름·주소·전화 등이 KV 에서 갱신된 경우)
+        // KV 의 신선한 일반 필드도 머지
         for (const k of Object.keys(rem)) {
           if (SERVER_FIELDS.includes(k)) continue;
           if (LOCAL_FIELDS.includes(k)) continue;
-          // 로컬에 값이 없으면 KV 값 사용
-          if (out[k] == null || out[k] === '') out[k] = rem[k];
+          // 인스턴스 배열(equipment, contacts) — instanceId 기준 additive 머지
+          // (로컬 우선이되, KV 에만 있는 새 인스턴스는 추가)
+          if (INSTANCE_ARRAYS.has(k) && Array.isArray(rem[k])) {
+            if (!Array.isArray(out[k])) out[k] = [];
+            const localIds = new Set(out[k].map(x => x && (x.instanceId || x.id || x.phone)).filter(Boolean));
+            rem[k].forEach(item => {
+              if (!item) return;
+              const id = item.instanceId || item.id || item.phone;
+              if (id && !localIds.has(id)) out[k].push(item);
+              else if (!id) out[k].push(item);  // id 없으면 단순 추가
+            });
+            continue;
+          }
+          // 일반 필드 — 로컬이 비어있으면 KV 값 사용 (빈 배열/객체도 '없음' 처리)
+          if (isEmpty(out[k]) && !isEmpty(rem[k])) out[k] = rem[k];
         }
         // 로컬 전용 필드는 그대로 유지 (이미 ...loc 로 들어감)
         return out;
@@ -4231,7 +4254,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     try { stores = (typeof getStores === 'function') ? (getStores() || []) : []; } catch(e){}
     const s = _findStoreInList(stores, storeRef);
     if (!s) return 0;
-    if (!Array.isArray(s.equipment)) s.equipment = [];
+    // s.equipment 는 push 직전에 lazy 초기화 (빈 배열로 두지 않음 — 클라우드 머지 시 KV 값 보존)
     const checked   = job.equipmentChecked   || {};
     const checkedBy = job.equipmentCheckedBy || {};
     const isDone = (typeof _isJobDone === 'function') ? _isJobDone(job) : false;
@@ -4261,6 +4284,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         note:           checked[i] ? '체크박스로 설치 확인' : (isDone ? '완료 작업에서 자동 적재' : ''),
       });
       inst.sourceJobItemIdx = i;
+      if (!Array.isArray(s.equipment)) s.equipment = [];  // lazy init — push 직전에만
       s.equipment.push(inst);
       added++;
     });
