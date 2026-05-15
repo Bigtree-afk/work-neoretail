@@ -123,10 +123,10 @@
                padding:14px; margin-bottom:12px; }
   .m-section h4 { font-size:13px; font-weight:800; color:var(--gray-800); margin-bottom:10px;
                    display:flex; align-items:center; gap:6px; }
-  .m-cat-scroll { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin:0 -14px;
-                  padding-left:14px; padding-right:14px; scroll-snap-type:x mandatory; }
-  .m-cat-scroll::-webkit-scrollbar { display:none; }
-  .m-cat-scroll .cat-chip { scroll-snap-align:start; flex-shrink:0; }
+  .m-cat-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+  .m-cat-grid .cat-chip { justify-content:center; padding:11px 8px; font-size:12px; }
+  /* 작은 모바일에서는 2-column */
+  @media (max-width:340px) { .m-cat-grid { grid-template-columns:repeat(2, 1fr); } }
   .m-store-pill { background:var(--primary-light); border:1.5px solid var(--primary);
                   border-radius:10px; padding:10px 12px; }
   .m-store-pill b { font-size:14px; }
@@ -375,24 +375,23 @@
         </div>
 
         <div class="m-body">
-          <!-- 카테고리 — 가로 스크롤 -->
+          <!-- 카테고리 — 그리드로 모두 노출 -->
           <div class="m-section">
             <h4>① 분류</h4>
-            <div class="m-cat-scroll">
-              <span class="cat-chip">🖥 POS A/S</span>
-              <span class="cat-chip">💳 VAN A/S</span>
-              <span class="cat-chip">📱 단말기</span>
-              <span class="cat-chip selected">📞 상담</span>
-              <span class="cat-chip">🏪 오픈</span>
-              <span class="cat-chip">↩️ 이탈</span>
-              <span class="cat-chip">📊 재고</span>
-              <span class="cat-chip">📑 밴서류</span>
-              <span class="cat-chip">📅 일정</span>
-              <span class="cat-chip">🏷 라벨</span>
-              <span class="cat-chip">📦 출고</span>
-              <span class="cat-chip">🚚 택배</span>
+            <div class="m-cat-grid">
+              <span class="cat-chip" data-cat="pos_as">🖥 POS A/S</span>
+              <span class="cat-chip" data-cat="van_as">💳 VAN A/S</span>
+              <span class="cat-chip" data-cat="device_mgmt">📱 단말기</span>
+              <span class="cat-chip selected" data-cat="counsel">📞 상담</span>
+              <span class="cat-chip" data-cat="open_store">🏪 오픈</span>
+              <span class="cat-chip" data-cat="churn">↩️ 이탈</span>
+              <span class="cat-chip" data-cat="stock_check">📊 재고</span>
+              <span class="cat-chip" data-cat="van_doc">📑 밴서류</span>
+              <span class="cat-chip" data-cat="schedule">📅 일정</span>
+              <span class="cat-chip" data-cat="label">🏷 라벨</span>
+              <span class="cat-chip" data-cat="equip_out">📦 출고</span>
+              <span class="cat-chip" data-cat="delivery">🚚 택배</span>
             </div>
-            <div style="font-size:10px;color:var(--gray-400);margin-top:6px;text-align:right">← → 좌우 스와이프</div>
           </div>
 
           <!-- 매장 -->
@@ -484,7 +483,7 @@
       <b style="color:var(--gray-900)">📱 Mobile 레이아웃 특징</b>
       <ul style="margin:6px 0 0 18px">
         <li><b>섹션별 카드</b> 수직 배치 — 위에서 아래로 자연스러운 흐름</li>
-        <li><b>카테고리 가로 스크롤</b> + snap — 12개를 좁은 폭에 정리</li>
+        <li><b>카테고리 3×4 그리드</b> — 12개 한 번에 노출, 탭 한 번에 선택</li>
         <li><b>거래처 담당 박스</b> 노란색 강조 — LINE 핵심 정보임을 시각화</li>
         <li><b>하단 고정 버튼</b> [등록] 항상 접근 가능</li>
         <li><b>큰 입력 필드</b> 42px+ — 터치 친화</li>
@@ -512,7 +511,7 @@
       <b style="color:var(--gray-900)">📱 Mobile (수직 섹션)</b>
       <ul style="margin:4px 0 0 18px;color:var(--gray-700)">
         <li>섹션별 카드로 명확한 구분</li>
-        <li>카테고리는 가로 스크롤 + snap</li>
+        <li>카테고리 3×4 그리드로 모두 노출 — 한 번에 탭</li>
         <li>거래처 담당 박스 색상 강조</li>
         <li>하단 [등록] 버튼 항상 고정</li>
         <li>입력 필드 크게 (터치 영역 42px+)</li>
@@ -537,7 +536,7 @@ const CAT_LABEL = {
 document.querySelectorAll('.cat-chip').forEach(c => {
   c.onclick = () => {
     // 같은 그룹 (PC or Mobile) 안에서만 토글
-    const group = c.closest('.pc-cat-grid, .m-cat-scroll');
+    const group = c.closest('.pc-cat-grid, .m-cat-grid');
     if (!group) return;
     group.querySelectorAll('.cat-chip').forEach(x => x.classList.remove('selected'));
     c.classList.add('selected');
@@ -582,7 +581,7 @@ function renderPCPreview() {
   computeSig(msg, room).then(s => document.getElementById('pcSigRow').textContent = '시그니처: ' + s);
 }
 function renderMobilePreview() {
-  const sel = document.querySelector('.m-cat-scroll .cat-chip.selected');
+  const sel = document.querySelector('.m-cat-grid .cat-chip.selected');
   const catKey = sel ? sel.dataset.cat : 'counsel';
   // 데모용 동일 값 사용
   const msg = buildMsg(catKey, '토마토마켓 강서점', '김매니저', '010-3456-7890', '매니저',
