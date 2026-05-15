@@ -34,12 +34,17 @@ export async function onRequestPost({ env, request }) {
   const cur = (await env.STORES_KV.get(STORES_KEY, 'json')) || { stores: [] };
   const stores = Array.isArray(cur.stores) ? cur.stores : (Array.isArray(cur) ? cur : []);
 
-  // biz 정규화 인덱스 (숫자만 10자리 → store)
+  // biz 정규화 인덱스 (숫자만 10자리 → store[])  — 같은 biz 공유하는 직영점 대응
   const norm = (b) => String(b||'').replace(/\D/g, '');
-  const bizIndex = new Map();
+  const bizIndex = new Map();          // biz digits → store[]
+  const codeIndex = new Map();         // code → store
   for (const s of stores) {
     const k = norm(s.biz || s.bizno);
-    if (k) bizIndex.set(k, s);
+    if (k) {
+      if (!bizIndex.has(k)) bizIndex.set(k, []);
+      bizIndex.get(k).push(s);
+    }
+    if (s.code) codeIndex.set(String(s.code), s);
   }
 
   const formatBiz = (digits) => {
@@ -54,49 +59,82 @@ export async function onRequestPost({ env, request }) {
   // Map<storeId, { biz?, storeRegDate?, ecountRegDate? }>
   const patchedFields = new Map();
 
+  let ambiguous = 0;
+
   for (const row of rows) {
     const bizDigits = norm(row.biz);
-    if (!bizDigits) { unmatched.push({ biz: row.biz, regDate: row.regDate, reason:'사업자번호 없음' }); continue; }
-    const store = bizIndex.get(bizDigits);
-    if (!store) {
-      unmatched.push({ biz: row.biz, regDate: row.regDate, reason:'매장 없음' });
+    const rowCode = row.code ? String(row.code).trim() : '';
+
+    // 매장 찾기 — 우선순위:
+    //   1) code 가 주어지면 code 로 정확 매칭
+    //   2) biz 로 찾되, 여러 매장이 공유하면 ambiguous (code 없으면 처리 불가)
+    let targets = [];
+    if (rowCode) {
+      const s = codeIndex.get(rowCode);
+      if (s) targets = [s];
+    }
+    if (!targets.length && bizDigits) {
+      const arr = bizIndex.get(bizDigits) || [];
+      if (arr.length === 1) {
+        targets = arr;
+      } else if (arr.length > 1) {
+        // 공유 사업자번호 — code 없으면 어느 매장인지 알 수 없음
+        ambiguous++;
+        unmatched.push({
+          biz: row.biz,
+          code: rowCode,
+          regDate: row.regDate,
+          reason: `사업자번호 공유 매장 ${arr.length}개 — code 필수`,
+          candidateNames: arr.map(s => s.name).slice(0, 10),
+        });
+        continue;
+      }
+    }
+
+    if (!targets.length) {
+      if (!bizDigits && !rowCode) {
+        unmatched.push({ biz: row.biz, code: rowCode, regDate: row.regDate, reason:'사업자번호/코드 없음' });
+      } else {
+        unmatched.push({ biz: row.biz, code: rowCode, regDate: row.regDate, reason:'매장 없음' });
+      }
       continue;
     }
-    matched++;
 
-    const newRegDate = String(row.regDate || '').trim();
-    const stdBiz = formatBiz(bizDigits);
+    for (const store of targets) {
+      matched++;
+      const newRegDate = String(row.regDate || '').trim();
+      const stdBiz = bizDigits ? formatBiz(bizDigits) : store.biz;
+      const targetBizDigits = bizDigits || norm(store.biz);
 
-    if (!dryRun) {
-      const storeKey = store.id || ('biz:' + bizDigits);
-      const myChanges = patchedFields.get(storeKey) || {};
-      // 사업자번호 표준 포맷화
-      if (store.biz !== stdBiz) {
-        store.biz = stdBiz;
-        myChanges.biz = stdBiz;
-        bizNormalized++;
-      }
-      // 매장 등록일 추가/갱신
-      if (newRegDate) {
-        if (store.storeRegDate === newRegDate || store.ecountRegDate === newRegDate) {
-          alreadySet++;
-          if (!store.storeRegDate && store.ecountRegDate === newRegDate) {
-            store.storeRegDate = newRegDate;
-            myChanges.storeRegDate = newRegDate;
-          }
-        } else {
-          store.storeRegDate = newRegDate;
-          store.ecountRegDate = newRegDate;
-          myChanges.storeRegDate = newRegDate;
-          myChanges.ecountRegDate = newRegDate;
-          updated++;
+      if (!dryRun) {
+        const storeKey = store.id || ('biz:' + targetBizDigits) || ('code:' + (store.code||''));
+        const myChanges = patchedFields.get(storeKey) || {};
+        if (bizDigits && store.biz !== stdBiz) {
+          store.biz = stdBiz;
+          myChanges.biz = stdBiz;
+          bizNormalized++;
         }
+        if (newRegDate) {
+          if (store.storeRegDate === newRegDate || store.ecountRegDate === newRegDate) {
+            alreadySet++;
+            if (!store.storeRegDate && store.ecountRegDate === newRegDate) {
+              store.storeRegDate = newRegDate;
+              myChanges.storeRegDate = newRegDate;
+            }
+          } else {
+            store.storeRegDate = newRegDate;
+            store.ecountRegDate = newRegDate;
+            myChanges.storeRegDate = newRegDate;
+            myChanges.ecountRegDate = newRegDate;
+            updated++;
+          }
+        }
+        if (Object.keys(myChanges).length > 0) patchedFields.set(storeKey, myChanges);
+      } else {
+        if (bizDigits && store.biz !== stdBiz) bizNormalized++;
+        if (newRegDate && store.ecountRegDate === newRegDate) alreadySet++;
+        else if (newRegDate) updated++;
       }
-      if (Object.keys(myChanges).length > 0) patchedFields.set(storeKey, myChanges);
-    } else {
-      if (store.biz !== stdBiz) bizNormalized++;
-      if (newRegDate && store.ecountRegDate === newRegDate) alreadySet++;
-      else if (newRegDate) updated++;
     }
   }
 
@@ -111,15 +149,18 @@ export async function onRequestPost({ env, request }) {
     if (freshArr && freshArr !== stores) {
       const freshById = new Map();
       const freshByBiz = new Map();
+      const freshByCode = new Map();
       for (const s of freshArr) {
         if (s.id) freshById.set(s.id, s);
         const nb = norm(s.biz || s.bizno);
         if (nb) freshByBiz.set(nb, s);
+        if (s.code) freshByCode.set(String(s.code), s);
       }
       // 우리가 패치한 매장만 fresh KV 위에 my changes 다시 적용
       for (const [storeKey, changes] of patchedFields) {
         let target = freshById.get(storeKey);
         if (!target && storeKey.startsWith('biz:')) target = freshByBiz.get(storeKey.slice(4));
+        if (!target && storeKey.startsWith('code:')) target = freshByCode.get(storeKey.slice(5));
         // freshArr 에도 (사업자번호 정규화 했을 수 있으므로) 우리 변경 후 stdBiz 로 찾기
         if (!target && changes.biz) target = freshByBiz.get(norm(changes.biz));
         if (target) {
@@ -155,6 +196,7 @@ export async function onRequestPost({ env, request }) {
     alreadySet,
     bizNormalized,
     raceMerged,
+    ambiguous,
     unmatched: unmatched.slice(0, 200),
     unmatchedTotal: unmatched.length,
     dryRun,
