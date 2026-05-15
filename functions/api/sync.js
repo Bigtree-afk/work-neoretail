@@ -173,6 +173,40 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
+  // ⚠ Write-time re-read — 동시 patch 와의 race condition 방지
+  // POST /api/sync 와 /api/stores-patch-ecount 가 거의 동시에 실행될 때,
+  // 처음 읽은 cur 가 stale 이면 patch 결과를 덮어쓸 수 있음.
+  // → KV 쓰기 직전에 다시 읽어, 그 사이 변경된 필드를 보존.
+  const freshCur = await env.STORES_KV.get('stores', 'json');
+  const freshArr = Array.isArray(freshCur?.stores) ? freshCur.stores
+                  : (Array.isArray(freshCur) ? freshCur : null);
+  if (freshArr && freshArr !== existingArr) {
+    // 처음 읽은 시점과 비교해 변경된 매장이 있으면 정책 머지 재실행
+    const freshById = new Map();
+    const freshByBiz = new Map();
+    for (const s of freshArr) {
+      if (s.id) freshById.set(s.id, s);
+      const nb = normBiz(s.biz || s.bizno);
+      if (nb && nb.length === 10) freshByBiz.set(nb, s);
+    }
+    let raceCount = 0;
+    for (let i = 0; i < merged.length; i++) {
+      const m = merged[i];
+      const fresh = freshById.get(m.id) || freshByBiz.get(normBiz(m.biz || m.bizno));
+      if (fresh) {
+        // fresh (지금 KV) 가 처음 read한 cur 와 다르면 patch 가 끼어든 것 → 재머지
+        const original = byId.get(m.id) || byBiz.get(normBiz(m.biz || m.bizno));
+        if (original && JSON.stringify(original) !== JSON.stringify(fresh)) {
+          merged[i] = mergeStoreObjects(m, fresh);  // patch 결과 보존
+          raceCount++;
+        }
+      }
+    }
+    if (raceCount > 0) {
+      console.log(`[sync] race-merge: ${raceCount} stores re-merged with fresh KV`);
+    }
+  }
+
   // KV 저장
   if (Array.isArray(cur)) {
     await env.STORES_KV.put('stores', JSON.stringify(merged));
