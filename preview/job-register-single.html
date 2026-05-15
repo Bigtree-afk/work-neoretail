@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>업무 등록 — 단일 페이지 UI (PC / 모바일)</title>
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --primary:#2563EB; --primary-dark:#1d4ed8; --primary-light:#EFF6FF;
+    --success:#10B981; --warning:#F59E0B; --danger:#EF4444;
+    --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB; --gray-300:#D1D5DB;
+    --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-600:#4B5563; --gray-700:#374151;
+    --gray-800:#1F2937; --gray-900:#111827;
+    --neo-paper:#F5EEDF; --neo-ink:#1A1614; --neo-red:#FF2D1F;
+  }
+  body { font-family:'Pretendard Variable','Pretendard',-apple-system,sans-serif;
+         background:var(--neo-paper); color:var(--gray-800); padding:30px 20px 80px; min-height:100vh; }
+  .topbar { max-width:1500px; margin:0 auto 24px; background:#fff; border:2px solid var(--neo-ink);
+            border-radius:14px; padding:20px 24px; display:flex; justify-content:space-between;
+            align-items:center; flex-wrap:wrap; gap:14px; box-shadow:4px 4px 0 var(--neo-ink); }
+  .topbar h1 { font-size:22px; font-weight:900; }
+  .topbar .sub { font-size:12px; color:var(--gray-500); margin-top:4px; }
+  .topbar .toggle { display:flex; gap:6px; }
+  .topbar .toggle button { padding:8px 14px; border:1.5px solid var(--gray-300); background:#fff;
+                            border-radius:8px; cursor:pointer; font-size:12px; font-weight:700;
+                            font-family:inherit; }
+  .topbar .toggle button.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+  .pill { background:var(--neo-red); color:#fff; font-size:11px; font-weight:800;
+          padding:5px 12px; border-radius:99px; }
+
+  /* ─── 컨테이너: PC + Mobile 나란히 ─── */
+  .grid-wrap { max-width:1500px; margin:0 auto; display:grid; grid-template-columns:1fr 420px; gap:24px; align-items:flex-start; }
+  @media (max-width:1180px) { .grid-wrap { grid-template-columns:1fr; } }
+
+  /* ═════════════════════ 공통 폼 스타일 ═════════════════════ */
+  .pane { background:#fff; border:1.5px solid var(--gray-200); border-radius:14px; overflow:hidden; }
+  .pane .head { background:linear-gradient(135deg, #1F2937 0%, #111827 100%); color:#fff;
+                padding:12px 18px; display:flex; justify-content:space-between; align-items:center; }
+  .pane .head h2 { font-size:14px; font-weight:800; }
+  .pane .head .badge-ver { font-size:10px; background:rgba(255,255,255,.2); padding:3px 8px; border-radius:99px; font-weight:700; }
+
+  .section-title { font-size:11px; font-weight:800; color:var(--gray-500); text-transform:uppercase;
+                   letter-spacing:0.06em; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+  .section-title::after { content:''; flex:1; height:1px; background:var(--gray-200); }
+
+  .field { margin-bottom:12px; }
+  .field label { display:block; font-size:11px; color:var(--gray-600); font-weight:700; margin-bottom:4px; }
+  .field input, .field textarea, .field select {
+    width:100%; padding:9px 11px; border:1.5px solid var(--gray-200); border-radius:7px;
+    font-size:13px; background:#fff; font-family:inherit; }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+  .field textarea { resize:vertical; min-height:70px; }
+
+  .cat-chip { display:inline-flex; align-items:center; gap:5px; padding:7px 12px; border:1.5px solid var(--gray-200);
+              border-radius:99px; cursor:pointer; background:#fff; font-size:12px; font-weight:700;
+              white-space:nowrap; transition:all .12s; }
+  .cat-chip:hover { border-color:var(--primary); }
+  .cat-chip.selected { background:var(--primary); color:#fff; border-color:var(--primary); }
+
+  .req { color:var(--danger); margin-left:2px; }
+
+  /* ═════════════════════ PC 레이아웃 ═════════════════════ */
+  .pc-grid { display:grid; grid-template-columns:1.2fr 1.4fr 1fr; gap:0; }
+  .pc-col { padding:18px 20px; border-right:1px solid var(--gray-100); min-width:0; }
+  .pc-col:last-child { border-right:none; }
+  .pc-col h3.col-title { font-size:13px; font-weight:800; color:var(--gray-700); margin-bottom:12px;
+                          padding-bottom:8px; border-bottom:2px solid var(--gray-100); }
+  .pc-cat-grid { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+
+  .store-suggestion { padding:10px; border:1.5px solid var(--gray-200); border-radius:8px;
+                      cursor:pointer; margin-bottom:6px; transition:all .12s; }
+  .store-suggestion:hover { border-color:var(--primary); background:var(--primary-light); }
+  .store-suggestion b { font-size:13px; }
+  .store-suggestion small { font-size:11px; color:var(--gray-500); display:block; margin-top:2px; }
+
+  .ongoing-job { padding:8px 10px; background:#FFFBEB; border:1.5px solid #FCD34D; border-radius:7px;
+                 margin-bottom:6px; cursor:pointer; display:flex; justify-content:space-between; gap:8px;
+                 align-items:center; transition:all .12s; }
+  .ongoing-job:hover { background:#FEF3C7; }
+  .ongoing-job b { font-size:12px; color:var(--gray-800); }
+  .ongoing-job small { font-size:10px; color:var(--gray-600); display:block; margin-top:2px; }
+  .ongoing-job .b-badge { font-size:10px; background:#F59E0B; color:#fff; padding:2px 7px; border-radius:99px; font-weight:800; white-space:nowrap; }
+
+  .contact-box { background:#FFFBEB; border:1.5px solid #FCD34D; border-radius:10px; padding:12px; margin-bottom:14px; }
+  .contact-box .ttl { font-size:11px; font-weight:800; color:#92400E; margin-bottom:8px; display:flex; gap:5px; align-items:center; }
+  .contact-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+
+  .line-section { background:#F0FDF4; border:1.5px solid #86EFAC; border-radius:10px; padding:12px; }
+  .line-section .ttl { font-size:11px; font-weight:800; color:#065F46; margin-bottom:8px; display:flex; gap:5px; align-items:center; justify-content:space-between; }
+  .line-msg-preview { background:#06C755; color:#fff; padding:11px 13px; border-radius:11px 11px 11px 3px;
+                       font-size:12px; line-height:1.55; white-space:pre-wrap; margin-top:8px;
+                       font-family:'Pretendard Variable',sans-serif; }
+  .sig-row { font-size:10px; color:var(--gray-500); margin-top:6px; font-family:monospace;
+             background:#fff; padding:4px 7px; border-radius:5px; border:1px solid var(--gray-200); }
+
+  .pc-actions { background:#FAFAFA; padding:12px 20px; border-top:1.5px solid var(--gray-200);
+                display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .pc-actions .help { font-size:11px; color:var(--gray-500); }
+
+  /* ═════════════════════ Mobile 레이아웃 (phone frame) ═════════════════════ */
+  .phone-frame {
+    background:#1A1614; border-radius:38px; padding:14px;
+    box-shadow:0 20px 60px rgba(0,0,0,.25), inset 0 0 0 2px #333;
+    width:380px;
+    margin:0 auto;
+    position:sticky; top:20px;
+  }
+  .phone-screen {
+    background:var(--neo-paper); border-radius:24px; overflow:hidden; height:760px;
+    display:flex; flex-direction:column;
+  }
+  .phone-notch { background:#1A1614; height:28px; border-radius:0 0 16px 16px; width:140px;
+                  margin:0 auto -10px; position:relative; z-index:2; }
+  .phone-bar { background:#fff; padding:12px 16px; border-bottom:1px solid var(--gray-200);
+                font-size:13px; font-weight:800; display:flex; align-items:center; gap:8px; }
+  .phone-bar .back { font-size:18px; color:var(--primary); cursor:pointer; }
+  .m-body { flex:1; overflow-y:auto; padding:14px 16px 100px; }
+  .m-section { background:#fff; border:1px solid var(--gray-200); border-radius:12px;
+               padding:14px; margin-bottom:12px; }
+  .m-section h4 { font-size:13px; font-weight:800; color:var(--gray-800); margin-bottom:10px;
+                   display:flex; align-items:center; gap:6px; }
+  .m-cat-scroll { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin:0 -14px;
+                  padding-left:14px; padding-right:14px; scroll-snap-type:x mandatory; }
+  .m-cat-scroll::-webkit-scrollbar { display:none; }
+  .m-cat-scroll .cat-chip { scroll-snap-align:start; flex-shrink:0; }
+  .m-store-pill { background:var(--primary-light); border:1.5px solid var(--primary);
+                  border-radius:10px; padding:10px 12px; }
+  .m-store-pill b { font-size:14px; }
+  .m-store-pill small { font-size:11px; color:var(--gray-600); display:block; margin-top:2px; }
+  .m-store-pill .change { font-size:10px; color:var(--primary); float:right; cursor:pointer; font-weight:800; }
+  .m-ongoing { background:#FFFBEB; border:1.5px solid #FCD34D; border-radius:8px; padding:9px 11px; margin-top:8px; }
+  .m-ongoing b { font-size:12px; }
+  .m-ongoing small { font-size:10px; color:var(--gray-600); display:block; margin-top:2px; }
+  .m-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .m-bottom { position:sticky; bottom:0; background:#fff; padding:12px 16px;
+              border-top:1.5px solid var(--gray-200); display:flex; gap:8px; }
+  .m-bottom button { flex:1; padding:13px; border-radius:10px; border:none; font-weight:800;
+                      font-size:14px; cursor:pointer; font-family:inherit; }
+  .m-btn-primary { background:var(--primary); color:#fff; }
+  .m-btn-success { background:var(--success); color:#fff; }
+
+  /* 입력 필드 모바일 (좀 더 큼) */
+  .m-section .field input, .m-section .field textarea, .m-section .field select {
+    padding:11px 13px; font-size:14px; min-height:42px;
+  }
+
+  /* 버튼 공통 */
+  .btn { padding:10px 18px; border:1.5px solid var(--gray-300); border-radius:8px;
+         background:#fff; cursor:pointer; font-size:13px; font-weight:700; font-family:inherit; }
+  .btn-primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+  .btn-success { background:var(--success); color:#fff; border-color:var(--success); }
+
+  /* helper 카드 */
+  .info-card { background:#EFF6FF; border:1.5px solid #93C5FD; border-radius:10px;
+               padding:10px 12px; font-size:11px; color:var(--gray-700); line-height:1.5; }
+  .info-card b { color:#1D4ED8; }
+
+  /* 화면 라벨 (PC/모바일) */
+  .ui-label { display:flex; align-items:center; gap:8px; margin-bottom:10px; font-weight:800; color:var(--gray-700); }
+  .ui-label .icon { font-size:18px; }
+  .ui-label .tag { font-size:10px; background:var(--primary); color:#fff; padding:2px 8px; border-radius:99px; font-weight:800; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>📝 업무 등록 — 단일 페이지 UI</h1>
+    <div class="sub">한 화면에서 모든 입력 완료 · PC / 모바일 두 레이아웃 동시 비교</div>
+  </div>
+  <span class="pill">PREVIEW v0.2</span>
+</div>
+
+<div class="grid-wrap">
+  <!-- ═══════════════════════════════════════════════════════════
+       PC 레이아웃
+       ═══════════════════════════════════════════════════════════ -->
+  <div>
+    <div class="ui-label">
+      <span class="icon">💻</span>
+      <span>PC 레이아웃</span>
+      <span class="tag">데스크탑 · 1200px+</span>
+    </div>
+
+    <div class="pane">
+      <div class="head">
+        <h2>📝 새 업무 등록</h2>
+        <span class="badge-ver">3-column · 한 화면 입력</span>
+      </div>
+
+      <div class="pc-grid">
+        <!-- 좌측: 카테고리 + 매장 -->
+        <div class="pc-col">
+          <h3 class="col-title">① 분류 & 매장</h3>
+
+          <div class="section-title">카테고리</div>
+          <div class="pc-cat-grid">
+            <span class="cat-chip" data-cat="pos_as">🖥 POS A/S</span>
+            <span class="cat-chip" data-cat="van_as">💳 VAN A/S</span>
+            <span class="cat-chip" data-cat="device_mgmt">📱 단말기</span>
+            <span class="cat-chip selected" data-cat="counsel">📞 상담</span>
+            <span class="cat-chip" data-cat="open_store">🏪 오픈</span>
+            <span class="cat-chip" data-cat="churn">↩️ 이탈</span>
+            <span class="cat-chip" data-cat="stock_check">📊 재고</span>
+            <span class="cat-chip" data-cat="van_doc">📑 밴서류</span>
+            <span class="cat-chip" data-cat="schedule">📅 일정</span>
+            <span class="cat-chip" data-cat="label">🏷 라벨</span>
+            <span class="cat-chip" data-cat="equip_out">📦 출고</span>
+            <span class="cat-chip" data-cat="delivery">🚚 택배</span>
+          </div>
+
+          <div class="field">
+            <label>매장 검색 <span class="req">*</span></label>
+            <input type="text" id="pcStoreSearch" placeholder="상호 / 사업자 / 전화 / 주소" value="토마토마켓 강서점">
+          </div>
+          <div id="pcStoreList" style="margin-bottom:14px">
+            <div class="store-suggestion" style="border-color:var(--primary);background:var(--primary-light)">
+              <b>토마토마켓 강서점</b> <small>서울 강서구 화곡동 · POS 2대 · 사업자 123-45-67890</small>
+            </div>
+          </div>
+
+          <div class="section-title">진행중 업무 (2건)</div>
+          <div class="ongoing-job">
+            <div>
+              <b>POS 영수 프린터 용지 걸림</b>
+              <small>📅 5/13 · 박기사 · 부품발주중 (2/4)</small>
+            </div>
+            <span class="b-badge">진행중</span>
+          </div>
+          <div class="ongoing-job">
+            <div>
+              <b>VAN 단말기 신규 개통</b>
+              <small>📅 5/12 · 한소현 · 심사중 (3/5)</small>
+            </div>
+            <span class="b-badge" style="background:#3B82F6">대기</span>
+          </div>
+          <div style="margin-top:8px;font-size:11px;color:var(--gray-500);text-align:center">
+            ↑ 클릭하여 <b>해당 작업 갱신</b> · 신규는 그대로 입력 진행
+          </div>
+        </div>
+
+        <!-- 중앙: 거래처 담당 + 요청 내용 + 일정/담당자 -->
+        <div class="pc-col">
+          <h3 class="col-title">② 내용 입력</h3>
+
+          <!-- 거래처 담당 (LINE 메시지 핵심) -->
+          <div class="contact-box">
+            <div class="ttl">👤 거래처 담당 (당사에 연락한 분) <span style="font-weight:600;color:var(--gray-500);font-size:10px;margin-left:auto">LINE 메시지 표시</span></div>
+            <div class="contact-grid">
+              <div class="field" style="margin-bottom:0">
+                <label>이름 <span class="req">*</span></label>
+                <input type="text" id="pcContactName" value="김매니저" placeholder="홍길동">
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label>전화 <span class="req">*</span></label>
+                <input type="tel" id="pcContactPhone" value="010-3456-7890" placeholder="010-0000-0000">
+              </div>
+              <div class="field" style="margin-bottom:0;grid-column:1/-1">
+                <label>직책 (선택) — <small style="color:var(--gray-400);font-weight:400">매장에 등록된 담당자는 dropdown 으로 자동 채움</small></label>
+                <input type="text" id="pcContactRole" value="매니저" placeholder="점장 / 사장 / 매니저">
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>요청 내용 <span class="req">*</span> — <small style="color:var(--gray-400);font-weight:400">LINE 에 그대로 전달</small></label>
+            <textarea id="pcReqContent" style="min-height:90px">신규 직원 채용으로 POS 단축키 사용법 재교육 필요. 다음주 방문시 함께 진행 요청.</textarea>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <div class="field">
+              <label>처리 요청일 <span class="req">*</span></label>
+              <input type="date" id="pcDueDate" value="2026-05-22">
+            </div>
+            <div class="field">
+              <label>당사 담당</label>
+              <select id="pcAssignee">
+                <option>김기사</option>
+                <option selected>박기사</option>
+                <option>이기사</option>
+                <option>한소현</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>우선순위</label>
+              <select id="pcPriority">
+                <option>일반</option>
+                <option selected>높음</option>
+                <option>긴급</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 카테고리 고유 필드 placeholder -->
+          <div class="info-card">
+            <b>💡 카테고리 고유 필드</b> — 카테고리에 따라 이 영역에 추가 필드가 표시됩니다 (예: AS 의 경우 증상·영향장비, 오픈의 경우 가오픈일·투입장비 등). 카테고리별 필수/선택은 매트릭스 확정 후 채워질 예정.
+          </div>
+        </div>
+
+        <!-- 우측: LINE 발신 + 미리보기 -->
+        <div class="pc-col" style="background:#FAFCFB">
+          <h3 class="col-title">③ LINE 발신</h3>
+
+          <div class="line-section">
+            <div class="ttl">📤 LINE 그룹 선택 <label style="font-weight:600;cursor:pointer"><input type="checkbox" checked> 발신</label></div>
+            <select id="pcLineGroup" style="width:100%;padding:7px;border:1.5px solid #86EFAC;border-radius:6px;font-size:12px;background:#fff">
+              <option selected>📞 A/S (자동 매칭)</option>
+              <option>📋 밴업무 공유</option>
+              <option>🗓 일정</option>
+              <option>📦 장비출고</option>
+            </select>
+            <div class="line-msg-preview" id="pcMsgPreview"></div>
+            <div class="sig-row" id="pcSigRow">시그니처: 계산 중…</div>
+          </div>
+
+          <div class="info-card" style="background:#FEF2F2;border-color:#FCA5A5;margin-top:12px">
+            <b style="color:#991B1B">🔁 루프 차단</b> — 발송 시 본문 해시를 KV 에 10분 저장.<br>
+            웹훅으로 같은 메시지가 돌아오면 <code>self_echo</code> 마크 → 등록 대기에 안 뜸.
+          </div>
+
+          <div class="info-card" style="margin-top:12px">
+            <b>📌 메시지 형식</b><br>
+            [카테고리] 매장명<br>
+            👤 담당: 이름·전화<br>
+            📅 처리요청일 (우선순위)<br>
+            ━━━<br>
+            요청 내용<br>
+            처리: 담당 · 등록: 사용자
+          </div>
+        </div>
+      </div>
+
+      <div class="pc-actions">
+        <div class="help">필수 항목(<span class="req">*</span>) 입력 후 등록 가능 · Ctrl+Enter 단축키</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn">취소</button>
+          <button class="btn btn-success" onclick="alert('✅ 등록 + LINE 발송')">✓ 등록 + LINE 발송</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PC UI 장점 요약 -->
+    <div style="margin-top:14px;background:#fff;border:1px dashed var(--gray-300);border-radius:10px;padding:12px 16px;font-size:12px;line-height:1.7;color:var(--gray-700)">
+      <b style="color:var(--gray-900)">💻 PC 레이아웃 특징</b>
+      <ul style="margin:6px 0 0 18px">
+        <li><b>3-column</b> 구조 — 좌(분류·매장), 중(내용), 우(LINE) 한눈에</li>
+        <li>스크롤 없이 한 화면 — 데스크탑 1080p 기준</li>
+        <li>매장 선택과 진행중 업무를 <b>같은 칼럼</b>에 두어 즉시 비교</li>
+        <li>LINE 미리보기를 <b>입력과 동시</b>에 우측에서 확인</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       Mobile 레이아웃 (phone frame)
+       ═══════════════════════════════════════════════════════════ -->
+  <div>
+    <div class="ui-label">
+      <span class="icon">📱</span>
+      <span>Mobile 레이아웃</span>
+      <span class="tag">모바일 · 360~480px</span>
+    </div>
+
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="phone-notch"></div>
+        <div class="phone-bar">
+          <span class="back">‹</span>
+          <span>새 업무 등록</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--gray-400);font-weight:600">2/3 필수 ✓</span>
+        </div>
+
+        <div class="m-body">
+          <!-- 카테고리 — 가로 스크롤 -->
+          <div class="m-section">
+            <h4>① 분류</h4>
+            <div class="m-cat-scroll">
+              <span class="cat-chip">🖥 POS A/S</span>
+              <span class="cat-chip">💳 VAN A/S</span>
+              <span class="cat-chip">📱 단말기</span>
+              <span class="cat-chip selected">📞 상담</span>
+              <span class="cat-chip">🏪 오픈</span>
+              <span class="cat-chip">↩️ 이탈</span>
+              <span class="cat-chip">📊 재고</span>
+              <span class="cat-chip">📑 밴서류</span>
+              <span class="cat-chip">📅 일정</span>
+              <span class="cat-chip">🏷 라벨</span>
+              <span class="cat-chip">📦 출고</span>
+              <span class="cat-chip">🚚 택배</span>
+            </div>
+            <div style="font-size:10px;color:var(--gray-400);margin-top:6px;text-align:right">← → 좌우 스와이프</div>
+          </div>
+
+          <!-- 매장 -->
+          <div class="m-section">
+            <h4>② 매장 <span class="req">*</span></h4>
+            <div class="m-store-pill">
+              <span class="change">변경</span>
+              <b>토마토마켓 강서점</b>
+              <small>서울 강서구 화곡동 · POS 2대</small>
+            </div>
+            <div class="m-ongoing">
+              <b>⚠ 진행중 업무 2건</b>
+              <small>POS 영수 프린터 용지 걸림 · 부품발주중<br>VAN 단말기 신규 개통 · 심사중</small>
+              <div style="margin-top:6px;display:flex;gap:6px">
+                <button style="flex:1;padding:7px;border:1px solid #F59E0B;background:#fff;color:#92400E;border-radius:6px;font-size:11px;font-weight:800;font-family:inherit">🔄 갱신</button>
+                <button style="flex:1;padding:7px;border:none;background:var(--primary);color:#fff;border-radius:6px;font-size:11px;font-weight:800;font-family:inherit">➕ 신규</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 거래처 담당 -->
+          <div class="m-section" style="background:#FFFBEB;border-color:#FCD34D">
+            <h4 style="color:#92400E">③ 거래처 담당 <span class="req">*</span></h4>
+            <div class="field">
+              <label>이름</label>
+              <input type="text" value="김매니저" placeholder="홍길동">
+            </div>
+            <div class="field">
+              <label>전화</label>
+              <input type="tel" value="010-3456-7890" inputmode="tel" placeholder="010-0000-0000">
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>직책 (선택)</label>
+              <input type="text" value="매니저" placeholder="점장 / 사장">
+            </div>
+          </div>
+
+          <!-- 요청 내용 -->
+          <div class="m-section">
+            <h4>④ 요청 내용 <span class="req">*</span></h4>
+            <textarea style="min-height:100px">신규 직원 채용으로 POS 단축키 사용법 재교육 필요. 다음주 방문시 함께 진행 요청.</textarea>
+          </div>
+
+          <!-- 일정 -->
+          <div class="m-section">
+            <h4>⑤ 일정 / 담당</h4>
+            <div class="field">
+              <label>처리 요청일 <span class="req">*</span></label>
+              <input type="date" value="2026-05-22">
+            </div>
+            <div class="m-row">
+              <div class="field" style="margin-bottom:0">
+                <label>당사 담당</label>
+                <select><option>김기사</option><option selected>박기사</option><option>이기사</option></select>
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label>우선순위</label>
+                <select><option>일반</option><option selected>높음</option><option>긴급</option></select>
+              </div>
+            </div>
+          </div>
+
+          <!-- LINE -->
+          <div class="m-section" style="background:#F0FDF4;border-color:#86EFAC">
+            <h4 style="color:#065F46">⑥ LINE 발신 <label style="margin-left:auto;font-size:11px;font-weight:600"><input type="checkbox" checked> 발신</label></h4>
+            <div class="field">
+              <label>발신 그룹</label>
+              <select><option>📞 A/S (자동)</option><option>📋 밴업무</option><option>🗓 일정</option><option>📦 장비출고</option></select>
+            </div>
+            <div class="line-msg-preview" id="mMsgPreview" style="font-size:11px"></div>
+            <div class="sig-row" id="mSigRow" style="font-size:9px">시그니처: 계산 중…</div>
+          </div>
+
+          <div style="font-size:10px;color:var(--gray-400);text-align:center;padding:8px">
+            🔁 자기 메시지 자동 차단 — 등록 대기 화면에 다시 안 뜸
+          </div>
+        </div>
+
+        <!-- 하단 고정 버튼 -->
+        <div class="m-bottom">
+          <button class="m-btn-primary" style="flex:0.4">취소</button>
+          <button class="m-btn-success" onclick="alert('✅ 등록 + LINE 발송')">✓ 등록 + 발송</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile UI 장점 요약 -->
+    <div style="margin-top:14px;background:#fff;border:1px dashed var(--gray-300);border-radius:10px;padding:12px 16px;font-size:12px;line-height:1.7;color:var(--gray-700)">
+      <b style="color:var(--gray-900)">📱 Mobile 레이아웃 특징</b>
+      <ul style="margin:6px 0 0 18px">
+        <li><b>섹션별 카드</b> 수직 배치 — 위에서 아래로 자연스러운 흐름</li>
+        <li><b>카테고리 가로 스크롤</b> + snap — 12개를 좁은 폭에 정리</li>
+        <li><b>거래처 담당 박스</b> 노란색 강조 — LINE 핵심 정보임을 시각화</li>
+        <li><b>하단 고정 버튼</b> [등록] 항상 접근 가능</li>
+        <li><b>큰 입력 필드</b> 42px+ — 터치 친화</li>
+        <li><b>매장 진행중 업무</b>를 인라인 카드로 — 신규/갱신 즉시 결정</li>
+        <li>모든 입력 한 화면 (스크롤) — 단계 wizard 없음, 자유 순서</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 하단 비교 카드 -->
+<div style="max-width:1500px;margin:24px auto 0;background:#fff;border:1.5px solid var(--gray-200);border-radius:14px;padding:18px 24px">
+  <h3 style="font-size:14px;font-weight:800;margin-bottom:12px">⚖️ PC vs Mobile — 어떤 차이가 있나</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;font-size:13px;line-height:1.7">
+    <div>
+      <b style="color:var(--gray-900)">💻 PC (3-column)</b>
+      <ul style="margin:4px 0 0 18px;color:var(--gray-700)">
+        <li>한 화면에 모든 정보 — 스크롤 최소</li>
+        <li>매장 선택 + 진행중 업무 + LINE 미리보기 동시 비교</li>
+        <li>카테고리 12개를 한 줄에 노출 (flex-wrap)</li>
+        <li>키보드 단축키 (Tab 이동, Ctrl+Enter 등록) 최적</li>
+      </ul>
+    </div>
+    <div>
+      <b style="color:var(--gray-900)">📱 Mobile (수직 섹션)</b>
+      <ul style="margin:4px 0 0 18px;color:var(--gray-700)">
+        <li>섹션별 카드로 명확한 구분</li>
+        <li>카테고리는 가로 스크롤 + snap</li>
+        <li>거래처 담당 박스 색상 강조</li>
+        <li>하단 [등록] 버튼 항상 고정</li>
+        <li>입력 필드 크게 (터치 영역 42px+)</li>
+        <li>한 손 입력 가능 — 자유 순서</li>
+      </ul>
+    </div>
+  </div>
+  <div style="margin-top:14px;padding:12px 14px;background:var(--gray-50);border-radius:8px;font-size:12px;color:var(--gray-700);line-height:1.6">
+    <b style="color:var(--gray-900)">💡 결론</b> — 동일한 데이터 모델·동일한 핸들러를 공유.
+    뷰포트 너비로 자동 분기하거나 (<code>@media</code>), URL 로 명시적 토글 (<code>?ui=pc</code> vs <code>?ui=mobile</code>) 둘 다 가능.
+    <b>코드 중복 없이 두 레이아웃 유지</b> 가능하도록 동일 컴포넌트 + 다른 CSS Grid 적용 권장.
+  </div>
+</div>
+
+<script>
+const CAT_LABEL = {
+  pos_as:'POS A/S', van_as:'VAN A/S', device_mgmt:'단말기 A/S', counsel:'상담',
+  open_store:'오픈', churn:'이탈/해지', stock_check:'재고조사',
+  van_doc:'밴서류', schedule:'일정', label:'라벨지', equip_out:'장비출고', delivery:'택배',
+};
+
+document.querySelectorAll('.cat-chip').forEach(c => {
+  c.onclick = () => {
+    // 같은 그룹 (PC or Mobile) 안에서만 토글
+    const group = c.closest('.pc-cat-grid, .m-cat-scroll');
+    if (!group) return;
+    group.querySelectorAll('.cat-chip').forEach(x => x.classList.remove('selected'));
+    c.classList.add('selected');
+    renderAllPreviews();
+  };
+});
+
+function buildMsg(catKey, store, cName, cPhone, cRole, due, ass, pri, content) {
+  const me = '이동호';
+  const catLabel = CAT_LABEL[catKey] || '업무';
+  const contactLine = cRole
+    ? `👤 담당: ${cName} (${cRole}) · ${cPhone}`
+    : `👤 담당: ${cName} · ${cPhone}`;
+  return `[${catLabel}] ${store}\n${contactLine}\n📅 처리요청일: ${due} (${pri})\n━━━━━━━━━\n${content}\n\n처리: ${ass} · 등록: ${me}`;
+}
+
+async function computeSig(text, roomKey) {
+  try {
+    const enc = new TextEncoder().encode(`${roomKey}:${text}`);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 16);
+  } catch(e) { return 'unavailable'; }
+}
+
+function getPCSel() {
+  return document.querySelector('.pc-cat-grid .cat-chip.selected');
+}
+function renderPCPreview() {
+  const sel = getPCSel();
+  const catKey = sel ? sel.dataset.cat : 'counsel';
+  const store = document.getElementById('pcStoreSearch').value;
+  const cN = document.getElementById('pcContactName').value;
+  const cP = document.getElementById('pcContactPhone').value;
+  const cR = document.getElementById('pcContactRole').value;
+  const d  = document.getElementById('pcDueDate').value;
+  const a  = document.getElementById('pcAssignee').value;
+  const p  = document.getElementById('pcPriority').value;
+  const c  = document.getElementById('pcReqContent').value;
+  const msg = buildMsg(catKey, store, cN, cP, cR, d, a, p, c);
+  document.getElementById('pcMsgPreview').textContent = msg;
+  const room = document.getElementById('pcLineGroup').value;
+  computeSig(msg, room).then(s => document.getElementById('pcSigRow').textContent = '시그니처: ' + s);
+}
+function renderMobilePreview() {
+  const sel = document.querySelector('.m-cat-scroll .cat-chip.selected');
+  const catKey = sel ? sel.dataset.cat : 'counsel';
+  // 데모용 동일 값 사용
+  const msg = buildMsg(catKey, '토마토마켓 강서점', '김매니저', '010-3456-7890', '매니저',
+                       '2026-05-22', '박기사', '높음',
+                       '신규 직원 채용으로 POS 단축키 사용법 재교육 필요. 다음주 방문시 함께 진행 요청.');
+  document.getElementById('mMsgPreview').textContent = msg;
+  computeSig(msg, 'mobile').then(s => document.getElementById('mSigRow').textContent = '시그니처: ' + s);
+}
+function renderAllPreviews() { renderPCPreview(); renderMobilePreview(); }
+
+// 모든 PC 입력에 listener
+['pcStoreSearch','pcContactName','pcContactPhone','pcContactRole','pcDueDate','pcAssignee','pcPriority','pcReqContent','pcLineGroup']
+  .forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', renderPCPreview); });
+
+renderAllPreviews();
+</script>
+</body>
+</html>
