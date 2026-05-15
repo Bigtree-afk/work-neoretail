@@ -67,7 +67,7 @@ function genInstanceId() {
 }
 
 function buildInstance(e, job, idx, checkedMeta, isDone, checked) {
-  const installedAt = (checkedMeta.at || job.completedAt || job.installDate || job.openDate || job.createdAt || '')
+  const installedAt = String(checkedMeta.at || job.completedAt || job.installDate || job.openDate || job.createdAt || '')
     .slice(0, 10) || undefined;
   return {
     instanceId: genInstanceId(),
