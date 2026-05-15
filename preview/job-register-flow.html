@@ -380,17 +380,44 @@
       <!-- 신규 모드 -->
       <div id="newJobForm">
         <div class="field">
-          <label>제목 / 요청 사항 *</label>
-          <input type="text" placeholder="예: 매출 정산 관련 문의" value="POS 사용법 추가 안내 요청">
+          <label>요청 내용 * <span style="font-weight:400;color:var(--gray-400);font-size:11px">— LINE 메시지에 그대로 포함됨</span></label>
+          <textarea id="reqContent" placeholder="고객 요청 사항을 구체적으로 입력 (LINE 그룹에 그대로 전달됩니다)"
+                    oninput="renderLineMsgPreview()">신규 직원 채용으로 POS 단축키 사용법 재교육 필요. 다음주 방문시 함께 진행 요청.</textarea>
         </div>
-        <div class="field">
-          <label>상세 내용</label>
-          <textarea placeholder="구체적 내용·이전 처리 이력·요청 시점 등">신규 직원 채용으로 POS 단축키 사용법 재교육 필요. 다음주 방문시 함께 진행 요청.</textarea>
+
+        <!-- 거래처 담당 (LINE 메시지 핵심 정보) -->
+        <div style="background:#F9FAFB;border:1.5px solid var(--gray-200);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:800;color:var(--gray-700);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+            👤 거래처 담당 (당사에 연락한 분)
+            <span style="font-weight:400;color:var(--gray-400);font-size:11px">— LINE 메시지에 표시</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div class="field" style="margin-bottom:0">
+              <label>이름 *</label>
+              <input type="text" id="contactName" placeholder="홍길동" value="김매니저" oninput="renderLineMsgPreview()">
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>전화번호 *</label>
+              <input type="tel" id="contactPhone" placeholder="010-0000-0000" value="010-3456-7890" oninput="renderLineMsgPreview()">
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>직책 (선택)</label>
+              <input type="text" id="contactRole" placeholder="점장 / 사장" value="매니저" oninput="renderLineMsgPreview()">
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--gray-500);margin-top:8px">
+            💡 매장에 등록된 담당자가 있으면 자동 입력됩니다. 추가/수정 시 매장 DB 에도 반영.
+          </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
           <div class="field">
-            <label>담당자</label>
-            <select>
+            <label>처리 요청일 *</label>
+            <input type="date" id="dueDate" value="2026-05-22" oninput="renderLineMsgPreview()">
+          </div>
+          <div class="field">
+            <label>당사 담당자</label>
+            <select id="assignee" oninput="renderLineMsgPreview()">
               <option>김기사</option>
               <option>이기사</option>
               <option selected>박기사</option>
@@ -398,17 +425,13 @@
             </select>
           </div>
           <div class="field">
-            <label>희망 일정</label>
-            <input type="date" value="2026-05-22">
+            <label>우선순위</label>
+            <select id="priority" oninput="renderLineMsgPreview()">
+              <option>일반</option>
+              <option selected>높음</option>
+              <option>긴급</option>
+            </select>
           </div>
-        </div>
-        <div class="field">
-          <label>우선순위</label>
-          <select>
-            <option>일반</option>
-            <option selected>높음</option>
-            <option>긴급</option>
-          </select>
         </div>
       </div>
 
@@ -464,29 +487,21 @@
         </div>
       </div>
 
+      <!-- 메시지 규칙 설명 -->
+      <div style="background:#F0F9FF;border:1.5px solid #93C5FD;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;line-height:1.6;color:var(--gray-700)">
+        <b style="color:#1E40AF">📐 LINE 메시지 형식 (글로벌 규칙)</b><br>
+        <code style="background:#fff;padding:1px 6px;border-radius:4px;font-size:11px">[카테고리] 매장명<br>👤 담당: 이름 (직책) · 전화<br>📅 처리요청일: YYYY-MM-DD (우선순위)<br>━━━━━━━━━<br>요청내용 본문<br><br>처리: 당사담당자 · 등록: 시스템사용자</code>
+      </div>
+
       <div class="field">
-        <label>발신 메시지 미리보기 (수정 가능)</label>
-        <textarea style="min-height:130px;font-family:'Pretendard Variable',monospace;font-size:13px;line-height:1.6">[상담] 토마토마켓 강서점
-
-POS 사용법 추가 안내 요청
-신규 직원 채용으로 POS 단축키 사용법 재교육 필요. 다음주 방문시 함께 진행 요청.
-
-담당: 박기사
-희망일: 2026-05-22 (높음)
-등록: 이동호</textarea>
+        <label>발신 메시지 미리보기 (수정 가능 — 직접 편집해도 됨)</label>
+        <textarea id="lineMsgText" style="min-height:200px;font-family:'Pretendard Variable',monospace;font-size:13px;line-height:1.7"
+                  oninput="syncCustomMsgBack(this.value)"></textarea>
       </div>
 
-      <div class="preview-msg">
-[상담] 토마토마켓 강서점
-
-POS 사용법 추가 안내 요청
-신규 직원 채용으로 POS 단축키 사용법 재교육 필요. 다음주 방문시 함께 진행 요청.
-
-담당: 박기사
-희망일: 2026-05-22 (높음)
-등록: 이동호
-      </div>
-      <div style="font-size:11px;color:var(--gray-500);margin-top:-10px">↑ A/S 그룹에 발신됩니다</div>
+      <div style="font-size:11px;color:var(--gray-500);margin-bottom:6px;font-weight:700">↓ LINE 채팅 미리보기</div>
+      <div id="lineMsgBubble" class="preview-msg"></div>
+      <div id="lineTargetLabel" style="font-size:11px;color:var(--gray-500);margin-top:-10px">↑ A/S 그룹에 발신됩니다</div>
 
       <div class="actions">
         <div style="display:flex;gap:8px;align-items:center">
@@ -503,15 +518,16 @@ POS 사용법 추가 안내 요청
     <div class="pane" data-pane="5">
       <h2>⑤ 등록 전 최종 확인</h2>
       <div class="desc">아래 내용으로 업무가 등록되고 선택한 LINE 그룹에 발신됩니다.</div>
-      <div class="summary">
+      <div class="summary" id="finalSummary">
         <div class="summary-row"><div class="k">카테고리</div><div class="v">📞 <b>상담</b></div></div>
         <div class="summary-row"><div class="k">매장</div><div class="v"><b>토마토마켓 강서점</b> <small style="color:var(--gray-500)">(123-45-67890)</small></div></div>
         <div class="summary-row"><div class="k">처리 방식</div><div class="v"><b>➕ 신규 업무 등록</b></div></div>
-        <div class="summary-row"><div class="k">제목</div><div class="v">POS 사용법 추가 안내 요청</div></div>
-        <div class="summary-row"><div class="k">담당자</div><div class="v">박기사</div></div>
-        <div class="summary-row"><div class="k">희망일</div><div class="v">2026-05-22</div></div>
-        <div class="summary-row"><div class="k">우선순위</div><div class="v" style="color:var(--warning)"><b>높음</b></div></div>
-        <div class="summary-row"><div class="k">LINE 발신</div><div class="v">📞 A/S 그룹</div></div>
+        <div class="summary-row" style="background:#FFFBEB;border-radius:6px;padding:8px 10px;margin:4px -10px"><div class="k">👤 거래처 담당</div><div class="v" id="sumContact"><b>김매니저</b> <small style="color:var(--gray-500)">매니저</small> · <span style="color:var(--primary)">010-3456-7890</span></div></div>
+        <div class="summary-row"><div class="k">처리요청일</div><div class="v" id="sumDue"><b>2026-05-22</b></div></div>
+        <div class="summary-row"><div class="k">요청 내용</div><div class="v" id="sumContent" style="white-space:pre-wrap">신규 직원 채용으로 POS 단축키 사용법 재교육 필요. 다음주 방문시 함께 진행 요청.</div></div>
+        <div class="summary-row"><div class="k">당사 담당자</div><div class="v" id="sumAssignee">박기사</div></div>
+        <div class="summary-row"><div class="k">우선순위</div><div class="v" id="sumPriority" style="color:var(--warning)"><b>높음</b></div></div>
+        <div class="summary-row"><div class="k">LINE 발신</div><div class="v" id="sumLine">📞 A/S 그룹</div></div>
       </div>
       <div class="actions">
         <button class="btn" onclick="goStep(4)">← 이전</button>
@@ -547,6 +563,14 @@ POS 사용법 추가 안내 요청
       <div>
         <b style="color:var(--gray-900)">F. 등록 진입점</b><br>
         대시보드 상단 [+ 새 업무 등록] 큰 버튼 / 매장 상세 화면 [+ 이 매장 업무 등록] / 일정 캘린더 빈 셀 클릭. 3 곳 모두 같은 wizard 로 진입.
+      </div>
+      <div>
+        <b style="color:var(--gray-900)">G. LINE 메시지 표준 포맷</b><br>
+        <code style="background:#fff;padding:2px 5px;border-radius:3px;font-size:11px">[카테고리] 매장명 / 👤 담당 / 📅 처리요청일 / ━━ / 요청내용</code> 의 5요소 고정. 사용자가 메시지 박스를 직접 편집하면 그 override 가 우선. 폼 필드 변경시 사용자 편집을 안전 보존(autoBuild 일시 정지).
+      </div>
+      <div>
+        <b style="color:var(--gray-900)">H. 거래처 담당 = 매장 contacts 와 연동</b><br>
+        매장 데이터의 <code>store.contacts[]</code> (이름·직책·전화·primary 플래그) 와 자동 양방향 동기화: 등록시 입력값을 매장 DB 에도 추가. 매장에 이미 contacts 있으면 dropdown 으로 자동 채움 + "신규 추가" 옵션. 같은 통화 상대를 매번 다시 입력하지 않게.
       </div>
     </div>
   </div>
@@ -593,10 +617,116 @@ document.querySelectorAll('.line-card').forEach(c => {
   c.onclick = () => {
     document.querySelectorAll('.line-card').forEach(x => x.classList.remove('selected'));
     c.classList.add('selected');
+    document.getElementById('lineTargetLabel').textContent = `↑ ${c.querySelector('.lname').textContent.trim()} 그룹에 발신됩니다`;
+    renderLineMsgPreview();
   };
 });
 // 초기 데모 — 매장 진행중 박스 자동 노출
 setTimeout(() => { document.getElementById('ongoingBox').style.display = 'block'; }, 100);
+
+/* ──────────────────────────────────────────
+   LINE 메시지 자동 작성 — 글로벌 규칙
+   ──────────────────────────────────────────
+   [카테고리] 매장명
+   👤 담당: 이름 (직책) · 전화
+   📅 처리요청일: YYYY-MM-DD (우선순위)
+   ━━━━━━━━━
+   요청 내용
+
+   처리: 당사담당자 · 등록: 시스템사용자
+   ────────────────────────────────────────── */
+const CAT_LABEL = {
+  pos_as:'POS A/S', van_as:'VAN A/S', device_mgmt:'단말기 A/S', counsel:'상담',
+  open_store:'오픈', churn:'이탈/해지', stock_check:'재고조사',
+  van_doc:'밴서류', schedule:'일정', label:'라벨지', equip_out:'장비출고', delivery:'택배',
+};
+let customMsgOverride = null;  // 사용자가 직접 편집한 메시지 있으면 그것 우선
+function buildLineMessage() {
+  const sel = document.querySelector('.cat-card.selected');
+  const catKey = sel ? sel.dataset.cat : 'counsel';
+  const catLabel = CAT_LABEL[catKey] || '업무';
+  const storeName = document.getElementById('storeSearch')?.value || '매장';
+  const contactName  = document.getElementById('contactName')?.value.trim()  || '-';
+  const contactPhone = document.getElementById('contactPhone')?.value.trim() || '-';
+  const contactRole  = document.getElementById('contactRole')?.value.trim()  || '';
+  const dueDate      = document.getElementById('dueDate')?.value || '';
+  const assignee     = document.getElementById('assignee')?.value || '';
+  const priority     = document.getElementById('priority')?.value || '';
+  const content      = (document.getElementById('reqContent')?.value || '').trim();
+  const me = '이동호';   // 데모 — 실제는 _currentUserName()
+
+  const contactLine = contactRole
+    ? `👤 담당: ${contactName} (${contactRole}) · ${contactPhone}`
+    : `👤 담당: ${contactName} · ${contactPhone}`;
+  const dueLine = `📅 처리요청일: ${dueDate || '미정'}${priority ? ' (' + priority + ')' : ''}`;
+
+  return `[${catLabel}] ${storeName}
+${contactLine}
+${dueLine}
+━━━━━━━━━
+${content || '(내용 없음)'}
+
+처리: ${assignee} · 등록: ${me}`;
+}
+function renderLineMsgPreview() {
+  const ta = document.getElementById('lineMsgText');
+  const bubble = document.getElementById('lineMsgBubble');
+  const msg = customMsgOverride != null ? customMsgOverride : buildLineMessage();
+  if (ta && document.activeElement !== ta) ta.value = msg;
+  else if (ta && customMsgOverride == null) ta.value = msg;
+  if (bubble) bubble.textContent = msg;
+  // step 5 요약도 동기화
+  syncFinalSummary();
+}
+function syncCustomMsgBack(val) {
+  customMsgOverride = val;
+  const bubble = document.getElementById('lineMsgBubble');
+  if (bubble) bubble.textContent = val;
+}
+function syncFinalSummary() {
+  const cName  = document.getElementById('contactName')?.value || '';
+  const cPhone = document.getElementById('contactPhone')?.value || '';
+  const cRole  = document.getElementById('contactRole')?.value || '';
+  const due    = document.getElementById('dueDate')?.value || '';
+  const ass    = document.getElementById('assignee')?.value || '';
+  const pri    = document.getElementById('priority')?.value || '';
+  const content= document.getElementById('reqContent')?.value || '';
+  const lineSel= document.querySelector('.line-card.selected .lname')?.textContent.trim() || '';
+  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  set('sumContact', `<b>${cName||'-'}</b>${cRole?' <small style="color:var(--gray-500)">'+cRole+'</small>':''} · <span style="color:var(--primary)">${cPhone||'-'}</span>`);
+  set('sumDue', `<b>${due||'미정'}</b>`);
+  set('sumContent', content || '<span style="color:var(--gray-400)">(내용 없음)</span>');
+  set('sumAssignee', ass);
+  set('sumPriority', `<b>${pri}</b>`);
+  set('sumLine', lineSel || '발신 안 함');
+}
+// 카테고리 변경시도 자동 갱신 + 카테고리별 LINE 그룹 자동 매핑
+const CAT_TO_LINE_LABEL = {
+  pos_as:'📞 A/S', van_as:'📞 A/S', device_mgmt:'📞 A/S', counsel:'📞 A/S',
+  open_store:'🗓 일정', schedule:'🗓 일정',
+  van_doc:'📋 밴업무 공유', churn:'📋 밴업무 공유',
+  label:'📦 장비출고', equip_out:'📦 장비출고', delivery:'📦 장비출고',
+  stock_check:'📞 A/S',
+};
+document.querySelectorAll('.cat-card').forEach(c => {
+  const orig = c.onclick;
+  c.onclick = () => {
+    if (orig) orig();
+    customMsgOverride = null;
+    // LINE 그룹 자동 선택
+    const target = CAT_TO_LINE_LABEL[c.dataset.cat];
+    if (target) {
+      document.querySelectorAll('.line-card').forEach(lc => {
+        const m = lc.querySelector('.lname').textContent.trim() === target;
+        lc.classList.toggle('selected', m);
+      });
+      document.getElementById('lineTargetLabel').textContent = `↑ ${target} 그룹에 발신됩니다 (카테고리 기준 자동 매칭)`;
+    }
+    renderLineMsgPreview();
+  };
+});
+// 초기 렌더
+renderLineMsgPreview();
 </script>
 </body>
 </html>
