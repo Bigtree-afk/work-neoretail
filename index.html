@@ -4044,6 +4044,109 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     return 'as';
   };
 
+  /* ── 카테고리 이동 (F-3) ── */
+  // 잘못 분류된 업무를 다른 메뉴 카테고리로 이동
+  // lineCategory 를 캐노니컬 토큰으로 강제 설정해 classifyJobCategory 결과를 바꿈
+  window.JOB_CATEGORY_OPTIONS = [
+    { key:'new',      label:'🆕 신규',     token:'open_store' },
+    { key:'as',       label:'🔧 AS',       token:'pos_as'     },
+    { key:'van',      label:'📑 VAN 서류', token:'van_doc'    },
+    { key:'supplies', label:'🏷️ 소모품',   token:'label'      },
+    { key:'churn',    label:'🏪 매장이탈', token:'churn'      },
+  ];
+  window.moveJobToCategory = function(jobId, targetKey) {
+    if (!jobId || !targetKey) return false;
+    const opt = window.JOB_CATEGORY_OPTIONS.find(o => o.key === targetKey);
+    if (!opt) { try { showToast('알 수 없는 카테고리'); } catch(e){} return false; }
+    const arr = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const idx = arr.findIndex(j => j.id === jobId);
+    if (idx < 0) { try { showToast('업무를 찾을 수 없습니다'); } catch(e){} return false; }
+    const j = arr[idx];
+    const prevCat = window.classifyJobCategory(j);
+    if (prevCat === targetKey) { try { showToast('이미 해당 카테고리입니다'); } catch(e){} return false; }
+    j.lineCategory = opt.token;
+    j._categoryMoved = { from: prevCat, to: targetKey, at: Date.now() };
+    arr[idx] = j;
+    if (typeof saveJobs === 'function') saveJobs(arr);
+    try { showToast(`✅ ${opt.label} 카테고리로 이동했습니다`); } catch(e){}
+    // 화면 갱신
+    try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
+    try { if (typeof window._reopenStoreDetail === 'function' && j.storeId) window._reopenStoreDetail(j.storeId); } catch(e){}
+    try {
+      const cur = document.querySelector('.screen.active');
+      const sid = cur ? cur.id : '';
+      if (sid === 'screen-newhub' && typeof window.renderNewHub === 'function') window.renderNewHub();
+      if (sid === 'screen-ashub' && typeof window.renderAsHub === 'function') window.renderAsHub();
+      if (sid === 'screen-vanhub' && typeof window.renderVanHub === 'function') window.renderVanHub();
+      if (sid === 'screen-supplieshub' && typeof window.renderSuppliesHub === 'function') window.renderSuppliesHub();
+    } catch(e){}
+    return true;
+  };
+
+  // 카테고리 이동 프롬프트 — sdv2 카드의 📂 버튼에서 호출
+  window.promptMoveJobCategory = function(ev, jobId) {
+    try { ev && ev.stopPropagation && ev.stopPropagation(); } catch(e){}
+    const arr = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const j = arr.find(x => x.id === jobId);
+    if (!j) { try { showToast('업무를 찾을 수 없습니다'); } catch(e){} return; }
+    const curCat = window.classifyJobCategory(j);
+    const opts = window.JOB_CATEGORY_OPTIONS;
+    // 미니 메뉴 팝업
+    const old = document.getElementById('_jobCatMoveMenu');
+    if (old) old.remove();
+    const menu = document.createElement('div');
+    menu.id = '_jobCatMoveMenu';
+    menu.style.cssText = 'position:fixed;z-index:9999;background:#fff;border:1px solid var(--gray-300,#d1d5db);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:6px;min-width:180px';
+    const x = ev && (ev.clientX || (ev.touches && ev.touches[0]?.clientX)) || 100;
+    const y = ev && (ev.clientY || (ev.touches && ev.touches[0]?.clientY)) || 100;
+    menu.style.left = Math.min(x, window.innerWidth - 200) + 'px';
+    menu.style.top = Math.min(y, window.innerHeight - 280) + 'px';
+    menu.innerHTML = `<div style="font-size:11px;color:var(--gray-500,#6b7280);padding:6px 10px;font-weight:700">📂 카테고리 이동</div>` +
+      opts.map(o => {
+        const active = o.key === curCat;
+        return `<div data-key="${o.key}" style="padding:8px 12px;font-size:13px;border-radius:6px;cursor:${active?'default':'pointer'};color:${active?'var(--gray-400,#9ca3af)':'var(--gray-800,#1f2937)'};font-weight:${active?'500':'600'}" ${active?'':'onmouseover="this.style.background=\'#f3f4f6\'" onmouseout="this.style.background=\'\'"'}>${o.label}${active?' <span style="font-size:10px">(현재)</span>':''}</div>`;
+      }).join('');
+    document.body.appendChild(menu);
+    menu.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-key]');
+      if (!item) return;
+      const key = item.dataset.key;
+      if (key === curCat) return;
+      menu.remove();
+      if (confirm(`이 업무를 "${opts.find(o=>o.key===key).label}" 카테고리로 이동할까요?`)) {
+        window.moveJobToCategory(jobId, key);
+      }
+    });
+    setTimeout(() => {
+      const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } };
+      document.addEventListener('click', close);
+    }, 50);
+  };
+
+  /* ── 중복 감지 (F-2) ── */
+  // 신규 업무 저장 직전, 동일 매장 + 동일 타입 최근 7일 내 진행 중 업무 검색
+  window.findSimilarRecentJob = function(storeName, jobType, withinDays) {
+    if (!storeName) return null;
+    const days = withinDays || 7;
+    const now = Date.now();
+    const cutoff = now - days * 86400000;
+    const arr = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const doneFn = (typeof _isJobDone === 'function') ? _isJobDone : () => false;
+    return arr.find(j => {
+      const sn = String(j.storeName || j.store || '').trim();
+      if (sn !== String(storeName).trim()) return false;
+      if (doneFn(j)) return false;
+      const created = j.createdAt || 0;
+      if (created < cutoff) return false;
+      const t1 = String(j.type || '').toLowerCase();
+      const t2 = String(jobType || '').toLowerCase();
+      // 동일 분류면 중복으로 간주
+      const c1 = window.classifyJobCategory(j);
+      const c2 = window.classifyJobCategory({ type: jobType });
+      return c1 === c2 || t1 === t2;
+    }) || null;
+  };
+
   // 매장별 그룹화 — 카테고리 필터링 후 storeId/storeName 기준 묶기
   function _hubGroupByStore(filterFn) {
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
@@ -10181,6 +10284,20 @@ ${text.slice(0, 4000)}`;
     const storeName = (document.getElementById('jobStoreName') || {}).value?.trim();
     if (!storeName) { showToast('점포명을 입력하세요'); document.getElementById('jobStoreName')?.focus(); return; }
 
+    // F-2: 중복 감지 — 동일 매장+동일 카테고리 7일내 진행 중 업무 존재 시 확인
+    try {
+      const _candType = (document.getElementById('jobType') || {}).value || '';
+      const _dup = (typeof window.findSimilarRecentJob === 'function')
+        ? window.findSimilarRecentJob(storeName, _candType, 7) : null;
+      if (_dup) {
+        const _date = _dup.date || (_dup.createdAt ? new Date(_dup.createdAt).toISOString().slice(0,10) : '');
+        const _who = _dup.engineer || _dup.assignee || '담당자 미지정';
+        const msg = `⚠️ 동일 매장에 최근 7일 내 같은 카테고리의 진행 중 업무가 있습니다.\n\n` +
+                    `· ${storeName}\n· ${_dup.type || '업무'}${_date?' ('+_date+')':''}\n· ${_who}\n\n계속 등록하시겠습니까?`;
+        if (!confirm(msg)) return;
+      }
+    } catch(e) { console.warn('[saveNewJob] dup-check 실패', e); }
+
     // 등록된 점포 매칭 (미등록 모드면 강제로 unregistered:true)
     const storeMatch = jobStoreUnregistered ? null
       : (getStores() || []).find(s => (s.name || '').trim() === storeName) || null;
@@ -14279,6 +14396,7 @@ ${text.slice(0, 4000)}`;
 
         // 업무 클릭 → 업무 폼 팝업을 위에 띄움 (매장 상세는 닫지 않음 → 닫으면 매장 상세로 복귀)
         const onclick = j.id ? `try{editNewopen('${sdvEsc(j.id)}')}catch(e){}` : '';
+        const moveBtn = j.id ? `<button type="button" title="카테고리 이동" onclick="event.stopPropagation();promptMoveJobCategory(event,'${sdvEsc(j.id)}')" style="background:transparent;border:1px solid var(--gray-300,#d1d5db);border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer;color:var(--gray-600,#4b5563);margin-right:6px">📂</button>` : '';
         return `<div class="sdv2-jobcard cat-${meta.color}" ${onclick?`onclick="${onclick}"`:''}>
           <div class="left">
             <span class="cat-tag ${meta.color}">${meta.tag}</span>
@@ -14286,7 +14404,7 @@ ${text.slice(0, 4000)}`;
             <div class="title">${sdvEsc(j.title || j.type || '업무')}</div>
             <div class="meta">${date ? '📅 '+date+' · ' : ''}${who?who+' · ':''}${memos?'메모 '+memos+'건':''}</div>
           </div>
-          ${whenBadge}
+          <div style="display:flex;align-items:center">${moveBtn}${whenBadge}</div>
         </div>`;
       };
 
