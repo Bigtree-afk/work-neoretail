@@ -9246,6 +9246,23 @@ ${text.slice(0, 4000)}`;
       : bizRaw;
     const todayYmd = new Date().toISOString().slice(0,10);
 
+    // ⚠ 사업자번호 중복 매장 검사 (직영점 다중 등록 안전장치)
+    if (bizDigits.length === 10) {
+      const existing = getStores().filter(s => {
+        const d = String(s.biz || s.bizno || '').replace(/\D/g,'');
+        return d === bizDigits;
+      });
+      if (existing.length > 0) {
+        const list = existing.slice(0, 8).map(s => `  • ${s.name}`).join('\n');
+        const more = existing.length > 8 ? `\n  외 ${existing.length - 8}개...` : '';
+        const ok = confirm(
+          `이미 같은 사업자번호(${bizFmt})로 등록된 매장이 ${existing.length}개 있습니다:\n\n${list}${more}\n\n` +
+          `법인 직영점이면 그대로 등록하셔도 됩니다.\n등록을 진행하시겠습니까?`
+        );
+        if (!ok) return;
+      }
+    }
+
     const store = {
       id: 'EC-' + Date.now().toString().slice(-5),
       name,
