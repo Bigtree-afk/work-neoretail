@@ -1757,6 +1757,22 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
                 </table>
               </div>
             </div>
+            <!-- ⚠️ 특이사항 (메모 누적) -->
+            <div class="sdv2-info-card" style="margin-top:14px">
+              <h4 style="display:flex;justify-content:space-between;align-items:center">
+                <span>⚠️ 특이사항 <span id="detailNotesCount" style="margin-left:4px;font-size:11px;color:var(--gray-500);font-weight:600"></span></span>
+                <button id="detailNoteAddBtn" style="background:var(--primary);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">+ 특이사항 추가</button>
+              </h4>
+              <div id="detailNoteInputBox" style="display:none;margin-bottom:10px;padding:10px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px">
+                <textarea id="detailNoteInput" placeholder="매장 특이사항을 입력하세요 (예: 영수증 출력 한쪽 치우침 / 키오스크 사용량 많음 등)"
+                  style="width:100%;min-height:60px;border:1px solid var(--gray-300);border-radius:6px;padding:8px;font-family:inherit;font-size:12px;resize:vertical"></textarea>
+                <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px">
+                  <button id="detailNoteCancelBtn" style="background:var(--gray-100);color:var(--gray-700);border:1px solid var(--gray-200);border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+                  <button id="detailNoteSaveBtn" style="background:var(--primary);color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">저장</button>
+                </div>
+              </div>
+              <div id="detailNotesList" style="display:flex;flex-direction:column;gap:6px"></div>
+            </div>
             <!-- 정보 변경 이력 (있을 때만) -->
             <div class="sdv2-info-card" id="detailChangeLogCard" style="display:none;margin-top:14px">
               <h4>📜 정보 변경 이력 <span id="detailChangeCount" style="margin-left:6px;font-size:11px;color:var(--gray-500);font-weight:600"></span></h4>
@@ -1767,6 +1783,20 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <!-- 신규 -->
           <div class="sdv2-pane" data-pane="new">
             <div class="sdv2-actbar"><span class="sdv2-actbar-label">🆕 신규 업무 (신규/오픈, 프로그램교체, VAN 신규등록, 단말개통)</span></div>
+            <!-- 📄 계약 완료 토글 -->
+            <div id="detailContractBanner" style="background:#fff;border:1.5px solid var(--gray-200);border-left:4px solid var(--success);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+              <div style="display:flex;align-items:center;gap:10px;flex:1">
+                <div style="font-size:22px">📄</div>
+                <div>
+                  <div style="font-size:13px;font-weight:900;color:var(--gray-900)">계약 완료</div>
+                  <div id="detailContractSub" style="font-size:11px;color:var(--gray-500);margin-top:2px">체크 시 매장의 신규 일정에 "계약서 작성 완료" 항목이 완료 상태로 추가됩니다</div>
+                </div>
+              </div>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" id="detailContractCheck" style="width:18px;height:18px;cursor:pointer">
+                <span id="detailContractLabel" style="font-size:12px;font-weight:800;color:var(--gray-700)">미완료</span>
+              </label>
+            </div>
             <div id="detailNewList" class="sdv2-joblist"></div>
           </div>
 
@@ -1801,7 +1831,17 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
           <!-- 메모 -->
           <div class="sdv2-pane" data-pane="memo">
-            <div class="sdv2-actbar"><span class="sdv2-actbar-label">📝 매장 메모 <span id="detailMemoCount" style="margin-left:6px;color:var(--gray-500);font-weight:600"></span></span></div>
+            <div class="sdv2-actbar">
+              <span class="sdv2-actbar-label">📝 매장 메모 <span id="detailMemoCount" style="margin-left:6px;color:var(--gray-500);font-weight:600"></span></span>
+              <span style="font-size:10.5px;color:var(--gray-500);font-weight:600">최근 메모가 위에 표시</span>
+            </div>
+            <div style="background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:12px;margin-bottom:12px">
+              <textarea id="detailStoreMemoInput" placeholder="이 매장에 대한 메모를 입력하세요 (특정 업무 메모는 해당 업무 카드에 첨부)"
+                style="width:100%;min-height:60px;border:1px solid var(--gray-200);border-radius:6px;padding:8px;font-family:inherit;font-size:12px;resize:vertical"></textarea>
+              <div style="display:flex;justify-content:flex-end;margin-top:6px">
+                <button id="detailStoreMemoAddBtn" style="background:var(--primary);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">+ 메모 추가</button>
+              </div>
+            </div>
             <div id="detailMemoList" style="display:flex;flex-direction:column;gap:8px">
               <div style="padding:24px;text-align:center;color:var(--gray-400);font-size:12px">
                 <div style="font-size:28px;margin-bottom:8px">🗒</div>
@@ -9064,6 +9104,17 @@ ${text.slice(0, 4000)}`;
     _storesDirty = true;
     schedulePushStoresToCloud();
   }
+  // 단일 매장 인-플레이스 업데이트 + 저장 (id 기반)
+  function saveStoreInPlace(store) {
+    if (!store || !store.id) return false;
+    const arr = getStores();
+    const idx = arr.findIndex(s => s.id === store.id);
+    if (idx < 0) return false;
+    arr[idx] = store;
+    saveStores(arr);
+    return true;
+  }
+  window.saveStoreInPlace = saveStoreInPlace;
   // 점포 데이터를 클라우드에 자동 푸시 — dirty=true 일 때만
   let _pushStoresTimer = null;
   function schedulePushStoresToCloud() {
@@ -12922,6 +12973,7 @@ ${text.slice(0, 4000)}`;
 
   /* 점포 행 클릭: 하이라이트 토글 (상세보기 스텁) */
   window.toggleStoreDetail = function(tr) {
+    if (tr) window._currentStoreDetailRow = tr;
     const tb = tr.parentElement;
     Array.from(tb.querySelectorAll('tr')).forEach(r => r.style.outline = '');
     tr.style.outline = '2px solid var(--primary)';
@@ -13006,6 +13058,97 @@ ${text.slice(0, 4000)}`;
         row('상태', displayStat),
       ].join('');
     }
+
+    /* ── 특이사항 (store.notes[]) 렌더 + 추가 ── */
+    (function renderStoreNotes(){
+      const escSafe2 = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+      const listEl = document.getElementById('detailNotesList');
+      const cntEl = document.getElementById('detailNotesCount');
+      const addBtn = document.getElementById('detailNoteAddBtn');
+      const inputBox = document.getElementById('detailNoteInputBox');
+      const inputEl = document.getElementById('detailNoteInput');
+      const saveBtn = document.getElementById('detailNoteSaveBtn');
+      const cancelBtn = document.getElementById('detailNoteCancelBtn');
+      if (!listEl) return;
+
+      const sid = store?.id;
+      const renderList = () => {
+        const arr = Array.isArray(store?.notes) ? store.notes : [];
+        cntEl.textContent = arr.length ? '(' + arr.length + ')' : '';
+        if (arr.length === 0) {
+          listEl.innerHTML = `<div style="padding:14px;text-align:center;color:var(--gray-400);font-size:11.5px;background:var(--gray-50);border:1px dashed var(--gray-200);border-radius:8px">등록된 특이사항이 없습니다 — "+ 특이사항 추가"로 기록</div>`;
+          return;
+        }
+        // 최근순
+        const sorted = arr.slice().sort((a,b) => String(b.at||'').localeCompare(String(a.at||'')));
+        listEl.innerHTML = sorted.map((n, idx) => {
+          const origIdx = arr.indexOf(n);
+          return `<div style="background:#fffbeb;border:1px solid #fde68a;border-left:3px solid #f59e0b;border-radius:6px;padding:9px 12px;font-size:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;font-size:10.5px;color:var(--gray-500);font-weight:700">
+              <div>📌 ${escSafe2(n.at || '')}${n.by ? ' · ' + escSafe2(n.by) : ''}</div>
+              <button data-noteidx="${origIdx}" class="sdv2-note-del" style="background:none;border:none;color:var(--gray-400);font-size:14px;cursor:pointer;padding:0 4px">✕</button>
+            </div>
+            <div style="color:#92400e;white-space:pre-wrap;line-height:1.5">${escSafe2(n.text||'')}</div>
+          </div>`;
+        }).join('');
+        // 삭제 바인딩
+        listEl.querySelectorAll('.sdv2-note-del').forEach(b => {
+          b.onclick = () => {
+            if (!confirm('이 특이사항을 삭제하시겠습니까?')) return;
+            const i = parseInt(b.dataset.noteidx, 10);
+            if (!isNaN(i) && Array.isArray(store.notes)) {
+              store.notes.splice(i, 1);
+              if (typeof saveStoreInPlace === 'function') saveStoreInPlace(store);
+              renderList();
+            }
+          };
+        });
+      };
+
+      // 추가 버튼
+      if (addBtn) addBtn.onclick = () => {
+        inputBox.style.display = 'block';
+        inputEl.value = '';
+        inputEl.focus();
+      };
+      if (cancelBtn) cancelBtn.onclick = () => { inputBox.style.display = 'none'; };
+      if (saveBtn) saveBtn.onclick = () => {
+        const txt = (inputEl.value || '').trim();
+        if (!txt) { alert('내용을 입력하세요'); return; }
+        if (!store.notes) store.notes = [];
+        store.notes.push({
+          text: txt,
+          at: _kstDateTimeStr ? _kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' '),
+          by: (typeof _currentAuthName === 'function') ? _currentAuthName() : '',
+        });
+        if (typeof saveStoreInPlace === 'function') saveStoreInPlace(store);
+        inputBox.style.display = 'none';
+        renderList();
+      };
+
+      renderList();
+    })();
+
+    /* ── 메모 탭: 매장 일반 메모 입력 (store.storeMemos[]) ── */
+    (function bindStoreMemoInput(){
+      const inputEl = document.getElementById('detailStoreMemoInput');
+      const btn = document.getElementById('detailStoreMemoAddBtn');
+      if (!inputEl || !btn) return;
+      btn.onclick = () => {
+        const txt = (inputEl.value || '').trim();
+        if (!txt) { alert('메모 내용을 입력하세요'); return; }
+        if (!store.storeMemos) store.storeMemos = [];
+        store.storeMemos.unshift({
+          text: txt,
+          at: _kstDateTimeStr ? _kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' '),
+          by: (typeof _currentAuthName === 'function') ? _currentAuthName() : '',
+        });
+        if (typeof saveStoreInPlace === 'function') saveStoreInPlace(store);
+        inputEl.value = '';
+        // 메모 리스트 재렌더는 reopenStoreDetail() 사용
+        if (typeof renderStoreDetailMemos === 'function') renderStoreDetailMemos(store);
+      };
+    })();
 
     /* ── 설치 장비 현황 — store.equipment[] (Plan B 정식 DB) ── */
     const equipBody = document.getElementById('detailEquipTbody');
@@ -13202,7 +13345,8 @@ ${text.slice(0, 4000)}`;
           }
         }
 
-        const onclick = j.id ? `try{closeModal('storeDetailModal');setTimeout(()=>{editNewopen('${sdvEsc(j.id)}')},120)}catch(e){}` : '';
+        // 업무 클릭 → 업무 폼 팝업을 위에 띄움 (매장 상세는 닫지 않음 → 닫으면 매장 상세로 복귀)
+        const onclick = j.id ? `try{editNewopen('${sdvEsc(j.id)}')}catch(e){}` : '';
         return `<div class="sdv2-jobcard cat-${meta.color}" ${onclick?`onclick="${onclick}"`:''}>
           <div class="left">
             <span class="cat-tag ${meta.color}">${meta.tag}</span>
@@ -13252,11 +13396,129 @@ ${text.slice(0, 4000)}`;
       sdvFill('detailVanList', groups.van||[], 'van');
       sdvFill('detailSuppliesList', groups.supplies||[], 'supplies');
 
+      /* ── 계약 완료 토글 바인딩 ── */
+      (function bindContractToggle(){
+        const chk = document.getElementById('detailContractCheck');
+        const lab = document.getElementById('detailContractLabel');
+        const sub = document.getElementById('detailContractSub');
+        if (!chk) return;
+        const isDone = !!(store && store.contractCompleted);
+        chk.checked = isDone;
+        chk.disabled = false;
+        lab.textContent = isDone ? '✅ 완료' : '미완료';
+        lab.style.color = isDone ? '#10B981' : 'var(--gray-700)';
+        if (isDone && store.contractCompletedAt) {
+          sub.textContent = `완료: ${store.contractCompletedAt}${store.contractCompletedBy ? ' · ' + store.contractCompletedBy : ''}`;
+        }
+        chk.onchange = function() {
+          if (chk.checked) {
+            if (!confirm('계약 완료로 표시하고 신규 일정에 "계약서 작성 완료"를 추가하시겠습니까?')) {
+              chk.checked = false;
+              return;
+            }
+            const now = (typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' ');
+            const today = (typeof _kstDateStr === 'function') ? _kstDateStr() : new Date().toISOString().slice(0,10);
+            const by = (typeof _currentAuthName === 'function') ? _currentAuthName() : '';
+            // 1) store 플래그 설정
+            store.contractCompleted = true;
+            store.contractCompletedAt = now;
+            store.contractCompletedBy = by;
+            if (typeof saveStoreInPlace === 'function') saveStoreInPlace(store);
+            // 2) 신규 일정에 완료 항목 추가 (ns_jobs)
+            try {
+              const arr = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+              const newJob = {
+                id: 'CONTRACT-' + Date.now().toString().slice(-9),
+                type: '신규/계약 완료',
+                lineCategory: 'open_store',
+                title: '계약서 작성 완료',
+                storeName: store.name,
+                storeId: store.id,
+                date: today,
+                createdAt: Date.now(),
+                completed: true,
+                doneAt: now,
+                engineer: by,
+                description: '계약 완료 처리',
+              };
+              arr.unshift(newJob);
+              if (typeof saveJobs === 'function') saveJobs(arr);
+            } catch(e) { console.warn('[contract] 일정 추가 실패', e); }
+            // 3) UI 갱신
+            lab.textContent = '✅ 완료';
+            lab.style.color = '#10B981';
+            sub.textContent = `완료: ${now}${by ? ' · ' + by : ''}`;
+            if (typeof showToast === 'function') showToast('✅ 계약 완료 처리 — 신규 일정에 추가되었습니다');
+            // 매장 상세 다시 그리기 (새 job 도 반영되도록)
+            setTimeout(() => { try { reopenStoreDetail(); } catch(e) {} }, 200);
+          } else {
+            if (!confirm('계약 완료 표시를 해제하시겠습니까?\n(추가된 일정은 별도로 삭제해야 합니다)')) {
+              chk.checked = true;
+              return;
+            }
+            store.contractCompleted = false;
+            delete store.contractCompletedAt;
+            delete store.contractCompletedBy;
+            if (typeof saveStoreInPlace === 'function') saveStoreInPlace(store);
+            lab.textContent = '미완료';
+            lab.style.color = 'var(--gray-700)';
+            sub.textContent = '체크 시 매장의 신규 일정에 "계약서 작성 완료" 항목이 완료 상태로 추가됩니다';
+          }
+        };
+      })();
+
       /* ── 작업 메모 (해당 매장 관련 모든 작업의 메모 수집) ── */
       const memoListEl = document.getElementById('detailMemoList');
       const memoCountEl = document.getElementById('detailMemoCount');
+      // 메모 탭 재렌더 함수 — 외부에서도 호출 가능하게 만들기
+      window.renderStoreDetailMemos = function(curStore) {
+        const st = curStore || store;
+        if (!memoListEl) return;
+        const flatMemos2 = [];
+        // 매장 일반 메모 (store.storeMemos)
+        if (Array.isArray(st && st.storeMemos)) {
+          st.storeMemos.forEach(m => flatMemos2.push({
+            at: m.at || '', author: m.by || m.author || '', text: String(m.text||''),
+            jobType: '매장 메모', jobId: null, isNotes: false, isStoreMemo: true,
+          }));
+        }
+        matched.forEach(j => {
+          if (j.notes && String(j.notes).trim()) {
+            flatMemos2.push({ at: j.createdAt ? new Date(j.createdAt).toISOString().slice(0,16).replace('T',' ') : '', author: '', text: String(j.notes).trim(), jobType: j.type || '작업', jobId: j.id, isNotes: true });
+          }
+          if (Array.isArray(j.memos)) {
+            j.memos.forEach(m => flatMemos2.push({ at: m.at || '', author: m.author || '', text: String(m.text || ''), jobType: j.type || '작업', jobId: j.id, isNotes: false }));
+          }
+        });
+        flatMemos2.sort((a,b) => (b.at || '').localeCompare(a.at || ''));
+        if (memoCountEl) memoCountEl.textContent = flatMemos2.length ? `${flatMemos2.length}건` : '';
+        const memoCntTab2 = document.getElementById('sdv2CntMemo');
+        if (memoCntTab2) memoCntTab2.textContent = flatMemos2.length;
+        if (flatMemos2.length === 0) {
+          memoListEl.innerHTML = `<div style="padding:24px 8px;text-align:center;color:var(--gray-400);font-size:12px"><div style="font-size:28px;margin-bottom:8px">🗒</div><div>등록된 메모가 없습니다.</div></div>`;
+        } else {
+          const escFn2 = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+          memoListEl.innerHTML = flatMemos2.map(m => `
+            <div style="border:1px solid var(--gray-200);border-left:3px solid ${m.isStoreMemo ? '#3b82f6' : (m.isNotes ? '#9ca3af' : '#fbbf24')};border-radius:8px;padding:8px 12px;background:${m.isStoreMemo ? '#eff6ff' : (m.isNotes ? '#F9FAFB' : '#FFFDF7')};cursor:${m.jobId?'pointer':'default'}"
+                 ${m.jobId ? `onclick="closeModal('storeDetailModal');setTimeout(()=>{try{editNewopen('${escFn2(m.jobId)}')}catch(e){}}, 100)" title="해당 작업 상세로 이동"` : ''}>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;color:var(--gray-500)">
+                <div><span style="background:${m.isStoreMemo?'#dbeafe':'#EFF6FF'};color:${m.isStoreMemo?'#1e40af':'#1D4ED8'};font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px">${escFn2(m.jobType)}</span></div>
+                <div>${escFn2(m.at)}${m.author ? ` · ${escFn2(m.author)}` : ''}</div>
+              </div>
+              <div style="font-size:12.5px;color:var(--gray-700);white-space:pre-wrap">${escFn2(m.text)}</div>
+            </div>`).join('');
+        }
+      };
+
       if (memoListEl) {
         const flatMemos = [];
+        // 매장 일반 메모 (store.storeMemos)
+        if (Array.isArray(store && store.storeMemos)) {
+          store.storeMemos.forEach(m => flatMemos.push({
+            at: m.at || '', author: m.by || m.author || '', text: String(m.text||''),
+            jobType: '매장 메모', jobId: null, isNotes: false, isStoreMemo: true,
+          }));
+        }
         matched.forEach(j => {
           // 비고(notes) 본문도 메모처럼 표시
           if (j.notes && String(j.notes).trim()) {
@@ -13298,11 +13560,11 @@ ${text.slice(0, 4000)}`;
         } else {
           const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
           memoListEl.innerHTML = flatMemos.map(m => `
-            <div style="border:1px solid var(--gray-200);border-radius:8px;padding:8px 10px;background:${m.isNotes?'#F9FAFB':'#FFFDF7'};cursor:${m.jobId?'pointer':'default'}"
+            <div style="border:1px solid var(--gray-200);border-left:3px solid ${m.isStoreMemo ? '#3b82f6' : (m.isNotes ? '#9ca3af' : '#fbbf24')};border-radius:8px;padding:8px 12px;background:${m.isStoreMemo ? '#eff6ff' : (m.isNotes?'#F9FAFB':'#FFFDF7')};cursor:${m.jobId?'pointer':'default'}"
                  ${m.jobId ? `onclick="closeModal('storeDetailModal');setTimeout(()=>{try{editNewopen('${escFn(m.jobId)}')}catch(e){}}, 100)" title="해당 작업 상세로 이동"` : ''}>
               <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;color:var(--gray-500)">
                 <div>
-                  <span style="background:#EFF6FF;color:#1D4ED8;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px">${escFn(m.jobType)}</span>
+                  <span style="background:${m.isStoreMemo?'#dbeafe':'#EFF6FF'};color:${m.isStoreMemo?'#1e40af':'#1D4ED8'};font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px">${escFn(m.jobType)}</span>
                   ${m.isNotes ? '<span style="margin-left:4px;color:var(--gray-400)">비고</span>' : ''}
                 </div>
                 <div>${escFn(m.at)}${m.author ? ` · ${escFn(m.author)}` : ''}</div>
@@ -14577,20 +14839,31 @@ ${text.slice(0, 4000)}`;
   window.openStoreEquipStatusPicker = openStoreEquipStatusPicker;
 
   function reopenStoreDetail() {
-    /* 현재 열려있는 매장 상세 모달을 다시 채워 넣기 */
+    /* 현재 열려있는 매장 상세 모달을 다시 채워 넣기 (페이지 새로고침 X) */
+    // sdv2: 저장된 row 로 toggleStoreDetail 재호출 — 현재 활성 탭 유지
+    const savedRow = window._currentStoreDetailRow;
+    if (savedRow && typeof window.toggleStoreDetail === 'function') {
+      // 현재 활성 탭 기억
+      const activeTab = document.querySelector('#storeDetailTabbar .sdv2-tab.active');
+      const activeKey = activeTab ? activeTab.dataset.pane : 'ongoing';
+      try {
+        window.toggleStoreDetail(savedRow);
+        // 다시 그렸으니 같은 탭 활성화
+        setTimeout(() => {
+          const tabs = document.querySelectorAll('#storeDetailTabbar .sdv2-tab');
+          const panes = document.querySelectorAll('#storeDetailModal .sdv2-pane');
+          tabs.forEach(t => t.classList.toggle('active', t.dataset.pane === activeKey));
+          panes.forEach(p => p.classList.toggle('active', p.dataset.pane === activeKey));
+        }, 30);
+        return;
+      } catch(e) { console.warn('[reopenStoreDetail] toggleStoreDetail 재호출 실패', e); }
+    }
+    // legacy fallback — openStoreDetail 류 함수가 있으면 호출
     const ctx = window._currentStoreEquipCtx;
     if (!ctx) return;
-    // 가장 안전한 방법 — openStoreDetail 류 함수가 있으면 호출, 없으면 그냥 equip 표만 다시 렌더
     if (typeof window.openStoreDetail === 'function' && ctx.storeName) {
       try { window.openStoreDetail(ctx.storeName); return; } catch(e){}
     }
-    // fallback — equipBody 만 다시 그림
-    const stores = (typeof getStores === 'function') ? (getStores()||[]) : [];
-    const store = _findStoreInList(stores, ctx);
-    const equipBody = document.getElementById('detailEquipTbody');
-    if (!store || !equipBody) return;
-    // 강제로 상세 모달 렌더 트리거 — store-row 검색
-    // 간단: 모달 컨텐츠는 외부 함수가 채우므로, 사용자가 모달을 다시 클릭하도록 안내
     showToast && showToast('💡 매장 상세를 다시 열어 변경 사항을 확인하세요');
   }
   window.reopenStoreDetail = reopenStoreDetail;
