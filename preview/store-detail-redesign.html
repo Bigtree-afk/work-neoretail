@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>매장 상세 — 탭 기반 재설계 (PC / 모바일)</title>
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --primary:#2563EB; --primary-dark:#1d4ed8; --primary-light:#EFF6FF;
+    --success:#10B981; --warning:#F59E0B; --danger:#EF4444; --purple:#8B5CF6;
+    --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB; --gray-300:#D1D5DB;
+    --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-600:#4B5563; --gray-700:#374151;
+    --gray-800:#1F2937; --gray-900:#111827;
+    --neo-paper:#F5EEDF; --neo-ink:#1A1614; --neo-red:#FF2D1F;
+  }
+  body { font-family:'Pretendard Variable','Pretendard',-apple-system,sans-serif;
+         background:var(--neo-paper); color:var(--gray-800); padding:30px 20px 80px; min-height:100vh; }
+  .topbar { max-width:1500px; margin:0 auto 24px; background:#fff; border:2px solid var(--neo-ink);
+            border-radius:14px; padding:20px 24px; display:flex; justify-content:space-between;
+            align-items:center; flex-wrap:wrap; gap:14px; box-shadow:4px 4px 0 var(--neo-ink); }
+  .topbar h1 { font-size:22px; font-weight:900; }
+  .topbar .sub { font-size:12px; color:var(--gray-500); margin-top:4px; }
+  .pill { background:var(--neo-red); color:#fff; font-size:11px; font-weight:800;
+          padding:5px 12px; border-radius:99px; }
+  .grid-wrap { max-width:1500px; margin:0 auto; display:grid; grid-template-columns:1fr 420px;
+               gap:24px; align-items:flex-start; }
+  @media (max-width:1180px) { .grid-wrap { grid-template-columns:1fr; } }
+
+  .ui-label { display:flex; align-items:center; gap:8px; margin-bottom:10px; font-weight:800; color:var(--gray-700); }
+  .ui-label .icon { font-size:18px; }
+  .ui-label .tag { font-size:10px; background:var(--primary); color:#fff; padding:2px 8px; border-radius:99px; font-weight:800; }
+
+  /* ═══════════════ 매장 상세 모달 (PC) ═══════════════ */
+  .modal { background:#fff; border:1.5px solid var(--gray-200); border-radius:14px; overflow:hidden;
+           box-shadow:0 8px 32px rgba(0,0,0,.08); }
+  .modal-head {
+    background:linear-gradient(135deg, #1F2937 0%, #111827 100%); color:#fff; padding:16px 22px;
+    display:flex; justify-content:space-between; align-items:flex-start; gap:14px;
+  }
+  .store-banner { display:flex; gap:14px; align-items:center; }
+  .store-avatar { width:54px; height:54px; background:rgba(255,255,255,.1); border-radius:14px;
+                   display:flex; align-items:center; justify-content:center; font-size:28px; }
+  .store-name { font-size:18px; font-weight:900; letter-spacing:-0.02em; }
+  .store-meta { font-size:11px; opacity:0.7; margin-top:2px; }
+  .store-tags { display:flex; gap:5px; margin-top:6px; flex-wrap:wrap; }
+  .store-tags span { font-size:10px; background:rgba(255,255,255,.15); padding:2px 8px; border-radius:99px; font-weight:700; }
+  .modal-actions { display:flex; gap:6px; }
+  .modal-actions button { background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.3);
+                          border-radius:7px; padding:6px 11px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .modal-actions button:hover { background:rgba(255,255,255,.25); }
+
+  /* 탭 네비 */
+  .tabbar {
+    background:#fff; border-bottom:1.5px solid var(--gray-200);
+    display:flex; overflow-x:auto; scrollbar-width:none;
+  }
+  .tabbar::-webkit-scrollbar { display:none; }
+  .tab {
+    padding:13px 16px; font-size:12.5px; font-weight:700; color:var(--gray-500);
+    border-bottom:3px solid transparent; cursor:pointer; white-space:nowrap;
+    display:flex; align-items:center; gap:6px; transition:all .12s; font-family:inherit;
+    background:none; border-top:none; border-left:none; border-right:none;
+  }
+  .tab:hover { color:var(--gray-800); background:var(--gray-50); }
+  .tab.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:800; }
+  .tab .count {
+    font-size:10px; background:var(--gray-200); color:var(--gray-700);
+    padding:1px 7px; border-radius:99px; font-weight:800;
+  }
+  .tab.active .count { background:var(--primary); color:#fff; }
+  .tab.urgent .count { background:var(--neo-red); color:#fff; animation:pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+  .modal-body { padding:20px 22px; min-height:480px; background:var(--gray-50); }
+
+  /* 진행 업무 탭 */
+  .job-list { display:flex; flex-direction:column; gap:10px; }
+  .job-card {
+    background:#fff; border:1.5px solid var(--gray-200); border-radius:10px; padding:14px 16px;
+    cursor:pointer; transition:all .15s;
+  }
+  .job-card:hover { border-color:var(--primary); box-shadow:0 4px 12px rgba(37,99,235,.08); }
+  .job-card .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:6px; }
+  .job-card .title { font-size:14px; font-weight:800; color:var(--gray-900); }
+  .job-card .meta { font-size:11px; color:var(--gray-500); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap; }
+  .job-card .meta b { color:var(--gray-700); }
+  .badge { padding:3px 9px; border-radius:99px; font-size:10px; font-weight:800; white-space:nowrap; }
+  .badge-orange { background:#FEF3C7; color:#92400E; }
+  .badge-blue { background:#DBEAFE; color:#1E40AF; }
+  .badge-green { background:#D1FAE5; color:#065F46; }
+  .badge-red { background:#FEE2E2; color:#991B1B; }
+  .badge-purple { background:#F3E8FF; color:#6B21A8; }
+  .badge-gray { background:var(--gray-200); color:var(--gray-700); }
+  .progress {
+    margin-top:8px; background:var(--gray-100); height:6px; border-radius:99px; overflow:hidden;
+  }
+  .progress .bar { height:100%; background:var(--warning); border-radius:99px; }
+  .job-card .footer {
+    margin-top:10px; padding-top:10px; border-top:1px dashed var(--gray-200);
+    display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--gray-500);
+  }
+
+  /* 매장 정보 탭 */
+  .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .info-block {
+    background:#fff; border:1.5px solid var(--gray-200); border-radius:10px; padding:14px 16px;
+  }
+  .info-block h5 { font-size:11px; font-weight:800; color:var(--gray-500); text-transform:uppercase;
+                    letter-spacing:0.06em; margin-bottom:9px; }
+  .info-row {
+    display:grid; grid-template-columns:80px 1fr; gap:10px; padding:6px 0;
+    border-bottom:1px dashed var(--gray-100); font-size:12.5px;
+  }
+  .info-row:last-child { border-bottom:none; }
+  .info-row .k { font-weight:700; color:var(--gray-500); font-size:11px; }
+  .info-row .v { font-weight:600; color:var(--gray-800); }
+
+  /* 빈 상태 */
+  .empty {
+    text-align:center; padding:40px 20px; color:var(--gray-400); font-size:12px;
+  }
+  .empty .icon { font-size:36px; margin-bottom:8px; opacity:0.4; }
+
+  /* 카테고리 필터 (이력 탭들) */
+  .filter-bar {
+    display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;
+  }
+  .filter-chip {
+    padding:5px 10px; background:#fff; border:1px solid var(--gray-300); border-radius:99px;
+    font-size:11px; font-weight:700; cursor:pointer; color:var(--gray-600);
+  }
+  .filter-chip.active { background:var(--gray-900); color:#fff; border-color:var(--gray-900); }
+
+  /* 타임라인 */
+  .timeline { padding-left:14px; }
+  .tl-item {
+    position:relative; padding:10px 0 10px 18px; border-left:2px solid var(--gray-200);
+  }
+  .tl-item.done { border-color:var(--success); }
+  .tl-item.active { border-color:var(--primary); }
+  .tl-item::before {
+    content:''; position:absolute; left:-7px; top:14px; width:12px; height:12px;
+    border-radius:50%; background:var(--gray-300); border:3px solid #fff;
+  }
+  .tl-item.done::before { background:var(--success); }
+  .tl-item.active::before { background:var(--primary); box-shadow:0 0 0 4px rgba(37,99,235,.2); }
+  .tl-item .when { font-size:11px; color:var(--gray-500); font-weight:600; }
+  .tl-item .what { font-size:13px; color:var(--gray-800); font-weight:700; margin-top:2px; }
+  .tl-item .who  { font-size:11px; color:var(--gray-500); margin-top:2px; }
+
+  /* 장비 그리드 */
+  .equip-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px; }
+  .equip-card {
+    background:#fff; border:1.5px solid var(--gray-200); border-radius:8px;
+    padding:10px 12px; font-size:12px;
+  }
+  .equip-card .nm { font-size:13px; font-weight:800; }
+  .equip-card .opts { font-size:10px; color:var(--gray-500); margin-top:3px; }
+  .equip-card .ft { margin-top:6px; padding-top:6px; border-top:1px dashed var(--gray-200);
+                     display:flex; justify-content:space-between; font-size:10px; color:var(--gray-500); }
+
+  /* 모바일 폰 프레임 */
+  .phone-frame {
+    background:#1A1614; border-radius:38px; padding:14px;
+    box-shadow:0 20px 60px rgba(0,0,0,.25), inset 0 0 0 2px #333;
+    width:380px; margin:0 auto; position:sticky; top:20px;
+  }
+  .phone-screen { background:var(--neo-paper); border-radius:24px; overflow:hidden; height:760px;
+                  display:flex; flex-direction:column; }
+  .phone-notch { background:#1A1614; height:28px; border-radius:0 0 16px 16px; width:140px;
+                  margin:0 auto -10px; position:relative; z-index:2; }
+  .phone-bar { background:#fff; padding:12px 16px; border-bottom:1px solid var(--gray-200);
+                font-size:13px; font-weight:800; display:flex; align-items:center; gap:8px; }
+  .phone-bar .back { font-size:18px; color:var(--primary); cursor:pointer; }
+  .m-banner {
+    background:linear-gradient(135deg, #1F2937 0%, #111827 100%); color:#fff;
+    padding:14px 16px;
+  }
+  .m-banner .name { font-size:15px; font-weight:900; }
+  .m-banner .meta { font-size:10px; opacity:0.7; margin-top:2px; }
+  .m-banner .tags { margin-top:6px; display:flex; gap:4px; flex-wrap:wrap; }
+  .m-banner .tags span { font-size:9px; background:rgba(255,255,255,.18); padding:2px 7px; border-radius:99px; font-weight:700; }
+  .m-tabbar {
+    background:#fff; border-bottom:1.5px solid var(--gray-200); display:flex; overflow-x:auto;
+    scrollbar-width:none; padding:0 8px;
+  }
+  .m-tabbar::-webkit-scrollbar { display:none; }
+  .m-tab {
+    padding:11px 11px; font-size:11.5px; font-weight:700; color:var(--gray-500);
+    border-bottom:3px solid transparent; cursor:pointer; white-space:nowrap; gap:4px;
+    display:flex; align-items:center; transition:all .12s; font-family:inherit;
+    background:none; border-top:none; border-left:none; border-right:none;
+  }
+  .m-tab.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:800; }
+  .m-tab .count { font-size:9px; background:var(--gray-200); color:var(--gray-700);
+                   padding:1px 5px; border-radius:99px; font-weight:800; margin-left:2px; }
+  .m-tab.urgent .count { background:var(--neo-red); color:#fff; }
+  .m-tab.active .count { background:var(--primary); color:#fff; }
+  .m-content { flex:1; overflow-y:auto; padding:14px; background:var(--gray-50); }
+  .m-card { background:#fff; border:1px solid var(--gray-200); border-radius:10px;
+             padding:12px 14px; margin-bottom:10px; }
+
+  /* helper */
+  .info-card-h {
+    background:#EFF6FF; border:1.5px solid #93C5FD; border-radius:10px;
+    padding:10px 14px; font-size:12px; color:var(--gray-700); line-height:1.6;
+  }
+  .info-card-h b { color:#1D4ED8; }
+
+  /* 탭 컨텐츠 카드 */
+  .h3-section { font-size:13px; font-weight:800; color:var(--gray-700); margin:14px 0 8px; }
+  .h3-section:first-child { margin-top:0; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>🏪 매장 상세 — 탭 기반 재설계</h1>
+    <div class="sub">진행 업무 → 매장정보 → 카테고리별 이력 → 설치장비 (일관된 탭 구조)</div>
+  </div>
+  <span class="pill">PREVIEW v0.3</span>
+</div>
+
+<div class="grid-wrap">
+  <!-- ═════════════════════ PC ═════════════════════ -->
+  <div>
+    <div class="ui-label">
+      <span class="icon">💻</span>
+      <span>PC 매장 상세 모달</span>
+      <span class="tag">데스크탑</span>
+    </div>
+
+    <div class="modal">
+      <!-- 헤더 -->
+      <div class="modal-head">
+        <div class="store-banner">
+          <div class="store-avatar">🏪</div>
+          <div>
+            <div class="store-name">하모니마트 일동점</div>
+            <div class="store-meta">사업자 492-24-02071 · 경기 포천시 일동면 · 010-2345-6789</div>
+            <div class="store-tags">
+              <span>🟢 운영중</span>
+              <span>🖥 POS 2</span>
+              <span>📱 KIS</span>
+              <span>📅 등록 2024.03.15</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button>ℹ 정보 변경</button>
+          <button>🔗 매장 병합</button>
+          <button>✕ 닫기</button>
+        </div>
+      </div>
+
+      <!-- 탭바 -->
+      <div class="tabbar">
+        <button class="tab active urgent" data-tab="active">⚠ 진행 업무 <span class="count">3</span></button>
+        <button class="tab" data-tab="info">🏪 매장 정보</button>
+        <button class="tab" data-tab="open">🆕 오픈/신규 <span class="count">1</span></button>
+        <button class="tab" data-tab="as">🔧 A/S 기록 <span class="count">12</span></button>
+        <button class="tab" data-tab="vandoc">📑 밴서류 <span class="count">3</span></button>
+        <button class="tab" data-tab="outbound">📦 출고/택배 <span class="count">5</span></button>
+        <button class="tab" data-tab="label">🏷 라벨지 <span class="count">8</span></button>
+        <button class="tab" data-tab="consult">📞 상담 <span class="count">2</span></button>
+        <button class="tab" data-tab="equip">🖥 설치 장비 <span class="count">11</span></button>
+        <button class="tab" data-tab="memo">📝 메모/이력</button>
+      </div>
+
+      <!-- 진행 업무 탭 -->
+      <div class="modal-body" id="tab-active">
+        <div class="info-card-h" style="margin-bottom:14px">
+          <b>⚠ 현재 진행중 업무 3건</b> — 이 매장에서 처리해야 할 핵심. 모든 카테고리(AS/오픈/밴서류/장비출고 등) 통합.
+          카드 클릭 = 해당 업무 상세 / 우측 버튼 = 단계 변경 / [+ 새 업무] 로 신규 등록.
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3 style="font-size:13px;font-weight:800">진행중 (3건)</h3>
+          <button style="background:var(--primary);color:#fff;border:none;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">+ 새 업무 등록</button>
+        </div>
+
+        <div class="job-list">
+          <div class="job-card">
+            <div class="top">
+              <div>
+                <div class="title">🔧 POS 영수 프린터 용지 걸림</div>
+                <div class="meta">
+                  <span>📅 접수 5/13</span>
+                  <span>👤 박기사</span>
+                  <span>🏷 POS A/S</span>
+                  <span>⏱ <b style="color:var(--danger)">62시간 경과</b></span>
+                </div>
+              </div>
+              <span class="badge badge-orange">부품발주중</span>
+            </div>
+            <div class="progress"><div class="bar" style="width:50%"></div></div>
+            <div class="footer">
+              <span>2/4 단계 · 다음: 방문 수리</span>
+              <span>마지막 업데이트: 5/14 14:22 · 박기사</span>
+            </div>
+          </div>
+
+          <div class="job-card">
+            <div class="top">
+              <div>
+                <div class="title">📑 VAN 단말기 신규 개통</div>
+                <div class="meta">
+                  <span>📅 접수 5/12</span>
+                  <span>👤 한소현</span>
+                  <span>🏷 밴서류</span>
+                  <span>⏱ 86시간 경과</span>
+                </div>
+              </div>
+              <span class="badge badge-blue">심사중</span>
+            </div>
+            <div class="progress"><div class="bar" style="width:60%;background:#3B82F6"></div></div>
+            <div class="footer">
+              <span>3/5 단계 · 다음: 발급</span>
+              <span>마지막 업데이트: 5/14 09:15 · 한소현</span>
+            </div>
+          </div>
+
+          <div class="job-card">
+            <div class="top">
+              <div>
+                <div class="title">🏷 라벨지 정기 발주</div>
+                <div class="meta">
+                  <span>📅 접수 5/14</span>
+                  <span>👤 김선우</span>
+                  <span>🏷 라벨지</span>
+                </div>
+              </div>
+              <span class="badge badge-purple">출고대기</span>
+            </div>
+            <div class="footer">
+              <span>40×30 라벨 5롤 · 택배 발송 예정</span>
+              <span>마지막 업데이트: 5/14 11:30</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 다른 탭은 숨김 (데모용) -->
+      <div class="modal-body" id="tab-info" style="display:none">
+        <div class="info-grid">
+          <div class="info-block">
+            <h5>기본 정보</h5>
+            <div class="info-row"><span class="k">상호</span><span class="v">하모니마트 일동점</span></div>
+            <div class="info-row"><span class="k">사업자번호</span><span class="v">492-24-02071</span></div>
+            <div class="info-row"><span class="k">대표자</span><span class="v">홍길동</span></div>
+            <div class="info-row"><span class="k">업태/업종</span><span class="v">도소매 / 마트</span></div>
+            <div class="info-row"><span class="k">등록일</span><span class="v">2024.03.15</span></div>
+          </div>
+          <div class="info-block">
+            <h5>주소 / 연락</h5>
+            <div class="info-row"><span class="k">주소</span><span class="v">경기 포천시 일동면 ...</span></div>
+            <div class="info-row"><span class="k">전화</span><span class="v">031-535-XXXX</span></div>
+            <div class="info-row"><span class="k">담당 매니저</span><span class="v">김매니저 010-2345-6789</span></div>
+            <div class="info-row"><span class="k">사장</span><span class="v">홍길동 010-1111-2222</span></div>
+          </div>
+          <div class="info-block">
+            <h5>POS / VAN 환경</h5>
+            <div class="info-row"><span class="k">POS</span><span class="v">2대 (일체형)</span></div>
+            <div class="info-row"><span class="k">키오스크</span><span class="v">0대</span></div>
+            <div class="info-row"><span class="k">VAN사</span><span class="v">KIS</span></div>
+            <div class="info-row"><span class="k">단말 모델</span><span class="v">E600K × 2</span></div>
+          </div>
+          <div class="info-block">
+            <h5>지표</h5>
+            <div class="info-row"><span class="k">평생 작업</span><span class="v">15건 (완료 11, 진행 3, 대기 1)</span></div>
+            <div class="info-row"><span class="k">평균 처리</span><span class="v">2.3일</span></div>
+            <div class="info-row"><span class="k">미수 / 매출</span><span class="v">450,000 / 3,200,000</span></div>
+            <div class="info-row"><span class="k">최근 방문</span><span class="v">2026.05.10 박기사</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-body" id="tab-as" style="display:none">
+        <div class="filter-bar">
+          <span class="filter-chip active">전체 (12)</span>
+          <span class="filter-chip">POS A/S (8)</span>
+          <span class="filter-chip">VAN A/S (3)</span>
+          <span class="filter-chip">단말기 (1)</span>
+          <span class="filter-chip">완료만</span>
+          <span class="filter-chip">2026년</span>
+        </div>
+        <div class="timeline">
+          <div class="tl-item active">
+            <div class="when">2026.05.13 14:22</div>
+            <div class="what">🔧 POS 영수 프린터 용지 걸림</div>
+            <div class="who">박기사 · POS A/S · 부품발주중 (2/4)</div>
+          </div>
+          <div class="tl-item done">
+            <div class="when">2026.04.27 10:15</div>
+            <div class="what">✓ 카드 결제 통신 오류</div>
+            <div class="who">이기사 · VAN A/S · KIS 통신 모듈 교체</div>
+          </div>
+          <div class="tl-item done">
+            <div class="when">2026.03.18 13:40</div>
+            <div class="what">✓ 키패드 일부 입력 안됨</div>
+            <div class="who">박기사 · POS A/S · 키보드 교체</div>
+          </div>
+          <div class="tl-item done">
+            <div class="when">2026.02.05 09:30</div>
+            <div class="what">✓ 영수증 인쇄 흐림</div>
+            <div class="who">박기사 · POS A/S · 헤드 청소</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-body" id="tab-equip" style="display:none">
+        <div class="info-card-h" style="margin-bottom:14px">
+          <b>🖥 설치 장비 11종 / 누적 24대</b> — store.equipment[] 정식 DB. 인스턴스별 상태/이력 추적. <b>[+ 장비 추가]</b> 가능.
+        </div>
+        <div class="equip-grid">
+          <div class="equip-card">
+            <div class="nm">🖥 일체형포스 <span class="badge badge-green" style="font-size:9px;padding:2px 6px">정상</span></div>
+            <div class="opts">유통 · 신품 · 2대</div>
+            <div class="ft"><span>설치 2024.03.20 박기사</span><span>S/N 미등록</span></div>
+          </div>
+          <div class="equip-card">
+            <div class="nm">💳 단말기 E600K <span class="badge badge-green" style="font-size:9px;padding:2px 6px">정상</span></div>
+            <div class="opts">KIS · 2대</div>
+            <div class="ft"><span>설치 2024.03.20</span><span>—</span></div>
+          </div>
+          <div class="equip-card">
+            <div class="nm">🏷 라벨프린터 <span class="badge badge-blue" style="font-size:9px;padding:2px 6px">교체됨</span></div>
+            <div class="opts">신품 · 1대</div>
+            <div class="ft"><span>설치 2024.03.20 → 2025.11.04 교체</span><span>—</span></div>
+          </div>
+          <div class="equip-card">
+            <div class="nm">📊 체크기 K501 <span class="badge badge-green" style="font-size:9px;padding:2px 6px">정상</span></div>
+            <div class="opts">세트 · 1대</div>
+            <div class="ft"><span>설치 2024.04.10 이기사</span><span>—</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 탭 구조 설명 -->
+    <div style="margin-top:18px;background:#fff;border:1.5px solid var(--gray-200);border-radius:12px;padding:16px 20px">
+      <h3 style="font-size:14px;font-weight:800;margin-bottom:12px">📐 탭 구조 설계 원칙</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:12px;line-height:1.7;color:var(--gray-700)">
+        <div>
+          <b style="color:var(--gray-900)">A. 첫 탭 = 진행 업무 ⚠</b><br>
+          매장을 보는 가장 큰 이유는 "<b>지금 뭐 해야 하지?</b>". 진행 업무를 0번째 탭으로. 카운트 chip 빨간 펄스 = 즉시 시선 끌기.
+        </div>
+        <div>
+          <b style="color:var(--gray-900)">B. 매장 정보는 2번 탭</b><br>
+          상호·연락·POS 환경 등 기본 데이터. 빠른 확인용. 정보 변경 버튼은 헤더에 분리.
+        </div>
+        <div>
+          <b style="color:var(--gray-900)">C. 카테고리별 이력 탭</b><br>
+          오픈/AS/밴서류/출고/라벨/상담 — <b>각 카테고리마다 별도 탭</b>. 카운트 chip 으로 누적 건수 한눈에. 필터(전체/완료만/최근 등)로 세분화.
+        </div>
+        <div>
+          <b style="color:var(--gray-900)">D. 출고/택배는 묶기</b><br>
+          장비출고 + 택배 + 라벨지 발송은 "📦 출고/택배" 한 탭으로. 운영 관점에서 같은 흐름. 안에서 다시 필터.
+        </div>
+        <div>
+          <b style="color:var(--gray-900)">E. 설치 장비 별도 탭</b><br>
+          store.equipment[] (Plan B DB) 인스턴스 단위 관리. 추가/편집/상태변경/이전. 작업 기록과 분리된 자산 관점.
+        </div>
+        <div>
+          <b style="color:var(--gray-900)">F. 메모/이력 마지막 탭</b><br>
+          매장 자체 메모 + 정보 변경 이력 + 작업 메모 통합. 모두의 자유 메모장.
+        </div>
+        <div style="grid-column:1/-1;padding:10px 14px;background:var(--gray-50);border-radius:8px;font-size:11.5px">
+          <b style="color:var(--gray-900)">⚙ 구현 가이드</b> — 탭은 모두 같은 모달 안에서 lazy 렌더링 (active 탭만 DOM 생성).
+          데이터는 <code>getJobs().filter(j => sameStore(j) && j.category === ...)</code> 기반. URL hash 로 탭 상태 보존 가능 (<code>#tab=as</code>).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════════════════ Mobile ═════════════════════ -->
+  <div>
+    <div class="ui-label">
+      <span class="icon">📱</span>
+      <span>Mobile 매장 상세</span>
+      <span class="tag">모바일</span>
+    </div>
+
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="phone-notch"></div>
+        <div class="phone-bar">
+          <span class="back">‹</span>
+          <span>매장 상세</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--gray-400);font-weight:600">⋯</span>
+        </div>
+
+        <!-- 매장 배너 (컴팩트) -->
+        <div class="m-banner">
+          <div class="name">🏪 하모니마트 일동점</div>
+          <div class="meta">경기 포천시 일동면 · 010-2345-6789</div>
+          <div class="tags">
+            <span>🟢 운영중</span>
+            <span>🖥 POS 2</span>
+            <span>📱 KIS</span>
+          </div>
+        </div>
+
+        <!-- 모바일 탭바 (가로 스크롤) -->
+        <div class="m-tabbar">
+          <button class="m-tab active urgent">⚠ 진행 <span class="count">3</span></button>
+          <button class="m-tab">🏪 정보</button>
+          <button class="m-tab">🔧 A/S <span class="count">12</span></button>
+          <button class="m-tab">🆕 오픈 <span class="count">1</span></button>
+          <button class="m-tab">📑 밴서류 <span class="count">3</span></button>
+          <button class="m-tab">📦 출고 <span class="count">5</span></button>
+          <button class="m-tab">🏷 라벨 <span class="count">8</span></button>
+          <button class="m-tab">📞 상담 <span class="count">2</span></button>
+          <button class="m-tab">🖥 장비 <span class="count">11</span></button>
+          <button class="m-tab">📝 메모</button>
+        </div>
+
+        <!-- 컨텐츠 -->
+        <div class="m-content">
+          <div class="m-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+              <b style="font-size:13.5px">🔧 POS 영수 프린터 용지 걸림</b>
+              <span class="badge badge-orange" style="font-size:9px">부품발주</span>
+            </div>
+            <div style="font-size:11px;color:var(--gray-500);line-height:1.5">
+              📅 5/13 · 박기사 · <b style="color:var(--danger)">62h</b><br>
+              현재: <b style="color:#92400E">부품발주중 (2/4)</b>
+            </div>
+            <div class="progress" style="margin-top:8px"><div class="bar" style="width:50%"></div></div>
+          </div>
+
+          <div class="m-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+              <b style="font-size:13.5px">📑 VAN 단말기 신규 개통</b>
+              <span class="badge badge-blue" style="font-size:9px">심사중</span>
+            </div>
+            <div style="font-size:11px;color:var(--gray-500);line-height:1.5">
+              📅 5/12 · 한소현 · 86h<br>
+              현재: <b style="color:#92400E">심사중 (3/5)</b>
+            </div>
+            <div class="progress" style="margin-top:8px"><div class="bar" style="width:60%;background:#3B82F6"></div></div>
+          </div>
+
+          <div class="m-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+              <b style="font-size:13.5px">🏷 라벨지 정기 발주</b>
+              <span class="badge badge-purple" style="font-size:9px">출고대기</span>
+            </div>
+            <div style="font-size:11px;color:var(--gray-500);line-height:1.5">
+              📅 5/14 · 김선우 · 라벨지<br>
+              40×30 라벨 5롤 · 택배 예정
+            </div>
+          </div>
+
+          <button style="width:100%;padding:13px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:6px">
+            + 새 업무 등록하기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;background:#fff;border:1px dashed var(--gray-300);border-radius:10px;padding:12px 16px;font-size:12px;line-height:1.7;color:var(--gray-700)">
+      <b style="color:var(--gray-900)">📱 모바일 매장 상세 특징</b>
+      <ul style="margin:6px 0 0 18px">
+        <li>탭바 가로 스크롤 — 카운트 chip 으로 한눈에 우선순위</li>
+        <li>진행 업무는 카드별 진행률 bar 까지 표시 (PC와 동일 정보)</li>
+        <li>매장 배너 압축 — 핵심 메타 + 태그 chip 만</li>
+        <li>큰 [+ 새 업무] CTA — 항상 노출</li>
+        <li>탭 전환은 슬라이드 없이 즉시 — 사용자 학습 부담 ↓</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 탭 매트릭스 -->
+<div style="max-width:1500px;margin:24px auto 0;background:#fff;border:1.5px solid var(--gray-200);border-radius:14px;padding:18px 24px">
+  <h3 style="font-size:14px;font-weight:800;margin-bottom:12px">📋 탭별 표시 데이터 매트릭스</h3>
+  <div style="overflow-x:auto">
+    <table style="width:100%;min-width:900px;border-collapse:collapse;font-size:12px">
+      <thead style="background:#1F2937;color:#fff">
+        <tr>
+          <th style="padding:9px;text-align:left;width:130px">탭</th>
+          <th style="padding:9px;text-align:left;width:200px">데이터 소스</th>
+          <th style="padding:9px;text-align:left">표시 항목</th>
+          <th style="padding:9px;text-align:left;width:200px">필터 옵션</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--gray-200);background:#FEF2F2">
+          <td style="padding:8px;font-weight:800">⚠ 진행 업무</td>
+          <td style="padding:8px;color:var(--gray-600)"><code>getJobs() · !_isJobDone</code></td>
+          <td style="padding:8px;color:var(--gray-600)">제목·카테고리·담당·진행단계·경과시간·진행률</td>
+          <td style="padding:8px;color:var(--gray-600)">긴급/경과시간/담당자별</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gray-200)">
+          <td style="padding:8px;font-weight:800">🏪 매장 정보</td>
+          <td style="padding:8px;color:var(--gray-600)"><code>getStores() · 매장 객체</code></td>
+          <td style="padding:8px;color:var(--gray-600)">상호/사업자/주소/연락/POS·VAN/매니저/지표</td>
+          <td style="padding:8px;color:var(--gray-400)">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gray-200);background:#FAFAFA">
+          <td style="padding:8px;font-weight:800">🆕 오픈/신규</td>
+          <td style="padding:8px;color:var(--gray-600)"><code>jobs · type:신규/오픈</code></td>
+          <td style="padding:8px;color:var(--gray-600)">타임라인·투입장비·계약→오픈 단계</td>
+          <td style="padding:8px;color:var(--gray-600)">완료/진행/년도</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gray-200)">
+          <td style="padding:8px;font-weight:800">🔧 A/S 기록</td>
+          <td style="padding:8px;color:var(--gray-600)"><code>jobs · POS/VAN/단말 A/S</code></td>
+          <td style="padding:8px;color:var(--gray-600)">타임라인·증상·처리내용·소요시간</td>
+          <td style="padding:8px;color:var(--gray-600)">카테고리/완료/긴급</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gray-200);background:#FAFAFA">
+          <td style="padding:8px;font-weight:800">📑 밴서류</td>
+          <td style="padding:8px;color:var(--gray-600)"><code>jobs · 밴서류</code></td>
+          <td style="padding:8px;color:var(--gray-600)">서류 유형(가맹/변경/해지)·VAN사·상태</td>
+          <td style="padding:8px;color:var(--gray-600)">VAN사/심사/완료</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gray-200)">
+          <td style="padding:8px;font-weight:800">📦 출고/택배</td>
+          <td style="padding:8px;color:var(--gray-600)"><code>jobs · 장비출고+택배+라벨</code></td>
+          <td style="padding:8px;color:var(--gray-600)">출고/수령·운송장·내용물</td>
+          <td style="padding:8px;color:var(--gray-600)">발/수령·완료</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gray-200);background:#FAFAFA">
+          <td style="padding:8px;font-weight:800">🏷 라벨지</td>
+          <td style="padding:8px;color:var(--gray-600)"><code>jobs · 라벨지</code></td>
+          <td style="padding:8px;color:var(--gray-600)">규격·수량·발송방법·도착확인</td>
+          <td style="padding:8px;color:var(--gray-600)">규격별/년도</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gray-200)">
+          <td style="padding:8px;font-weight:800">📞 상담</td>
+          <td style="padding:8px;color:var(--gray-600)"><code>jobs · 상담</code></td>
+          <td style="padding:8px;color:var(--gray-600)">유형(문의/사용법/견적)·응대 방식</td>
+          <td style="padding:8px;color:var(--gray-600)">유형별</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gray-200);background:#FAFAFA">
+          <td style="padding:8px;font-weight:800">🖥 설치 장비</td>
+          <td style="padding:8px;color:var(--gray-600)"><code>store.equipment[]</code></td>
+          <td style="padding:8px;color:var(--gray-600)">인스턴스 단위 · 상태별 그룹</td>
+          <td style="padding:8px;color:var(--gray-600)">상태/카테고리</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gray-200)">
+          <td style="padding:8px;font-weight:800">📝 메모/이력</td>
+          <td style="padding:8px;color:var(--gray-600)">메모·정보변경·작업메모 통합</td>
+          <td style="padding:8px;color:var(--gray-600)">시간순 통합 타임라인</td>
+          <td style="padding:8px;color:var(--gray-600)">소스별</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// 탭 전환
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    // 컨텐츠 표시 전환
+    document.querySelectorAll('.modal-body').forEach(b => b.style.display = 'none');
+    const targetId = 'tab-' + t.dataset.tab;
+    const target = document.getElementById(targetId);
+    if (target) target.style.display = 'block';
+    else {
+      // 데모 미구현 탭 — 빈 상태
+      const ph = document.createElement('div');
+      ph.className = 'modal-body';
+      ph.style.display = 'block';
+      ph.innerHTML = `<div class="empty"><div class="icon">📭</div><div>이 탭은 데모에 미구현 — 실제 화면에선 해당 카테고리 데이터 렌더링</div></div>`;
+      target?.parentNode?.appendChild(ph);
+    }
+  };
+});
+
+document.querySelectorAll('.m-tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.m-tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+  };
+});
+</script>
+</body>
+</html>
