@@ -4219,7 +4219,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     if (opts && opts.toast && typeof showToast === 'function') showToast(`✓ ${moved.length}건 이전 완료`);
     return { ok:true, moved };
   }
-  // 작업 완료 hook — job.equipmentChecked=true 항목을 store.equipment 로 자동 적재
+  // 작업 → 매장 장비 적재
+  //   완료 작업: equipment[] 전체 (모두 설치된 것으로 간주)
+  //   진행 작업: equipmentChecked[i]=true 만
+  //   sourceJobId + sourceJobItemIdx 로 중복 방지 (재실행 안전)
   function ingestJobEquipmentToStore(job) {
     if (!job || !Array.isArray(job.equipment) || job.equipment.length === 0) return 0;
     const storeRef = { storeId: job.storeId, storeName: job.storeName || job.store };
@@ -4229,12 +4232,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     const s = _findStoreInList(stores, storeRef);
     if (!s) return 0;
     if (!Array.isArray(s.equipment)) s.equipment = [];
-    const checked = job.equipmentChecked || {};
+    const checked   = job.equipmentChecked   || {};
     const checkedBy = job.equipmentCheckedBy || {};
+    const isDone = (typeof _isJobDone === 'function') ? _isJobDone(job) : false;
     let added = 0;
     job.equipment.forEach((e, i) => {
-      if (!checked[i]) return;
-      // 이미 같은 sourceJobId+itemIdx 로 추가됐는지 확인 (중복 방지)
+      // 적재 조건: (a) 명시적 체크 OR (b) 완료된 작업이면 무조건
+      if (!checked[i] && !isDone) return;
+      // 중복 방지
       const dupe = s.equipment.find(x => x.sourceJobId === job.id && x.sourceJobItemIdx === i);
       if (dupe) return;
       const meta = checkedBy[i] || {};
@@ -4250,8 +4255,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         costPrice: e.costPrice,
         salePrice: e.salePrice,
         sourceJobId:    job.id,
-        installedAt:    (meta.at || job.completedAt || job.installDate || '').slice(0, 10) || undefined,
+        // 설치일: 체크한 시점 > 완료일 > 설치일자 > job 등록일
+        installedAt:    (meta.at || job.completedAt || job.installDate || job.openDate || job.createdAt || '').slice(0, 10) || undefined,
         installedBy:    meta.name || job.engineer || job.assignee || '',
+        note:           checked[i] ? '체크박스로 설치 확인' : (isDone ? '완료 작업에서 자동 적재' : ''),
       });
       inst.sourceJobItemIdx = i;
       s.equipment.push(inst);
@@ -4263,26 +4270,43 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     }
     return added;
   }
-  // 마이그레이션 — 기존 job.equipment(checked=true) 를 일괄 store.equipment 로 이전
+  // 마이그레이션 — 모든 job.equipment 를 일괄 store.equipment 로 이전
+  // 버전 v2 (적재 정책 변경: 완료 작업 = 무조건 / 진행중 = checked 만)
+  // 다른 사용자의 변경분과 충돌하지 않도록 ingest 가 sourceJobId+idx 중복 차단
   function migrateJobEquipmentToStore(opts) {
-    const flag = 'ns_store_equip_migrated_v' + STORE_EQUIP_SCHEMA_VER;
+    const FLAG_VER = 2;
+    const flag = 'ns_store_equip_migrated_v' + FLAG_VER;
     if (!(opts && opts.force) && localStorage.getItem(flag) === '1') {
-      return { skipped:true, reason:'already migrated' };
+      return { skipped:true, reason:'already migrated v' + FLAG_VER };
     }
     let jobs = [];
     try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e){}
-    let total = 0, stores = 0;
+    let total = 0, stores = 0, noStoreMatched = 0;
     const seenStores = new Set();
     jobs.forEach(j => {
+      if (!Array.isArray(j.equipment) || j.equipment.length === 0) return;
       const added = ingestJobEquipmentToStore(j);
       if (added > 0) {
         total += added;
         const key = (j.storeId || '') + '|' + (j.storeName || j.store || '');
         if (!seenStores.has(key)) { seenStores.add(key); stores++; }
+      } else {
+        // equipment 는 있지만 매장 매칭 실패 — 통계용
+        const ref = { storeId: j.storeId, storeName: j.storeName || j.store };
+        if (!ref.storeName && !ref.storeId) return;
+        let allStores = [];
+        try { allStores = getStores() || []; } catch(e){}
+        if (!_findStoreInList(allStores, ref)) noStoreMatched++;
       }
     });
     localStorage.setItem(flag, '1');
-    return { ok:true, added: total, stores };
+    // v1 flag 가 있으면 함께 정리
+    localStorage.removeItem('ns_store_equip_migrated_v1');
+    // 클라우드 즉시 동기화 (debounce 우회)
+    if (total > 0) {
+      try { if (typeof pushStoresToCloud === 'function') pushStoresToCloud({ toast:false }); } catch(e){}
+    }
+    return { ok:true, added: total, stores, noStoreMatched, version: FLAG_VER };
   }
   window.getStoreEquipment = getStoreEquipment;
   window.addStoreEquipment = addStoreEquipment;
@@ -14013,16 +14037,32 @@ ${text.slice(0, 4000)}`;
   }
   window.reopenStoreDetail = reopenStoreDetail;
 
-  /* 페이지 로드 후 1회 자동 마이그레이션 — job.equipment(checked) → store.equipment */
+  /* 페이지 로드 후 1회 자동 마이그레이션 — job.equipment → store.equipment
+     v2 정책: 완료 작업 = 모든 장비 / 진행 작업 = checked 만
+     이미 적재된 항목(sourceJobId+idx)은 자동 skip */
   setTimeout(() => {
     try {
       if (typeof migrateJobEquipmentToStore !== 'function') return;
       const r = migrateJobEquipmentToStore();
       if (r && r.ok && r.added > 0) {
-        console.log(`[migrate] store.equipment v${STORE_EQUIP_SCHEMA_VER} — ${r.added}건, ${r.stores}개 매장 적재`);
+        console.log(`[migrate v${r.version}] store.equipment — ${r.added}건 / ${r.stores}개 매장 적재${r.noStoreMatched ? ' (매장 매칭 실패 '+r.noStoreMatched+'건)' : ''}`);
+        if (typeof showToast === 'function') {
+          showToast(`📦 매장 장비 DB 마이그레이션 — ${r.stores}개 매장에 ${r.added}건 장비 자동 연결`, 6000);
+        }
+      } else if (r && r.skipped) {
+        console.log('[migrate] skipped —', r.reason);
       }
     } catch(e) { console.warn('[migrate] failed:', e); }
   }, 1500);
+
+  /* 관리자 강제 재실행 — console 또는 마이페이지 버튼 */
+  window.forceReMigrateStoreEquipment = function() {
+    if (!confirm('매장 장비 DB 를 강제 재마이그레이션 하시겠습니까?\n\n동작:\n- 모든 작업의 장비를 스캔\n- 완료 작업: 모든 장비 적재 / 진행 작업: checked 만\n- 이미 적재된 항목은 중복 방지 (sourceJobId+idx 매칭)\n\n안전 — 데이터 손실 없음.')) return;
+    const r = migrateJobEquipmentToStore({ force:true });
+    const msg = `마이그레이션 완료\n\n적재: ${r.added}건\n영향 매장: ${r.stores}개${r.noStoreMatched ? '\n매장 매칭 실패: '+r.noStoreMatched+'건' : ''}\n\n클라우드에 자동 동기화 중...`;
+    alert(msg);
+    return r;
+  };
 </script>
 </body>
 </html>
