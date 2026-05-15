@@ -14,6 +14,7 @@
 const SERVER_PRESERVED_FIELDS = [
   'storeRegDate',
   'ecountRegDate',
+  'equipment',         // store.equipment[] — 인스턴스 단위 장비 DB (Plan B). 구버전 클라이언트가 누락 push 해도 보존
 ];
 
 export async function onRequestPost({ request, env }) {
@@ -49,14 +50,15 @@ export async function onRequestPost({ request, env }) {
               || byBiz.get(normBiz(inc.biz || inc.bizno))
               || byCode.get(inc.code);
     if (!old) return inc;   // 신규 매장은 그대로
-    // 서버 보존 필드: incoming 에 없으면 KV 값 유지
+    // 서버 보존 필드: incoming 에 없거나 빈 배열이면 KV 값 유지
     const result = { ...inc };
     for (const field of SERVER_PRESERVED_FIELDS) {
-      if (result[field] == null || result[field] === '') {
-        if (old[field]) {
-          result[field] = old[field];
-          preservedCount++;
-        }
+      const v = result[field];
+      const incomingIsEmpty = (v == null || v === '' || (Array.isArray(v) && v.length === 0));
+      const oldHas = old[field] && (!Array.isArray(old[field]) || old[field].length > 0);
+      if (incomingIsEmpty && oldHas) {
+        result[field] = old[field];
+        preservedCount++;
       }
     }
     return result;

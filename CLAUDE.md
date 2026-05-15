@@ -94,6 +94,53 @@ Autocomplete.register('myKind', {
 
 새 메모/이력 기록 시 `addJobMemo` 사용 권장. 직접 `job.memos.push()` 할 경우 위 필드들 수동 채워야 함.
 
+### 🖥 매장 장비 DB — store.equipment[] (Plan B)
+모든 매장 장비는 **인스턴스 단위** 로 `store.equipment[]` 에 저장. 카탈로그 변경/삭제와 무관하게 매장 데이터 영속.
+
+**스키마 (v1):**
+```js
+{
+  instanceId: 'eqi-{timestamp}-{rand}',  // 영구 안정 식별자 (이전/AS 연결 추적)
+  catalogId:  'eq-server',                // 카탈로그 참조 (깨져도 OK)
+  catalogVer: 1,                          // 등록 시점 스키마 버전
+  // snapshot — 카탈로그 변경/삭제에 무관
+  name, category, variant, options, size, condition,
+  // 인스턴스
+  qty, serialNo, costPrice, salePrice,
+  // 라이프사이클 (절대 삭제 안 함)
+  status: 'in_use'|'replaced'|'removed'|'disposed'|'transferred_out',
+  installedAt, installedBy, sourceJobId, sourceJobItemIdx,
+  history: [{at, kind, by, note}],
+  updatedAt, updatedBy
+}
+```
+
+**불변 규칙:**
+- `instanceId` 는 절대 재사용/변경 금지
+- `catalogId` 가 카탈로그에서 사라져도 매장 장비는 snapshot 으로 표시 (UI 에 ⚠ 표시)
+- 카탈로그 이름/카테고리 변경 후 다시 매칭하고 싶으면 `findCatalogByName()` 호출 (자동 안 함)
+- 폐기/제거시 `status` 만 변경, 데이터는 영구 보존 (audit trail)
+
+**핵심 헬퍼 (모두 `window.*`):**
+- `getStoreEquipment(storeRef)` — 매장 장비 목록
+- `addStoreEquipment(storeRef, src, opts)` — 추가 (instanceId 자동)
+- `updateStoreEquipment(storeRef, instanceId, patch, opts)` — 수정 (status 변경시 history 자동 추가)
+- `transferStoreEquipment(fromStore, toStore, instanceIds)` — 매장간 이전 (양쪽 history 보존)
+- `ingestJobEquipmentToStore(job)` — 작업의 checked 장비를 매장 DB 로 자동 적재
+- `migrateJobEquipmentToStore()` — 1회성 마이그레이션 (페이지 로드시 자동, idempotent)
+- `findCatalogByName(name)` — 이름으로 카탈로그 항목 매칭 (재배포/이름변경 대응)
+
+**자동 트리거:**
+- 페이지 로드 +1.5초: 마이그레이션 (한 번만)
+- `completeNewopen()` 호출시: `ingestJobEquipmentToStore` 자동 실행
+- `addStoreEquipment/update/transfer` 모두 `saveStores()` 호출 → 1.5초 debounce 후 `pushStoresToCloud()` → KV merge (sync.js `SERVER_PRESERVED_FIELDS` 에 `equipment` 포함)
+
+**카테고리/카탈로그 재정리시:**
+- 카탈로그 항목 ID(`eq-*`) 는 절대 변경/삭제 금지 — 변경하려면 신규 ID 발급 + 구 ID 는 그대로 두기
+- 카탈로그 `category` 변경은 자유 — 매장 장비의 snapshot.category 는 영향 없음
+- 새 분류 체계 도입시: `categoryV2` 같은 추가 필드 사용. 구 `category` 도 보존.
+- 매장 장비 ↔ 카탈로그 재매칭이 필요하면 `findCatalogByName` 일괄 실행 후 catalogId 갱신
+
 ## 운영 규칙
 
 ### 🚨 파싱 오류 알림 (필수)

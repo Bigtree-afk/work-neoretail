@@ -4054,6 +4054,246 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   }
   window.getEquipmentCatalog = getEquipmentCatalog;
 
+  /* ═════════════════════════════════════════════════════════════════
+     매장별 설치 장비 정식 DB — store.equipment[] (Plan B)
+     ─────────────────────────────────────────────────────────────────
+     설계 원칙:
+       1. 매장 장비는 인스턴스 단위 ('eqi-...') — 매장간 이전 / AS 연결 추적
+       2. catalogId 는 참조용. 카탈로그가 변경 / 삭제되어도 매장 장비 데이터는
+          snapshot (name/category/options 등) 으로 표시 가능
+       3. 라이프사이클 status — in_use / replaced / removed / disposed / transferred_out
+          삭제는 안 함 (audit trail)
+       4. 카탈로그 ID 매핑: getEquipmentCatalog() 에서 사라진 catalogId 는
+          findCatalogByName() 으로 다시 매칭 시도 (이름 변경 / 재배포 대응)
+     ═════════════════════════════════════════════════════════════════ */
+  const STORE_EQUIP_SCHEMA_VER = 1;
+  const STORE_EQUIP_STATUS = {
+    in_use:          { label:'정상',    color:'#10B981', bg:'#D1FAE5' },
+    replaced:        { label:'교체됨',  color:'#3B82F6', bg:'#DBEAFE' },
+    removed:         { label:'제거됨',  color:'#6B7280', bg:'#E5E7EB' },
+    disposed:        { label:'폐기',    color:'#EF4444', bg:'#FEE2E2' },
+    transferred_out: { label:'이전됨',  color:'#F59E0B', bg:'#FEF3C7' },
+  };
+  function genInstanceId() {
+    return 'eqi-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  }
+  function findCatalogByName(name) {
+    if (!name) return null;
+    const list = getEquipmentCatalog() || [];
+    const norm = s => String(s||'').replace(/\s+/g,'').toLowerCase();
+    const n = norm(name);
+    // 정확 매칭 우선
+    let hit = list.find(c => norm(c.name) === n);
+    if (hit) return hit;
+    // 부분 포함
+    hit = list.find(c => norm(c.name).includes(n) || n.includes(norm(c.name)));
+    return hit || null;
+  }
+  function buildEquipInstance(src) {
+    /* src 에서 store.equipment 인스턴스 생성 — 카탈로그 매칭 시도 + snapshot 보존 */
+    const catalog = src.catalogId ? (getEquipmentCatalog().find(c => c.id === src.catalogId)) : null;
+    const matched = catalog || findCatalogByName(src.name);
+    return {
+      instanceId: src.instanceId || genInstanceId(),
+      catalogId:  matched ? matched.id : null,
+      catalogVer: STORE_EQUIP_SCHEMA_VER,
+      // snapshot (카탈로그 변경에 무관)
+      name:      src.name      || (matched && matched.name)     || '-',
+      category:  src.category  || (matched && matched.category) || '기타',
+      variant:   src.variant   || '',
+      options:   src.options   || {},
+      size:      src.size      || '',
+      condition: src.condition || 'new',
+      // 인스턴스별
+      qty:       Number(src.qty) || 1,
+      serialNo:  src.serialNo  || '',
+      costPrice: Number(src.costPrice) || 0,
+      salePrice: Number(src.salePrice) || 0,
+      // 라이프사이클
+      status:        src.status || 'in_use',
+      installedAt:   src.installedAt || (new Date()).toISOString().slice(0,10),
+      installedBy:   src.installedBy || (typeof _currentUserName === 'function' ? _currentUserName() : ''),
+      sourceJobId:   src.sourceJobId || '',
+      history:       Array.isArray(src.history) ? src.history.slice() : [{
+        at: new Date().toISOString(),
+        kind: src.sourceJobId ? 'installed_via_job' : 'manually_added',
+        by:  (typeof _currentUserName === 'function' ? _currentUserName() : ''),
+        note: src.note || '',
+      }],
+      updatedAt: new Date().toISOString(),
+      updatedBy: (typeof _currentUserName === 'function' ? _currentUserName() : ''),
+    };
+  }
+  function _findStoreInList(stores, store) {
+    /* store 매칭 — id 우선, 사업자, 상호 순 */
+    const sid    = store.storeId || store.id;
+    const sbiz   = store.businessNumber || store.biz;
+    const sname  = (store.storeName || store.store || store.name || '').trim();
+    if (sid)   { const m = stores.find(s => (s.id || s.storeId) === sid); if (m) return m; }
+    if (sbiz)  { const m = stores.find(s => (s.businessNumber || s.biz) === sbiz); if (m) return m; }
+    if (sname) {
+      const m = stores.find(s => (s.storeName || s.name || '').trim() === sname);
+      if (m) return m;
+    }
+    return null;
+  }
+  function getStoreEquipment(storeRef) {
+    /* storeRef = { storeId? storeName? businessNumber? } 또는 매장 객체 */
+    if (!storeRef) return [];
+    let stores = [];
+    try { stores = (typeof getStores === 'function') ? (getStores() || []) : []; } catch(e){}
+    const s = _findStoreInList(stores, storeRef);
+    return (s && Array.isArray(s.equipment)) ? s.equipment.slice() : [];
+  }
+  function addStoreEquipment(storeRef, src, opts) {
+    let stores = [];
+    try { stores = (typeof getStores === 'function') ? (getStores() || []) : []; } catch(e){}
+    const s = _findStoreInList(stores, storeRef);
+    if (!s) return null;
+    if (!Array.isArray(s.equipment)) s.equipment = [];
+    const inst = buildEquipInstance(src);
+    s.equipment.push(inst);
+    if (typeof saveStores === 'function') saveStores(stores);
+    else localStorage.setItem('ns_stores', JSON.stringify(stores));
+    if (opts && opts.toast && typeof showToast === 'function') showToast(`✓ ${inst.name} 추가됨`);
+    return inst;
+  }
+  function updateStoreEquipment(storeRef, instanceId, patch, opts) {
+    let stores = [];
+    try { stores = (typeof getStores === 'function') ? (getStores() || []) : []; } catch(e){}
+    const s = _findStoreInList(stores, storeRef);
+    if (!s || !Array.isArray(s.equipment)) return false;
+    const i = s.equipment.findIndex(e => e.instanceId === instanceId);
+    if (i < 0) return false;
+    const before = JSON.parse(JSON.stringify(s.equipment[i]));
+    Object.assign(s.equipment[i], patch, {
+      updatedAt: new Date().toISOString(),
+      updatedBy: (typeof _currentUserName === 'function' ? _currentUserName() : ''),
+    });
+    // 상태 변경시 history 추가
+    if (patch.status && patch.status !== before.status) {
+      s.equipment[i].history = s.equipment[i].history || [];
+      s.equipment[i].history.push({
+        at: new Date().toISOString(),
+        kind: 'status_change',
+        by: (typeof _currentUserName === 'function' ? _currentUserName() : ''),
+        note: `${before.status} → ${patch.status}` + (patch.statusNote ? ' / ' + patch.statusNote : ''),
+      });
+    }
+    if (typeof saveStores === 'function') saveStores(stores);
+    else localStorage.setItem('ns_stores', JSON.stringify(stores));
+    if (opts && opts.toast && typeof showToast === 'function') showToast('✓ 장비 정보 수정됨');
+    return true;
+  }
+  function transferStoreEquipment(fromStore, toStore, instanceIds, opts) {
+    /* 매장간 장비 이전 — fromStore 의 인스턴스 status='transferred_out' + toStore 에 신규 추가 */
+    let stores = [];
+    try { stores = (typeof getStores === 'function') ? (getStores() || []) : []; } catch(e){}
+    const sFrom = _findStoreInList(stores, fromStore);
+    const sTo   = _findStoreInList(stores, toStore);
+    if (!sFrom || !sTo) return { ok:false, error:'매장 못 찾음' };
+    if (!Array.isArray(sFrom.equipment)) sFrom.equipment = [];
+    if (!Array.isArray(sTo.equipment))   sTo.equipment   = [];
+    const me = (typeof _currentUserName === 'function' ? _currentUserName() : '');
+    const moved = [];
+    instanceIds.forEach(id => {
+      const i = sFrom.equipment.findIndex(e => e.instanceId === id);
+      if (i < 0) return;
+      const inst = sFrom.equipment[i];
+      // 원본은 transferred_out 처리, 이력만 보존
+      inst.status = 'transferred_out';
+      inst.updatedAt = new Date().toISOString();
+      inst.updatedBy = me;
+      inst.history = inst.history || [];
+      inst.history.push({ at:new Date().toISOString(), kind:'transferred_out',
+        by:me, note:`→ ${sTo.storeName || sTo.name || ''}` });
+      // 새 매장에 새 인스턴스 (이력 보존)
+      const newInst = buildEquipInstance({ ...inst, instanceId: genInstanceId(), status:'in_use', sourceJobId:'',
+        history: [...(inst.history||[]), { at:new Date().toISOString(), kind:'transferred_in', by:me,
+                                            note:`← ${sFrom.storeName || sFrom.name || ''}` }] });
+      sTo.equipment.push(newInst);
+      moved.push(newInst);
+    });
+    if (typeof saveStores === 'function') saveStores(stores);
+    else localStorage.setItem('ns_stores', JSON.stringify(stores));
+    if (opts && opts.toast && typeof showToast === 'function') showToast(`✓ ${moved.length}건 이전 완료`);
+    return { ok:true, moved };
+  }
+  // 작업 완료 hook — job.equipmentChecked=true 항목을 store.equipment 로 자동 적재
+  function ingestJobEquipmentToStore(job) {
+    if (!job || !Array.isArray(job.equipment) || job.equipment.length === 0) return 0;
+    const storeRef = { storeId: job.storeId, storeName: job.storeName || job.store };
+    if (!storeRef.storeName && !storeRef.storeId) return 0;
+    let stores = [];
+    try { stores = (typeof getStores === 'function') ? (getStores() || []) : []; } catch(e){}
+    const s = _findStoreInList(stores, storeRef);
+    if (!s) return 0;
+    if (!Array.isArray(s.equipment)) s.equipment = [];
+    const checked = job.equipmentChecked || {};
+    const checkedBy = job.equipmentCheckedBy || {};
+    let added = 0;
+    job.equipment.forEach((e, i) => {
+      if (!checked[i]) return;
+      // 이미 같은 sourceJobId+itemIdx 로 추가됐는지 확인 (중복 방지)
+      const dupe = s.equipment.find(x => x.sourceJobId === job.id && x.sourceJobItemIdx === i);
+      if (dupe) return;
+      const meta = checkedBy[i] || {};
+      const inst = buildEquipInstance({
+        catalogId: e.catalogId || e.fixedKey || null,
+        name:      e.name,
+        category:  e.category || '',
+        variant:   e.variant,
+        options:   e.options,
+        size:      e.size,
+        condition: e.condition,
+        qty:       e.qty,
+        costPrice: e.costPrice,
+        salePrice: e.salePrice,
+        sourceJobId:    job.id,
+        installedAt:    (meta.at || job.completedAt || job.installDate || '').slice(0, 10) || undefined,
+        installedBy:    meta.name || job.engineer || job.assignee || '',
+      });
+      inst.sourceJobItemIdx = i;
+      s.equipment.push(inst);
+      added++;
+    });
+    if (added > 0) {
+      if (typeof saveStores === 'function') saveStores(stores);
+      else localStorage.setItem('ns_stores', JSON.stringify(stores));
+    }
+    return added;
+  }
+  // 마이그레이션 — 기존 job.equipment(checked=true) 를 일괄 store.equipment 로 이전
+  function migrateJobEquipmentToStore(opts) {
+    const flag = 'ns_store_equip_migrated_v' + STORE_EQUIP_SCHEMA_VER;
+    if (!(opts && opts.force) && localStorage.getItem(flag) === '1') {
+      return { skipped:true, reason:'already migrated' };
+    }
+    let jobs = [];
+    try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e){}
+    let total = 0, stores = 0;
+    const seenStores = new Set();
+    jobs.forEach(j => {
+      const added = ingestJobEquipmentToStore(j);
+      if (added > 0) {
+        total += added;
+        const key = (j.storeId || '') + '|' + (j.storeName || j.store || '');
+        if (!seenStores.has(key)) { seenStores.add(key); stores++; }
+      }
+    });
+    localStorage.setItem(flag, '1');
+    return { ok:true, added: total, stores };
+  }
+  window.getStoreEquipment = getStoreEquipment;
+  window.addStoreEquipment = addStoreEquipment;
+  window.updateStoreEquipment = updateStoreEquipment;
+  window.transferStoreEquipment = transferStoreEquipment;
+  window.ingestJobEquipmentToStore = ingestJobEquipmentToStore;
+  window.migrateJobEquipmentToStore = migrateJobEquipmentToStore;
+  window.STORE_EQUIP_STATUS = STORE_EQUIP_STATUS;
+  window.findCatalogByName = findCatalogByName;
+  window.STORE_EQUIP_SCHEMA_VER = STORE_EQUIP_SCHEMA_VER;
+
   /* 카탈로그 CRUD — 모든 사용자 접근 가능 (마이페이지) */
   let catalogExpandedIdx = -1; // 옵션 편집 패널 펼친 행
   let catalogDraftText = '';   // 편집 중인 옵션 텍스트 (단일 문자열)
@@ -11985,7 +12225,14 @@ ${text.slice(0, 4000)}`;
     job.status = '완료';
     job.completedAt = new Date().toISOString();
     saveJobs(jobs);
-    if (typeof showToast === 'function') showToast('✅ 종료 처리 완료 — [지난 완료] 에서 확인');
+    // Plan B — 완료된 작업의 설치 완료 장비를 매장 DB(store.equipment) 로 자동 적재
+    let ingested = 0;
+    try { ingested = (typeof ingestJobEquipmentToStore === 'function') ? ingestJobEquipmentToStore(job) : 0; } catch(e){}
+    if (typeof showToast === 'function') {
+      showToast(ingested > 0
+        ? `✅ 종료 처리 완료 — 매장 장비 DB 에 ${ingested}건 자동 등록`
+        : '✅ 종료 처리 완료 — [지난 완료] 에서 확인');
+    }
     try { hydrateNewopen('all'); } catch(e){}
     try { hydrateDashboardJobs(); } catch(e){}
     try { rebuildJobsGrid(); } catch(e){}
@@ -12462,31 +12709,73 @@ ${text.slice(0, 4000)}`;
       tagsEl.innerHTML = tags.join(' ') || '<span class="badge badge-gray">정보 없음</span>';
     }
 
-    /* ── 설치 장비 현황 ── */
+    /* ── 설치 장비 현황 — store.equipment[] (Plan B 정식 DB) ── */
     const equipBody = document.getElementById('detailEquipTbody');
     if (equipBody) {
+      // 1) store.equipment[] (정식 DB) 우선 표시
+      const items = (store && Array.isArray(store.equipment)) ? store.equipment : [];
+      // status 가 in_use / replaced 만 메인, 나머지는 [이력]
+      const active = items.filter(e => !e.status || e.status === 'in_use' || e.status === 'replaced');
+      const archived = items.filter(e => e.status && e.status !== 'in_use' && e.status !== 'replaced');
+
       const rows = [];
-      const posCount = parseInt(store?.pos, 10) || parseInt((posTxt.match(/\d+/) || [0])[0], 10) || 0;
-      const kioCount = parseInt((cells[7]?.querySelectorAll('.pk-chip')[1]?.textContent.match(/\d+/) || [0])[0], 10) || 0;
-      if (posCount > 0) {
-        rows.push(`<tr><td><b>POS 일체형</b></td><td style="color:var(--gray-400)">-</td><td>${posCount}대</td><td style="color:var(--gray-400)">-</td><td><span class="badge badge-green">정상</span></td></tr>`);
-      }
-      if (kioCount > 0) {
-        rows.push(`<tr><td><b>키오스크</b></td><td style="color:var(--gray-400)">-</td><td>${kioCount}대</td><td style="color:var(--gray-400)">-</td><td><span class="badge badge-green">정상</span></td></tr>`);
-      }
-      if (displayVan) {
-        rows.push(`<tr><td><b>카드단말 (VAN)</b></td><td style="color:var(--gray-400)">${esc ? esc(displayVan) : displayVan}</td><td>${posCount || '-'}${posCount ? '대' : ''}</td><td style="color:var(--gray-400)">-</td><td><span class="badge badge-green">정상</span></td></tr>`);
-      }
-      // 저장된 장비 정보가 있으면 추가 (store.equipment: [{name,model,qty,date,status}])
-      if (store?.equipment && Array.isArray(store.equipment)) {
-        store.equipment.forEach(eq => {
-          rows.push(`<tr><td><b>${eq.name||'-'}</b></td><td style="color:var(--gray-400)">${eq.model||'-'}</td><td>${eq.qty||'-'}</td><td style="color:var(--gray-400)">${eq.date||'-'}</td><td><span class="badge badge-green">${eq.status||'정상'}</span></td></tr>`);
-        });
-      }
-      if (rows.length === 0) {
-        rows.push('<tr><td colspan="5" style="text-align:center;padding:18px;color:var(--gray-400);font-size:12px">등록된 설치 장비 정보가 없습니다. (이카운트 업로드 시 POS 수량만 반영됩니다)</td></tr>');
+
+      const renderInstanceRow = (e) => {
+        const status = e.status || 'in_use';
+        const meta = STORE_EQUIP_STATUS[status] || STORE_EQUIP_STATUS.in_use;
+        const variantTxt = e.variant ? `<span style="background:#EFF6FF;color:#1D4ED8;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:3px">${esc(e.variant)}</span>` : '';
+        const optsTxt = (e.options && typeof e.options === 'object' && Object.keys(e.options).length > 0)
+          ? Object.entries(e.options).map(([k,v]) => `<span style="background:#F3E8FF;color:#7E22CE;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:3px">${esc(k)}: ${esc(v)}</span>`).join('')
+          : '';
+        const sizeTxt = e.size ? `<span style="background:#FEF3C7;color:#92400E;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:3px">📐 ${esc(e.size)}</span>` : '';
+        const condTxt = (e.condition === 'used') ? `<span style="background:#FEE2E2;color:#991B1B;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:3px">중고</span>` : '';
+        const serialTxt = e.serialNo ? `<div style="font-size:10px;color:var(--gray-500);margin-top:2px">S/N: ${esc(e.serialNo)}</div>` : '';
+        const installedTxt = (e.installedAt || e.installedBy)
+          ? `<div style="font-size:10px;color:var(--gray-400);margin-top:2px">${esc(e.installedAt||'-')} ${e.installedBy?'· '+esc(e.installedBy):''}</div>`
+          : '';
+        const catLost = e.catalogId && !getEquipmentCatalog().find(c => c.id === e.catalogId);
+        const catWarn = catLost ? `<span title="카탈로그에서 사라진 장비 — snapshot 기준 표시" style="font-size:10px;color:var(--warning);margin-left:4px">⚠</span>` : '';
+        return `<tr data-instance="${esc(e.instanceId||'')}">
+          <td>
+            <div><b>${esc(e.name||'-')}</b>${catWarn}${condTxt}${variantTxt}${optsTxt}${sizeTxt}</div>
+            ${serialTxt}
+          </td>
+          <td style="color:var(--gray-500);font-size:11px">${esc(e.category||'-')}</td>
+          <td><b>${e.qty||0}</b>대</td>
+          <td style="color:var(--gray-500);font-size:11px">${esc(e.installedAt||'-')}${installedTxt && e.installedBy ? '<div style=\"font-size:10px;color:var(--gray-400);margin-top:2px\">'+esc(e.installedBy)+'</div>' : ''}</td>
+          <td>
+            <span style="background:${meta.bg};color:${meta.color};font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px">${meta.label}</span>
+            <div style="margin-top:4px;display:flex;gap:4px">
+              <button title="편집" onclick="openStoreEquipEditor('${esc(e.instanceId||'')}')" style="background:none;border:1px solid var(--gray-200);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">✎</button>
+              <button title="상태 변경" onclick="openStoreEquipStatusPicker('${esc(e.instanceId||'')}')" style="background:none;border:1px solid var(--gray-200);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">⤴</button>
+            </div>
+          </td>
+        </tr>`;
+      };
+
+      if (active.length === 0 && archived.length === 0) {
+        // store.equipment 가 비어 있으면 호환용 fallback 표시 + 마이그레이션 안내
+        const posCount = parseInt(store?.pos, 10) || parseInt((posTxt.match(/\d+/) || [0])[0], 10) || 0;
+        const kioCount = parseInt((cells[7]?.querySelectorAll('.pk-chip')[1]?.textContent.match(/\d+/) || [0])[0], 10) || 0;
+        if (posCount > 0) rows.push(`<tr><td><b>POS 일체형</b> <span style="font-size:10px;color:var(--gray-400)">(이카운트 수량)</span></td><td style="color:var(--gray-400)">-</td><td>${posCount}대</td><td style="color:var(--gray-400)">-</td><td><span class="badge badge-green">정상</span></td></tr>`);
+        if (kioCount > 0) rows.push(`<tr><td><b>키오스크</b> <span style="font-size:10px;color:var(--gray-400)">(이카운트 수량)</span></td><td style="color:var(--gray-400)">-</td><td>${kioCount}대</td><td style="color:var(--gray-400)">-</td><td><span class="badge badge-green">정상</span></td></tr>`);
+        if (displayVan) rows.push(`<tr><td><b>카드단말 (VAN)</b></td><td style="color:var(--gray-400)">${esc(displayVan)}</td><td>${posCount || '-'}${posCount ? '대' : ''}</td><td style="color:var(--gray-400)">-</td><td><span class="badge badge-green">정상</span></td></tr>`);
+        if (rows.length === 0) {
+          rows.push(`<tr><td colspan="5" style="text-align:center;padding:18px;color:var(--gray-400);font-size:12px">등록된 설치 장비가 없습니다.<br><button class="btn btn-primary btn-sm" style="margin-top:8px;font-size:11px;padding:5px 10px" onclick="openStoreEquipAdd()">+ 첫 장비 추가</button></td></tr>`);
+        } else {
+          rows.push(`<tr><td colspan="5" style="text-align:center;padding:10px;color:var(--gray-400);font-size:11px"><button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="openStoreEquipAdd()">+ 상세 장비 추가</button></td></tr>`);
+        }
+      } else {
+        active.forEach(e => rows.push(renderInstanceRow(e)));
+        if (archived.length > 0) {
+          rows.push(`<tr><td colspan="5" style="background:#F9FAFB;padding:6px 10px;font-size:11px;font-weight:700;color:var(--gray-500)">📦 이력 (${archived.length}건) — 교체/제거/폐기/이전</td></tr>`);
+          archived.forEach(e => rows.push(renderInstanceRow(e)));
+        }
+        rows.push(`<tr><td colspan="5" style="background:#F9FAFB;padding:8px;text-align:right"><button class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 10px" onclick="openStoreEquipAdd()">+ 장비 추가</button></td></tr>`);
       }
       equipBody.innerHTML = rows.join('');
+      // 매장 컨텍스트 저장 (편집기 모달이 참조)
+      window._currentStoreEquipCtx = { storeId: store?.id || store?.storeId, storeName: displayName, businessNumber: store?.businessNumber || store?.biz };
     }
 
     /* ── 작업 이력 (ns_jobs 기반) ── */
@@ -13504,6 +13793,236 @@ ${text.slice(0, 4000)}`;
     document.getElementById('sdmBody').innerHTML = rows || '<p style="color:var(--gray-400);font-size:13px">상세 정보가 없습니다.</p>';
     modal.classList.add('show');
   }
+
+  /* ═════════════════════════════════════════════════════════════════
+     매장 장비 인스턴스 — 추가/편집/상태변경 모달 (Plan B)
+     ═════════════════════════════════════════════════════════════════ */
+  function _ensureStoreEquipModal() {
+    let modal = document.getElementById('storeEquipEditorModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'storeEquipEditorModal';
+    modal.className = 'modal-overlay';
+    modal.style.zIndex = '9500';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:520px;width:96%;max-height:88vh;overflow-y:auto">
+        <div class="modal-header">
+          <div class="modal-title" id="seemTitle">🖥 매장 장비</div>
+          <button class="modal-close" onclick="document.getElementById('storeEquipEditorModal').classList.remove('show')">✕</button>
+        </div>
+        <div class="modal-body" id="seemBody" style="padding:18px 20px"></div>
+        <div class="modal-footer" style="justify-content:space-between;gap:6px">
+          <div id="seemFooterLeft"></div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline" onclick="document.getElementById('storeEquipEditorModal').classList.remove('show')">취소</button>
+            <button class="btn btn-primary" id="seemSaveBtn">저장</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function _renderEquipFormFields(prefix, current) {
+    const c = current || {};
+    const catalog = (typeof getEquipmentCatalog === 'function') ? getEquipmentCatalog() : [];
+    // 카탈로그 옵션 → datalist 형태로 선택
+    const catalogOpts = catalog.map(it => `<option value="${esc(it.id)}">${esc(it.name)} (${esc(it.category||'기타')})</option>`).join('');
+    const statusOpts = Object.entries(STORE_EQUIP_STATUS).map(([k,v]) =>
+      `<option value="${k}" ${c.status===k?'selected':''}>${v.label}</option>`).join('');
+    const optsText = c.options && typeof c.options==='object'
+      ? Object.entries(c.options).map(([k,v]) => `${k}: ${v}`).join('\n') : '';
+    return `
+      <div style="display:flex;flex-direction:column;gap:12px;font-size:13px">
+        <div>
+          <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:4px">카탈로그 항목 (변경되어도 매장 장비는 유지)</label>
+          <select id="${prefix}_catalogId" onchange="_onSeemCatalogChange('${prefix}')" style="width:100%;padding:8px;border:1px solid var(--gray-200);border-radius:6px">
+            <option value="">(직접 입력 — 카탈로그에 없음)</option>
+            ${catalog.map(it => `<option value="${esc(it.id)}" ${c.catalogId===it.id?'selected':''}>${esc(it.name)} (${esc(it.category||'기타')})</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:4px">장비명 *</label>
+            <input type="text" id="${prefix}_name" value="${esc(c.name||'')}" style="width:100%;padding:8px;border:1px solid var(--gray-200);border-radius:6px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:4px">분류</label>
+            <input type="text" id="${prefix}_category" value="${esc(c.category||'')}" placeholder="POS / 주변기기 등" style="width:100%;padding:8px;border:1px solid var(--gray-200);border-radius:6px">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div>
+            <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:4px">수량</label>
+            <input type="number" id="${prefix}_qty" value="${c.qty||1}" min="1" style="width:100%;padding:8px;border:1px solid var(--gray-200);border-radius:6px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:4px">상태(신/중고)</label>
+            <select id="${prefix}_condition" style="width:100%;padding:8px;border:1px solid var(--gray-200);border-radius:6px">
+              <option value="new" ${c.condition!=='used'?'selected':''}>신품</option>
+              <option value="used" ${c.condition==='used'?'selected':''}>중고</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:4px">라이프사이클</label>
+            <select id="${prefix}_status" style="width:100%;padding:8px;border:1px solid var(--gray-200);border-radius:6px">${statusOpts}</select>
+          </div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:4px">옵션 (각 줄: "이름: 값")</label>
+          <textarea id="${prefix}_options" placeholder="예)&#10;길이(mm): 1800&#10;형태: 일자" style="width:100%;min-height:60px;padding:8px;border:1px solid var(--gray-200);border-radius:6px;font-family:inherit;font-size:12px;resize:vertical">${esc(optsText)}</textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:4px">시리얼 (선택)</label>
+            <input type="text" id="${prefix}_serial" value="${esc(c.serialNo||'')}" style="width:100%;padding:8px;border:1px solid var(--gray-200);border-radius:6px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:4px">사이즈 (선택)</label>
+            <input type="text" id="${prefix}_size" value="${esc(c.size||'')}" placeholder="가로×세로 등" style="width:100%;padding:8px;border:1px solid var(--gray-200);border-radius:6px">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:4px">설치일</label>
+            <input type="date" id="${prefix}_installedAt" value="${esc((c.installedAt||'').slice(0,10))}" style="width:100%;padding:8px;border:1px solid var(--gray-200);border-radius:6px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:4px">설치자</label>
+            <input type="text" id="${prefix}_installedBy" value="${esc(c.installedBy||'')}" style="width:100%;padding:8px;border:1px solid var(--gray-200);border-radius:6px">
+          </div>
+        </div>
+        ${c.instanceId ? `<div style="font-size:10px;color:var(--gray-400);background:#F9FAFB;padding:6px 10px;border-radius:6px;font-family:monospace">ID: ${esc(c.instanceId)}${c.sourceJobId?' · 출처 작업: '+esc(c.sourceJobId):''}</div>` : ''}
+      </div>`;
+  }
+  function _onSeemCatalogChange(prefix) {
+    const sel = document.getElementById(prefix+'_catalogId');
+    if (!sel || !sel.value) return;
+    const catalog = (typeof getEquipmentCatalog === 'function') ? getEquipmentCatalog() : [];
+    const it = catalog.find(x => x.id === sel.value);
+    if (!it) return;
+    const nameEl = document.getElementById(prefix+'_name');
+    const catEl  = document.getElementById(prefix+'_category');
+    if (nameEl && !nameEl.value) nameEl.value = it.name || '';
+    if (catEl  && !catEl.value)  catEl.value  = it.category || '';
+  }
+  window._onSeemCatalogChange = _onSeemCatalogChange;
+
+  function _collectEquipForm(prefix) {
+    const optsText = (document.getElementById(prefix+'_options')?.value || '').trim();
+    const options = {};
+    if (optsText) {
+      optsText.split(/\r?\n/).forEach(line => {
+        const m = line.match(/^([^:：]+)[:：](.+)$/);
+        if (m) options[m[1].trim()] = m[2].trim();
+      });
+    }
+    return {
+      catalogId:   document.getElementById(prefix+'_catalogId')?.value || null,
+      name:        document.getElementById(prefix+'_name')?.value.trim() || '',
+      category:    document.getElementById(prefix+'_category')?.value.trim() || '',
+      qty:         Number(document.getElementById(prefix+'_qty')?.value) || 1,
+      condition:   document.getElementById(prefix+'_condition')?.value || 'new',
+      status:      document.getElementById(prefix+'_status')?.value || 'in_use',
+      serialNo:    document.getElementById(prefix+'_serial')?.value.trim() || '',
+      size:        document.getElementById(prefix+'_size')?.value.trim() || '',
+      installedAt: document.getElementById(prefix+'_installedAt')?.value || '',
+      installedBy: document.getElementById(prefix+'_installedBy')?.value.trim() || '',
+      options,
+    };
+  }
+
+  function openStoreEquipAdd() {
+    const ctx = window._currentStoreEquipCtx;
+    if (!ctx) { showToast && showToast('매장 컨텍스트가 없습니다'); return; }
+    const modal = _ensureStoreEquipModal();
+    document.getElementById('seemTitle').textContent = `🖥 ${ctx.storeName || ''} — 장비 추가`;
+    document.getElementById('seemBody').innerHTML = _renderEquipFormFields('seem_new', {});
+    document.getElementById('seemFooterLeft').innerHTML = '';
+    document.getElementById('seemSaveBtn').onclick = () => {
+      const data = _collectEquipForm('seem_new');
+      if (!data.name) { showToast && showToast('장비명 입력 필요'); return; }
+      addStoreEquipment(ctx, data, { toast:true });
+      modal.classList.remove('show');
+      // 매장 상세 모달 재렌더
+      try { if (typeof reopenStoreDetail === 'function') reopenStoreDetail(); else location.reload(); } catch(e) { location.reload(); }
+    };
+    modal.classList.add('show');
+  }
+  window.openStoreEquipAdd = openStoreEquipAdd;
+
+  function _findInstanceFromCtx(instanceId) {
+    const ctx = window._currentStoreEquipCtx;
+    if (!ctx) return null;
+    const list = getStoreEquipment(ctx);
+    return list.find(e => e.instanceId === instanceId) || null;
+  }
+
+  function openStoreEquipEditor(instanceId) {
+    const ctx = window._currentStoreEquipCtx;
+    const inst = _findInstanceFromCtx(instanceId);
+    if (!ctx || !inst) { showToast && showToast('장비를 찾을 수 없음'); return; }
+    const modal = _ensureStoreEquipModal();
+    document.getElementById('seemTitle').textContent = `✎ ${inst.name} — 편집`;
+    document.getElementById('seemBody').innerHTML = _renderEquipFormFields('seem_ed', inst);
+    document.getElementById('seemFooterLeft').innerHTML = `
+      <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);font-weight:700"
+              onclick="if(confirm('이 장비 인스턴스를 폐기 처리하시겠습니까?\\n(데이터는 보존, 상태만 disposed)')){updateStoreEquipment(window._currentStoreEquipCtx,'${esc(instanceId)}',{status:'disposed'},{toast:true});document.getElementById('storeEquipEditorModal').classList.remove('show');try{reopenStoreDetail()}catch(e){location.reload()}}">
+        🗑 폐기 처리
+      </button>`;
+    document.getElementById('seemSaveBtn').onclick = () => {
+      const data = _collectEquipForm('seem_ed');
+      if (!data.name) { showToast && showToast('장비명 필요'); return; }
+      updateStoreEquipment(ctx, instanceId, data, { toast:true });
+      modal.classList.remove('show');
+      try { reopenStoreDetail(); } catch(e) { location.reload(); }
+    };
+    modal.classList.add('show');
+  }
+  window.openStoreEquipEditor = openStoreEquipEditor;
+
+  function openStoreEquipStatusPicker(instanceId) {
+    const inst = _findInstanceFromCtx(instanceId);
+    if (!inst) { showToast && showToast('장비를 찾을 수 없음'); return; }
+    const opts = Object.entries(STORE_EQUIP_STATUS).map(([k,v]) =>
+      `${k===inst.status?'· (현재) ':'  '}${k} = ${v.label}`).join('\n');
+    const next = prompt(`상태 변경 — ${inst.name}\n\n다음 중 하나를 입력하세요:\n${opts}\n\n사유 / 메모 (선택)는 다음 단계에서.`, inst.status);
+    if (!next || !STORE_EQUIP_STATUS[next]) return;
+    const note = prompt('상태 변경 메모 (선택)', '') || '';
+    updateStoreEquipment(window._currentStoreEquipCtx, instanceId, { status: next, statusNote: note }, { toast:true });
+    try { reopenStoreDetail(); } catch(e) { location.reload(); }
+  }
+  window.openStoreEquipStatusPicker = openStoreEquipStatusPicker;
+
+  function reopenStoreDetail() {
+    /* 현재 열려있는 매장 상세 모달을 다시 채워 넣기 */
+    const ctx = window._currentStoreEquipCtx;
+    if (!ctx) return;
+    // 가장 안전한 방법 — openStoreDetail 류 함수가 있으면 호출, 없으면 그냥 equip 표만 다시 렌더
+    if (typeof window.openStoreDetail === 'function' && ctx.storeName) {
+      try { window.openStoreDetail(ctx.storeName); return; } catch(e){}
+    }
+    // fallback — equipBody 만 다시 그림
+    const stores = (typeof getStores === 'function') ? (getStores()||[]) : [];
+    const store = _findStoreInList(stores, ctx);
+    const equipBody = document.getElementById('detailEquipTbody');
+    if (!store || !equipBody) return;
+    // 강제로 상세 모달 렌더 트리거 — store-row 검색
+    // 간단: 모달 컨텐츠는 외부 함수가 채우므로, 사용자가 모달을 다시 클릭하도록 안내
+    showToast && showToast('💡 매장 상세를 다시 열어 변경 사항을 확인하세요');
+  }
+  window.reopenStoreDetail = reopenStoreDetail;
+
+  /* 페이지 로드 후 1회 자동 마이그레이션 — job.equipment(checked) → store.equipment */
+  setTimeout(() => {
+    try {
+      if (typeof migrateJobEquipmentToStore !== 'function') return;
+      const r = migrateJobEquipmentToStore();
+      if (r && r.ok && r.added > 0) {
+        console.log(`[migrate] store.equipment v${STORE_EQUIP_SCHEMA_VER} — ${r.added}건, ${r.stores}개 매장 적재`);
+      }
+    } catch(e) { console.warn('[migrate] failed:', e); }
+  }, 1500);
 </script>
 </body>
 </html>
