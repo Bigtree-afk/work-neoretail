@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NeoRetail — 네비게이션 재설계 (Interactive)</title>
+<title>NeoRetail — 네비게이션 재설계 v2 (Interactive)</title>
 <link rel="stylesheet" as="style" crossorigin
       href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
 <style>
@@ -21,7 +21,7 @@
 
   /* ━━━ 상단 네비 ━━━ */
   .nav{background:linear-gradient(135deg,#1F2937 0%,#111827 100%);padding:0 22px;
-       display:flex;align-items:center;gap:4px;height:58px;position:sticky;top:0;z-index:10;
+       display:flex;align-items:center;gap:4px;height:58px;position:sticky;top:0;z-index:30;
        box-shadow:0 2px 12px rgba(0,0,0,.15)}
   .brand{color:#fff;font-weight:900;font-size:15px;display:flex;align-items:center;gap:8px;margin-right:18px}
   .brand .logo{width:32px;height:32px;background:var(--neo-red);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px}
@@ -36,113 +36,229 @@
   .nav-user:hover{background:rgba(255,255,255,.1);color:#fff}
 
   /* ━━━ 컨텐츠 ━━━ */
-  .main{max-width:1280px;margin:0 auto;padding:22px 20px 60px}
-  .page-title{font-size:20px;font-weight:900;margin-bottom:4px;display:flex;align-items:center;gap:8px}
-  .page-sub{font-size:12.5px;color:var(--gray-600);margin-bottom:18px}
+  .main{max-width:1280px;margin:0 auto;padding:18px 18px 60px}
+  .page-title{font-size:19px;font-weight:900;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  .page-sub{font-size:12.5px;color:var(--gray-600);margin-bottom:16px}
 
   .pane{display:none}
   .pane.active{display:block;animation:fadeIn .15s}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 
   /* 카드 공통 */
-  .card{background:#fff;border:1.5px solid var(--gray-200);border-radius:12px;padding:16px 18px;margin-bottom:14px;
-        box-shadow:0 2px 8px rgba(0,0,0,.03)}
-  .card-title{font-size:13.5px;font-weight:900;color:var(--gray-800);margin-bottom:12px;display:flex;align-items:center;gap:8px}
-  .card-title .cnt{font-size:11px;background:var(--gray-100);color:var(--gray-600);padding:2px 8px;border-radius:99px;font-weight:800;margin-left:4px}
+  .card{background:#fff;border:1.5px solid var(--gray-200);border-radius:12px;margin-bottom:14px;
+        box-shadow:0 2px 8px rgba(0,0,0,.03);overflow:hidden}
+  .card-head{padding:14px 18px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .card-title{font-size:13.5px;font-weight:900;color:var(--gray-800);display:flex;align-items:center;gap:8px}
+  .card-title .cnt{font-size:11px;background:var(--gray-100);color:var(--gray-600);padding:2px 8px;border-radius:99px;font-weight:800}
+  .card-body{padding:12px 18px}
+  .btn{background:var(--gray-100);color:var(--gray-700);border:1px solid var(--gray-200);border-radius:7px;padding:5px 11px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn:hover{background:var(--gray-200)}
+  .btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .btn.primary:hover{background:var(--primary-dark)}
+  .btn.outline{background:#fff}
 
-  /* 대시보드 — 메인 알림 / 통계 카드 */
-  .alert-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
-  @media(max-width:780px){.alert-row{grid-template-columns:1fr}}
-  .alert-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .12s}
-  .alert-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.08);transform:translateY(-1px)}
-  .alert-card.urgent{border-color:var(--neo-red);background:#fff5f5}
-  .alert-card .ico{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
-  .alert-card.urgent .ico{background:#fee2e2}
-  .alert-card.info .ico{background:#dbeafe}
-  .alert-card .text h4{font-size:13px;font-weight:800;color:var(--gray-800);margin-bottom:3px;display:flex;align-items:center;gap:6px}
-  .alert-card .text h4 .badge{background:var(--neo-red);color:#fff;font-size:10px;padding:1px 7px;border-radius:99px;font-weight:800}
-  .alert-card.info .text h4 .badge{background:var(--primary)}
-  .alert-card .text p{font-size:11.5px;color:var(--gray-600);line-height:1.5}
+  /* ───── 대시보드 (기존 스타일 복원) ───── */
+  .line-banner{margin-bottom:14px;background:linear-gradient(135deg,#06C755 0%,#04A047 100%);color:#fff;padding:13px 18px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(6,199,85,0.25);display:flex;align-items:center;gap:14px}
+  .line-banner .ico{font-size:26px}
+  .line-banner .text{flex:1}
+  .line-banner h4{font-size:14.5px;font-weight:800}
+  .line-banner p{font-size:11px;opacity:0.9;margin-top:2px}
+  .line-banner .cta{font-size:12px;font-weight:700;background:rgba(255,255,255,0.2);padding:7px 12px;border-radius:7px}
 
-  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
-  @media(max-width:780px){.stat-row{grid-template-columns:repeat(2,1fr)}}
-  .stat-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .12s}
-  .stat-card:hover{border-color:var(--primary);box-shadow:0 4px 10px rgba(0,0,0,.05)}
-  .stat-card .label{font-size:11px;color:var(--gray-500);font-weight:700;display:flex;align-items:center;gap:5px}
-  .stat-card .num{font-size:22px;font-weight:900;color:var(--gray-900);margin-top:4px}
-  .stat-card .num .unit{font-size:12px;font-weight:700;color:var(--gray-500);margin-left:3px}
-  .stat-card.new{border-left:4px solid var(--success)}
-  .stat-card.as{border-left:4px solid var(--warning)}
-  .stat-card.van{border-left:4px solid var(--primary)}
-  .stat-card.supplies{border-left:4px solid var(--purple)}
+  .notice-card{margin-bottom:14px;border-left:4px solid #7C3AED}
+  .notice-item{padding:10px 18px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12.5px}
+  .notice-item:last-child{border-bottom:none}
+  .notice-item:hover{background:var(--gray-50)}
+  .notice-item .pin{font-size:14px}
+  .notice-item .ti{flex:1;font-weight:700;color:var(--gray-800)}
+  .notice-item .date{font-size:11px;color:var(--gray-500)}
 
-  /* 업무 카드 (목록) */
-  .job-list{display:flex;flex-direction:column;gap:10px}
-  .job-card{background:#fff;border:1.5px solid var(--gray-200);border-left:4px solid var(--primary);border-radius:10px;padding:13px 16px;
-            display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;transition:all .12s}
-  .job-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.06);transform:translateY(-1px)}
-  .job-card.new{border-left-color:var(--success)}
-  .job-card.as{border-left-color:var(--warning)}
-  .job-card.van{border-left-color:var(--primary)}
-  .job-card.supplies{border-left-color:var(--purple)}
-  .job-card .left{flex:1;min-width:0}
-  .job-card .tag{font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:99px;color:#fff;margin-right:5px;display:inline-block}
-  .tag.new{background:var(--success)} .tag.as{background:var(--warning)}
-  .tag.van{background:var(--primary)} .tag.supplies{background:var(--purple)}
-  .job-card .title{font-size:13.5px;font-weight:800;color:var(--gray-900);margin-top:3px}
-  .job-card .meta{font-size:11px;color:var(--gray-500);margin-top:3px}
-  .job-card .when{font-size:11px;background:var(--gray-100);color:var(--gray-700);padding:5px 10px;border-radius:7px;font-weight:700;flex-shrink:0}
-  .job-card .when.urgent{background:var(--neo-red);color:#fff}
-  .job-card .when.done{background:#d1fae5;color:#065f46}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  @media(max-width:880px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+  .stat-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:12px;padding:14px 16px;cursor:pointer;transition:all .12s;position:relative;overflow:hidden}
+  .stat-card:hover{box-shadow:0 6px 16px rgba(0,0,0,.06);transform:translateY(-1px)}
+  .stat-label{font-size:11.5px;color:var(--gray-500);font-weight:700}
+  .stat-value{font-size:26px;font-weight:900;color:var(--gray-900);margin-top:5px}
+  .stat-sub{font-size:11px;color:var(--gray-500);margin-top:4px}
+  .stat-icon{position:absolute;right:14px;top:13px;font-size:30px;opacity:0.25}
+  .stat-card.blue{border-top:3px solid var(--primary)}
+  .stat-card.green{border-top:3px solid var(--success)}
+  .stat-card.amber{border-top:3px solid var(--warning)}
+  .stat-card.red{border-top:3px solid var(--danger)}
+
+  .dash-as-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 18px}
+  @media(max-width:760px){.dash-as-grid{grid-template-columns:1fr}}
+  .dash-as-item{background:var(--gray-50);border-left:3px solid var(--warning);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .12s}
+  .dash-as-item:hover{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .dash-as-item.urgent{border-left-color:var(--danger);background:#fef2f2}
+  .dash-as-item .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;font-size:11px}
+  .dash-as-item .top .name{font-weight:800;color:var(--gray-900);font-size:12.5px}
+  .dash-as-item .top .age{font-weight:700}
+  .dash-as-item .desc{font-size:11.5px;color:var(--gray-700)}
+  .dash-as-item .foot{display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:var(--gray-500)}
+
+  .summary-card{margin-top:14px;border:1.5px solid #1D4ED8;background:linear-gradient(135deg,#EFF6FF 0%,#F0F9FF 100%)}
+  .summary-card .card-head{background:transparent;border-color:#DBEAFE}
+  .summary-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;padding:0 18px}
+  @media(max-width:760px){.summary-stat-row{grid-template-columns:repeat(2,1fr)}}
+  .mini-stat{background:#fff;border:1px solid #DBEAFE;border-radius:8px;padding:9px 12px;text-align:center}
+  .mini-stat .l{font-size:10.5px;color:#1D4ED8;font-weight:700}
+  .mini-stat .v{font-size:17px;font-weight:900;color:#1E3A8A;margin-top:1px}
+  .summary-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 18px 18px}
+  @media(max-width:760px){.summary-cols{grid-template-columns:1fr}}
+  .summary-col{background:#fff;border:1px solid #DBEAFE;border-radius:10px;padding:10px 12px}
+  .summary-col h5{font-size:12px;font-weight:800;color:#1E3A8A;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #DBEAFE;display:flex;align-items:center;gap:5px}
+  .summary-col ul{list-style:none;padding:0;font-size:11.5px}
+  .summary-col li{padding:4px 0;display:flex;justify-content:space-between;gap:6px;border-bottom:1px dashed #E5E7EB}
+  .summary-col li:last-child{border-bottom:none}
+  .summary-col li .nm{font-weight:700;color:var(--gray-800);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .summary-col li .st{font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;background:#DBEAFE;color:#1E3A8A}
+
+  /* ───── 신규/AS/VAN — 매장 그룹 카드 ───── */
+  .group-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:all .12s}
+  .group-card.expanded{box-shadow:0 6px 20px rgba(0,0,0,.06)}
+  .group-card.cat-new{border-left:4px solid var(--success)}
+  .group-card.cat-as{border-left:4px solid var(--warning)}
+  .group-card.cat-van{border-left:4px solid var(--primary)}
+  .group-card.cat-supplies{border-left:4px solid var(--purple)}
+  .group-head{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer}
+  .group-head:hover{background:var(--gray-50)}
+  .group-head .left{flex:1;min-width:0}
+  .group-head .store-line{display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap}
+  .group-head .store-name{font-size:14px;font-weight:900;color:var(--gray-900);cursor:pointer;text-decoration:underline;text-decoration-color:var(--gray-300);text-underline-offset:3px}
+  .group-head .store-name:hover{color:var(--primary);text-decoration-color:var(--primary)}
+  .group-head .store-meta{font-size:11px;color:var(--gray-500)}
+  .group-head .badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+  .group-head .b-tag{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:99px;background:var(--gray-100);color:var(--gray-600)}
+  .group-head .b-tag.new{background:#d1fae5;color:#065f46}
+  .group-head .b-tag.as{background:#fef3c7;color:#92400e}
+  .group-head .b-tag.van{background:#dbeafe;color:#1e40af}
+  .group-head .right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .group-head .cnt-badge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;background:var(--gray-100);color:var(--gray-700)}
+  .group-head .cnt-badge.urgent{background:var(--neo-red);color:#fff}
+  .group-head .chev{font-size:14px;color:var(--gray-400);transition:transform .2s}
+  .group-card.expanded .chev{transform:rotate(90deg)}
+
+  .group-jobs{display:none;border-top:1px solid var(--gray-100);background:var(--gray-50);padding:10px 14px;flex-direction:column;gap:8px}
+  .group-card.expanded .group-jobs{display:flex}
+  .sub-job{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;transition:all .12s;font-size:12px}
+  .sub-job:hover{border-color:var(--primary);box-shadow:0 2px 6px rgba(0,0,0,.05)}
+  .sub-job .left{flex:1;min-width:0}
+  .sub-job .stag{display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:99px;color:#fff;margin-right:4px}
+  .sub-job .stag.new{background:var(--success)} .sub-job .stag.as{background:var(--warning)}
+  .sub-job .stag.van{background:var(--primary)} .sub-job .stag.supplies{background:var(--purple)}
+  .sub-job .ti{font-weight:700;color:var(--gray-900);margin-top:2px;font-size:12.5px}
+  .sub-job .mt{font-size:10.5px;color:var(--gray-500);margin-top:2px}
+  .sub-job .wn{font-size:10.5px;background:var(--gray-100);color:var(--gray-700);padding:3px 8px;border-radius:6px;font-weight:700;flex-shrink:0}
+  .sub-job .wn.urgent{background:var(--neo-red);color:#fff}
+  .sub-job .wn.done{background:#d1fae5;color:#065f46}
+  .group-jobs .add-job{background:transparent;border:1px dashed var(--gray-300);color:var(--gray-500);font-size:11px;padding:6px;border-radius:6px;cursor:pointer;font-family:inherit;text-align:center}
+  .group-jobs .add-job:hover{border-color:var(--primary);color:var(--primary)}
 
   /* 액션바 */
-  .actbar{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:10px 14px;margin-bottom:12px;flex-wrap:wrap;gap:8px}
-  .actbar .left-side{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .actbar .filter{font-size:11.5px;background:var(--gray-100);border:1px solid var(--gray-200);border-radius:7px;padding:5px 10px;cursor:pointer;font-weight:700;color:var(--gray-700);font-family:inherit}
+  .actbar{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:9px 14px;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+  .actbar .left-side{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .actbar .filter{font-size:11px;background:var(--gray-100);border:1px solid var(--gray-200);border-radius:7px;padding:5px 9px;cursor:pointer;font-weight:700;color:var(--gray-700);font-family:inherit}
   .actbar .filter.active{background:var(--primary);color:#fff;border-color:var(--primary)}
-  .actbar .btn-primary{background:var(--primary);color:#fff;border:none;border-radius:7px;padding:7px 13px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit}
+  .actbar .filter:hover:not(.active){background:var(--gray-200)}
 
-  /* 카테고리 분기 다이얼로그 (모달) */
-  .branch-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(4px);z-index:50;align-items:center;justify-content:center;padding:20px}
-  .branch-modal.show{display:flex}
-  .branch-box{background:#fff;border-radius:14px;max-width:440px;width:100%;padding:22px;box-shadow:0 24px 64px rgba(0,0,0,.32)}
-  .branch-box h3{font-size:16px;font-weight:900;margin-bottom:6px}
-  .branch-box p{font-size:12.5px;color:var(--gray-600);margin-bottom:14px}
-  .branch-opt{display:flex;gap:12px;align-items:center;padding:12px;border:1.5px solid var(--gray-200);border-radius:10px;cursor:pointer;margin-bottom:8px;transition:all .12s}
-  .branch-opt:hover{border-color:var(--primary);background:var(--primary-light)}
-  .branch-opt .ico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-  .branch-opt.new .ico{background:#d1fae5;color:#065f46}
-  .branch-opt.as .ico{background:#fef3c7;color:#92400e}
-  .branch-opt.van .ico{background:#dbeafe;color:#1e40af}
-  .branch-opt .text h4{font-size:13px;font-weight:800;margin-bottom:2px}
-  .branch-opt .text p{font-size:11px;color:var(--gray-500);margin:0}
+  /* ───── 모달 ───── */
+  .backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(4px);z-index:50;align-items:center;justify-content:center;padding:20px}
+  .backdrop.show{display:flex}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:760px;max-height:calc(100vh - 40px);
+         display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.32);animation:slideUp .2s ease}
+  @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .modal.wide{max-width:1024px}
+  .modal-head{background:linear-gradient(135deg,#1F2937 0%,#111827 100%);color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .modal-head h3{font-size:15px;font-weight:900}
+  .modal-head .sub{font-size:11px;opacity:0.7;margin-top:2px}
+  .modal-head .x{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;width:30px;height:30px;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit}
+  .modal-body{flex:1;overflow-y:auto;padding:18px;background:var(--gray-50)}
+  .modal-foot{padding:10px 18px;background:#fff;border-top:1px solid var(--gray-200);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
 
-  /* 점포관리 — 매장 목록 (간단) */
-  .store-row{display:grid;grid-template-columns:30px 1.4fr 1fr .7fr .8fr .6fr 70px;gap:8px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--gray-100);font-size:12px;cursor:pointer}
-  .store-row:hover{background:var(--gray-50)}
-  .store-row.head{background:var(--gray-100);font-weight:800;color:var(--gray-700);font-size:11px;cursor:default}
-  .store-row .name{font-weight:800;color:var(--gray-900)}
-  .store-row .biz{color:var(--gray-600)}
-  .store-row .badge-mini{font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;background:#d1fae5;color:#065f46}
+  /* 폼 */
+  .form-section{background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+  .form-section h4{font-size:12.5px;font-weight:900;color:var(--gray-700);margin-bottom:10px;display:flex;align-items:center;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--gray-100)}
+  .form-row{display:grid;grid-template-columns:90px 1fr;gap:10px;margin-bottom:8px;align-items:center;font-size:12px}
+  .form-row.full{grid-template-columns:1fr}
+  .form-row .lab{color:var(--gray-500);font-weight:700;font-size:11.5px}
+  .form-row input,.form-row select,.form-row textarea{width:100%;border:1px solid var(--gray-300);border-radius:6px;padding:6px 9px;font-family:inherit;font-size:12px;background:#fff}
+  .form-row textarea{resize:vertical;min-height:50px}
+  .form-row .static{padding:6px 0;color:var(--gray-700);font-weight:700;background:var(--gray-50);padding:6px 9px;border-radius:6px;border:1px solid var(--gray-200)}
+  .form-row .static .small{font-size:10.5px;color:var(--gray-500);font-weight:500;margin-left:5px}
 
-  /* 일정조회 — 캘린더 미니 */
-  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-  .cal-day{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:8px;min-height:70px;font-size:11px;cursor:pointer;transition:all .1s}
+  /* 처리기록 */
+  .records-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+  .rec-item{background:var(--gray-50);border-left:3px solid var(--primary);border-radius:6px;padding:8px 10px;font-size:11.5px}
+  .rec-item .meta{font-size:10.5px;color:var(--gray-500);margin-bottom:2px;font-weight:700}
+  .rec-add{display:flex;gap:6px}
+  .rec-add input{flex:1}
+
+  /* 매장 상세 모달 (간단 — 8탭 모달 풀버전) */
+  .sd-modal{max-width:1024px}
+  .sd-head{background:linear-gradient(135deg,#1F2937 0%,#111827 100%);color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .sd-banner{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+  .sd-avatar{width:48px;height:48px;background:rgba(255,255,255,.1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px}
+  .sd-name{font-size:17px;font-weight:900}
+  .sd-meta{font-size:11px;opacity:0.7;margin-top:2px}
+  .sd-tabs{background:#fff;border-bottom:1.5px solid var(--gray-200);display:flex;overflow-x:auto;scrollbar-width:none}
+  .sd-tabs::-webkit-scrollbar{display:none}
+  .sd-tab{padding:12px 16px;font-size:12.5px;font-weight:700;color:var(--gray-500);border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
+  .sd-tab:hover{color:var(--gray-800);background:var(--gray-50)}
+  .sd-tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:800}
+  .sd-tab .c{font-size:10px;background:var(--gray-200);padding:1px 6px;border-radius:99px;font-weight:800}
+  .sd-tab.active .c{background:var(--primary);color:#fff}
+
+  /* 소모품 — 매출 대시보드 */
+  .sup-dash{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  @media(max-width:880px){.sup-dash{grid-template-columns:repeat(2,1fr)}}
+  .sup-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden}
+  .sup-card.sales{border-left:4px solid var(--success)}
+  .sup-card.outstanding{border-left:4px solid var(--danger)}
+  .sup-card.delivery{border-left:4px solid var(--cyan)}
+  .sup-card.profit{border-left:4px solid var(--primary)}
+  .sup-card .lab{font-size:11px;color:var(--gray-500);font-weight:700}
+  .sup-card .val{font-size:22px;font-weight:900;color:var(--gray-900);margin-top:5px}
+  .sup-card .val .u{font-size:11px;font-weight:700;color:var(--gray-500);margin-left:3px}
+  .sup-card .sub{font-size:11px;color:var(--gray-600);margin-top:3px}
+  .sup-card .btn-link{font-size:11px;color:var(--primary);font-weight:800;cursor:pointer;margin-top:8px;display:inline-block;text-decoration:underline;text-underline-offset:2px}
+
+  /* 미수금 테이블 */
+  .ar-table{width:100%;font-size:12px;border-collapse:collapse}
+  .ar-table th,.ar-table td{padding:9px 12px;border-bottom:1px solid var(--gray-100);text-align:left}
+  .ar-table th{background:var(--gray-100);font-weight:800;color:var(--gray-700);font-size:11px}
+  .ar-table .amount{font-weight:800;color:var(--danger);text-align:right}
+  .ar-table .age-old{color:var(--danger);font-weight:700}
+  .ar-table tr.clickable:hover{background:var(--gray-50);cursor:pointer}
+
+  /* 일정 — 캘린더 + 카드 좌우 */
+  .sched-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+  @media(max-width:980px){.sched-grid{grid-template-columns:1fr}}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;padding:10px}
+  .cal-day{background:#fff;border:1px solid var(--gray-200);border-radius:6px;padding:6px;min-height:64px;font-size:10.5px;cursor:pointer;transition:all .1s}
   .cal-day:hover{border-color:var(--primary)}
-  .cal-day .d-num{font-weight:800;color:var(--gray-700);margin-bottom:4px}
+  .cal-day .d-num{font-weight:800;color:var(--gray-700);margin-bottom:3px;font-size:11px}
   .cal-day .d-num.today{color:var(--primary)}
-  .cal-day .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin:1px}
-  .cal-head{background:none;border:none;font-size:11px;font-weight:800;color:var(--gray-500);padding:4px 0;text-align:center}
+  .cal-day .ev{display:block;font-size:9px;background:var(--gray-100);padding:1px 4px;border-radius:3px;margin-top:1px;color:var(--gray-700);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cal-day .ev.new{background:#d1fae5;color:#065f46}
+  .cal-day .ev.as{background:#fef3c7;color:#92400e}
+  .cal-day .ev.van{background:#dbeafe;color:#1e40af}
+  .cal-day .ev.supplies{background:#ede9fe;color:#5b21b6}
+  .cal-head{background:none;border:none;font-size:10.5px;font-weight:800;color:var(--gray-500);padding:4px 0;text-align:center}
 
   /* 데모 안내 */
   .demo-tip{position:fixed;bottom:18px;right:18px;background:#111827;color:#fff;padding:10px 16px;border-radius:10px;
-            font-size:11.5px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.3);z-index:100;max-width:280px;line-height:1.5}
+            font-size:11.5px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.3);z-index:80;max-width:300px;line-height:1.5}
   .demo-tip b{color:#fbbf24}
-  .demo-tip .x{margin-left:8px;cursor:pointer;color:#fbbf24}
+  .demo-tip .x{margin-left:8px;cursor:pointer;color:#fbbf24;font-size:13px}
 
-  /* 라우팅 안내 박스 (각 메뉴 상단) */
-  .route-info{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;font-size:11.5px;color:#92400e;margin-bottom:14px;display:flex;align-items:center;gap:8px;line-height:1.5}
-  .route-info .ico{font-size:18px}
+  /* 라우팅 안내 */
+  .route-info{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px 13px;font-size:11.5px;color:#92400e;margin-bottom:12px;display:flex;align-items:center;gap:8px;line-height:1.5}
+  .route-info .ico{font-size:16px}
+
+  .badge-mini{font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;background:#d1fae5;color:#065f46;display:inline-block}
+  .badge-mini.warn{background:#fef3c7;color:#92400e}
+  .badge-mini.urgent{background:#fee2e2;color:#991b1b}
 </style>
 </head>
 <body>
@@ -151,8 +267,8 @@
 <div class="nav">
   <div class="brand"><div class="logo">N</div>NeoRetail</div>
   <button class="nav-item active" data-pane="dashboard">📊 대시보드</button>
-  <button class="nav-item" data-pane="new">🆕 신규업무 <span class="badge">5</span></button>
-  <button class="nav-item" data-pane="as">🔧 AS관리 <span class="badge">12</span></button>
+  <button class="nav-item" data-pane="new">🆕 신규 <span class="badge">5</span></button>
+  <button class="nav-item" data-pane="as">🔧 AS <span class="badge">12</span></button>
   <button class="nav-item" data-pane="van">📑 VAN</button>
   <button class="nav-item" data-pane="stock">📦 재고조사</button>
   <button class="nav-item" data-pane="supplies">🏷️ 소모품판매</button>
@@ -164,280 +280,490 @@
 
 <div class="main">
 
-  <!-- ─── 대시보드 ─── -->
+  <!-- ════════ 대시보드 (기존 인터페이스 복원) ════════ -->
   <div class="pane active" data-pane="dashboard">
-    <div class="page-title">📊 대시보드</div>
-    <div class="page-sub">오늘 처리해야 할 업무와 알림이 모입니다</div>
 
-    <!-- VAN 서류 알림 카드 -->
-    <div class="alert-row">
-      <div class="alert-card urgent" onclick="goTo('van')">
-        <div class="ico">📑</div>
-        <div class="text">
-          <h4>📌 처리 대기 VAN 서류 <span class="badge">3</span></h4>
-          <p>신한카드 가맹 등록 보완요청 / 삼성카드 재신고 / 4월 정산내역 발송</p>
+    <!-- LINE 등록 대기 배너 -->
+    <div class="line-banner" onclick="alert('Line 등록 대기 검토 모달')">
+      <div class="ico">💬</div>
+      <div class="text">
+        <h4><span style="font-weight:900">4개</span> 등록 대기 업무가 있습니다</h4>
+        <p>Line 채팅방에서 파싱된 항목 — 매장·담당자·상태 확인 후 등록</p>
+      </div>
+      <div class="cta">검토하기 →</div>
+    </div>
+
+    <!-- 공지사항 -->
+    <div class="card notice-card">
+      <div class="card-head">
+        <div class="card-title" style="color:#5B21B6">📢 공지사항</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn" style="color:#5B21B6;border-color:#7C3AED">✏️ 작성</button>
+          <button class="btn outline">전체 보기 →</button>
         </div>
       </div>
-      <div class="alert-card info" onclick="goTo('new')">
-        <div class="ico">🆕</div>
-        <div class="text">
-          <h4>오늘 시작/예정 신규 업무 <span class="badge">2</span></h4>
-          <p>온맘마켓 위례점 키오스크 추가 설치 (D-5) / 더봄(주) 신규 오픈 (D-12)</p>
-        </div>
+      <div class="notice-item">
+        <span class="pin">📌</span>
+        <span class="ti">2026년 5월 시스템 점검 안내 — 5/18(토) 02:00~04:00</span>
+        <span class="date">2026-05-13</span>
+      </div>
+      <div class="notice-item">
+        <span class="pin">📣</span>
+        <span class="ti">새 매장 상세 모달(8탭 구조) 배포 — 사용법 가이드 첨부</span>
+        <span class="date">2026-05-15</span>
       </div>
     </div>
 
-    <!-- 통계 4종 -->
-    <div class="stat-row">
-      <div class="stat-card new" onclick="goTo('new')">
-        <div class="label">🆕 진행 중 신규</div>
-        <div class="num">5<span class="unit">건</span></div>
+    <!-- 4종 통계 카드 -->
+    <div class="stat-grid">
+      <div class="stat-card blue" onclick="goTo('new')">
+        <div class="stat-label">이번달 신규</div>
+        <div class="stat-value">8</div>
+        <div class="stat-sub">진행 5 · 완료 3</div>
+        <div class="stat-icon">🏪</div>
       </div>
-      <div class="stat-card as" onclick="goTo('as')">
-        <div class="label">🔧 진행 중 AS</div>
-        <div class="num">12<span class="unit">건</span></div>
+      <div class="stat-card green" onclick="goTo('new')">
+        <div class="stat-label">진행중 작업</div>
+        <div class="stat-value">17</div>
+        <div class="stat-sub">신규 5 + AS 12</div>
+        <div class="stat-icon">⚙️</div>
       </div>
-      <div class="stat-card van" onclick="goTo('van')">
-        <div class="label">📑 VAN 서류</div>
-        <div class="num">3<span class="unit">건</span></div>
+      <div class="stat-card amber" onclick="goTo('as')">
+        <div class="stat-label">AS 접수</div>
+        <div class="stat-value">12</div>
+        <div class="stat-sub">긴급 2 · 처리중 8 · 대기 2</div>
+        <div class="stat-icon">🔧</div>
       </div>
-      <div class="stat-card supplies" onclick="goTo('supplies')">
-        <div class="label">🏷️ 소모품 미수</div>
-        <div class="num">8<span class="unit">건</span></div>
+      <div class="stat-card red" onclick="alert('재고 부족 목록')">
+        <div class="stat-label">장비 재고 부족</div>
+        <div class="stat-value">3</div>
+        <div class="stat-sub">키오스크 1, POS 2</div>
+        <div class="stat-icon">📦</div>
       </div>
     </div>
 
-    <!-- 오늘의 일정 -->
+    <!-- AS 미처리 현황 -->
     <div class="card">
-      <div class="card-title">📅 오늘의 일정 <span class="cnt">3</span></div>
-      <div class="job-list">
-        <div class="job-card new" onclick="alert('매장 상세 모달이 뜹니다')">
-          <div class="left">
-            <span class="tag new">🆕 신규/오픈</span>
-            <span style="font-size:10.5px;color:var(--gray-500);font-weight:700">온맘마켓 위례점</span>
-            <div class="title">키오스크 2대 추가 설치</div>
-            <div class="meta">📅 5/20 14:00 방문 · 홍길동 · 메모 3건</div>
+      <div class="card-head">
+        <div class="card-title">🔧 AS 미처리 현황 <span class="cnt">12건</span></div>
+        <button class="btn outline" onclick="goTo('as')">전체보기</button>
+      </div>
+      <div class="dash-as-grid">
+        <div class="dash-as-item urgent" onclick="openJobForm('as')">
+          <div class="top">
+            <span class="name">하모니마트 일동점</span>
+            <span class="age" style="color:var(--danger)">72시간</span>
           </div>
-          <div class="when urgent">D-5</div>
+          <div class="desc">3번 POS 영수증 프린터 불량</div>
+          <div class="foot"><span>📅 5/14 접수</span><span>👤 김기사</span></div>
         </div>
-        <div class="job-card as" onclick="alert('매장 상세 모달이 뜹니다')">
-          <div class="left">
-            <span class="tag as">🔧 AS/POS</span>
-            <span style="font-size:10.5px;color:var(--gray-500);font-weight:700">하모니마트 일동점</span>
-            <div class="title">3번 POS 영수증 프린터 불량</div>
-            <div class="meta">📅 5/17 방문 예정 · 김기사 · 메모 1건</div>
+        <div class="dash-as-item urgent" onclick="openJobForm('as')">
+          <div class="top">
+            <span class="name">참소담 시흥점</span>
+            <span class="age" style="color:var(--danger)">48시간</span>
           </div>
-          <div class="when">D-2</div>
+          <div class="desc">VAN 단말기 통신 끊김</div>
+          <div class="foot"><span>📅 5/15 접수</span><span>👤 박기사</span></div>
         </div>
-        <div class="job-card van" onclick="alert('매장 상세 모달이 뜹니다')">
-          <div class="left">
-            <span class="tag van">📑 VAN/신규</span>
-            <span style="font-size:10.5px;color:var(--gray-500);font-weight:700">온맘마켓 위례점</span>
-            <div class="title">신한카드 가맹 등록 — 보완요청</div>
-            <div class="meta">서류 접수 5/15 · 진행 중 · 신한·삼성 보완</div>
+        <div class="dash-as-item" onclick="openJobForm('as')">
+          <div class="top">
+            <span class="name">온맘마켓 다산점</span>
+            <span class="age" style="color:var(--warning)">24시간</span>
           </div>
-          <div class="when">진행</div>
+          <div class="desc">VAN 단말기 교체</div>
+          <div class="foot"><span>📅 5/14 접수</span><span>👤 이기사</span></div>
+        </div>
+        <div class="dash-as-item" onclick="openJobForm('as')">
+          <div class="top">
+            <span class="name">베스트마트 인천점</span>
+            <span class="age">12시간</span>
+          </div>
+          <div class="desc">이동단말기 충전 불량</div>
+          <div class="foot"><span>📅 5/15 접수</span><span>👤 미배정</span></div>
         </div>
       </div>
     </div>
+
+    <!-- 신규/상담 현황 -->
+    <div class="card summary-card">
+      <div class="card-head">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:30px;height:30px;background:linear-gradient(135deg,#1D4ED8,#3B82F6);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff">📋</div>
+          <div>
+            <div style="font-size:13px;font-weight:800;color:#1E3A8A">신규관리 / 상담 조회 현황</div>
+            <div style="font-size:11px;color:#1D4ED8;font-weight:500">실제 등록 데이터 기반 — 클릭 시 상세</div>
+          </div>
+        </div>
+      </div>
+      <div class="summary-stat-row" style="margin-top:14px">
+        <div class="mini-stat"><div class="l">전체 신규</div><div class="v">8</div></div>
+        <div class="mini-stat"><div class="l">이번달 시작</div><div class="v">3</div></div>
+        <div class="mini-stat"><div class="l">상담 진행</div><div class="v">5</div></div>
+        <div class="mini-stat"><div class="l">계약 임박</div><div class="v">2</div></div>
+      </div>
+      <div class="summary-cols">
+        <div class="summary-col">
+          <h5>🆕 신규 진행중</h5>
+          <ul>
+            <li><span class="nm">더봄(주) 본점 — POS 4 + KIOSK 2</span><span class="st">D-12</span></li>
+            <li><span class="nm">온맘마켓 위례점 — 키오스크 2 확장</span><span class="st">D-5</span></li>
+            <li><span class="nm">하모니마트 본점 — 프로그램 v3 교체</span><span class="st">D-7</span></li>
+            <li><span class="nm">베스트마트 청라점 — POS + 카드단말</span><span class="st">D-9</span></li>
+          </ul>
+        </div>
+        <div class="summary-col">
+          <h5>💬 상담 진행중</h5>
+          <ul>
+            <li><span class="nm">미마트 강북점 — 견적 발송</span><span class="st">답변대기</span></li>
+            <li><span class="nm">엘마트 분당점 — POS 5대 견적</span><span class="st">답변대기</span></li>
+            <li><span class="nm">에이마트 안산점 — 키오스크 도입 상담</span><span class="st">2차상담</span></li>
+            <li><span class="nm">참소담 서면점 — 재계약 협의</span><span class="st">진행</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
   </div>
 
-  <!-- ─── 신규업무 ─── -->
+  <!-- ════════ 신규 (매장별 그룹) ════════ -->
   <div class="pane" data-pane="new">
-    <div class="page-title">🆕 신규업무</div>
-    <div class="page-sub">새로운 거래처 / VAN / POS 거래가 시작되는 모든 업무</div>
+    <div class="page-title">🆕 신규</div>
+    <div class="page-sub">매장별로 묶어서 표시 — 한 매장의 여러 업무는 카드 안에 펼침</div>
 
     <div class="route-info">
       <span class="ico">ℹ️</span>
-      <div>이 메뉴에 모이는 카테고리:
-        <strong>신규/오픈</strong> · <strong>신규/프로그램교체</strong> · <strong>신규/VAN변경</strong>
-        · <strong>단말개통</strong>(선택 시) · <strong>VAN/신규등록</strong>
-      </div>
+      <div>모이는 카테고리: <strong>신규/오픈</strong> · <strong>신규/프로그램교체</strong> · <strong>신규/VAN변경</strong> · <strong>단말개통</strong>(신규측) · <strong>VAN/신규등록</strong></div>
     </div>
 
     <div class="actbar">
       <div class="left-side">
-        <button class="filter active">전체 5</button>
-        <button class="filter">진행 중 4</button>
+        <button class="filter active">전체 4개 매장</button>
+        <button class="filter">진행 중 3</button>
         <button class="filter">완료 1</button>
-        <button class="filter">신규/오픈 3</button>
-        <button class="filter">VAN/신규 2</button>
+        <button class="filter">계약 임박 2</button>
       </div>
-      <button class="btn-primary" onclick="addJob('new')">+ 신규 업무 등록</button>
+      <button class="btn primary" onclick="openJobForm('new')">+ 신규 업무 등록</button>
     </div>
 
-    <div class="job-list">
-      <div class="job-card new">
+    <!-- 매장 그룹 카드들 -->
+    <div class="group-card cat-new expanded">
+      <div class="group-head" onclick="toggleGroup(this)">
         <div class="left">
-          <span class="tag new">신규/오픈</span>
-          <span class="tag van">VAN/신규</span>
-          <div class="title">더봄(주) 신규 오픈 — POS 4대 + VAN + 키오스크 2대</div>
-          <div class="meta">📅 예정 5/27 · 가오픈 5/25 · 홍 · 메모 4건</div>
+          <div class="store-line">
+            <span class="store-name" onclick="event.stopPropagation();openStoreDetail()">더봄(주) 본점</span>
+            <span class="badge-mini warn">신규 진행</span>
+          </div>
+          <div class="store-meta">439-13-02550 · 다산 중앙로 · 코세스 · 가오픈 5/25 → 오픈 5/27</div>
+          <div class="badges">
+            <span class="b-tag new">신규/오픈</span>
+            <span class="b-tag van">VAN/신규등록</span>
+          </div>
         </div>
-        <div class="when urgent">D-12</div>
+        <div class="right">
+          <span class="cnt-badge urgent">3 업무</span>
+          <span class="chev">▶</span>
+        </div>
       </div>
-      <div class="job-card new">
-        <div class="left">
-          <span class="tag new">신규/오픈</span>
-          <div class="title">온맘마켓 위례점 키오스크 2대 추가 설치</div>
-          <div class="meta">📅 예정 5/20 · 김 · 메모 3건</div>
+      <div class="group-jobs">
+        <div class="sub-job" onclick="openJobForm('new')">
+          <div class="left">
+            <span class="stag new">신규/오픈</span>
+            <div class="ti">매장 오픈 — POS 4 + VAN + 키오스크 2</div>
+            <div class="mt">📅 예정 5/27 · 홍 · 메모 4 · 계약: 코세스 표준</div>
+          </div>
+          <div class="wn urgent">D-12</div>
         </div>
-        <div class="when urgent">D-5</div>
+        <div class="sub-job" onclick="openJobForm('van')">
+          <div class="left">
+            <span class="stag van">VAN/신규</span>
+            <div class="ti">신한카드 외 4사 가맹 등록</div>
+            <div class="mt">서류 접수 진행 · KS코드 대기</div>
+          </div>
+          <div class="wn">진행</div>
+        </div>
+        <div class="sub-job" onclick="openJobForm('new')">
+          <div class="left">
+            <span class="stag new" style="background:var(--gray-400)">단말개통</span>
+            <div class="ti">VAN 단말 + 키오스크 단말 개통</div>
+            <div class="mt">📅 5/26 · 김</div>
+          </div>
+          <div class="wn">D-11</div>
+        </div>
+        <button class="add-job" onclick="event.stopPropagation();openJobForm('new')">+ 이 매장에 신규 업무 추가</button>
       </div>
-      <div class="job-card new">
+    </div>
+
+    <div class="group-card cat-new">
+      <div class="group-head" onclick="toggleGroup(this)">
         <div class="left">
-          <span class="tag new">신규/프로그램교체</span>
-          <div class="title">하모니마트 본점 POS 프로그램 v2 → v3</div>
-          <div class="meta">📅 예정 5/22 · 박 · 메모 2건</div>
+          <div class="store-line">
+            <span class="store-name" onclick="event.stopPropagation();openStoreDetail()">온맘마켓 위례점</span>
+            <span class="badge-mini">거래중</span>
+          </div>
+          <div class="store-meta">184-81-03677 · 송파구 위례성대로 · 코세스 · POS 5대</div>
+          <div class="badges"><span class="b-tag new">신규/오픈 (확장)</span></div>
         </div>
-        <div class="when">D-7</div>
+        <div class="right">
+          <span class="cnt-badge urgent">1 업무</span>
+          <span class="chev">▶</span>
+        </div>
       </div>
-      <div class="job-card new">
-        <div class="left">
-          <span class="tag new" style="background:var(--gray-400)">단말개통(신규측)</span>
-          <div class="title">베스트마트 청라점 — POS + 카드단말</div>
-          <div class="meta">📅 5/24 · 이 · 메모 1건</div>
+      <div class="group-jobs">
+        <div class="sub-job" onclick="openJobForm('new')">
+          <div class="left">
+            <span class="stag new">신규/오픈</span>
+            <div class="ti">키오스크 2대 추가 설치</div>
+            <div class="mt">📅 예정 5/20 · 김 · 메모 3</div>
+          </div>
+          <div class="wn urgent">D-5</div>
         </div>
-        <div class="when">D-9</div>
       </div>
-      <div class="job-card new">
+    </div>
+
+    <div class="group-card cat-new">
+      <div class="group-head" onclick="toggleGroup(this)">
         <div class="left">
-          <span class="tag new">신규/오픈</span>
-          <div class="title">참소담 송도점 — 매장 오픈 완료</div>
-          <div class="meta">2026-05-08 · 박 · 처리 완료</div>
+          <div class="store-line">
+            <span class="store-name" onclick="event.stopPropagation();openStoreDetail()">하모니마트 본점</span>
+            <span class="badge-mini">거래중</span>
+          </div>
+          <div class="store-meta">128-86-78469 · 포천시 · 코세스 · POS 6대</div>
+          <div class="badges"><span class="b-tag new">신규/프로그램교체</span></div>
         </div>
-        <div class="when done">완료</div>
+        <div class="right">
+          <span class="cnt-badge">1 업무</span>
+          <span class="chev">▶</span>
+        </div>
+      </div>
+      <div class="group-jobs">
+        <div class="sub-job" onclick="openJobForm('new')">
+          <div class="left">
+            <span class="stag new">신규/프로그램교체</span>
+            <div class="ti">POS 프로그램 v2 → v3 교체</div>
+            <div class="mt">📅 예정 5/22 · 박 · 메모 2</div>
+          </div>
+          <div class="wn">D-7</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group-card cat-new">
+      <div class="group-head" onclick="toggleGroup(this)">
+        <div class="left">
+          <div class="store-line">
+            <span class="store-name" onclick="event.stopPropagation();openStoreDetail()">참소담 송도점</span>
+            <span class="badge-mini">거래중</span>
+          </div>
+          <div class="store-meta">227-10-19739 · 인천 송도 · 인토시스</div>
+          <div class="badges"><span class="b-tag new">신규/오픈</span></div>
+        </div>
+        <div class="right">
+          <span class="cnt-badge" style="background:#d1fae5;color:#065f46">완료</span>
+          <span class="chev">▶</span>
+        </div>
+      </div>
+      <div class="group-jobs">
+        <div class="sub-job" onclick="openJobForm('new')">
+          <div class="left">
+            <span class="stag new">신규/오픈</span>
+            <div class="ti">매장 오픈 완료</div>
+            <div class="mt">2026-05-08 · 박</div>
+          </div>
+          <div class="wn done">완료</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ─── AS관리 ─── -->
+  <!-- ════════ AS (매장별 그룹) ════════ -->
   <div class="pane" data-pane="as">
-    <div class="page-title">🔧 AS관리</div>
-    <div class="page-sub">VAN/POS 설치 완료 후 발생하는 모든 A/S 및 매장 이탈</div>
+    <div class="page-title">🔧 AS</div>
+    <div class="page-sub">매장별로 묶어서 표시 — A/S + 단말기 + VAN변경 + 매장이탈</div>
 
     <div class="route-info">
       <span class="ico">ℹ️</span>
-      <div>이 메뉴에 모이는 카테고리:
-        <strong>AS/POS</strong> · <strong>AS/VAN</strong> · <strong>AS/장비판매</strong> · <strong>AS/장비교체</strong> · <strong>AS/장비회수</strong>
-        · <strong>단말기 전체</strong>(선택 시) · <strong>VAN/변경</strong>(선택 시) · <strong>이탈/폐업</strong> · <strong>이탈/매각</strong> · <strong>VAN 거래종료</strong>
-      </div>
+      <div>모이는 카테고리: <strong>AS/POS·VAN·장비*</strong> · <strong>단말기 전체</strong>(선택) · <strong>VAN/변경</strong>(선택) · <strong>이탈/폐업·매각·VAN거래종료</strong></div>
     </div>
 
     <div class="actbar">
       <div class="left-side">
-        <button class="filter active">전체 12</button>
+        <button class="filter active">전체 5개 매장</button>
+        <button class="filter">긴급 2</button>
         <button class="filter">진행 8</button>
         <button class="filter">완료 4</button>
-        <button class="filter">AS/POS 5</button>
-        <button class="filter">AS/VAN 3</button>
-        <button class="filter">단말 2</button>
-        <button class="filter">이탈 2</button>
       </div>
-      <button class="btn-primary" onclick="addJob('as')">+ AS 업무 등록</button>
+      <button class="btn primary" onclick="openJobForm('as')">+ AS 업무 등록</button>
     </div>
 
-    <div class="job-list">
-      <div class="job-card as">
+    <div class="group-card cat-as expanded">
+      <div class="group-head" onclick="toggleGroup(this)">
         <div class="left">
-          <span class="tag as">AS/POS</span>
-          <div class="title">하모니마트 일동점 — 3번 POS 영수증 프린터 불량</div>
-          <div class="meta">접수 5/14 · 예정 5/17 · 김기사 · 메모 1건 · 주소: 포천시 일동면 ...</div>
+          <div class="store-line">
+            <span class="store-name" onclick="event.stopPropagation();openStoreDetail()">하모니마트 일동점</span>
+            <span class="badge-mini urgent">긴급 72h</span>
+          </div>
+          <div class="store-meta">772-12-03105 · 포천시 일동면 · 코세스</div>
+          <div class="badges"><span class="b-tag as">AS/POS</span><span class="b-tag as">AS/장비교체</span></div>
         </div>
-        <div class="when">D-2</div>
+        <div class="right">
+          <span class="cnt-badge urgent">2 업무</span>
+          <span class="chev">▶</span>
+        </div>
       </div>
-      <div class="job-card as">
-        <div class="left">
-          <span class="tag as">AS/VAN</span>
-          <div class="title">참소담 시흥점 — VAN 단말기 통신 끊김</div>
-          <div class="meta">접수 5/15 · 예정 5/16 · 박 · 메모 2건</div>
+      <div class="group-jobs">
+        <div class="sub-job" onclick="openJobForm('as')">
+          <div class="left">
+            <span class="stag as">AS/POS</span>
+            <div class="ti">3번 POS 영수증 프린터 불량</div>
+            <div class="mt">접수 5/14 · 예정 5/17 · 김기사 · 메모 1</div>
+          </div>
+          <div class="wn urgent">D-2</div>
         </div>
-        <div class="when urgent">D-1</div>
+        <div class="sub-job" onclick="openJobForm('as')">
+          <div class="left">
+            <span class="stag as">AS/장비교체</span>
+            <div class="ti">2번 POS 메인보드 교체</div>
+            <div class="mt">📅 예정 5/19 · 박 · 부품 발주 완료</div>
+          </div>
+          <div class="wn">D-4</div>
+        </div>
       </div>
-      <div class="job-card as">
+    </div>
+
+    <div class="group-card cat-as">
+      <div class="group-head" onclick="toggleGroup(this)">
         <div class="left">
-          <span class="tag as">AS/장비교체</span>
-          <div class="title">온맘마켓 다산점 — VAN 단말기 교체</div>
-          <div class="meta">접수 5/12 · 예정 5/19 · 이 · 메모 0건</div>
+          <div class="store-line">
+            <span class="store-name" onclick="event.stopPropagation();openStoreDetail()">참소담 시흥점</span>
+            <span class="badge-mini urgent">긴급</span>
+          </div>
+          <div class="store-meta">227-10-19739 · 시흥시 능곡 · 인토시스</div>
+          <div class="badges"><span class="b-tag as">AS/VAN</span></div>
         </div>
-        <div class="when">D-4</div>
+        <div class="right">
+          <span class="cnt-badge urgent">1 업무</span>
+          <span class="chev">▶</span>
+        </div>
       </div>
-      <div class="job-card as">
-        <div class="left">
-          <span class="tag as" style="background:var(--gray-400)">단말 AS</span>
-          <div class="title">베스트마트 인천점 — 이동단말기 충전 불량</div>
-          <div class="meta">접수 5/13 · 김 · 메모 1건</div>
+      <div class="group-jobs">
+        <div class="sub-job" onclick="openJobForm('as')">
+          <div class="left">
+            <span class="stag as">AS/VAN</span>
+            <div class="ti">VAN 단말기 통신 끊김</div>
+            <div class="mt">접수 5/15 · 예정 5/16 · 박 · 메모 2</div>
+          </div>
+          <div class="wn urgent">D-1</div>
         </div>
-        <div class="when">진행</div>
       </div>
-      <div class="job-card as">
+    </div>
+
+    <div class="group-card cat-as">
+      <div class="group-head" onclick="toggleGroup(this)">
         <div class="left">
-          <span class="tag as" style="background:var(--danger)">이탈/폐업</span>
-          <div class="title">참소담 강남점 — 폐업 확정, 장비 회수 진행</div>
-          <div class="meta">접수 5/10 · 박 · 위약금 정산 / 단말 4대 회수 예정</div>
+          <div class="store-line">
+            <span class="store-name" onclick="event.stopPropagation();openStoreDetail()">참소담 강남점</span>
+            <span class="badge-mini urgent">이탈</span>
+          </div>
+          <div class="store-meta">XXX-XX-XXXXX · 강남구 · 코세스</div>
+          <div class="badges"><span class="b-tag as" style="background:#fee2e2;color:#991b1b">이탈/폐업</span></div>
         </div>
-        <div class="when">진행</div>
+        <div class="right">
+          <span class="cnt-badge">2 업무</span>
+          <span class="chev">▶</span>
+        </div>
+      </div>
+      <div class="group-jobs">
+        <div class="sub-job" onclick="openJobForm('as')">
+          <div class="left">
+            <span class="stag as" style="background:var(--danger)">이탈/폐업</span>
+            <div class="ti">폐업 확정 — 위약금 정산 진행</div>
+            <div class="mt">접수 5/10 · 박 · 위약금 1,500,000원</div>
+          </div>
+          <div class="wn">진행</div>
+        </div>
+        <div class="sub-job" onclick="openJobForm('as')">
+          <div class="left">
+            <span class="stag as">AS/장비회수</span>
+            <div class="ti">단말 4대 회수 예정</div>
+            <div class="mt">📅 5/22 · 김</div>
+          </div>
+          <div class="wn">D-7</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ─── VAN ─── -->
+  <!-- ════════ VAN ════════ -->
   <div class="pane" data-pane="van">
     <div class="page-title">📑 VAN</div>
-    <div class="page-sub">신용카드 가맹 신청부터 정보 변경까지 VAN 서류 업무</div>
-
-    <div class="route-info">
-      <span class="ico">ℹ️</span>
-      <div>이 메뉴에 모이는 카테고리:
-        <strong>VAN/신규등록</strong> · <strong>VAN/재신고</strong> · <strong>VAN/정산</strong> · <strong>VAN/계약</strong> · <strong>VAN/변경</strong>(당사간)
-        <span style="margin-left:8px;color:var(--gray-500)">※ 가맹 등록 카드사별 진행은 해당 VAN 업무의 처리기록에 누적</span>
-      </div>
-    </div>
+    <div class="page-sub">매장별 묶음 — 가맹등록은 카드사별 진행이 처리기록에 누적</div>
 
     <div class="actbar">
       <div class="left-side">
         <button class="filter active">전체 3</button>
         <button class="filter">진행 3</button>
         <button class="filter">완료 0</button>
-        <button class="filter">VAN/신규 1</button>
-        <button class="filter">VAN/재신고 1</button>
-        <button class="filter">VAN/정산 1</button>
       </div>
-      <button class="btn-primary" onclick="addJob('van')">+ VAN 업무 등록</button>
+      <button class="btn primary" onclick="openJobForm('van')">+ VAN 업무 등록</button>
     </div>
 
-    <div class="job-list">
-      <div class="job-card van">
+    <div class="group-card cat-van expanded">
+      <div class="group-head" onclick="toggleGroup(this)">
         <div class="left">
-          <span class="tag van">VAN/신규</span>
-          <div class="title">온맘마켓 위례점 — 신한카드 가맹 등록</div>
-          <div class="meta">접수 5/15 · BC ✅ / 신한 보완 / 삼성 보완 / 롯데 진행 · 메모 5건</div>
+          <div class="store-line">
+            <span class="store-name" onclick="event.stopPropagation();openStoreDetail()">온맘마켓 위례점</span>
+          </div>
+          <div class="store-meta">184-81-03677 · 가맹 등록 진행 중</div>
+          <div class="badges"><span class="b-tag van">VAN/신규등록</span></div>
         </div>
-        <div class="when">진행</div>
+        <div class="right">
+          <span class="cnt-badge">1 업무 · 카드사 4건 누적</span>
+          <span class="chev">▶</span>
+        </div>
       </div>
-      <div class="job-card van">
-        <div class="left">
-          <span class="tag van">VAN/재신고</span>
-          <div class="title">베스트마트 인천점 — 사업자번호 변경 재신고</div>
-          <div class="meta">접수 5/13 · 진행 중 · 박 · 메모 2건</div>
+      <div class="group-jobs">
+        <div class="sub-job" onclick="openJobForm('van')">
+          <div class="left">
+            <span class="stag van">VAN/신규</span>
+            <div class="ti">신한카드 외 4사 가맹 등록</div>
+            <div class="mt">📝 BC ✅ / 신한 보완 / 삼성 보완 / 롯데 진행 · 메모 5</div>
+          </div>
+          <div class="wn">진행</div>
         </div>
-        <div class="when">진행</div>
       </div>
-      <div class="job-card van">
+    </div>
+
+    <div class="group-card cat-van">
+      <div class="group-head" onclick="toggleGroup(this)">
         <div class="left">
-          <span class="tag van">VAN/정산</span>
-          <div class="title">4월 정산내역서 발송 — 12개 매장</div>
-          <div class="meta">📅 5/15 · 이 · 매장 측 확인 대기</div>
+          <div class="store-line">
+            <span class="store-name" onclick="event.stopPropagation();openStoreDetail()">베스트마트 인천점</span>
+          </div>
+          <div class="store-meta">XXX-XX-XXXXX · 사업자 변경 재신고</div>
+          <div class="badges"><span class="b-tag van">VAN/재신고</span></div>
         </div>
-        <div class="when">진행</div>
+        <div class="right">
+          <span class="cnt-badge">1 업무</span>
+          <span class="chev">▶</span>
+        </div>
+      </div>
+      <div class="group-jobs">
+        <div class="sub-job" onclick="openJobForm('van')">
+          <div class="left">
+            <span class="stag van">VAN/재신고</span>
+            <div class="ti">사업자번호 변경 재신고</div>
+            <div class="mt">접수 5/13 · 박 · 메모 2</div>
+          </div>
+          <div class="wn">진행</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ─── 재고조사 ─── -->
+  <!-- ════════ 재고조사 ════════ -->
   <div class="pane" data-pane="stock">
     <div class="page-title">📦 재고조사</div>
-    <div class="page-sub">재고 상담 → 조사 일정 → 조사 완료/수금 → 비용 집계 → 수익 관리</div>
+    <div class="page-sub">상담 → 일정 → 조사/수금 → 비용/수익 집계</div>
 
     <div class="actbar">
       <div class="left-side">
@@ -447,233 +773,458 @@
         <button class="filter">완료 2</button>
         <button class="filter">정산 1</button>
       </div>
-      <button class="btn-primary" onclick="addJob('stock')">+ 재고조사 등록</button>
+      <button class="btn primary">+ 재고조사 등록</button>
     </div>
 
-    <div class="job-list">
-      <div class="job-card" style="border-left-color:var(--cyan)">
+    <div class="group-card" style="border-left:4px solid var(--cyan)">
+      <div class="group-head" onclick="toggleGroup(this)">
         <div class="left">
-          <span class="tag" style="background:var(--cyan)">재고/예정</span>
-          <div class="title">하모니마트 본점 (180평) — 5/22 재고조사</div>
-          <div class="meta">예상 재고 2.8억 · 조사 인원 18명 예정 · 박</div>
+          <div class="store-line">
+            <span class="store-name" onclick="event.stopPropagation();openStoreDetail()">하모니마트 본점</span>
+            <span class="badge-mini warn">조사 예정 D-7</span>
+          </div>
+          <div class="store-meta">180평 · 예상 재고 2.8억 · 인원 18명 예정 · 박</div>
         </div>
-        <div class="when urgent">D-7</div>
-      </div>
-      <div class="job-card" style="border-left-color:var(--cyan)">
-        <div class="left">
-          <span class="tag" style="background:var(--cyan)">재고/상담</span>
-          <div class="title">베스트마트 청라점 — 견적 발송, 답변 대기</div>
-          <div class="meta">예상 100평 · 견적 350만원 · 메모 1건</div>
-        </div>
-        <div class="when">대기</div>
-      </div>
-      <div class="job-card" style="border-left-color:var(--cyan)">
-        <div class="left">
-          <span class="tag" style="background:var(--cyan)">재고/완료</span>
-          <div class="title">참소담 시흥점 — 4/28 조사 완료, 수금 진행</div>
-          <div class="meta">실재고 4.2억 · 인건비 580만원 / 매장 250만원</div>
-        </div>
-        <div class="when done">정산중</div>
+        <div class="right"><span class="cnt-badge urgent">D-7</span><span class="chev">▶</span></div>
       </div>
     </div>
   </div>
 
-  <!-- ─── 소모품판매 ─── -->
+  <!-- ════════ 소모품판매 (매출 대시보드) ════════ -->
   <div class="pane" data-pane="supplies">
     <div class="page-title">🏷️ 소모품판매</div>
-    <div class="page-sub">저울 라벨지 · 프라이스텍 · 영수증용지 판매 / 미수 / 택배 관리</div>
+    <div class="page-sub">매출 집계 + 미수금 + 판매 등록</div>
 
-    <div class="route-info">
-      <span class="ico">ℹ️</span>
-      <div>이 메뉴에 모이는 카테고리:
-        <strong>판매 등록</strong> (라벨지 · 프라이스텍 · 영수증용지) · <strong>미수 관리</strong> · <strong>택배 조회</strong>
+    <!-- 매출/미수 대시보드 -->
+    <div class="sup-dash">
+      <div class="sup-card sales">
+        <div class="lab">💰 이번달 매출</div>
+        <div class="val">1,820<span class="u">천원</span></div>
+        <div class="sub">전월 대비 +12%</div>
+      </div>
+      <div class="sup-card outstanding">
+        <div class="lab">📌 미수금</div>
+        <div class="val">680<span class="u">천원</span></div>
+        <div class="sub">8개 매장 · 가장 오래된 건 62일</div>
+        <span class="btn-link" onclick="openArDetail()">내역보기 →</span>
+      </div>
+      <div class="sup-card delivery">
+        <div class="lab">🚚 발송 대기</div>
+        <div class="val">3<span class="u">건</span></div>
+        <div class="sub">오늘 출고 예정 2건</div>
+      </div>
+      <div class="sup-card profit">
+        <div class="lab">📊 영업이익</div>
+        <div class="val">412<span class="u">천원</span></div>
+        <div class="sub">마진율 22.6%</div>
       </div>
     </div>
 
-    <div class="actbar">
-      <div class="left-side">
-        <button class="filter active">전체 8</button>
-        <button class="filter">발송완료 5</button>
-        <button class="filter">미수금 3</button>
-        <button class="filter">라벨지 4</button>
-        <button class="filter">영수증용지 3</button>
+    <!-- 카테고리별 매출 -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">📈 카테고리별 이번달 매출</div>
+        <button class="btn outline">상세 →</button>
       </div>
-      <button class="btn-primary" onclick="addJob('supplies')">+ 소모품 등록</button>
+      <div style="padding:14px 18px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div style="background:#fef3c7;border-radius:8px;padding:10px 12px">
+            <div style="font-size:11px;color:#92400e;font-weight:700">🏷 저울 라벨지</div>
+            <div style="font-size:18px;font-weight:900;color:#92400e;margin-top:3px">920<span style="font-size:10px;margin-left:3px">천원</span></div>
+            <div style="font-size:10px;color:#92400e;margin-top:2px">23박스 · 12개 매장</div>
+          </div>
+          <div style="background:#dbeafe;border-radius:8px;padding:10px 12px">
+            <div style="font-size:11px;color:#1e40af;font-weight:700">📜 영수증용지</div>
+            <div style="font-size:18px;font-weight:900;color:#1e40af;margin-top:3px">580<span style="font-size:10px;margin-left:3px">천원</span></div>
+            <div style="font-size:10px;color:#1e40af;margin-top:2px">112롤 · 18개 매장</div>
+          </div>
+          <div style="background:#ede9fe;border-radius:8px;padding:10px 12px">
+            <div style="font-size:11px;color:#5b21b6;font-weight:700">🏷 프라이스텍</div>
+            <div style="font-size:18px;font-weight:900;color:#5b21b6;margin-top:3px">320<span style="font-size:10px;margin-left:3px">천원</span></div>
+            <div style="font-size:10px;color:#5b21b6;margin-top:2px">8박스 · 6개 매장</div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="job-list">
-      <div class="job-card supplies">
-        <div class="left">
-          <span class="tag supplies">라벨지</span>
-          <div class="title">온맘마켓 위례점 — 저울 라벨 5박스 / 80,000원 (후불)</div>
-          <div class="meta">📅 4/8 발송 · CJ 1234-5678 · 미수금 80,000원</div>
-        </div>
-        <div class="when">미수</div>
+    <!-- 최근 거래 -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">🛒 최근 거래</div>
+        <button class="btn primary" onclick="openJobForm('supplies')">+ 판매 등록</button>
       </div>
-      <div class="job-card supplies">
-        <div class="left">
-          <span class="tag supplies">영수증용지</span>
-          <div class="title">하모니마트 본점 — 영수증용지 10롤 / 35,000원 (선불)</div>
-          <div class="meta">📅 5/12 발송 · 한진 9876-5432</div>
-        </div>
-        <div class="when done">완료</div>
-      </div>
-      <div class="job-card supplies">
-        <div class="left">
-          <span class="tag supplies">프라이스텍</span>
-          <div class="title">참소담 시흥점 — 프라이스텍 라벨 2박스 / 28,000원 (후불)</div>
-          <div class="meta">📅 4/20 발송 · 미수금 28,000원</div>
-        </div>
-        <div class="when">미수</div>
+      <div style="padding:6px 0">
+        <table class="ar-table">
+          <thead><tr><th>날짜</th><th>매장</th><th>품목</th><th>수량</th><th class="amount">금액</th><th>구분</th><th>택배</th></tr></thead>
+          <tbody>
+            <tr class="clickable" onclick="openJobForm('supplies')"><td>5/15</td><td><b onclick="event.stopPropagation();openStoreDetail()" style="cursor:pointer;text-decoration:underline">하모니마트 본점</b></td><td>저울 라벨</td><td>3</td><td class="amount">48,000</td><td><span class="badge-mini">선불</span></td><td>한진</td></tr>
+            <tr class="clickable" onclick="openJobForm('supplies')"><td>5/14</td><td><b onclick="event.stopPropagation();openStoreDetail()" style="cursor:pointer;text-decoration:underline">온맘마켓 위례점</b></td><td>영수증용지</td><td>10</td><td class="amount">35,000</td><td><span class="badge-mini">선불</span></td><td>CJ</td></tr>
+            <tr class="clickable" onclick="openJobForm('supplies')"><td>5/13</td><td><b onclick="event.stopPropagation();openStoreDetail()" style="cursor:pointer;text-decoration:underline">참소담 시흥점</b></td><td>프라이스텍</td><td>2</td><td class="amount">28,000</td><td><span class="badge-mini urgent">후불</span></td><td>한진</td></tr>
+            <tr class="clickable" onclick="openJobForm('supplies')"><td>5/10</td><td><b onclick="event.stopPropagation();openStoreDetail()" style="cursor:pointer;text-decoration:underline">베스트마트 인천점</b></td><td>저울 라벨</td><td>5</td><td class="amount">80,000</td><td><span class="badge-mini urgent">후불</span></td><td>CJ</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 
-  <!-- ─── 점포관리 ─── -->
+  <!-- ════════ 점포관리 ════════ -->
   <div class="pane" data-pane="stores">
     <div class="page-title">🏪 점포관리</div>
-    <div class="page-sub">매장 마스터 정보 + 매장 상세 (8탭 모달)</div>
-
+    <div class="page-sub">매장 마스터 (행 클릭 → 8탭 매장 상세 모달)</div>
     <div class="actbar">
       <div class="left-side">
-        <input style="border:1px solid var(--gray-300);border-radius:7px;padding:6px 12px;font-size:12px;width:200px;font-family:inherit" placeholder="🔍 매장명 / 사업자번호 / 코드">
+        <input style="border:1px solid var(--gray-300);border-radius:7px;padding:6px 12px;font-size:12px;width:220px;font-family:inherit" placeholder="🔍 매장명 / 사업자번호 / 코드">
         <button class="filter active">전체 2,783</button>
         <button class="filter">거래중 2,541</button>
         <button class="filter">중지 142</button>
         <button class="filter">폐업 100</button>
       </div>
-      <button class="btn-primary">+ 신규 매장 등록</button>
+      <button class="btn primary">+ 신규 매장 등록</button>
     </div>
-
     <div class="card" style="padding:0">
-      <div class="store-row head">
-        <div></div>
-        <div>매장명</div>
-        <div>사업자번호</div>
-        <div>대표</div>
-        <div>주소</div>
-        <div>VAN/POS</div>
-        <div>상태</div>
+      <div style="display:grid;grid-template-columns:30px 1.4fr 1fr .7fr .8fr .6fr 70px;gap:8px;align-items:center;padding:9px 12px;background:var(--gray-100);font-weight:800;color:var(--gray-700);font-size:11px">
+        <div></div><div>매장명</div><div>사업자번호</div><div>대표</div><div>주소</div><div>VAN/POS</div><div>상태</div>
       </div>
-      <div class="store-row" onclick="alert('매장 상세 8탭 모달이 뜹니다')">
-        <div>🏪</div>
-        <div class="name">온맘마켓 위례점</div>
-        <div class="biz">184-81-03677</div>
-        <div>김OO</div>
-        <div>송파구 위례성대로</div>
-        <div>코세스 / POS 5</div>
-        <div><span class="badge-mini">거래중</span></div>
+      <div style="display:grid;grid-template-columns:30px 1.4fr 1fr .7fr .8fr .6fr 70px;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--gray-100);font-size:12px;cursor:pointer" onclick="openStoreDetail()">
+        <div>🏪</div><div style="font-weight:800">온맘마켓 위례점</div><div>184-81-03677</div><div>김OO</div><div>송파구 위례성대로</div><div>코세스 / POS 5</div><div><span class="badge-mini">거래중</span></div>
       </div>
-      <div class="store-row" onclick="alert('매장 상세 8탭 모달이 뜹니다')">
-        <div>🏪</div>
-        <div class="name">하모니마트 일동점</div>
-        <div class="biz">772-12-03105</div>
-        <div>박OO</div>
-        <div>포천시 일동면</div>
-        <div>코세스 / POS 3</div>
-        <div><span class="badge-mini">거래중</span></div>
+      <div style="display:grid;grid-template-columns:30px 1.4fr 1fr .7fr .8fr .6fr 70px;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--gray-100);font-size:12px;cursor:pointer" onclick="openStoreDetail()">
+        <div>🏪</div><div style="font-weight:800">하모니마트 일동점</div><div>772-12-03105</div><div>박OO</div><div>포천시 일동면</div><div>코세스 / POS 3</div><div><span class="badge-mini">거래중</span></div>
       </div>
-      <div class="store-row" onclick="alert('매장 상세 8탭 모달이 뜹니다')">
-        <div>🏪</div>
-        <div class="name">참소담 시흥점</div>
-        <div class="biz">227-10-19739</div>
-        <div>이OO</div>
-        <div>시흥시 능곡동</div>
-        <div>인토시스 / POS 4</div>
-        <div><span class="badge-mini">거래중</span></div>
-      </div>
-      <div class="store-row" onclick="alert('매장 상세 8탭 모달이 뜹니다')">
-        <div>🏪</div>
-        <div class="name">더봄(주) 본점</div>
-        <div class="biz">439-13-02550</div>
-        <div>최OO</div>
-        <div>다산 중앙로</div>
-        <div>KIS / POS 4</div>
-        <div><span class="badge-mini" style="background:#fef3c7;color:#92400e">신규 진행</span></div>
+      <div style="display:grid;grid-template-columns:30px 1.4fr 1fr .7fr .8fr .6fr 70px;gap:8px;align-items:center;padding:10px 12px;font-size:12px;cursor:pointer" onclick="openStoreDetail()">
+        <div>🏪</div><div style="font-weight:800">더봄(주) 본점</div><div>439-13-02550</div><div>최OO</div><div>다산 중앙로</div><div>KIS / POS 4</div><div><span class="badge-mini warn">신규</span></div>
       </div>
     </div>
   </div>
 
-  <!-- ─── 일정조회 ─── -->
+  <!-- ════════ 일정조회 (캘린더 + 카드 좌우) ════════ -->
   <div class="pane" data-pane="schedule">
     <div class="page-title">📅 일정조회</div>
-    <div class="page-sub">전체 업무 일정을 캘린더 / 리스트로 조회 (카테고리 색상 구분)</div>
+    <div class="page-sub">캘린더와 카드 보기 동시 — 좌측 캘린더 / 우측 선택일 업무</div>
 
     <div class="actbar">
       <div class="left-side">
-        <button class="filter">◀ 5월</button>
+        <button class="filter">◀</button>
         <button class="filter active">2026년 5월</button>
-        <button class="filter">6월 ▶</button>
-        <span style="margin-left:14px;font-size:11px;color:var(--gray-600)">
+        <button class="filter">▶</button>
+        <span style="margin-left:12px;font-size:11px;color:var(--gray-600)">
           <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--success);margin-right:3px"></span>신규
           <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--warning);margin:0 3px 0 8px"></span>AS
           <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--primary);margin:0 3px 0 8px"></span>VAN
           <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--purple);margin:0 3px 0 8px"></span>소모품
         </span>
       </div>
+      <button class="btn primary">+ 일정 등록</button>
     </div>
 
-    <div class="card">
-      <div class="cal-grid">
-        <div class="cal-head">일</div><div class="cal-head">월</div><div class="cal-head">화</div><div class="cal-head">수</div><div class="cal-head">목</div><div class="cal-head">금</div><div class="cal-head">토</div>
-        <div class="cal-day"><div class="d-num" style="color:var(--gray-300)">26</div></div>
-        <div class="cal-day"><div class="d-num" style="color:var(--gray-300)">27</div></div>
-        <div class="cal-day"><div class="d-num" style="color:var(--gray-300)">28</div></div>
-        <div class="cal-day"><div class="d-num" style="color:var(--gray-300)">29</div></div>
-        <div class="cal-day"><div class="d-num" style="color:var(--gray-300)">30</div></div>
-        <div class="cal-day"><div class="d-num">1</div></div>
-        <div class="cal-day"><div class="d-num">2</div></div>
-        <div class="cal-day"><div class="d-num">3</div></div>
-        <div class="cal-day"><div class="d-num">4</div></div>
-        <div class="cal-day"><div class="d-num">5</div><span class="dot" style="background:var(--warning)"></span></div>
-        <div class="cal-day"><div class="d-num">6</div></div>
-        <div class="cal-day"><div class="d-num">7</div><span class="dot" style="background:var(--success)"></span><span class="dot" style="background:var(--primary)"></span></div>
-        <div class="cal-day"><div class="d-num">8</div></div>
-        <div class="cal-day"><div class="d-num">9</div></div>
-        <div class="cal-day"><div class="d-num">10</div></div>
-        <div class="cal-day"><div class="d-num">11</div></div>
-        <div class="cal-day"><div class="d-num">12</div><span class="dot" style="background:var(--purple)"></span></div>
-        <div class="cal-day"><div class="d-num">13</div></div>
-        <div class="cal-day"><div class="d-num">14</div><span class="dot" style="background:var(--warning)"></span></div>
-        <div class="cal-day" style="background:var(--primary-light);border-color:var(--primary)"><div class="d-num today">15 (오늘)</div><span class="dot" style="background:var(--primary)"></span></div>
-        <div class="cal-day"><div class="d-num">16</div></div>
-        <div class="cal-day"><div class="d-num">17</div><span class="dot" style="background:var(--warning)"></span></div>
-        <div class="cal-day"><div class="d-num">18</div></div>
-        <div class="cal-day"><div class="d-num">19</div><span class="dot" style="background:var(--warning)"></span></div>
-        <div class="cal-day"><div class="d-num">20</div><span class="dot" style="background:var(--success)"></span></div>
-        <div class="cal-day"><div class="d-num">21</div></div>
-        <div class="cal-day"><div class="d-num">22</div><span class="dot" style="background:var(--cyan)"></span><span class="dot" style="background:var(--success)"></span></div>
-        <div class="cal-day"><div class="d-num">23</div></div>
-        <div class="cal-day"><div class="d-num">24</div><span class="dot" style="background:var(--success)"></span></div>
-        <div class="cal-day"><div class="d-num">25</div></div>
-        <div class="cal-day"><div class="d-num">26</div></div>
-        <div class="cal-day"><div class="d-num">27</div><span class="dot" style="background:var(--success)"></span></div>
-        <div class="cal-day"><div class="d-num">28</div></div>
-        <div class="cal-day"><div class="d-num">29</div></div>
-        <div class="cal-day"><div class="d-num">30</div></div>
-        <div class="cal-day"><div class="d-num">31</div></div>
+    <div class="sched-grid">
+      <!-- 캘린더 -->
+      <div class="card">
+        <div class="card-head"><div class="card-title">📅 캘린더</div></div>
+        <div class="cal-grid">
+          <div class="cal-head">일</div><div class="cal-head">월</div><div class="cal-head">화</div><div class="cal-head">수</div><div class="cal-head">목</div><div class="cal-head">금</div><div class="cal-head">토</div>
+          <div class="cal-day"><div class="d-num" style="color:var(--gray-300)">26</div></div>
+          <div class="cal-day"><div class="d-num" style="color:var(--gray-300)">27</div></div>
+          <div class="cal-day"><div class="d-num" style="color:var(--gray-300)">28</div></div>
+          <div class="cal-day"><div class="d-num" style="color:var(--gray-300)">29</div></div>
+          <div class="cal-day"><div class="d-num" style="color:var(--gray-300)">30</div></div>
+          <div class="cal-day"><div class="d-num">1</div></div>
+          <div class="cal-day"><div class="d-num">2</div></div>
+          <div class="cal-day"><div class="d-num">3</div></div>
+          <div class="cal-day"><div class="d-num">4</div></div>
+          <div class="cal-day"><div class="d-num">5</div><span class="ev as">AS 라온</span></div>
+          <div class="cal-day"><div class="d-num">6</div></div>
+          <div class="cal-day"><div class="d-num">7</div><span class="ev new">참소담송도 오픈</span></div>
+          <div class="cal-day"><div class="d-num">8</div></div>
+          <div class="cal-day"><div class="d-num">9</div></div>
+          <div class="cal-day"><div class="d-num">10</div></div>
+          <div class="cal-day"><div class="d-num">11</div></div>
+          <div class="cal-day"><div class="d-num">12</div><span class="ev supplies">라벨 발송</span></div>
+          <div class="cal-day"><div class="d-num">13</div></div>
+          <div class="cal-day"><div class="d-num">14</div><span class="ev as">AS 접수</span></div>
+          <div class="cal-day" style="background:var(--primary-light);border-color:var(--primary)"><div class="d-num today">15</div><span class="ev van">VAN 정산</span><span class="ev supplies">발송</span></div>
+          <div class="cal-day"><div class="d-num">16</div><span class="ev as">시흥AS</span></div>
+          <div class="cal-day"><div class="d-num">17</div><span class="ev as">일동AS</span></div>
+          <div class="cal-day"><div class="d-num">18</div></div>
+          <div class="cal-day"><div class="d-num">19</div><span class="ev as">다산교체</span></div>
+          <div class="cal-day"><div class="d-num">20</div><span class="ev new">위례 KIOSK</span></div>
+          <div class="cal-day"><div class="d-num">21</div></div>
+          <div class="cal-day"><div class="d-num">22</div><span class="ev new">하모니v3</span></div>
+          <div class="cal-day"><div class="d-num">23</div></div>
+          <div class="cal-day"><div class="d-num">24</div><span class="ev new">청라 신규</span></div>
+          <div class="cal-day"><div class="d-num">25</div></div>
+          <div class="cal-day"><div class="d-num">26</div><span class="ev new">더봄 가오픈</span></div>
+          <div class="cal-day"><div class="d-num">27</div><span class="ev new">더봄 오픈</span></div>
+          <div class="cal-day"><div class="d-num">28</div></div>
+          <div class="cal-day"><div class="d-num">29</div></div>
+          <div class="cal-day"><div class="d-num">30</div></div>
+          <div class="cal-day"><div class="d-num">31</div></div>
+        </div>
+      </div>
+
+      <!-- 선택일 업무 카드 -->
+      <div class="card">
+        <div class="card-head"><div class="card-title">📋 5월 15일 (오늘) <span class="cnt">2건</span></div></div>
+        <div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+          <div class="sub-job" onclick="openJobForm('van')">
+            <div class="left">
+              <span class="stag van">VAN/정산</span>
+              <div class="ti">4월 정산내역 발송 — 12개 매장</div>
+              <div class="mt">📅 5/15 · 이 · 매장 측 확인 대기</div>
+            </div>
+            <div class="wn">진행</div>
+          </div>
+          <div class="sub-job" onclick="openJobForm('supplies')">
+            <div class="left">
+              <span class="stag supplies">소모품</span>
+              <div class="ti">하모니마트 본점 — 저울라벨 3박스 발송</div>
+              <div class="mt">📅 5/15 · 한진 · 48,000원 (선불)</div>
+            </div>
+            <div class="wn">완료</div>
+          </div>
+        </div>
+
+        <div class="card-head" style="border-top:1px solid var(--gray-100);border-bottom:1px solid var(--gray-100)">
+          <div class="card-title">🔮 다가오는 일정 (3일 이내)</div>
+        </div>
+        <div style="padding:10px 14px;display:flex;flex-direction:column;gap:6px;font-size:11.5px;color:var(--gray-700)">
+          <div><b>5/16</b> 참소담 시흥점 — VAN 단말 점검 (박)</div>
+          <div><b>5/17</b> 하모니마트 일동점 — POS 프린터 (김)</div>
+          <div><b>5/17</b> 4월 정산서 확인 매장 콜백</div>
+        </div>
       </div>
     </div>
   </div>
 
 </div>
 
-<!-- 카테고리 분기 다이얼로그 (업무 등록 시 표시) -->
-<div class="branch-modal" id="branchModal">
-  <div class="branch-box">
-    <h3 id="branchTitle">업무 카테고리 분기</h3>
-    <p id="branchDesc">이 업무는 어느 메뉴에 등록할까요?</p>
-    <div id="branchOpts"></div>
-    <div style="display:flex;justify-content:flex-end;margin-top:6px">
-      <button onclick="document.getElementById('branchModal').classList.remove('show')"
-              style="background:var(--gray-100);border:none;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+<!-- ═════════ 업무 등록/상세 폼 팝업 ═════════ -->
+<div class="backdrop" id="jobFormModal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3 id="jfTitle">🆕 신규 업무 등록</h3>
+        <div class="sub" id="jfSub">매장 정보 확인 후 상세 입력</div>
+      </div>
+      <button class="x" onclick="document.getElementById('jobFormModal').classList.remove('show')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- 매장 정보 (수정 불가, 클릭 시 매장 상세) -->
+      <div class="form-section">
+        <h4>🏪 매장 정보 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">접수 시점 고정 — 클릭 시 매장 상세</span></h4>
+        <div class="form-row"><div class="lab">매장명</div><div class="static" style="cursor:pointer;color:var(--primary);text-decoration:underline" onclick="openStoreDetail()">온맘마켓 위례점 <span class="small">코드 40844</span></div></div>
+        <div class="form-row"><div class="lab">사업자번호</div><div class="static">184-81-03677</div></div>
+        <div class="form-row"><div class="lab">주소</div><div class="static">서울 송파구 위례성대로 12</div></div>
+        <div class="form-row"><div class="lab">연락처</div><div class="static">02-XXX-XXXX / 010-XXXX-XXXX</div></div>
+        <div class="form-row"><div class="lab">대표자</div><div class="static">김OO</div></div>
+      </div>
+
+      <!-- 업무 정보 -->
+      <div class="form-section">
+        <h4>📋 업무 정보</h4>
+        <div class="form-row">
+          <div class="lab">카테고리</div>
+          <select>
+            <option>신규/오픈</option>
+            <option>신규/프로그램교체</option>
+            <option>신규/VAN변경</option>
+            <option>단말개통</option>
+            <option>VAN/신규등록</option>
+          </select>
+        </div>
+        <div class="form-row"><div class="lab">제목</div><input value="키오스크 2대 추가 설치"></div>
+        <div class="form-row"><div class="lab">설치 예정일</div><input type="date" value="2026-05-20"></div>
+        <div class="form-row"><div class="lab">가오픈일</div><input type="date"></div>
+        <div class="form-row"><div class="lab">오픈일</div><input type="date"></div>
+        <div class="form-row"><div class="lab">담당자</div><input value="김기사"></div>
+      </div>
+
+      <!-- 신규 — 계약 정보 (신규에만 표시) -->
+      <div class="form-section" id="jfContract">
+        <h4>📄 계약 정보 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">신규 업무 전용</span></h4>
+        <div class="form-row"><div class="lab">계약 유형</div><select><option>코세스 표준</option><option>KIS 표준</option><option>인토시스 표준</option><option>커스텀</option></select></div>
+        <div class="form-row"><div class="lab">계약일</div><input type="date" value="2026-05-12"></div>
+        <div class="form-row"><div class="lab">계약 기간</div><input value="36개월"></div>
+        <div class="form-row"><div class="lab">위약금</div><input value="2,400,000원"></div>
+        <div class="form-row"><div class="lab">VAN 수수료</div><input value="0.5%"></div>
+        <div class="form-row full"><div class="lab">계약 첨부</div><div class="static">📎 계약서.pdf · 사업자등록증.jpg · 통장사본.jpg <span class="small">3개</span></div></div>
+      </div>
+
+      <!-- 설치 요청 장비 -->
+      <div class="form-section">
+        <h4>🖥 설치 요청 장비</h4>
+        <div style="display:flex;flex-direction:column;gap:5px;font-size:12px">
+          <div style="background:var(--gray-50);padding:7px 10px;border-radius:6px">🖥 오케이포스 V8 × 2대 <span style="float:right;font-size:10.5px;color:var(--gray-500)">설치 예정 5/20</span></div>
+          <div style="background:var(--gray-50);padding:7px 10px;border-radius:6px">📱 MAZIC-K 키오스크 × 2대 <span style="float:right;font-size:10.5px;color:var(--gray-500)">설치 예정 5/20</span></div>
+          <button class="btn outline" style="margin-top:5px">+ 장비 추가</button>
+        </div>
+      </div>
+
+      <!-- 처리 기록 (메모 누적) -->
+      <div class="form-section">
+        <h4>📝 업무 기록 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">방문 / 설치 진행을 여러 번 기록</span></h4>
+        <div class="records-list">
+          <div class="rec-item">
+            <div class="meta">5-15 · 김기사</div>
+            장비 입고 확인, 5/20 출고 준비 완료
+          </div>
+          <div class="rec-item">
+            <div class="meta">5-14 · 홍길동</div>
+            견적 OK, 설치일 5/20 확정
+          </div>
+          <div class="rec-item">
+            <div class="meta">5-12 · 홍길동</div>
+            견적 발송, 매장 답변 대기
+          </div>
+        </div>
+        <div class="rec-add">
+          <input placeholder="새 기록 입력...">
+          <button class="btn primary">추가</button>
+        </div>
+      </div>
+
+      <!-- 비고 -->
+      <div class="form-section">
+        <h4>⚠️ 비고 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">주의/염두 사항만 (모든 업무 기록은 위 업무 기록에)</span></h4>
+        <textarea placeholder="입구 좌측 1대, 우측 1대 / 사장님 직접 요청">입구 좌측 1대, 우측 1대 / 사장님 직접 요청</textarea>
+      </div>
+
+    </div>
+    <div class="modal-foot">
+      <button class="btn">📋 복제</button>
+      <button class="btn outline" style="color:var(--danger);border-color:var(--danger)">🗑 삭제</button>
+      <div style="flex:1"></div>
+      <button class="btn" onclick="document.getElementById('jobFormModal').classList.remove('show')">취소</button>
+      <button class="btn primary">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 매장 상세 모달 (8탭 — 압축형) ═════════ -->
+<div class="backdrop" id="storeDetailModal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="modal sd-modal" style="max-width:1024px">
+    <div class="sd-head">
+      <div class="sd-banner">
+        <div class="sd-avatar">🏪</div>
+        <div>
+          <div class="sd-name">온맘마켓 위례점</div>
+          <div class="sd-meta">서울 송파구 위례성대로 12 · 184-81-03677 · 코드 40844</div>
+          <div style="display:flex;gap:5px;margin-top:5px"><span style="font-size:10px;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:99px;font-weight:700">🟢 거래중</span><span style="font-size:10px;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:99px;font-weight:700">POS 5</span><span style="font-size:10px;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:99px;font-weight:700">코세스</span></div>
+        </div>
+      </div>
+      <button class="x" onclick="document.getElementById('storeDetailModal').classList.remove('show')">✕</button>
+    </div>
+    <div class="sd-tabs">
+      <button class="sd-tab active">⚠️ 진행 중 <span class="c">3</span></button>
+      <button class="sd-tab">🏪 매장정보</button>
+      <button class="sd-tab">🆕 신규 <span class="c">2</span></button>
+      <button class="sd-tab">🔧 AS <span class="c">12</span></button>
+      <button class="sd-tab">📑 VAN <span class="c">4</span></button>
+      <button class="sd-tab">🕒 업무기록 <span class="c">18</span></button>
+      <button class="sd-tab">🏷️ 소모품 <span class="c">5</span></button>
+      <button class="sd-tab">📝 메모 <span class="c">2</span></button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:12px;color:#92400e;margin-bottom:12px">
+        💡 매장 상세는 별도 모달 (8탭) — 실제 사이트에서는 이 모달의 모든 탭이 클릭 전환됩니다. 현재 데모는 "진행 중" 탭 미리보기만 표시.
+      </div>
+      <div class="sub-job" style="background:#fff" onclick="document.getElementById('storeDetailModal').classList.remove('show');openJobForm('new')">
+        <div class="left">
+          <span class="stag new">신규/오픈</span>
+          <div class="ti">키오스크 2대 추가 설치</div>
+          <div class="mt">📅 5/20 예정 · 김 · 메모 3</div>
+        </div>
+        <div class="wn urgent">D-5</div>
+      </div>
+      <div class="sub-job" style="background:#fff;margin-top:8px" onclick="document.getElementById('storeDetailModal').classList.remove('show');openJobForm('as')">
+        <div class="left">
+          <span class="stag as">AS/POS</span>
+          <div class="ti">3번 POS 영수증 프린터 불량</div>
+          <div class="mt">접수 5/14 · 예정 5/17 · 김</div>
+        </div>
+        <div class="wn urgent">D-2</div>
+      </div>
+      <div class="sub-job" style="background:#fff;margin-top:8px" onclick="document.getElementById('storeDetailModal').classList.remove('show');openJobForm('van')">
+        <div class="left">
+          <span class="stag van">VAN/신규</span>
+          <div class="ti">신한카드 가맹 등록 (보완)</div>
+          <div class="mt">접수 5/15 · 진행 · 카드사 4건 누적</div>
+        </div>
+        <div class="wn">진행</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 미수금 내역 팝업 ═════════ -->
+<div class="backdrop" id="arModal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="modal wide">
+    <div class="modal-head">
+      <div>
+        <h3>📌 미수금 매장별 내역</h3>
+        <div class="sub">총 8개 매장 · 680,000원 · 가장 오래된 건 62일</div>
+      </div>
+      <button class="x" onclick="document.getElementById('arModal').classList.remove('show')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <table class="ar-table">
+        <thead><tr><th>매장</th><th>품목</th><th>발송일</th><th>경과</th><th class="amount">미수금</th><th>처리</th></tr></thead>
+        <tbody>
+          <tr class="clickable">
+            <td><b onclick="document.getElementById('arModal').classList.remove('show');openStoreDetail()" style="cursor:pointer;color:var(--primary);text-decoration:underline">참소담 시흥점</b><br><span style="font-size:10px;color:var(--gray-500)">227-10-19739</span></td>
+            <td>프라이스텍 라벨 2박스</td>
+            <td>3/14</td>
+            <td class="age-old">62일</td>
+            <td class="amount">28,000</td>
+            <td><button class="btn primary">수금완료</button></td>
+          </tr>
+          <tr class="clickable">
+            <td><b onclick="document.getElementById('arModal').classList.remove('show');openStoreDetail()" style="cursor:pointer;color:var(--primary);text-decoration:underline">베스트마트 인천점</b><br><span style="font-size:10px;color:var(--gray-500)">XXX-XX-XXXXX</span></td>
+            <td>저울 라벨 5박스</td>
+            <td>4/05</td>
+            <td class="age-old">40일</td>
+            <td class="amount">80,000</td>
+            <td><button class="btn">수금완료</button></td>
+          </tr>
+          <tr class="clickable">
+            <td><b onclick="document.getElementById('arModal').classList.remove('show');openStoreDetail()" style="cursor:pointer;color:var(--primary);text-decoration:underline">온맘마켓 위례점</b><br><span style="font-size:10px;color:var(--gray-500)">184-81-03677</span></td>
+            <td>저울 라벨 5박스</td>
+            <td>4/08</td>
+            <td>37일</td>
+            <td class="amount">80,000</td>
+            <td><button class="btn">수금완료</button></td>
+          </tr>
+          <tr class="clickable">
+            <td><b onclick="document.getElementById('arModal').classList.remove('show');openStoreDetail()" style="cursor:pointer;color:var(--primary);text-decoration:underline">하모니마트 본점</b><br><span style="font-size:10px;color:var(--gray-500)">128-86-78469</span></td>
+            <td>영수증용지 30롤</td>
+            <td>4/20</td>
+            <td>25일</td>
+            <td class="amount">105,000</td>
+            <td><button class="btn">수금완료</button></td>
+          </tr>
+          <tr class="clickable">
+            <td><b onclick="document.getElementById('arModal').classList.remove('show');openStoreDetail()" style="cursor:pointer;color:var(--primary);text-decoration:underline">기타 매장 4건</b></td>
+            <td colspan="4" style="color:var(--gray-500)">합계 387,000원</td>
+            <td><button class="btn outline">펼치기</button></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr style="background:#fef2f2"><td colspan="4" style="text-align:right;font-weight:800">합계</td><td class="amount" style="font-size:14px">680,000</td><td></td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="modal-foot">
+      <button class="btn outline">📨 미수금 안내 일괄 발송</button>
+      <button class="btn outline">📥 엑셀 내보내기</button>
+      <div style="flex:1"></div>
+      <button class="btn" onclick="document.getElementById('arModal').classList.remove('show')">닫기</button>
     </div>
   </div>
 </div>
 
 <div class="demo-tip" id="demoTip">
-  💡 <b>상단 메뉴를 클릭</b>해서 각 영역을 확인하세요.<br>
-  업무 등록 버튼 / 대시보드 알림 카드도 동작합니다.
+  💡 <b>상단 메뉴</b> 전환 · <b>매장 그룹</b> 클릭 펼침 · <b>업무 클릭</b> 폼 팝업 · <b>매장명 클릭</b> 매장 상세
   <span class="x" onclick="document.getElementById('demoTip').style.display='none'">×</span>
 </div>
 
@@ -687,64 +1238,37 @@
     panes.forEach(p => p.classList.toggle('active', p.dataset.pane === key));
     window.scrollTo({top:0,behavior:'smooth'});
   }));
+  function goTo(pane) { document.querySelector(`.nav-item[data-pane="${pane}"]`)?.click(); }
 
-  function goTo(pane) {
-    const t = document.querySelector(`.nav-item[data-pane="${pane}"]`);
-    if (t) t.click();
+  // 그룹 카드 펼침/접기
+  function toggleGroup(headEl) {
+    headEl.closest('.group-card').classList.toggle('expanded');
   }
 
-  // 업무 등록 — 분기 다이얼로그
-  function addJob(menu) {
-    if (menu === 'as') {
-      showBranch('AS 업무 등록', '어떤 종류의 AS 업무인가요?', [
-        { ico:'🖥', cls:'as', title:'AS/POS · AS/VAN · 장비교체/회수', desc:'기존 매장의 일반 AS' },
-        { ico:'📱', cls:'as', title:'단말 AS / 대체 / 해지', desc:'이동단말기 관련 업무' },
-        { ico:'📑', cls:'van', title:'VAN/변경 (타VAN 으로)', desc:'VAN사 변경은 AS 처리' },
-        { ico:'🏪', cls:'as', title:'매장이탈 (폐업/매각/거래종료)', desc:'장비 회수·위약금' },
-      ]);
-    } else if (menu === 'new') {
-      showBranch('신규 업무 등록', '어떤 종류의 신규 업무인가요?', [
-        { ico:'🏪', cls:'new', title:'신규/오픈', desc:'신규 매장 오픈 / 인수 재오픈' },
-        { ico:'🔄', cls:'new', title:'신규/프로그램교체', desc:'POS 프로그램 교체' },
-        { ico:'🔁', cls:'new', title:'신규/VAN변경 (당사 외)', desc:'VAN사 신규 도입' },
-        { ico:'📱', cls:'new', title:'단말개통 (신규 매장과 함께)', desc:'신규 매장 + 신규 단말' },
-        { ico:'📑', cls:'van', title:'VAN/신규등록', desc:'KS코드 신청 등' },
-      ]);
-    } else if (menu === 'van') {
-      showBranch('VAN 업무 등록', '어떤 VAN 서류 업무인가요?', [
-        { ico:'🆕', cls:'van', title:'VAN/신규등록', desc:'KS코드 등 신규' },
-        { ico:'🔁', cls:'van', title:'VAN/재신고', desc:'사업자 변경 등' },
-        { ico:'💰', cls:'van', title:'VAN/정산', desc:'정산내역서 발송' },
-        { ico:'📄', cls:'van', title:'VAN/계약', desc:'계약 갱신' },
-        { ico:'🔀', cls:'van', title:'VAN/변경 (당사 코드간)', desc:'내부 이전' },
-      ]);
-    } else if (menu === 'supplies') {
-      showBranch('소모품 업무 등록', '어떤 소모품 업무인가요?', [
-        { ico:'🏷', cls:'as', title:'판매 등록 (라벨지/프라이스텍/영수증용지)', desc:'판매금액 + 선/후불' },
-        { ico:'💵', cls:'as', title:'미수금 처리', desc:'미수 회수 기록' },
-        { ico:'🚚', cls:'van', title:'택배 조회/등록', desc:'발송·수령 추적' },
-      ]);
-    } else {
-      alert('업무 등록 폼이 열립니다 — ' + menu);
-    }
+  // 업무 폼 팝업
+  function openJobForm(cat) {
+    const titles = { new:'🆕 신규 업무 상세', as:'🔧 AS 업무 상세', van:'📑 VAN 업무 상세', supplies:'🏷️ 소모품 거래 상세' };
+    document.getElementById('jfTitle').textContent = titles[cat] || '업무 상세';
+    // 신규일 때만 계약 섹션 표시
+    document.getElementById('jfContract').style.display = (cat === 'new') ? 'block' : 'none';
+    document.getElementById('jobFormModal').classList.add('show');
   }
 
-  function showBranch(title, desc, opts) {
-    document.getElementById('branchTitle').textContent = title;
-    document.getElementById('branchDesc').textContent = desc;
-    document.getElementById('branchOpts').innerHTML = opts.map(o => `
-      <div class="branch-opt ${o.cls}" onclick="document.getElementById('branchModal').classList.remove('show');alert('선택: ${o.title}')">
-        <div class="ico">${o.ico}</div>
-        <div class="text">
-          <h4>${o.title}</h4>
-          <p>${o.desc}</p>
-        </div>
-      </div>`).join('');
-    document.getElementById('branchModal').classList.add('show');
+  // 매장 상세 모달
+  function openStoreDetail() {
+    document.getElementById('storeDetailModal').classList.add('show');
   }
 
-  document.getElementById('branchModal').addEventListener('click', (ev) => {
-    if (ev.target.id === 'branchModal') ev.currentTarget.classList.remove('show');
+  // 미수 상세
+  function openArDetail() {
+    document.getElementById('arModal').classList.add('show');
+  }
+
+  // sd-tab 전환
+  document.querySelectorAll('.sd-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.sd-tab').forEach(x => x.classList.toggle('active', x === t));
+    });
   });
 </script>
 
