@@ -234,6 +234,215 @@
     </svg>
   </div>
 
+  <!-- 자기 발신 메시지 루프 방지 다이어그램 -->
+  <div class="flowmap" style="background:#FFFBEB;border-color:#FCD34D">
+    <h3 style="color:#92400E">🔁 자기 발신 메시지 무한 루프 방지</h3>
+    <div style="font-size:13px;color:var(--gray-600);line-height:1.6;margin-bottom:14px">
+      업무 등록 → LINE 발송 → LINE Webhook → 큐 적재 → Claude 파싱 → 등록 대기 (← <b style="color:var(--neo-red)">자기 메시지를 다시 등록 대기에 띄우면 안 됨!</b>)
+    </div>
+    <svg class="flow-svg" viewBox="0 0 920 240" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#374151"/>
+        </marker>
+        <marker id="arr2r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#EF4444"/>
+        </marker>
+      </defs>
+      <!-- 1. 업무 등록 -->
+      <rect x="10" y="100" width="130" height="55" rx="10" fill="#EFF6FF" stroke="#2563EB" stroke-width="2"/>
+      <text x="75" y="123" text-anchor="middle" font-size="13" font-weight="800" fill="#1D4ED8">업무 등록</text>
+      <text x="75" y="142" text-anchor="middle" font-size="10" fill="#475569">jobId 발급 + 시그니처 생성</text>
+      <!-- 2. LINE 발송 -->
+      <rect x="160" y="100" width="130" height="55" rx="10" fill="#ECFDF5" stroke="#06C755" stroke-width="2"/>
+      <text x="225" y="123" text-anchor="middle" font-size="13" font-weight="800" fill="#04A047">LINE 발송</text>
+      <text x="225" y="142" text-anchor="middle" font-size="10" fill="#475569">시그니처 KV 등록</text>
+      <!-- 3. LINE Webhook -->
+      <rect x="310" y="100" width="130" height="55" rx="10" fill="#F3E8FF" stroke="#8B5CF6" stroke-width="2"/>
+      <text x="375" y="123" text-anchor="middle" font-size="13" font-weight="800" fill="#6B21A8">Webhook 수신</text>
+      <text x="375" y="142" text-anchor="middle" font-size="10" fill="#475569">메시지 큐 적재</text>
+      <!-- 결정 다이아 - 자기 메시지? -->
+      <polygon points="490,127 580,82 670,127 580,172" fill="#FEF2F2" stroke="#EF4444" stroke-width="2"/>
+      <text x="580" y="120" text-anchor="middle" font-size="11" font-weight="800" fill="#991B1B">시그니처</text>
+      <text x="580" y="135" text-anchor="middle" font-size="11" font-weight="800" fill="#991B1B">일치?</text>
+      <!-- YES → SKIP -->
+      <rect x="700" y="40" width="200" height="50" rx="8" fill="#FEE2E2" stroke="#EF4444" stroke-width="2"/>
+      <text x="800" y="62" text-anchor="middle" font-size="12" font-weight="800" fill="#991B1B">⛔ 파싱 SKIP</text>
+      <text x="800" y="78" text-anchor="middle" font-size="10" fill="#475569">processedStatus='self_echo'</text>
+      <!-- NO → 일반 파싱 -->
+      <rect x="700" y="160" width="200" height="50" rx="8" fill="#DBEAFE" stroke="#2563EB" stroke-width="2"/>
+      <text x="800" y="182" text-anchor="middle" font-size="12" font-weight="800" fill="#1D4ED8">Claude 파싱 + 등록 대기</text>
+      <text x="800" y="198" text-anchor="middle" font-size="10" fill="#475569">기존 흐름 그대로</text>
+      <!-- arrows -->
+      <line x1="140" y1="127" x2="160" y2="127" stroke="#374151" stroke-width="2" marker-end="url(#arr2)"/>
+      <line x1="290" y1="127" x2="310" y2="127" stroke="#374151" stroke-width="2" marker-end="url(#arr2)"/>
+      <line x1="440" y1="127" x2="490" y2="127" stroke="#374151" stroke-width="2" marker-end="url(#arr2)"/>
+      <line x1="640" y1="105" x2="700" y2="68" stroke="#EF4444" stroke-width="2" marker-end="url(#arr2r)"/>
+      <line x1="640" y1="150" x2="700" y2="180" stroke="#374151" stroke-width="2" marker-end="url(#arr2)"/>
+      <text x="660" y="86" font-size="10" font-weight="800" fill="#EF4444">YES (스킵)</text>
+      <text x="660" y="170" font-size="10" font-weight="700" fill="#1D4ED8">NO</text>
+    </svg>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;font-size:12px;line-height:1.6;color:var(--gray-700)">
+      <div style="background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;padding:12px 14px">
+        <b style="color:var(--gray-900)">시그니처 생성 (발송 시)</b><br>
+        <code style="background:#F3F4F6;padding:1px 5px;border-radius:3px;font-size:11px">sha256(roomId + ":" + msgText)</code> 의 앞 16자.<br>
+        KV 키: <code style="font-size:11px">line_outbound_sig:&lt;hash&gt;</code><br>
+        값: <code style="font-size:11px">{jobId, sentAt, by}</code><br>
+        TTL: <b>10분</b> (그 안에 webhook 으로 돌아옴)
+      </div>
+      <div style="background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;padding:12px 14px">
+        <b style="color:var(--gray-900)">Webhook 수신 시 (line-webhook.js)</b><br>
+        메시지 수신 → 동일 해시 계산 → KV 조회<br>
+        - <b style="color:#EF4444">hit</b>: 큐에 적재하되 <code style="font-size:11px">processedStatus='self_echo'</code><br>
+        - 미스: 정상 적재<br>
+        파싱 cron 은 self_echo 상태인 메시지 모두 skip.
+      </div>
+      <div style="background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;padding:12px 14px">
+        <b style="color:var(--gray-900)">왜 ID 기반이 아니라 해시 기반?</b><br>
+        LINE Messaging API 의 push 응답은 messageId 를 즉시 주지 않고, webhook 의 source.userId 는 봇 자신이지만 sender 정보가 messageId 와 결합되지 않음. <b>본문 해시</b>가 양방향 식별에 가장 안정적.
+      </div>
+      <div style="background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;padding:12px 14px">
+        <b style="color:var(--gray-900)">대시보드에서 자기 메시지 보기</b><br>
+        등록 대기에는 안 보임. <b>대시보드 → 작업 상세 → 발송 이력</b> 탭에 시각 + 메시지 본문 + 시그니처 노출. 작업 ↔ LINE 메시지 양방향 추적.
+      </div>
+    </div>
+  </div>
+
+  <!-- 카테고리별 폼 매트릭스 -->
+  <div class="flowmap" style="background:#F0FDF4;border-color:#86EFAC">
+    <h3 style="color:#065F46">📋 카테고리별 입력 폼 매트릭스 — 한눈에 보기</h3>
+    <div style="overflow-x:auto;margin-top:10px">
+      <table style="width:100%;min-width:980px;border-collapse:collapse;font-size:12px;background:#fff">
+        <thead style="background:#065F46;color:#fff">
+          <tr>
+            <th style="padding:9px 8px;text-align:left;border:1px solid #047857;width:120px">카테고리</th>
+            <th style="padding:9px 8px;text-align:center;border:1px solid #047857;width:80px">거래처 담당</th>
+            <th style="padding:9px 8px;text-align:center;border:1px solid #047857;width:80px">처리 요청일</th>
+            <th style="padding:9px 8px;text-align:center;border:1px solid #047857;width:80px">우선순위</th>
+            <th style="padding:9px 8px;text-align:left;border:1px solid #047857">카테고리 고유 필드</th>
+            <th style="padding:9px 8px;text-align:left;border:1px solid #047857;width:130px">진행 단계</th>
+            <th style="padding:9px 8px;text-align:left;border:1px solid #047857;width:130px">기본 LINE 그룹</th>
+          </tr>
+        </thead>
+        <tbody style="font-family:'Pretendard Variable',sans-serif">
+          <tr style="border-bottom:1px solid var(--gray-200)">
+            <td style="padding:8px;border:1px solid var(--gray-200);font-weight:800">🖥 POS A/S</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅ 필수</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">증상 · 발생 시점 · 영향 단말기 (매장 장비 DB 에서 선택) · 임시조치 여부</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">접수 → 부품발주 → 방문 → 완료</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px">📞 A/S</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--gray-200);background:#FAFAFA">
+            <td style="padding:8px;border:1px solid var(--gray-200);font-weight:800">💳 VAN A/S</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅ 필수</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">VAN 사 (KIS/KCP/KSNET…) · 단말기 시리얼 · 통신 / 인식 오류 구분 · 결제 영향 여부</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">접수 → 원격조치 → 방문교체 → 완료</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px">📞 A/S</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--gray-200)">
+            <td style="padding:8px;border:1px solid var(--gray-200);font-weight:800">📱 단말기 A/S</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅ 필수</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">단말 모델 (E600K 등) · 시리얼 · 개통/반품/수리 구분 · 전산등록 필요 여부</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">접수 → 신청 → 출고/수리 → 완료</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px">📞 A/S</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--gray-200);background:#FAFAFA">
+            <td style="padding:8px;border:1px solid var(--gray-200);font-weight:800">📞 상담</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅ 필수</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕ 선택</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">상담 유형 (사용법/견적/교육/문의) · 응대 방식 (전화/방문/원격)</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">접수 → 처리중 → 완료</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px">📞 A/S</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--gray-200)">
+            <td style="padding:8px;border:1px solid var(--gray-200);font-weight:800">🏪 오픈 작업</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅ 필수</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅ (오픈일)</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">개업 형태 (신규/이전/리모델링) · 가오픈 / 오픈일 · <b>투입 장비 리스트 (수량·옵션)</b> · 현장 담당자</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">계약 → 공사 → 설치 → 가오픈 → 오픈</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px">🗓 일정</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--gray-200);background:#FAFAFA">
+            <td style="padding:8px;border:1px solid var(--gray-200);font-weight:800">↩️ 이탈/해지</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">해지 사유 · <b>회수 장비 (매장 장비 DB → 선택)</b> · 미수금 여부 · 대체 매장 (이전 시)</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">접수 → 회수 → 정산 → 종료</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px">📋 밴업무 공유</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--gray-200)">
+            <td style="padding:8px;border:1px solid var(--gray-200);font-weight:800">📊 재고 조사</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">조사 범위 (POS/단말기/소모품 등) · 조사 방식 (방문/원격/매장 자체) · 차이 발견 시 처리</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">접수 → 조사 → 보고 → 완료</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px">📞 A/S</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--gray-200);background:#FAFAFA">
+            <td style="padding:8px;border:1px solid var(--gray-200);font-weight:800">📑 밴서류</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕ (보통 본사)</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">서류 유형 (신규가맹/상호변경/주소변경/계좌변경/해지) · VAN 사 · 제출 서류 체크리스트</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">신청 → 심사 → 완료</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px">📋 밴업무 공유</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--gray-200)">
+            <td style="padding:8px;border:1px solid var(--gray-200);font-weight:800">📅 일정</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅ (일자/시각)</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">방문 시각 (시:분) · 예상 소요 시간 · 동행 인원 · 사전 준비물</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">예정 → 진행중 → 완료</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px">🗓 일정</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--gray-200);background:#FAFAFA">
+            <td style="padding:8px;border:1px solid var(--gray-200);font-weight:800">🏷 라벨지</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">라벨지 규격 (40x30/58x40 등) · 수량 · 배송 방법 (택배/직접/방문)</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">요청 → 발주 → 출고 → 수령확인</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px">📦 장비출고</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--gray-200)">
+            <td style="padding:8px;border:1px solid var(--gray-200);font-weight:800">📦 장비 출고</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)"><b>장비 카탈로그 picker (수량·옵션)</b> · 출고 방식 · 운임 부담</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">요청 → 준비 → 출고 → 수령확인</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px">📦 장비출고</td>
+          </tr>
+          <tr style="background:#FAFAFA">
+            <td style="padding:8px;border:1px solid var(--gray-200);font-weight:800">🚚 택배</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">✅</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);text-align:center">⭕</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">택배사 (CJ/한진 등) · 운송장 번호 · 발송/수령 구분 · 내용물 간단 설명</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px;color:var(--gray-600)">접수 → 발송 → 도착확인</td>
+            <td style="padding:8px;border:1px solid var(--gray-200);font-size:11px">📦 장비출고</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--gray-600)">
+      <div><b style="color:var(--gray-800)">✅ 필수</b> — 빈칸이면 다음 단계로 진행 불가</div>
+      <div><b style="color:var(--gray-800)">⭕ 선택</b> — 입력 권장이지만 생략 가능</div>
+      <div><b style="color:var(--gray-800)">진행 단계</b> — <code style="background:#fff;padding:1px 5px;border-radius:3px;font-size:11px">job.status</code> 가 변하는 흐름 (기존 AS_STATUS_FLOW 확장)</div>
+    </div>
+  </div>
+
   <div class="grid-2">
     <!-- 좌측 스텝 네비 -->
     <nav class="stepnav">
@@ -503,6 +712,19 @@
       <div id="lineMsgBubble" class="preview-msg"></div>
       <div id="lineTargetLabel" style="font-size:11px;color:var(--gray-500);margin-top:-10px">↑ A/S 그룹에 발신됩니다</div>
 
+      <!-- 자기 메시지 루프 방지 안내 -->
+      <div style="margin-top:18px;background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:10px;padding:12px 14px">
+        <div style="font-size:12px;font-weight:800;color:#991B1B;margin-bottom:6px">🔁 자기 발신 메시지 루프 방지 — 자동 처리</div>
+        <div style="font-size:11px;color:var(--gray-600);line-height:1.6">
+          1. 발송 직전 메시지 본문 해시 (앞 16자) 를 KV <code style="background:#fff;padding:1px 4px;border-radius:3px">line_outbound_sig:&lt;hash&gt;</code> 에 등록 (TTL 10분)<br>
+          2. LINE 웹훅으로 같은 메시지가 돌아오면 동일 해시 매칭 → <code style="background:#fff;padding:1px 4px;border-radius:3px">processedStatus='self_echo'</code> 로 마크 → 등록 대기에 안 뜸<br>
+          3. 대시보드 → 작업 상세 → <b>발송 이력</b> 탭에서 확인 가능 (jobId ↔ 메시지 양방향)
+        </div>
+        <div style="margin-top:6px;font-size:11px;color:var(--gray-500);font-family:monospace;background:#fff;padding:6px 8px;border-radius:5px">
+          시그니처: <span id="sigPreview" style="color:#991B1B;font-weight:800">계산 중…</span>
+        </div>
+      </div>
+
       <div class="actions">
         <div style="display:flex;gap:8px;align-items:center">
           <button class="btn" onclick="goStep(3)">← 이전</button>
@@ -531,7 +753,7 @@
       </div>
       <div class="actions">
         <button class="btn" onclick="goStep(4)">← 이전</button>
-        <button class="btn btn-success" onclick="alert('✅ 등록 완료\n\n실제 구현시:\n1. POST /api/jobs (job 생성)\n2. POST /api/line-send (LINE Messaging API)\n3. 대시보드 갱신')">✓ 업무 등록 + LINE 발신</button>
+        <button class="btn btn-success" onclick="alert('✅ 등록 완료\n\n실제 구현시 처리 흐름:\n1. POST /api/jobs — job 생성 (jobId 발급)\n2. 메시지 시그니처 KV 저장\n   line_outbound_sig:<hash16> = {jobId, sentAt, by} (TTL 10분)\n3. POST /api/line-send — LINE Messaging API push\n4. 대시보드 갱신\n5. LINE 웹훅으로 같은 메시지가 돌아오면\n   line-webhook.js 가 해시 매칭 → processedStatus=self_echo\n   line-parse-cron.js 는 self_echo 메시지 skip\n   → 등록 대기에 우리 발송 메시지 다시 안 뜸 ✓')">✓ 업무 등록 + LINE 발신</button>
       </div>
     </div>
   </div>
@@ -571,6 +793,14 @@
       <div>
         <b style="color:var(--gray-900)">H. 거래처 담당 = 매장 contacts 와 연동</b><br>
         매장 데이터의 <code>store.contacts[]</code> (이름·직책·전화·primary 플래그) 와 자동 양방향 동기화: 등록시 입력값을 매장 DB 에도 추가. 매장에 이미 contacts 있으면 dropdown 으로 자동 채움 + "신규 추가" 옵션. 같은 통화 상대를 매번 다시 입력하지 않게.
+      </div>
+      <div>
+        <b style="color:var(--gray-900)">I. 자기 발신 메시지 루프 차단</b><br>
+        발송 직전 본문 해시(sha256 앞 16자)를 KV <code>line_outbound_sig:&lt;hash&gt;</code> 에 TTL 10분으로 저장. <code>line-webhook.js</code> 가 같은 해시 매칭 시 큐에 적재하되 <code>processedStatus='self_echo'</code> 마크 → <code>line-parse-cron.js</code> 가 skip. <b>등록 대기 화면에 우리 발송 메시지가 다시 뜨는 사고 방지.</b>
+      </div>
+      <div>
+        <b style="color:var(--gray-900)">J. 외부 → 내부 동일 매장 메시지 자동 연결</b><br>
+        파싱 결과의 <code>store</code> 가 우리가 최근 발송한 jobId 의 매장과 일치하면 등록 대기 항목에 <b>"기존 작업과 연결?" 추천</b> 표시. 답장 ↔ 작업 자동 trace 강화 (J 는 다음 단계, 일단 I 만 우선 구현).
       </div>
     </div>
   </div>
@@ -668,6 +898,15 @@ ${content || '(내용 없음)'}
 
 처리: ${assignee} · 등록: ${me}`;
 }
+async function computeSig(text, roomKey) {
+  /* 발송 직전 시그니처 — sha256(roomId:text) 앞 16자 hex */
+  try {
+    const enc = new TextEncoder().encode(`${roomKey || 'demo-room'}:${text}`);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 16);
+  } catch(e) { return 'unavailable'; }
+}
+
 function renderLineMsgPreview() {
   const ta = document.getElementById('lineMsgText');
   const bubble = document.getElementById('lineMsgBubble');
@@ -675,6 +914,12 @@ function renderLineMsgPreview() {
   if (ta && document.activeElement !== ta) ta.value = msg;
   else if (ta && customMsgOverride == null) ta.value = msg;
   if (bubble) bubble.textContent = msg;
+  // 시그니처 미리보기
+  const sigEl = document.getElementById('sigPreview');
+  if (sigEl) {
+    const lineSel = document.querySelector('.line-card.selected .lname')?.textContent.trim() || 'demo';
+    computeSig(msg, lineSel).then(sig => { sigEl.textContent = sig; });
+  }
   // step 5 요약도 동기화
   syncFinalSummary();
 }
