@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>네비게이션 재설계 — 업무 카테고리 기반</title>
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --primary:#2563EB;--primary-dark:#1d4ed8;--primary-light:#EFF6FF;
+    --success:#10B981;--warning:#F59E0B;--danger:#EF4444;--purple:#8B5CF6;
+    --gray-50:#F9FAFB;--gray-100:#F3F4F6;--gray-200:#E5E7EB;--gray-300:#D1D5DB;
+    --gray-400:#9CA3AF;--gray-500:#6B7280;--gray-600:#4B5563;--gray-700:#374151;
+    --gray-800:#1F2937;--gray-900:#111827;
+    --neo-paper:#F5EEDF;--neo-ink:#1A1614;--neo-red:#FF2D1F;
+  }
+  body{font-family:'Pretendard Variable','Pretendard',-apple-system,sans-serif;
+       background:var(--neo-paper);color:var(--gray-800);padding:30px 20px 80px;min-height:100vh}
+  .container{max-width:1400px;margin:0 auto}
+  .topbar{background:#fff;border:2px solid var(--neo-ink);border-radius:14px;padding:20px 24px;
+          margin-bottom:24px;box-shadow:4px 4px 0 var(--neo-ink)}
+  .topbar h1{font-size:22px;font-weight:900}
+  .topbar .sub{font-size:12px;color:var(--gray-500);margin-top:4px}
+  .section{background:#fff;border:1.5px solid var(--gray-200);border-radius:14px;padding:22px;margin-bottom:22px;
+           box-shadow:0 2px 12px rgba(0,0,0,.04)}
+  .section-title{font-size:15px;font-weight:900;color:var(--gray-900);margin-bottom:14px;
+                 display:flex;align-items:center;gap:8px}
+  .section-title .badge{font-size:10px;background:var(--primary);color:#fff;padding:2px 8px;border-radius:99px;font-weight:800}
+
+  /* ━━━ 상단 메뉴 미리보기 ━━━ */
+  .navbar{background:linear-gradient(135deg,#1F2937 0%,#111827 100%);border-radius:12px;padding:14px 22px;
+          display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .nav-brand{color:#fff;font-weight:900;font-size:15px;margin-right:14px;display:flex;align-items:center;gap:8px}
+  .nav-brand .logo{width:30px;height:30px;background:var(--neo-red);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900}
+  .nav-item{color:rgba(255,255,255,.85);padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;
+            display:flex;align-items:center;gap:6px;position:relative}
+  .nav-item:hover{background:rgba(255,255,255,.1)}
+  .nav-item.active{background:rgba(255,255,255,.15);color:#fff}
+  .nav-item .count{background:var(--neo-red);color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:99px}
+  .nav-spacer{flex:1}
+  .nav-user{color:rgba(255,255,255,.7);font-size:12px}
+
+  /* ━━━ 카테고리 매핑 표 ━━━ */
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:900px){.grid-2{grid-template-columns:1fr}}
+
+  .cat-block{border:1.5px solid var(--gray-200);border-radius:10px;padding:14px 16px;background:var(--gray-50)}
+  .cat-block.new{border-color:var(--success);background:#ecfdf5}
+  .cat-block.as{border-color:var(--warning);background:#fffbeb}
+  .cat-block.van{border-color:var(--primary);background:#eff6ff}
+  .cat-block.label{border-color:var(--purple);background:#f5f3ff}
+  .cat-block.stock{border-color:#06b6d4;background:#ecfeff}
+  .cat-block.store{border-color:var(--gray-500);background:#fff}
+  .cat-block.sched{border-color:#ec4899;background:#fdf2f8}
+
+  .cat-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .cat-name{font-weight:900;font-size:14px;display:flex;align-items:center;gap:7px}
+  .cat-name .ico{font-size:18px}
+  .cat-meta{font-size:11px;color:var(--gray-600);font-weight:700}
+  .sub-list{display:flex;flex-direction:column;gap:4px}
+  .sub-item{font-size:12px;padding:6px 10px;background:#fff;border-radius:6px;border:1px solid var(--gray-200);
+            display:flex;justify-content:space-between;align-items:center;gap:6px}
+  .sub-item .label{display:flex;align-items:center;gap:6px}
+  .sub-item .tag{font-size:9px;padding:1px 6px;border-radius:99px;font-weight:800}
+  .tag-new{background:var(--success);color:#fff}
+  .tag-as{background:var(--warning);color:#fff}
+  .tag-van{background:var(--primary);color:#fff}
+  .tag-label{background:var(--purple);color:#fff}
+  .tag-opt{background:var(--gray-400);color:#fff}
+  .sub-item .src{font-size:10px;color:var(--gray-500);font-weight:700}
+
+  /* ━━━ 7대 업무 분류 ━━━ */
+  .cat7{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+  .cat7-card{padding:14px;border:1.5px solid var(--gray-200);border-radius:10px;background:#fff}
+  .cat7-card h4{font-size:13px;font-weight:900;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+  .cat7-card .num{background:var(--gray-900);color:#fff;width:22px;height:22px;border-radius:6px;
+                  display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:900}
+  .cat7-card ul{list-style:none;padding:0;font-size:11px;color:var(--gray-600);line-height:1.7}
+  .cat7-card li{padding-left:10px;position:relative}
+  .cat7-card li::before{content:"·";position:absolute;left:2px}
+
+  /* ━━━ 변경 요약 ━━━ */
+  .change-table{width:100%;font-size:12px;border-collapse:collapse}
+  .change-table th,.change-table td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--gray-200)}
+  .change-table th{background:var(--gray-100);font-weight:800;color:var(--gray-700);font-size:11px}
+  .change-table td.before{color:var(--gray-500);text-decoration:line-through}
+  .change-table td.after{color:var(--success);font-weight:700}
+
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;background:var(--gray-50);border-radius:8px;font-size:11px}
+  .legend span{display:inline-flex;align-items:center;gap:5px;font-weight:700}
+  .legend span::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--gray-400)}
+  .legend .l-new::before{background:var(--success)}
+  .legend .l-as::before{background:var(--warning)}
+  .legend .l-van::before{background:var(--primary)}
+  .legend .l-label::before{background:var(--purple)}
+  .legend .l-opt::before{background:var(--gray-400)}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+  <h1>🧭 사이트 네비게이션 재설계 — 업무 카테고리 기반</h1>
+  <div class="sub">7대 업무 카테고리를 4개 상단 메뉴로 통합하고, 일부 카테고리는 사용자 선택에 따라 분기 배치</div>
+</div>
+
+<!-- ═════════ 1. 새로운 상단 메뉴 ═════════ -->
+<div class="section">
+  <div class="section-title"><span class="badge">1</span>새 상단 메뉴 (변경 후)</div>
+  <div class="navbar">
+    <div class="nav-brand"><div class="logo">N</div>NeoRetail</div>
+    <div class="nav-item active">🆕 신규업무 <span class="count">12</span></div>
+    <div class="nav-item">🔧 AS관리 <span class="count">8</span></div>
+    <div class="nav-item">📑 VAN <span class="count">5</span></div>
+    <div class="nav-item">📦 재고조사</div>
+    <div class="nav-item">🏷️ 소모품판매</div>
+    <div class="nav-item">🏪 점포관리</div>
+    <div class="nav-item">📅 일정조회</div>
+    <div class="nav-spacer"></div>
+    <div class="nav-user">홍길동 / 마이페이지</div>
+  </div>
+  <div style="margin-top:14px;padding:12px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#92400e">
+    💡 <strong>VAN 서류 접수 알림은 대시보드 상단 카드</strong>에 띄우고, 지난 서류 조회는 마이페이지로 이동.
+    별도 메뉴 항목 불필요.
+  </div>
+</div>
+
+<!-- ═════════ 2. 변경 전/후 ═════════ -->
+<div class="section">
+  <div class="section-title"><span class="badge">2</span>변경 요약</div>
+  <table class="change-table">
+    <thead>
+      <tr><th style="width:30%">변경 전 (기존)</th><th style="width:30%">변경 후 (제안)</th><th>변경 이유</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="before">업무등록 (단일 메뉴)</td><td class="after">신규업무 / AS관리 / VAN / 소모품판매</td><td>업무 성격이 너무 달라 한 메뉴로 묶으면 혼란</td></tr>
+      <tr><td class="before">VAN서류 (별도 메뉴)</td><td class="after">대시보드 알림 + 마이페이지</td><td>일상적 메뉴가 아니라 알림 흐름이 적절</td></tr>
+      <tr><td class="before">점포관리 → 매장 상세 진입</td><td class="after">유지 (탭 구조만 재설계)</td><td>매장 진입 동선은 그대로</td></tr>
+      <tr><td class="before">일정조회 (캘린더)</td><td class="after">유지</td><td>전체 일정 시야는 별도 메뉴 유지</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═════════ 3. 7대 카테고리 → 4개 메뉴 라우팅 ═════════ -->
+<div class="section">
+  <div class="section-title"><span class="badge">3</span>7대 업무 카테고리 → 4개 메뉴 라우팅</div>
+  <div class="legend">
+    <span class="l-new">신규업무</span>
+    <span class="l-as">AS관리</span>
+    <span class="l-van">VAN</span>
+    <span class="l-label">소모품판매</span>
+    <span class="l-opt">사용자 선택 (분기)</span>
+  </div>
+
+  <div class="cat7">
+    <!-- 1 -->
+    <div class="cat7-card">
+      <h4><span class="num">1</span>신규</h4>
+      <ul>
+        <li>신규/오픈</li>
+        <li>신규/프로그램교체</li>
+        <li>신규/VAN변경</li>
+      </ul>
+      <div style="margin-top:8px;font-size:10px;color:var(--success);font-weight:800">→ 신규업무 (전체)</div>
+    </div>
+    <!-- 2 -->
+    <div class="cat7-card">
+      <h4><span class="num">2</span>AS</h4>
+      <ul>
+        <li>AS/POS</li>
+        <li>AS/VAN</li>
+        <li>AS/장비판매</li>
+        <li>AS/장비교체</li>
+        <li>AS/장비회수</li>
+      </ul>
+      <div style="margin-top:8px;font-size:10px;color:var(--warning);font-weight:800">→ AS관리 (전체)</div>
+    </div>
+    <!-- 3 -->
+    <div class="cat7-card">
+      <h4><span class="num">3</span>단말기</h4>
+      <ul>
+        <li>단말개통 → <strong>신규/AS 선택</strong></li>
+        <li>단말 AS/대체 → AS</li>
+        <li>단말해지 → AS</li>
+      </ul>
+      <div style="margin-top:8px;font-size:10px;color:var(--gray-600);font-weight:800">→ 사용자 분기</div>
+    </div>
+    <!-- 4 -->
+    <div class="cat7-card">
+      <h4><span class="num">4</span>VAN</h4>
+      <ul>
+        <li>VAN/신규등록 → <strong>신규/VAN</strong></li>
+        <li>VAN/재신고 → VAN</li>
+        <li>VAN/정산 → VAN</li>
+        <li>VAN/계약 → VAN</li>
+        <li>VAN/변경 → <strong>VAN/AS 선택</strong></li>
+      </ul>
+      <div style="margin-top:8px;font-size:10px;color:var(--gray-600);font-weight:800">→ 분기 + VAN</div>
+    </div>
+    <!-- 5 -->
+    <div class="cat7-card">
+      <h4><span class="num">5</span>매장이탈</h4>
+      <ul>
+        <li>이탈/폐업</li>
+        <li>이탈/매각</li>
+        <li>VAN 거래 종료</li>
+      </ul>
+      <div style="margin-top:8px;font-size:10px;color:var(--warning);font-weight:800">→ AS관리</div>
+    </div>
+    <!-- 6 -->
+    <div class="cat7-card">
+      <h4><span class="num">6</span>재고조사</h4>
+      <ul>
+        <li>재고 상담 → 조사 일정 → 완료/수금 → 비용/수익 집계</li>
+      </ul>
+      <div style="margin-top:8px;font-size:10px;color:#06b6d4;font-weight:800">→ 재고조사 (독립 메뉴)</div>
+    </div>
+    <!-- 7 -->
+    <div class="cat7-card">
+      <h4><span class="num">7</span>소모품</h4>
+      <ul>
+        <li>판매 등록 (라벨/용지)</li>
+        <li>미수 관리</li>
+        <li>택배조회</li>
+      </ul>
+      <div style="margin-top:8px;font-size:10px;color:var(--purple);font-weight:800">→ 소모품판매 (전체)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 4. 메뉴별 세부 라우팅 ═════════ -->
+<div class="section">
+  <div class="section-title"><span class="badge">4</span>각 메뉴가 받는 업무 (서브 카테고리)</div>
+  <div class="grid-2">
+
+    <div class="cat-block new">
+      <div class="cat-head">
+        <div class="cat-name"><span class="ico">🆕</span>신규업무</div>
+        <div class="cat-meta">신규 전체 + 일부 분기</div>
+      </div>
+      <div class="sub-list">
+        <div class="sub-item"><span class="label"><span class="tag tag-new">1</span>신규/오픈</span><span class="src">신규</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-new">1</span>신규/프로그램교체</span><span class="src">신규</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-new">1</span>신규/VAN변경</span><span class="src">신규</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-opt">3</span>단말개통 (선택시)</span><span class="src">단말기</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-van">4</span>VAN/신규등록</span><span class="src">VAN</span></div>
+      </div>
+    </div>
+
+    <div class="cat-block as">
+      <div class="cat-head">
+        <div class="cat-name"><span class="ico">🔧</span>AS관리</div>
+        <div class="cat-meta">AS 전체 + 단말/매장이탈</div>
+      </div>
+      <div class="sub-list">
+        <div class="sub-item"><span class="label"><span class="tag tag-as">2</span>AS/POS</span><span class="src">AS</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-as">2</span>AS/VAN</span><span class="src">AS</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-as">2</span>AS/장비판매</span><span class="src">AS</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-as">2</span>AS/장비교체</span><span class="src">AS</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-as">2</span>AS/장비회수</span><span class="src">AS</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-opt">3</span>단말기 전체 (선택시)</span><span class="src">단말기</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-opt">4</span>VAN/변경 (선택시)</span><span class="src">VAN</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-as">5</span>이탈/폐업</span><span class="src">매장이탈</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-as">5</span>이탈/매각</span><span class="src">매장이탈</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-as">5</span>VAN 거래종료</span><span class="src">매장이탈</span></div>
+      </div>
+    </div>
+
+    <div class="cat-block van">
+      <div class="cat-head">
+        <div class="cat-name"><span class="ico">📑</span>VAN</div>
+        <div class="cat-meta">VAN 서류 업무 전체</div>
+      </div>
+      <div class="sub-list">
+        <div class="sub-item"><span class="label"><span class="tag tag-van">4</span>VAN/신규등록</span><span class="src">VAN</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-van">4</span>VAN/재신고</span><span class="src">VAN</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-van">4</span>VAN/정산</span><span class="src">VAN</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-van">4</span>VAN/계약</span><span class="src">VAN</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-van">4</span>VAN/변경 (당사간)</span><span class="src">VAN</span></div>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--gray-600);font-weight:700">
+        ※ 가맹 등록은 카드사별 접수가 일정으로 분리되지 않고 <strong>해당 VAN 업무의 처리기록에 누적</strong>
+      </div>
+    </div>
+
+    <div class="cat-block label">
+      <div class="cat-head">
+        <div class="cat-name"><span class="ico">🏷️</span>소모품판매</div>
+        <div class="cat-meta">7번 카테고리 전체</div>
+      </div>
+      <div class="sub-list">
+        <div class="sub-item"><span class="label"><span class="tag tag-label">7</span>판매 등록</span><span class="src">소모품</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-label">7</span>미수 관리</span><span class="src">소모품</span></div>
+        <div class="sub-item"><span class="label"><span class="tag tag-label">7</span>택배 조회</span><span class="src">소모품</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═════════ 5. 분기 처리 동작 ═════════ -->
+<div class="section">
+  <div class="section-title"><span class="badge">5</span>사용자 분기 동작 — 단말개통 / VAN변경</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:14px;background:#fff">
+      <div style="font-weight:900;font-size:13px;margin-bottom:8px">단말개통 — 분기</div>
+      <div style="font-size:11px;color:var(--gray-600);margin-bottom:10px">신규 매장 오픈과 함께 / 기존 매장의 추가 단말 — 두 경우 분리</div>
+      <div style="background:var(--gray-50);border-radius:8px;padding:10px;font-size:12px;line-height:1.7">
+        업무 등록 폼 →<br>
+        <strong>카테고리: 단말개통</strong> 선택 →<br>
+        🔘 신규 매장과 함께 진행 → <span style="color:var(--success);font-weight:800">신규업무</span><br>
+        🔘 기존 매장 추가 → <span style="color:var(--warning);font-weight:800">AS관리</span>
+      </div>
+    </div>
+    <div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:14px;background:#fff">
+      <div style="font-weight:900;font-size:13px;margin-bottom:8px">VAN/변경 — 분기</div>
+      <div style="font-size:11px;color:var(--gray-600);margin-bottom:10px">당사 코드간 이전 / VAN사 변경 — 두 경우 분리</div>
+      <div style="background:var(--gray-50);border-radius:8px;padding:10px;font-size:12px;line-height:1.7">
+        업무 등록 폼 →<br>
+        <strong>카테고리: VAN/변경</strong> 선택 →<br>
+        🔘 당사 코드 내부 이전 → <span style="color:var(--primary);font-weight:800">VAN</span><br>
+        🔘 타VAN 으로 변경 → <span style="color:var(--warning);font-weight:800">AS관리</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;padding:18px;color:var(--gray-500);font-size:12px">
+  ⓘ 이 목업은 데이터 라우팅 정리용 — 실제 화면이 아닙니다.<br>
+  &nbsp;&nbsp;피드백 후 매장 상세 모달(8탭)부터 실제 구현 진행 예정
+</div>
+
+</div>
+</body>
+</html>

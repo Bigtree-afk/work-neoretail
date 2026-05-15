@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>매장 상세 모달 V2 — 8탭 구조</title>
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --primary:#2563EB;--primary-dark:#1d4ed8;--primary-light:#EFF6FF;
+    --success:#10B981;--warning:#F59E0B;--danger:#EF4444;--purple:#8B5CF6;
+    --gray-50:#F9FAFB;--gray-100:#F3F4F6;--gray-200:#E5E7EB;--gray-300:#D1D5DB;
+    --gray-400:#9CA3AF;--gray-500:#6B7280;--gray-600:#4B5563;--gray-700:#374151;
+    --gray-800:#1F2937;--gray-900:#111827;
+    --neo-paper:#F5EEDF;--neo-ink:#1A1614;--neo-red:#FF2D1F;
+  }
+  body{font-family:'Pretendard Variable','Pretendard',-apple-system,sans-serif;
+       background:var(--neo-paper);color:var(--gray-800);padding:30px 20px 80px;min-height:100vh}
+  .container{max-width:1500px;margin:0 auto}
+  .topbar{background:#fff;border:2px solid var(--neo-ink);border-radius:14px;padding:20px 24px;
+          margin-bottom:24px;box-shadow:4px 4px 0 var(--neo-ink);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+  .topbar h1{font-size:22px;font-weight:900}
+  .topbar .sub{font-size:12px;color:var(--gray-500);margin-top:4px}
+  .tabs-info{display:flex;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--gray-600)}
+  .tabs-info span{background:var(--gray-100);padding:4px 10px;border-radius:99px;font-weight:700}
+
+  /* ━━━ 모달 ━━━ */
+  .modal{background:#fff;border:1.5px solid var(--gray-200);border-radius:14px;overflow:hidden;
+         box-shadow:0 8px 32px rgba(0,0,0,.08)}
+  .modal-head{background:linear-gradient(135deg,#1F2937 0%,#111827 100%);color:#fff;padding:16px 22px;
+              display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+  .store-banner{display:flex;gap:14px;align-items:center}
+  .store-avatar{width:54px;height:54px;background:rgba(255,255,255,.1);border-radius:14px;
+                display:flex;align-items:center;justify-content:center;font-size:28px}
+  .store-name{font-size:18px;font-weight:900;letter-spacing:-0.02em}
+  .store-meta{font-size:11px;opacity:0.7;margin-top:2px}
+  .store-tags{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+  .store-tags span{font-size:10px;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:99px;font-weight:700}
+  .modal-actions{display:flex;gap:6px}
+  .modal-actions button{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);
+                        border-radius:7px;padding:6px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+  .modal-actions button:hover{background:rgba(255,255,255,.25)}
+
+  /* 탭바 */
+  .tabbar{background:#fff;border-bottom:1.5px solid var(--gray-200);display:flex;overflow-x:auto;scrollbar-width:none}
+  .tabbar::-webkit-scrollbar{display:none}
+  .tab{padding:13px 18px;font-size:13px;font-weight:700;color:var(--gray-500);border-bottom:3px solid transparent;
+       cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;transition:all .12s;font-family:inherit;
+       background:none;border-top:none;border-left:none;border-right:none}
+  .tab:hover{color:var(--gray-800);background:var(--gray-50)}
+  .tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:800}
+  .tab .count{font-size:10px;background:var(--gray-200);color:var(--gray-700);padding:1px 7px;border-radius:99px;font-weight:800}
+  .tab.active .count{background:var(--primary);color:#fff}
+  .tab.urgent .count{background:var(--neo-red);color:#fff;animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+
+  .modal-body{padding:20px 22px;min-height:540px;background:var(--gray-50)}
+
+  /* 진행 중 카드 */
+  .job-list{display:flex;flex-direction:column;gap:10px}
+  .job-card{background:#fff;border:1.5px solid var(--gray-200);border-left:4px solid var(--primary);
+            border-radius:10px;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .job-card.new{border-left-color:var(--success)}
+  .job-card.as{border-left-color:var(--warning)}
+  .job-card.van{border-left-color:var(--primary)}
+  .job-card.supplies{border-left-color:var(--purple)}
+  .job-card .left{flex:1}
+  .job-card .cat-tag{display:inline-block;font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:99px;color:#fff;margin-right:6px}
+  .ct-new{background:var(--success)} .ct-as{background:var(--warning)}
+  .ct-van{background:var(--primary)} .ct-supplies{background:var(--purple)}
+  .job-card .title{font-size:13.5px;font-weight:800;color:var(--gray-900);margin-top:3px}
+  .job-card .meta{font-size:11px;color:var(--gray-500);margin-top:3px}
+  .job-card .when{font-size:11px;background:var(--gray-100);color:var(--gray-700);padding:5px 10px;border-radius:7px;font-weight:700}
+  .job-card .when.urgent{background:var(--neo-red);color:#fff}
+
+  /* 매장 정보 */
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:900px){.info-grid{grid-template-columns:1fr}}
+  .info-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:10px;padding:14px 16px}
+  .info-card h4{font-size:12.5px;font-weight:900;margin-bottom:10px;display:flex;align-items:center;gap:6px;color:var(--gray-700)}
+  .info-row{display:flex;padding:7px 0;border-bottom:1px solid var(--gray-100);font-size:12px}
+  .info-row:last-child{border-bottom:none}
+  .info-row .k{width:90px;color:var(--gray-500);font-weight:700;flex-shrink:0}
+  .info-row .v{color:var(--gray-800);font-weight:600;flex:1}
+  .equip-table{width:100%;font-size:11.5px;border-collapse:collapse}
+  .equip-table th,.equip-table td{padding:7px 8px;border-bottom:1px solid var(--gray-200);text-align:left}
+  .equip-table th{background:var(--gray-100);font-weight:800;font-size:10.5px;color:var(--gray-700)}
+  .equip-tag{font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:4px}
+  .et-pos{background:#dbeafe;color:#1e40af}
+  .et-van{background:#fef3c7;color:#92400e}
+  .et-kiosk{background:#ede9fe;color:#5b21b6}
+  .note-box{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400e}
+
+  /* 히스토리 카드 (신규/AS/VAN/소모품 공통) */
+  .hist-list{display:flex;flex-direction:column;gap:8px}
+  .hist-card{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:11px 14px;font-size:12px}
+  .hist-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+  .hist-cat{font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;color:#fff}
+  .hist-date{font-size:11px;color:var(--gray-500);font-weight:700}
+  .hist-status{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:99px}
+  .st-done{background:#d1fae5;color:#065f46}
+  .st-progress{background:#dbeafe;color:#1e40af}
+  .st-hold{background:#fee2e2;color:#991b1b}
+  .hist-card .title{font-weight:800;color:var(--gray-900);margin:3px 0}
+  .hist-card .desc{color:var(--gray-600);font-size:11.5px}
+  .hist-card .records{margin-top:6px;border-top:1px dashed var(--gray-200);padding-top:6px}
+  .hist-card .rec{font-size:11px;color:var(--gray-500);padding:3px 0}
+  .hist-card .rec b{color:var(--gray-700)}
+
+  /* 업무기록 통합 타임라인 */
+  .timeline{position:relative;padding-left:24px}
+  .timeline::before{content:"";position:absolute;left:8px;top:5px;bottom:5px;width:2px;background:var(--gray-200)}
+  .tl-item{position:relative;padding:10px 0 14px}
+  .tl-item::before{content:"";position:absolute;left:-22px;top:14px;width:14px;height:14px;background:#fff;border:3px solid var(--primary);border-radius:50%}
+  .tl-item.new::before{border-color:var(--success)}
+  .tl-item.as::before{border-color:var(--warning)}
+  .tl-item.van::before{border-color:var(--primary)}
+  .tl-item.supplies::before{border-color:var(--purple)}
+  .tl-item .head{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--gray-500);margin-bottom:3px}
+  .tl-item .title{font-size:12.5px;font-weight:800;color:var(--gray-900)}
+  .tl-item .desc{font-size:11.5px;color:var(--gray-600);margin-top:2px}
+
+  /* 메모 */
+  .memo-form{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:12px;margin-bottom:12px}
+  .memo-form textarea{width:100%;min-height:60px;border:1px solid var(--gray-200);border-radius:6px;padding:8px;font:inherit;font-size:12px;resize:vertical}
+  .memo-form .actions{display:flex;justify-content:flex-end;margin-top:6px}
+  .memo-form button{background:var(--primary);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit}
+  .memo-list{display:flex;flex-direction:column;gap:8px}
+  .memo-item{background:#fff;border:1px solid var(--gray-200);border-left:3px solid #fbbf24;border-radius:6px;padding:10px 12px;font-size:12px}
+  .memo-item .meta{font-size:10.5px;color:var(--gray-500);margin-bottom:4px}
+
+  /* 모바일 */
+  @media(max-width:640px){
+    body{padding:14px 8px 60px}
+    .modal-head{flex-direction:column;align-items:stretch}
+    .modal-actions{justify-content:flex-end}
+    .store-name{font-size:16px}
+    .tab{padding:11px 12px;font-size:11.5px}
+    .modal-body{padding:14px}
+  }
+
+  /* 가상 액션바 */
+  .actbar{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:9px 12px;margin-bottom:12px}
+  .actbar .label{font-size:12px;font-weight:800;color:var(--gray-700);display:flex;align-items:center;gap:6px}
+  .actbar button{background:var(--primary);color:#fff;border:none;border-radius:6px;padding:7px 13px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+  <div>
+    <h1>🏪 매장 상세 모달 V2 — 8탭 통합</h1>
+    <div class="sub">7대 업무 카테고리 매핑 후 매장별로 진행 중 / 매장정보 / 신규 / AS / VAN / 업무기록 / 소모품 / 메모로 정리</div>
+  </div>
+  <div class="tabs-info">
+    <span>진행 중</span><span>매장정보</span><span>신규</span><span>AS</span>
+    <span>VAN</span><span>업무기록</span><span>소모품</span><span>메모</span>
+  </div>
+</div>
+
+<!-- ═════════ 매장 상세 모달 ═════════ -->
+<div class="modal">
+
+  <div class="modal-head">
+    <div class="store-banner">
+      <div class="store-avatar">🏪</div>
+      <div>
+        <div class="store-name">온맘마켓 송파위례점</div>
+        <div class="store-meta">서울 송파구 위례성대로 · 184-81-03677 · code 40844</div>
+        <div class="store-tags">
+          <span>🟢 거래중</span>
+          <span>POS 5대</span>
+          <span>VAN 코세스</span>
+          <span>📅 등록 2025-12-04</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button>✏️ 수정</button>
+      <button>🔗 병합</button>
+      <button>📞 연락처</button>
+      <button>✕ 닫기</button>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <button class="tab active urgent">⚠️ 진행 중 <span class="count">3</span></button>
+    <button class="tab">🏪 매장정보</button>
+    <button class="tab">🆕 신규 <span class="count">2</span></button>
+    <button class="tab">🔧 AS <span class="count">12</span></button>
+    <button class="tab">📑 VAN <span class="count">4</span></button>
+    <button class="tab">🕒 업무기록 <span class="count">18</span></button>
+    <button class="tab">🏷️ 소모품 <span class="count">5</span></button>
+    <button class="tab">📝 메모 <span class="count">2</span></button>
+  </div>
+
+  <!-- ─── 진행 중 탭 ─── -->
+  <div class="modal-body">
+    <div class="actbar">
+      <span class="label">⚠️ 현재 진행 중인 업무 3건 (다른 탭에서도 보임)</span>
+      <button>+ 새 업무 추가</button>
+    </div>
+
+    <div class="job-list">
+      <div class="job-card new">
+        <div class="left">
+          <span class="cat-tag ct-new">🆕 신규</span>
+          <span style="font-size:10.5px;color:var(--gray-500);font-weight:700">신규/오픈</span>
+          <div class="title">키오스크 2대 추가 설치 (설치 예정)</div>
+          <div class="meta">📅 예정 2026-05-20 · 등록 5/12 홍길동 · 메모 3건</div>
+        </div>
+        <div class="when urgent">D-5</div>
+      </div>
+
+      <div class="job-card as">
+        <div class="left">
+          <span class="cat-tag ct-as">🔧 AS</span>
+          <span style="font-size:10.5px;color:var(--gray-500);font-weight:700">AS/POS</span>
+          <div class="title">3번 POS 영수증 프린터 불량</div>
+          <div class="meta">📅 접수 5/14 · 처리예정 5/17 · 메모 1건</div>
+        </div>
+        <div class="when">D-2</div>
+      </div>
+
+      <div class="job-card van">
+        <div class="left">
+          <span class="cat-tag ct-van">📑 VAN</span>
+          <span style="font-size:10.5px;color:var(--gray-500);font-weight:700">VAN/신규등록</span>
+          <div class="title">신한카드 가맹 등록 (KS코드)</div>
+          <div class="meta">접수 5/10 · 진행중 → 카드사 4/9 완료, BC 진행 / 신한·삼성·롯데 대기</div>
+        </div>
+        <div class="when">진행중</div>
+      </div>
+    </div>
+
+    <!-- 다른 탭 미리보기 (참고용 — 실제로는 탭 클릭으로 전환) -->
+    <div style="margin-top:30px;padding:14px;background:#fff;border:1px dashed var(--gray-300);border-radius:10px">
+      <div style="font-size:12px;font-weight:800;color:var(--gray-700);margin-bottom:10px">⬇ 아래는 다른 탭 미리보기 (실제 화면은 탭 전환)</div>
+
+      <!-- 매장정보 탭 미리 -->
+      <div style="font-size:13px;font-weight:900;margin:14px 0 10px;color:var(--gray-800)">🏪 매장정보 탭</div>
+      <div class="info-grid">
+        <div class="info-card">
+          <h4>📋 기본 정보</h4>
+          <div class="info-row"><div class="k">매장명</div><div class="v">온맘마켓 송파위례점</div></div>
+          <div class="info-row"><div class="k">대표자</div><div class="v">김OO</div></div>
+          <div class="info-row"><div class="k">사업자번호</div><div class="v">184-81-03677</div></div>
+          <div class="info-row"><div class="k">매장코드</div><div class="v">40844</div></div>
+          <div class="info-row"><div class="k">VAN사</div><div class="v">코세스</div></div>
+          <div class="info-row"><div class="k">주소</div><div class="v">서울 송파구 위례성대로 12</div></div>
+          <div class="info-row"><div class="k">연락처</div><div class="v">02-XXX-XXXX / 010-XXXX</div></div>
+          <div class="info-row"><div class="k">등록일</div><div class="v">2025-12-04</div></div>
+        </div>
+        <div class="info-card">
+          <h4>🖥 설치 장비</h4>
+          <table class="equip-table">
+            <thead><tr><th>구분</th><th>모델</th><th>S/N</th><th>설치일</th></tr></thead>
+            <tbody>
+              <tr><td><span class="equip-tag et-pos">POS</span></td><td>오케이포스 V8</td><td>OK-2024-...</td><td>25-12-04</td></tr>
+              <tr><td><span class="equip-tag et-pos">POS</span></td><td>오케이포스 V8</td><td>OK-2024-...</td><td>25-12-04</td></tr>
+              <tr><td><span class="equip-tag et-van">VAN</span></td><td>KMC-E600K</td><td>K6-25-...</td><td>25-12-04</td></tr>
+              <tr><td><span class="equip-tag et-kiosk">키오스크</span></td><td>MAZIC-K</td><td>MZ-2025-...</td><td>26-01-12</td></tr>
+              <tr><td><span class="equip-tag et-kiosk">키오스크</span></td><td>MAZIC-K</td><td>MZ-2025-...</td><td>26-01-12</td></tr>
+            </tbody>
+          </table>
+          <div class="note-box" style="margin-top:10px">
+            ⚠️ 특이사항: 영수증 출력이 가끔 한쪽으로 치우침 — 2026-02 점검 필요
+          </div>
+        </div>
+      </div>
+
+      <!-- 신규 탭 미리 -->
+      <div style="font-size:13px;font-weight:900;margin:18px 0 10px;color:var(--gray-800)">🆕 신규 탭 (신규/단말개통:선택/VAN/신규등록)</div>
+      <div class="hist-list">
+        <div class="hist-card">
+          <div class="hist-head">
+            <div>
+              <span class="hist-cat" style="background:var(--success)">신규/오픈</span>
+              <span class="hist-cat" style="background:var(--primary);margin-left:4px">VAN/신규등록</span>
+            </div>
+            <div><span class="hist-date">2025-12-04</span> <span class="hist-status st-done">완료</span></div>
+          </div>
+          <div class="title">매장 오픈 — POS 2대 + VAN + 키오스크 2대 설치</div>
+          <div class="desc">설치 요청 장비: KMC-E600K, MAZIC-K x2, 오케이포스 V8 x2 · 가오픈 12-01 · 오픈 12-04</div>
+          <div class="records">
+            <div class="rec">📝 <b>11-25 홍</b>: 매장 실측, VAN 코세스 코드 신청</div>
+            <div class="rec">📝 <b>11-30 김</b>: POS 2대 설치, 가맹등록 완료</div>
+            <div class="rec">📝 <b>12-01 박</b>: 가오픈 — 결제 테스트 OK</div>
+            <div class="rec">📝 <b>12-04 박</b>: 오픈, 직원교육 완료</div>
+          </div>
+        </div>
+        <div class="hist-card">
+          <div class="hist-head">
+            <div>
+              <span class="hist-cat" style="background:var(--success)">신규/오픈</span>
+            </div>
+            <div><span class="hist-date">2026-05-20 예정</span> <span class="hist-status st-progress">진행</span></div>
+          </div>
+          <div class="title">키오스크 2대 추가 설치 (확장)</div>
+          <div class="desc">설치 예정일 5-20 · 비고: 입구 좌측 1대, 우측 1대</div>
+        </div>
+      </div>
+
+      <!-- AS 탭 미리 -->
+      <div style="font-size:13px;font-weight:900;margin:18px 0 10px;color:var(--gray-800)">🔧 AS 탭 (AS 전체/단말기:선택/VAN/변경:선택/매장이탈)</div>
+      <div class="hist-list">
+        <div class="hist-card">
+          <div class="hist-head">
+            <div><span class="hist-cat" style="background:var(--warning)">AS/POS</span></div>
+            <div><span class="hist-date">2026-05-14</span> <span class="hist-status st-progress">진행</span></div>
+          </div>
+          <div class="title">3번 POS 영수증 프린터 불량</div>
+          <div class="desc">접수: 매장 측 — 영수증 잘림 / 처리예정 5/17 / 주소(고정): 송파구 위례성대로 12</div>
+          <div class="records">
+            <div class="rec">📝 <b>5-14 김</b>: 부품 발주, 5/17 방문 예정</div>
+          </div>
+        </div>
+        <div class="hist-card">
+          <div class="hist-head">
+            <div><span class="hist-cat" style="background:var(--warning)">AS/장비교체</span></div>
+            <div><span class="hist-date">2026-03-02</span> <span class="hist-status st-done">완료</span></div>
+          </div>
+          <div class="title">2번 POS 메인보드 교체</div>
+          <div class="desc">기존: OK-2024-A1 / 신규: OK-2026-X3</div>
+        </div>
+      </div>
+
+      <!-- VAN 탭 미리 -->
+      <div style="font-size:13px;font-weight:900;margin:18px 0 10px;color:var(--gray-800)">📑 VAN 탭 (VAN 관련 모든 업무)</div>
+      <div class="hist-list">
+        <div class="hist-card">
+          <div class="hist-head">
+            <div><span class="hist-cat" style="background:var(--primary)">VAN/신규등록</span></div>
+            <div><span class="hist-date">2025-11-30</span> <span class="hist-status st-progress">진행</span></div>
+          </div>
+          <div class="title">신한카드 가맹 등록 (KS코드)</div>
+          <div class="desc">서류 접수: 진행 중 · 카드사별 등록 누적</div>
+          <div class="records">
+            <div class="rec">📝 <b>11-30</b>: KS코드 신청, 4/9 카드사 접수</div>
+            <div class="rec">📝 <b>12-02</b>: BC ✅ 완료</div>
+            <div class="rec">📝 <b>12-05</b>: 비씨 ✅, 신한 진행중</div>
+            <div class="rec">📝 <b>12-12</b>: 신한 ✅, 삼성·롯데 보완요청</div>
+          </div>
+        </div>
+        <div class="hist-card">
+          <div class="hist-head">
+            <div><span class="hist-cat" style="background:var(--primary)">VAN/정산</span></div>
+            <div><span class="hist-date">2026-04-15</span> <span class="hist-status st-done">완료</span></div>
+          </div>
+          <div class="title">4월 정산내역서 발송</div>
+        </div>
+      </div>
+
+      <!-- 업무기록 (통합 타임라인) -->
+      <div style="font-size:13px;font-weight:900;margin:18px 0 10px;color:var(--gray-800)">🕒 업무기록 탭 — 전체 통합 타임라인 (최근순)</div>
+      <div class="timeline">
+        <div class="tl-item as"><div class="head"><b>2026-05-14</b> · AS/POS · 김</div><div class="title">3번 영수증 프린터 불량 접수</div><div class="desc">5/17 방문 예정 · 부품 발주</div></div>
+        <div class="tl-item new"><div class="head"><b>2026-05-12</b> · 신규/오픈 · 홍</div><div class="title">키오스크 2대 추가 설치 예약</div><div class="desc">예정 5-20</div></div>
+        <div class="tl-item van"><div class="head"><b>2026-04-15</b> · VAN/정산 · 박</div><div class="title">4월 정산내역서 발송 완료</div></div>
+        <div class="tl-item supplies"><div class="head"><b>2026-04-08</b> · 라벨지 · 이</div><div class="title">저울 라벨 5박스 발송 (후불)</div></div>
+        <div class="tl-item as"><div class="head"><b>2026-03-02</b> · AS/장비교체 · 김</div><div class="title">2번 POS 메인보드 교체</div></div>
+        <div class="tl-item new"><div class="head"><b>2025-12-04</b> · 신규/오픈 · 박</div><div class="title">매장 오픈 완료</div></div>
+      </div>
+
+      <!-- 소모품 탭 미리 -->
+      <div style="font-size:13px;font-weight:900;margin:18px 0 10px;color:var(--gray-800)">🏷️ 소모품 탭 (판매/미수/택배)</div>
+      <div class="hist-list">
+        <div class="hist-card">
+          <div class="hist-head">
+            <div><span class="hist-cat" style="background:var(--purple)">라벨지/판매</span></div>
+            <div><span class="hist-date">2026-04-08</span> <span class="hist-status st-done">발송완료</span></div>
+          </div>
+          <div class="title">저울 라벨 5박스 / 80,000원 (후불)</div>
+          <div class="desc">택배: CJ 1234-5678 · 미수금 80,000원 (5월 정산 예정)</div>
+        </div>
+        <div class="hist-card">
+          <div class="hist-head">
+            <div><span class="hist-cat" style="background:var(--purple)">영수증용지/판매</span></div>
+            <div><span class="hist-date">2026-03-15</span> <span class="hist-status st-done">완료</span></div>
+          </div>
+          <div class="title">영수증용지 10롤 / 35,000원 (선불)</div>
+        </div>
+      </div>
+
+      <!-- 메모 탭 미리 -->
+      <div style="font-size:13px;font-weight:900;margin:18px 0 10px;color:var(--gray-800)">📝 메모 탭 — 매장 일반 메모 (특정 업무 메모는 해당 업무에 첨부)</div>
+      <div class="memo-form">
+        <textarea placeholder="매장 관련 일반 메모를 작성하세요 (특정 업무 메모는 해당 업무 카드에 추가)"></textarea>
+        <div class="actions"><button>+ 메모 추가</button></div>
+      </div>
+      <div class="memo-list">
+        <div class="memo-item">
+          <div class="meta">2026-03-22 · 홍길동</div>
+          영업시간 변경: 평일 09:00 ~ 22:00, 주말 10:00 ~ 21:00 — 야간 점검 시 참고
+        </div>
+        <div class="memo-item">
+          <div class="meta">2025-12-04 · 박OO</div>
+          오픈일 사장님 요청 — 추후 본사 직영점 추가 오픈 검토 중 (다산점/갈매점/송도)
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div style="text-align:center;padding:24px;color:var(--gray-500);font-size:12px">
+  ⓘ 이 목업은 8탭 구조 + 라우팅 확인용 — 위 미리보기는 한 페이지에 펼친 형태입니다.<br>
+  실제 모달에서는 탭 클릭 시 해당 영역만 표시됩니다.
+</div>
+
+</div>
+</body>
+</html>
