@@ -141,6 +141,78 @@
     .modal-body{padding:14px}
   }
 
+  /* ━━━ 모바일 폰 프레임 ━━━ */
+  .device-row{display:grid;grid-template-columns:1fr 380px;gap:30px;align-items:flex-start;margin-top:28px}
+  @media(max-width:1100px){.device-row{grid-template-columns:1fr;justify-items:center}}
+  .device-label{font-size:13px;font-weight:900;color:var(--gray-700);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .device-label .badge{font-size:10px;background:var(--gray-900);color:#fff;padding:2px 8px;border-radius:99px;font-weight:800}
+  .phone-frame{width:380px;height:780px;background:#111;border-radius:38px;padding:14px 10px;position:sticky;top:20px;
+                box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  .phone-screen{width:100%;height:100%;background:#fff;border-radius:28px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+  .phone-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:20px;background:#111;border-radius:0 0 14px 14px;z-index:10}
+  .m-head{background:linear-gradient(135deg,#1F2937 0%,#111827 100%);color:#fff;padding:24px 14px 12px;flex-shrink:0}
+  .m-back{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .m-back .btn-back{background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:8px;font-size:14px;cursor:pointer}
+  .m-back .btn-more{background:none;border:none;color:#fff;font-size:18px;cursor:pointer}
+  .m-store{display:flex;gap:10px;align-items:center}
+  .m-avatar{width:42px;height:42px;background:rgba(255,255,255,.15);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px}
+  .m-name{font-size:14px;font-weight:900;line-height:1.2}
+  .m-meta{font-size:10px;opacity:0.75;margin-top:2px}
+  .m-tags{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
+  .m-tags span{font-size:9px;background:rgba(255,255,255,.15);padding:1px 6px;border-radius:99px;font-weight:700}
+
+  .m-tabbar{background:#fff;border-bottom:1px solid var(--gray-200);display:flex;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+  .m-tabbar::-webkit-scrollbar{display:none}
+  .m-tab{padding:10px 12px;font-size:11px;font-weight:700;color:var(--gray-500);border-bottom:2.5px solid transparent;
+         cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;font-family:inherit;
+         background:none;border-top:none;border-left:none;border-right:none}
+  .m-tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:800}
+  .m-tab .count{font-size:9px;background:var(--gray-200);color:var(--gray-700);padding:0 5px;border-radius:99px;font-weight:800;min-width:14px;text-align:center}
+  .m-tab.active .count{background:var(--primary);color:#fff}
+  .m-tab.urgent .count{background:var(--neo-red);color:#fff}
+
+  .m-body{flex:1;overflow-y:auto;background:var(--gray-50);padding:12px}
+  .m-actbar{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--gray-200);
+             border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:10.5px}
+  .m-actbar .label{font-weight:800;color:var(--gray-700)}
+  .m-actbar button{background:var(--primary);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit}
+
+  .m-job{background:#fff;border:1px solid var(--gray-200);border-left:3px solid var(--primary);border-radius:8px;padding:10px;margin-bottom:8px}
+  .m-job.new{border-left-color:var(--success)}
+  .m-job.as{border-left-color:var(--warning)}
+  .m-job.van{border-left-color:var(--primary)}
+  .m-job .row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  .m-job .tag{font-size:9px;font-weight:800;padding:1px 6px;border-radius:99px;color:#fff}
+  .m-job .when{font-size:9.5px;background:var(--gray-100);color:var(--gray-700);padding:2px 7px;border-radius:6px;font-weight:800}
+  .m-job .when.urgent{background:var(--neo-red);color:#fff}
+  .m-job .title{font-size:12px;font-weight:800;color:var(--gray-900);margin:2px 0}
+  .m-job .meta{font-size:10px;color:var(--gray-500)}
+
+  /* 모바일 FAB */
+  .m-fab{position:absolute;right:14px;bottom:18px;width:48px;height:48px;border-radius:50%;background:var(--primary);
+         color:#fff;border:none;font-size:22px;font-weight:900;cursor:pointer;box-shadow:0 6px 16px rgba(37,99,235,.4);z-index:5}
+
+  /* 모바일 매장정보 */
+  .m-info-card{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+  .m-info-card h5{font-size:11px;font-weight:900;color:var(--gray-700);margin-bottom:6px}
+  .m-info-row{display:flex;padding:4px 0;font-size:11px;border-bottom:1px solid var(--gray-100)}
+  .m-info-row:last-child{border-bottom:none}
+  .m-info-row .k{width:64px;color:var(--gray-500);font-weight:700;flex-shrink:0}
+  .m-info-row .v{flex:1;color:var(--gray-800);font-weight:600}
+  .m-equip{background:#fff;border:1px solid var(--gray-200);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:11px;display:flex;justify-content:space-between;align-items:center}
+  .m-equip .name{font-weight:800}
+  .m-equip .sn{font-size:9.5px;color:var(--gray-500);margin-top:1px}
+
+  .m-hist{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:10px;margin-bottom:8px;font-size:11px}
+  .m-hist .row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .m-hist .tag{font-size:9px;font-weight:800;padding:1px 6px;border-radius:99px;color:#fff}
+  .m-hist .date{font-size:9.5px;color:var(--gray-500);font-weight:700}
+  .m-hist .title{font-weight:800;color:var(--gray-900);font-size:12px;margin:2px 0}
+  .m-hist .desc{color:var(--gray-600);font-size:10.5px}
+  .m-hist .rec{font-size:10px;color:var(--gray-500);padding:2px 0 0 8px;border-left:2px solid var(--gray-200);margin-top:5px}
+
+  .m-section{font-size:10.5px;font-weight:900;color:var(--gray-500);margin:14px 0 6px;text-transform:uppercase;letter-spacing:0.05em}
+
   /* 가상 액션바 */
   .actbar{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:9px 12px;margin-bottom:12px}
   .actbar .label{font-size:12px;font-weight:800;color:var(--gray-700);display:flex;align-items:center;gap:6px}
@@ -161,7 +233,10 @@
   </div>
 </div>
 
-<!-- ═════════ 매장 상세 모달 ═════════ -->
+<div class="device-row">
+<!-- ═════════ PC 매장 상세 모달 ═════════ -->
+<div>
+<div class="device-label"><span class="badge">PC</span>매장 상세 모달 (Desktop)</div>
 <div class="modal">
 
   <div class="modal-head">
@@ -407,9 +482,171 @@
 
 </div>
 
+</div><!-- /PC 모달 끝 -->
+
+<!-- ═════════ Mobile 매장 상세 ═════════ -->
+<div>
+<div class="device-label"><span class="badge" style="background:var(--primary)">MOBILE</span>매장 상세 (전체화면)</div>
+
+<div class="phone-frame">
+  <div class="phone-screen">
+    <div class="phone-notch"></div>
+
+    <div class="m-head">
+      <div class="m-back">
+        <button class="btn-back">←</button>
+        <button class="btn-more">⋯</button>
+      </div>
+      <div class="m-store">
+        <div class="m-avatar">🏪</div>
+        <div style="flex:1;min-width:0">
+          <div class="m-name">온맘마켓 송파위례점</div>
+          <div class="m-meta">184-81-03677 · code 40844</div>
+          <div class="m-tags">
+            <span>🟢 거래중</span><span>POS 5</span><span>코세스</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-tabbar">
+      <button class="m-tab active urgent">⚠️ 진행 <span class="count">3</span></button>
+      <button class="m-tab">🏪 정보</button>
+      <button class="m-tab">🆕 신규 <span class="count">2</span></button>
+      <button class="m-tab">🔧 AS <span class="count">12</span></button>
+      <button class="m-tab">📑 VAN <span class="count">4</span></button>
+      <button class="m-tab">🕒 기록 <span class="count">18</span></button>
+      <button class="m-tab">🏷️ 소모품 <span class="count">5</span></button>
+      <button class="m-tab">📝 메모 <span class="count">2</span></button>
+    </div>
+
+    <div class="m-body">
+      <!-- ⚠️ 진행 중 탭 -->
+      <div class="m-actbar">
+        <span class="label">⚠️ 진행 중 3건</span>
+        <button>+ 추가</button>
+      </div>
+
+      <div class="m-job new">
+        <div class="row1">
+          <span class="tag" style="background:var(--success)">신규/오픈</span>
+          <span class="when urgent">D-5</span>
+        </div>
+        <div class="title">키오스크 2대 추가 설치</div>
+        <div class="meta">📅 5/20 예정 · 메모 3건</div>
+      </div>
+
+      <div class="m-job as">
+        <div class="row1">
+          <span class="tag" style="background:var(--warning)">AS/POS</span>
+          <span class="when">D-2</span>
+        </div>
+        <div class="title">3번 영수증 프린터 불량</div>
+        <div class="meta">접수 5/14 · 예정 5/17</div>
+      </div>
+
+      <div class="m-job van">
+        <div class="row1">
+          <span class="tag" style="background:var(--primary)">VAN/신규</span>
+          <span class="when">진행</span>
+        </div>
+        <div class="title">신한카드 가맹 등록</div>
+        <div class="meta">4/9 카드사 진행 · 보완 2건</div>
+      </div>
+
+      <!-- 미리보기 — 다른 탭 영역 (스크롤로 확인) -->
+      <div class="m-section">🏪 매장정보 (탭 전환 시)</div>
+      <div class="m-info-card">
+        <h5>📋 기본</h5>
+        <div class="m-info-row"><div class="k">대표</div><div class="v">김OO</div></div>
+        <div class="m-info-row"><div class="k">사업자</div><div class="v">184-81-03677</div></div>
+        <div class="m-info-row"><div class="k">VAN</div><div class="v">코세스</div></div>
+        <div class="m-info-row"><div class="k">주소</div><div class="v">서울 송파구 위례성대로 12</div></div>
+        <div class="m-info-row"><div class="k">등록</div><div class="v">2025-12-04</div></div>
+      </div>
+      <div class="m-info-card">
+        <h5>🖥 장비 (5)</h5>
+        <div class="m-equip">
+          <div>
+            <div class="name"><span class="equip-tag et-pos">POS</span> 오케이포스 V8</div>
+            <div class="sn">OK-2024-... · 25-12-04</div>
+          </div>
+          <span style="color:var(--success);font-size:14px">✓</span>
+        </div>
+        <div class="m-equip">
+          <div>
+            <div class="name"><span class="equip-tag et-van">VAN</span> KMC-E600K</div>
+            <div class="sn">K6-25-... · 25-12-04</div>
+          </div>
+        </div>
+        <div class="m-equip">
+          <div>
+            <div class="name"><span class="equip-tag et-kiosk">KIOSK</span> MAZIC-K x2</div>
+            <div class="sn">MZ-2025-... · 26-01-12</div>
+          </div>
+        </div>
+      </div>
+      <div class="note-box" style="font-size:11px;padding:8px 10px">
+        ⚠️ 영수증 한쪽 치우침 — 2-월 점검 필요
+      </div>
+
+      <div class="m-section">🆕 신규 (탭 전환 시)</div>
+      <div class="m-hist">
+        <div class="row1">
+          <span class="tag" style="background:var(--success)">신규/오픈</span>
+          <span class="date">25-12-04</span>
+        </div>
+        <div class="title">매장 오픈 — POS 2 + VAN + KIOSK 2</div>
+        <div class="desc">가오픈 12/1 · 오픈 12/4</div>
+        <div class="rec">📝 12-04 박: 직원교육 완료</div>
+        <div class="rec">📝 12-01 박: 가오픈 결제 테스트</div>
+      </div>
+
+      <div class="m-section">🔧 AS (탭 전환 시)</div>
+      <div class="m-hist">
+        <div class="row1">
+          <span class="tag" style="background:var(--warning)">AS/POS</span>
+          <span class="date">26-05-14</span>
+        </div>
+        <div class="title">3번 영수증 프린터 불량</div>
+        <div class="desc">처리예정 5/17 · 주소: 송파구 위례성대로 12 (고정)</div>
+      </div>
+
+      <div class="m-section">📑 VAN — 처리기록 누적</div>
+      <div class="m-hist">
+        <div class="row1">
+          <span class="tag" style="background:var(--primary)">VAN/신규</span>
+          <span class="date">25-11-30</span>
+        </div>
+        <div class="title">신한카드 가맹 등록 (KS코드)</div>
+        <div class="rec">📝 12-12 신한 ✅</div>
+        <div class="rec">📝 12-05 비씨 ✅</div>
+        <div class="rec">📝 12-02 BC ✅</div>
+      </div>
+
+      <div class="m-section">🏷️ 소모품</div>
+      <div class="m-hist">
+        <div class="row1">
+          <span class="tag" style="background:var(--purple)">라벨지/발송</span>
+          <span class="date">26-04-08</span>
+        </div>
+        <div class="title">저울라벨 5박스 80,000원 (후불)</div>
+        <div class="desc">CJ 1234-5678 · 미수금</div>
+      </div>
+
+      <div style="height:60px"></div>
+    </div>
+
+    <button class="m-fab">+</button>
+  </div>
+</div>
+
+</div><!-- /MOBILE -->
+</div><!-- /device-row -->
+
 <div style="text-align:center;padding:24px;color:var(--gray-500);font-size:12px">
-  ⓘ 이 목업은 8탭 구조 + 라우팅 확인용 — 위 미리보기는 한 페이지에 펼친 형태입니다.<br>
-  실제 모달에서는 탭 클릭 시 해당 영역만 표시됩니다.
+  ⓘ 이 목업은 8탭 구조 + 라우팅 확인용 — PC 모달 안의 다른 탭은 한 페이지에 펼친 형태입니다.<br>
+  실제 모달에서는 탭 클릭 시 해당 영역만 표시 / 모바일은 폰 프레임 안에서 스크롤로 확인하세요.
 </div>
 
 </div>
