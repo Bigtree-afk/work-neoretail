@@ -3941,24 +3941,38 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   }
 
   // 매장 ID 로 상세 모달 열기 (가짜 row 만들어서 toggleStoreDetail 호출)
+  // toggleStoreDetail 는 tr.parentElement.querySelectorAll('tr') 를 사용하므로
+  // tr 을 tbody 안에 넣어둬야 함 — DOM 에는 안 붙여도 부모 관계만 있으면 OK
   window._hubOpenStoreById = function(storeId) {
     if (!storeId) return;
-    // 점포 테이블에서 row 찾기 우선
-    const tr = document.querySelector(`#savedStoresTable tr[data-store-id="${storeId}"]`);
-    if (tr && typeof window.toggleStoreDetail === 'function') {
-      window.toggleStoreDetail(tr);
+    if (typeof window.toggleStoreDetail !== 'function') {
+      console.warn('[_hubOpenStoreById] toggleStoreDetail not loaded');
       return;
     }
-    // 가짜 row 만들어 호출
-    const fakeRow = document.createElement('tr');
-    fakeRow.dataset.storeId = storeId;
-    const stores = (typeof getStores === 'function') ? getStores() : [];
-    const s = stores.find(x => x.id === storeId);
-    if (s) {
-      // 셀 채우기 (toggleStoreDetail 가 row cell 에서 추출하는 정보들)
-      fakeRow.innerHTML = `<td><b>${_hubEsc(s.name||'')}</b></td><td>${_hubEsc(s.biz||'')}</td><td>${_hubEsc(s.ceo||'')}</td><td>${_hubEsc(s.tel||'')}</td><td>${_hubEsc(s.addr||'')}</td><td><span class="badge">${_hubEsc(s.van||'')}</span></td><td><span class="pk-chip">POS ${s.pos||0}</span></td><td></td><td><span class="badge">${_hubEsc(s.status||'거래중')}</span></td>`;
+    // 점포 테이블에서 row 찾기 우선 (있으면 그대로 사용 — 자연스러운 outline 효과)
+    const realTr = document.querySelector(`#savedStoresTable tr[data-store-id="${storeId}"]`);
+    if (realTr) {
+      window.toggleStoreDetail(realTr);
+      return;
     }
-    if (typeof window.toggleStoreDetail === 'function') window.toggleStoreDetail(fakeRow);
+    // 가짜 row + tbody 컨테이너 만들기 (parentElement 가 null 이면 toggleStoreDetail 가 throw)
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const s = stores.find(x => x.id === storeId);
+    if (!s) {
+      if (typeof showToast === 'function') showToast('⚠ 매장 정보를 찾을 수 없습니다');
+      return;
+    }
+    const tbody = document.createElement('tbody');
+    const tr = document.createElement('tr');
+    tr.dataset.storeId = storeId;
+    tr.innerHTML = `<td><b>${_hubEsc(s.name||'')}</b></td><td>${_hubEsc(s.biz||'')}</td><td>${_hubEsc(s.ceo||'')}</td><td>${_hubEsc(s.tel||'')}</td><td>${_hubEsc(s.addr||'')}</td><td><span class="badge">${_hubEsc(s.van||'')}</span></td><td><span class="pk-chip">POS ${s.pos||0}</span></td><td></td><td><span class="badge">${_hubEsc(s.status||'거래중')}</span></td>`;
+    tbody.appendChild(tr);
+    try {
+      window.toggleStoreDetail(tr);
+    } catch(e) {
+      console.warn('[_hubOpenStoreById] toggleStoreDetail 실패:', e);
+      if (typeof showToast === 'function') showToast('⚠ 매장 상세 모달 열기 실패: ' + e.message);
+    }
   };
 
   // 신규 hub 렌더
