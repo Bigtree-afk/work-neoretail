@@ -177,6 +177,13 @@
   .modal-foot{padding:10px 18px;background:#fff;border-top:1px solid var(--gray-200);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
 
   /* 폼 */
+  .jf-two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:580px){.jf-two-col{grid-template-columns:1fr}}
+  .jf-stbtn.active[data-st="ready"]{background:var(--gray-200) !important;color:var(--gray-800) !important;border-color:var(--gray-400) !important}
+  .jf-stbtn.active[data-st="progress"]{background:#dbeafe !important;color:#1e40af !important;border-color:var(--primary) !important}
+  .jf-stbtn.active[data-st="pending"]{background:#fee2e2 !important;color:#991b1b !important;border-color:var(--danger) !important}
+  .jf-stbtn.active[data-st="done"]{background:#d1fae5 !important;color:#065f46 !important;border-color:var(--success) !important}
+  .jf-vanco.active{background:var(--primary) !important;color:#fff !important;border-color:var(--primary) !important}
   .form-section{background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:14px 16px;margin-bottom:12px}
   .form-section h4{font-size:12.5px;font-weight:900;color:var(--gray-700);margin-bottom:10px;display:flex;align-items:center;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--gray-100)}
   .form-row{display:grid;grid-template-columns:90px 1fr;gap:10px;margin-bottom:8px;align-items:center;font-size:12px}
@@ -1022,67 +1029,98 @@
 
       <!-- ② AS/단말기/VAN/이탈/소모품 — 요청 메시지 (상단 배치) -->
       <div class="form-section jf-only-as jf-only-device jf-only-van jf-only-churn jf-only-supplies" id="jfRequestBox">
-        <h4>📨 접수 / 요청 내역 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">요청 시점·요청 메시지 상단 고정</span></h4>
+        <h4>📨 접수 / 요청 내역 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">요청 시점·요청 메시지 상단 고정 (수정불가)</span></h4>
         <div class="form-row"><div class="lab">요청 일시</div><div class="static">2026-05-15 14:23 · LINE 매장 측</div></div>
         <div class="form-row full"><div class="lab">요청 내역</div><div class="static" style="white-space:pre-wrap;line-height:1.5">3번 POS 영수증 출력이 한쪽으로 치우치고 가끔 잘려서 나옵니다. 점심 시간 피해서 와주세요.</div></div>
       </div>
 
-      <!-- ③ 업무 정보 (공통) -->
+      <!-- ③ 업무 정보 (공통) — 카테고리 옵션은 진입 메뉴에 따라 제한 (jf-cat-*) -->
       <div class="form-section">
-        <h4>📋 업무 정보</h4>
-        <div class="form-row">
-          <div class="lab">카테고리</div>
-          <select id="jfCatSelect" onchange="updateJobForm(this.value.split('/')[0])">
-            <optgroup label="🆕 신규">
+        <h4 style="display:flex;justify-content:space-between;align-items:center">
+          <span>📋 업무 정보</span>
+          <!-- 업무 상태 체크 (AS/단말기/VAN/이탈 — 신규/소모품/재고는 별도 흐름) -->
+          <span class="jf-only-as jf-only-device jf-only-van jf-only-churn" style="display:inline-flex;gap:4px;align-items:center">
+            <span style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-right:4px">상태</span>
+            <button type="button" class="jf-stbtn active" data-st="ready" style="background:var(--gray-100);border:1px solid var(--gray-300);color:var(--gray-700);font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:5px;cursor:pointer;font-family:inherit">📥 접수</button>
+            <button type="button" class="jf-stbtn" data-st="progress" style="background:#fff;border:1px solid var(--gray-300);color:var(--gray-700);font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:5px;cursor:pointer;font-family:inherit">⏳ 진행 중</button>
+            <button type="button" class="jf-stbtn" data-st="pending" style="background:#fff;border:1px solid var(--gray-300);color:var(--gray-700);font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:5px;cursor:pointer;font-family:inherit">🚧 미처리</button>
+            <button type="button" class="jf-stbtn" data-st="done" style="background:#fff;border:1px solid var(--gray-300);color:var(--gray-700);font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:5px;cursor:pointer;font-family:inherit">✅ 완료</button>
+          </span>
+        </h4>
+
+        <!-- 미처리 상태 시 보이는 안내 + 업무 추가 버튼 -->
+        <div id="jfPendingBox" style="display:none;background:#fee2e2;border:1px solid #fca5a5;border-radius:7px;padding:9px 12px;margin-bottom:10px;font-size:11.5px;color:#991b1b">
+          🚧 <strong>미처리 상태</strong> — 추가 업무가 필요한 경우 우측 버튼으로 새 업무를 등록하세요.
+          <button style="float:right;background:var(--danger);color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:inherit">+ 후속 업무 등록</button>
+        </div>
+
+        <!-- 신규는 한 줄, 그 외는 2단 (담당자/카테고리 좁게) -->
+        <div class="jf-only-new">
+          <div class="form-row"><div class="lab">카테고리</div>
+            <select class="jf-cat-new">
               <option value="new/open">신규/오픈 (신규 매장)</option>
               <option value="new/prog">신규/프로그램교체</option>
               <option value="new/vanchg">신규/VAN변경</option>
-            </optgroup>
-            <optgroup label="🔧 AS">
-              <option value="as/pos">AS/POS</option>
-              <option value="as/van">AS/VAN</option>
-              <option value="as/sell">AS/장비판매</option>
-              <option value="as/swap">AS/장비교체</option>
-              <option value="as/recall">AS/장비회수</option>
-            </optgroup>
-            <optgroup label="📱 단말기">
-              <option value="device/open">단말개통</option>
-              <option value="device/as">단말 AS / 대체</option>
-              <option value="device/close">단말해지</option>
-            </optgroup>
-            <optgroup label="📑 VAN">
+              <option value="device/open">단말개통 (신규측)</option>
               <option value="van/new">VAN/신규등록</option>
-              <option value="van/resub">VAN/재신고</option>
-              <option value="van/settle">VAN/정산</option>
-              <option value="van/contract">VAN/계약</option>
-              <option value="van/change">VAN/변경 (당사 코드간)</option>
-            </optgroup>
-            <optgroup label="🏪 매장이탈">
-              <option value="churn/close">이탈/폐업</option>
-              <option value="churn/sale">이탈/매각</option>
-              <option value="churn/vanend">VAN 거래 종료</option>
-            </optgroup>
-            <optgroup label="🏷️ 소모품">
-              <option value="supplies/sell">판매 등록</option>
-              <option value="supplies/ar">미수 관리</option>
-              <option value="supplies/delivery">택배 조회</option>
-            </optgroup>
-          </select>
-        </div>
-        <div class="form-row"><div class="lab">제목</div><input value="키오스크 2대 추가 설치"></div>
-        <div class="form-row"><div class="lab">담당자</div><input value="김기사"></div>
-
-        <!-- 신규 — 3개 일정 (설치예정/가오픈/오픈) -->
-        <div class="jf-only-new">
+            </select>
+          </div>
+          <div class="form-row"><div class="lab">제목</div><input value="키오스크 2대 추가 설치"></div>
+          <div class="form-row"><div class="lab">담당자</div><input value="김기사"></div>
           <div class="form-row"><div class="lab">설치 예정일</div><input type="date" value="2026-05-20"></div>
           <div class="form-row"><div class="lab">가오픈일</div><input type="date"></div>
           <div class="form-row"><div class="lab">오픈일</div><input type="date"></div>
         </div>
-        <!-- AS/단말기/이탈/소모품 — 처리 예정일 (단일) -->
-        <div class="jf-only-as jf-only-device jf-only-churn jf-only-supplies">
-          <div class="form-row"><div class="lab">처리 예정일</div><input type="date" value="2026-05-17"></div>
+
+        <!-- AS/단말기/VAN/이탈/소모품 — 2단 컴팩트 레이아웃 -->
+        <div class="jf-only-as jf-only-device jf-only-van jf-only-churn jf-only-supplies">
+          <div class="jf-two-col">
+            <div class="form-row"><div class="lab">카테고리</div>
+              <select class="jf-cat-as" style="display:none">
+                <option value="as/pos">AS/POS</option>
+                <option value="as/van">AS/VAN</option>
+                <option value="as/sell">AS/장비판매</option>
+                <option value="as/swap">AS/장비교체</option>
+                <option value="as/recall">AS/장비회수</option>
+                <option value="device/as">단말 AS / 대체</option>
+                <option value="device/close">단말해지</option>
+                <option value="van/change">VAN/변경 (타VAN)</option>
+                <option value="churn/close">이탈/폐업</option>
+                <option value="churn/sale">이탈/매각</option>
+                <option value="churn/vanend">VAN 거래 종료</option>
+              </select>
+              <select class="jf-cat-device" style="display:none">
+                <option value="device/open">단말개통</option>
+                <option value="device/as">단말 AS / 대체</option>
+                <option value="device/close">단말해지</option>
+              </select>
+              <select class="jf-cat-van" style="display:none">
+                <option value="van/new">VAN/신규등록</option>
+                <option value="van/resub">VAN/재신고</option>
+                <option value="van/settle">VAN/정산</option>
+                <option value="van/contract">VAN/계약</option>
+                <option value="van/change">VAN/변경 (당사 코드간)</option>
+              </select>
+              <select class="jf-cat-churn" style="display:none">
+                <option value="churn/close">이탈/폐업</option>
+                <option value="churn/sale">이탈/매각</option>
+                <option value="churn/vanend">VAN 거래 종료</option>
+              </select>
+              <select class="jf-cat-supplies" style="display:none">
+                <option value="supplies/sell">판매 등록</option>
+                <option value="supplies/ar">미수 관리</option>
+                <option value="supplies/delivery">택배 조회</option>
+              </select>
+            </div>
+            <div class="form-row"><div class="lab">담당자</div><input value="김기사"></div>
+          </div>
+          <div class="form-row"><div class="lab">제목</div><input value="3번 POS 영수증 프린터 불량"></div>
+          <div class="jf-two-col jf-only-as jf-only-device jf-only-churn jf-only-supplies">
+            <div class="form-row"><div class="lab">접수일</div><div class="static">2026-05-15</div></div>
+            <div class="form-row"><div class="lab">처리 예정일</div><input type="date" value="2026-05-17"></div>
+          </div>
+          <div class="jf-only-van" style="font-size:11px;color:var(--gray-500);padding:4px 0">VAN 업무는 별도 처리 예정일 없이 서류 진행 흐름으로 관리</div>
         </div>
-        <!-- VAN — 별도 예정일 없음 (서류 흐름) -->
       </div>
 
       <!-- ④ 신규 전용: 📄 계약 체결 여부 (간단 체크) -->
@@ -1098,66 +1136,130 @@
         </div>
       </div>
 
-      <!-- ⑤ 신규 전용: VAN 서류 진행 + 설치 장비 -->
+      <!-- ⑤ 신규 전용: VAN 서류 진행 (KOCES/KIS/NICE/KSNET + QVAN + TID/Serial) -->
       <div class="form-section jf-only-new">
-        <h4>📑 VAN 서류 업무 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">신규 시 동시 진행 (VAN/신규등록과 연결)</span></h4>
-        <div class="form-row"><div class="lab">VAN 사</div><select><option>코세스</option><option>인토시스</option><option>KIS</option><option>나이스</option><option>스마트로</option></select></div>
-        <div class="form-row"><div class="lab">서류 상태</div>
-          <div style="display:flex;gap:5px">
-            <button class="filter active" style="border:1px solid var(--gray-300);background:var(--gray-100);color:var(--gray-700);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer">진행 중</button>
-            <button class="filter" style="border:1px solid var(--gray-300);background:#fff;color:var(--gray-700);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer">보완 요청</button>
-            <button class="filter" style="border:1px solid var(--gray-300);background:#fff;color:var(--gray-700);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer">완료</button>
+        <h4 style="display:flex;justify-content:space-between;align-items:center">
+          <span>📑 VAN 서류 업무</span>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11.5px;color:var(--gray-600);font-weight:700">
+            <input type="checkbox" class="jf-done-chk"> ✅ 서류 완료
+          </label>
+        </h4>
+        <div class="form-row"><div class="lab">VAN 사</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <button type="button" class="jf-vanco active" style="background:var(--primary);color:#fff;border:1px solid var(--primary);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:800;font-family:inherit">KOCES</button>
+            <button type="button" class="jf-vanco" style="background:#fff;color:var(--gray-700);border:1px solid var(--gray-300);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:800;font-family:inherit">KIS</button>
+            <button type="button" class="jf-vanco" style="background:#fff;color:var(--gray-700);border:1px solid var(--gray-300);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:800;font-family:inherit">NICE</button>
+            <button type="button" class="jf-vanco" style="background:#fff;color:var(--gray-700);border:1px solid var(--gray-300);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:800;font-family:inherit">KSNET</button>
           </div>
         </div>
-      </div>
-
-      <div class="form-section jf-only-new">
-        <h4>🖥 설치 요청 장비 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">설치 예정 / 출고 / 설치 완료 상태 추적</span></h4>
-        <div style="display:flex;flex-direction:column;gap:5px;font-size:12px">
-          <div style="background:var(--gray-50);padding:7px 10px;border-radius:6px">🖥 오케이포스 V8 × 2대 <span style="float:right;font-size:10.5px;color:var(--gray-500)">설치 예정 5/20</span></div>
-          <div style="background:var(--gray-50);padding:7px 10px;border-radius:6px">📱 MAZIC-K 키오스크 × 2대 <span style="float:right;font-size:10.5px;color:var(--gray-500)">설치 예정 5/20</span></div>
-          <button class="btn outline" style="margin-top:5px">+ 장비 추가</button>
+        <div class="form-row"><div class="lab">QVAN 등록</div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" style="width:16px;height:16px"> <span style="font-size:11.5px">📲 QVAN 등록</span>
+          </label>
+        </div>
+        <div class="jf-two-col">
+          <div class="form-row"><div class="lab">TID</div><input placeholder="TID 입력"></div>
+          <div class="form-row"><div class="lab">Serial</div><input placeholder="단말 시리얼"></div>
         </div>
       </div>
 
-      <!-- ⑥ VAN 전용: 서류 접수 상태 토글 + 카드사별 처리기록 -->
+      <!-- ⑤-b 신규 전용: 설치 요청 장비 (분할 설치 + 체크 + 설치자) -->
+      <div class="form-section jf-only-new">
+        <h4 style="display:flex;justify-content:space-between;align-items:center">
+          <span>🖥 설치 요청 장비 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">설치한 날 체크 → 설치일/설치자 자동 기록</span></span>
+          <span style="font-size:11px;font-weight:700;color:var(--success)">설치 완료 <span id="jfEquipDone">2</span> / 4</span>
+        </h4>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <!-- 설치 완료 (체크됨) -->
+          <div class="jf-equip done" style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:9px 12px;display:flex;align-items:center;gap:10px;font-size:12px">
+            <input type="checkbox" checked style="width:16px;height:16px">
+            <div style="flex:1">
+              <div style="font-weight:800;color:var(--gray-700);text-decoration:line-through">🖥 오케이포스 V8 × 1대</div>
+              <div style="font-size:10.5px;color:#065f46;margin-top:2px">✓ 설치 5/20 · 설치자 김기사</div>
+            </div>
+            <button class="btn outline" style="font-size:10.5px;padding:3px 7px">수정</button>
+          </div>
+          <div class="jf-equip done" style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:9px 12px;display:flex;align-items:center;gap:10px;font-size:12px">
+            <input type="checkbox" checked style="width:16px;height:16px">
+            <div style="flex:1">
+              <div style="font-weight:800;color:var(--gray-700);text-decoration:line-through">📱 MAZIC-K 키오스크 × 1대 (1차분)</div>
+              <div style="font-size:10.5px;color:#065f46;margin-top:2px">✓ 설치 5/20 · 설치자 박기사</div>
+            </div>
+            <button class="btn outline" style="font-size:10.5px;padding:3px 7px">수정</button>
+          </div>
+          <!-- 미설치 -->
+          <div class="jf-equip pending" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 12px;display:flex;align-items:center;gap:10px;font-size:12px">
+            <input type="checkbox" style="width:16px;height:16px" onchange="if(this.checked){alert('설치자 선택 → 다음 단계: 설치일 자동 기록 (오늘)');this.parentElement.classList.add('done')}">
+            <div style="flex:1">
+              <div style="font-weight:800">🖥 오케이포스 V8 × 1대 (잔여)</div>
+              <div style="font-size:10.5px;color:#92400e;margin-top:2px">⌛ 미설치 — 다음 설치일에 체크</div>
+            </div>
+            <div style="display:flex;gap:5px;align-items:center">
+              <select style="border:1px solid var(--gray-300);border-radius:5px;padding:3px 6px;font-size:11px;font-family:inherit">
+                <option>설치자 선택...</option>
+                <option>김기사</option>
+                <option>박기사</option>
+                <option>이기사</option>
+                <option>홍길동</option>
+                <option value="custom">+ 직접 입력</option>
+              </select>
+            </div>
+          </div>
+          <div class="jf-equip pending" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 12px;display:flex;align-items:center;gap:10px;font-size:12px">
+            <input type="checkbox" style="width:16px;height:16px">
+            <div style="flex:1">
+              <div style="font-weight:800">📱 MAZIC-K 키오스크 × 1대 (2차분)</div>
+              <div style="font-size:10.5px;color:#92400e;margin-top:2px">⌛ 미설치</div>
+            </div>
+            <div style="display:flex;gap:5px;align-items:center">
+              <select style="border:1px solid var(--gray-300);border-radius:5px;padding:3px 6px;font-size:11px;font-family:inherit">
+                <option>설치자 선택...</option>
+                <option>김기사</option>
+                <option>박기사</option>
+                <option>이기사</option>
+                <option>홍길동</option>
+                <option value="custom">+ 직접 입력</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button class="btn outline" style="margin-top:8px">+ 장비 추가</button>
+      </div>
+
+      <!-- ⑥ VAN 전용: 서류 접수 상태 토글 + 추가 서비스 등록 체크 -->
       <div class="form-section jf-only-van">
-        <h4>📑 서류 접수 상태 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">진행 → 보완요청 → 완료 토글</span></h4>
-        <div style="display:flex;gap:6px;align-items:center">
+        <h4>📑 서류 접수 상태 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">진행 → 보완요청 → 완료</span></h4>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
           <button class="filter active" style="border:1px solid #1e40af;background:var(--primary);color:#fff;font-size:11.5px;padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:800">📂 진행 중</button>
           <span style="color:var(--gray-400)">▶</span>
           <button class="filter" style="border:1px solid var(--gray-300);background:#fff;color:var(--gray-700);font-size:11.5px;padding:6px 12px;border-radius:6px;cursor:pointer">⚠ 보완요청</button>
           <span style="color:var(--gray-400)">▶</span>
           <button class="filter" style="border:1px solid var(--gray-300);background:#fff;color:var(--gray-700);font-size:11.5px;padding:6px 12px;border-radius:6px;cursor:pointer">✅ 완료</button>
         </div>
+
+        <h4 style="margin-top:14px">💳 카드 가맹 / 간편결제 / 카카오뱅크 등록 체크</h4>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--gray-200);border-radius:6px;padding:7px 10px;cursor:pointer;font-size:11.5px"><input type="checkbox" checked> 💳 카드 가맹</label>
+          <label style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--gray-200);border-radius:6px;padding:7px 10px;cursor:pointer;font-size:11.5px"><input type="checkbox"> 📲 간편결제</label>
+          <label style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--gray-200);border-radius:6px;padding:7px 10px;cursor:pointer;font-size:11.5px"><input type="checkbox"> 🟡 카카오뱅크</label>
+        </div>
       </div>
 
+      <!-- ⑥-b VAN 미완료 카드사 (간단 — 누가 보완 필요한지만) -->
       <div class="form-section jf-only-van">
-        <h4>💳 카드사별 처리기록 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">새로운 일정이 아닌 이 업무의 기록으로 누적</span></h4>
-        <div class="records-list">
-          <div class="rec-item">
-            <div class="meta">12-18 · 홍길동</div>
-            🟢 <b>삼성카드</b> ✅ 완료
-          </div>
-          <div class="rec-item">
-            <div class="meta">12-12 · 홍길동</div>
-            🟢 <b>신한카드</b> ✅ 완료 · ⚠ 삼성/롯데 보완요청
-          </div>
-          <div class="rec-item">
-            <div class="meta">12-05 · 박</div>
-            🟢 <b>비씨카드</b> ✅ 완료
-          </div>
-          <div class="rec-item">
-            <div class="meta">11-30 · 박</div>
-            📂 KS코드 신청, 4/9 카드사 접수
-          </div>
+        <h4>⚠ 미완료 카드사 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">처리 안 된 카드사만 표시 — 완료 시 자동 제거</span></h4>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <span style="background:#fee2e2;color:#991b1b;font-size:11.5px;font-weight:800;padding:6px 12px;border-radius:99px;display:inline-flex;align-items:center;gap:6px">
+            삼성카드 ⚠ 보완요청
+            <button style="background:#991b1b;color:#fff;border:none;border-radius:3px;font-size:9px;padding:1px 5px;cursor:pointer;font-weight:800">✓ 완료</button>
+          </span>
+          <span style="background:#fee2e2;color:#991b1b;font-size:11.5px;font-weight:800;padding:6px 12px;border-radius:99px;display:inline-flex;align-items:center;gap:6px">
+            롯데카드 📂 진행 중
+            <button style="background:#991b1b;color:#fff;border:none;border-radius:3px;font-size:9px;padding:1px 5px;cursor:pointer;font-weight:800">✓ 완료</button>
+          </span>
+          <button class="btn outline" style="font-size:11px;border-radius:99px;padding:5px 10px">+ 미완료 카드사 추가</button>
         </div>
-        <div style="display:flex;gap:5px;margin-top:6px">
-          <select style="flex:0 0 130px;border:1px solid var(--gray-300);border-radius:6px;padding:6px;font-family:inherit;font-size:12px"><option>BC카드</option><option>신한카드</option><option>삼성카드</option><option>롯데카드</option><option>현대카드</option><option>KB국민</option><option>NH농협</option></select>
-          <select style="flex:0 0 100px;border:1px solid var(--gray-300);border-radius:6px;padding:6px;font-family:inherit;font-size:12px"><option>접수</option><option>진행</option><option>보완요청</option><option>완료</option></select>
-          <input placeholder="비고..." style="flex:1">
-          <button class="btn primary">+ 추가</button>
-        </div>
+        <div style="margin-top:8px;font-size:10.5px;color:var(--gray-500);font-style:italic">완료된 카드사는 여기서 사라지고 처리 기록에만 남습니다. 모든 카드사가 완료되면 VAN 업무 자체를 완료 처리.</div>
       </div>
 
       <!-- ⑦ 매장이탈 전용: 위약금/장비회수 -->
@@ -1196,50 +1298,187 @@
         </table>
       </div>
 
-      <!-- ⑨ 소모품 전용: 품목 / 수량 / 금액 / 선후불 / 택배 -->
+      <!-- ⑨ 소모품 전용: 품목 / 수량 / 금액 / VAT / 선후불 한 줄 / 발송·수금 관리 -->
       <div class="form-section jf-only-supplies">
         <h4>🏷️ 판매 정보</h4>
         <div class="form-row"><div class="lab">품목</div>
           <select><option>저울 라벨지</option><option>프라이스텍 라벨</option><option>POS 영수증용지</option><option>주방프린터 용지</option><option>기타</option></select>
         </div>
         <div class="form-row"><div class="lab">수량 / 단위</div><div style="display:flex;gap:6px"><input value="5" style="flex:0 0 100px"><select style="flex:1"><option>박스</option><option>롤</option><option>매</option></select></div></div>
-        <div class="form-row"><div class="lab">판매금액</div><input value="80,000원"></div>
-        <div class="form-row"><div class="lab">결제 구분</div>
-          <div style="display:flex;gap:6px">
-            <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="pay"> 선불</label>
-            <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="pay" checked> 후불 (미수)</label>
+        <!-- 판매금액 + VAT 포함 체크 (기본 체크) — 한 줄 -->
+        <div class="form-row"><div class="lab">판매금액</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input value="80,000원" style="flex:1">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11.5px;font-weight:700;color:var(--gray-700);white-space:nowrap">
+              <input type="checkbox" checked id="jfVatChk"> VAT 포함
+            </label>
           </div>
         </div>
-        <div class="form-row"><div class="lab">택배사 / 송장</div><div style="display:flex;gap:6px"><select style="flex:0 0 100px"><option>CJ</option><option>한진</option><option>롯데</option><option>방문</option></select><input placeholder="송장번호" style="flex:1"></div></div>
+        <!-- 결제 구분 — 한 줄로 표기 + 후불 선택 시 수금 관리 노출 -->
+        <div class="form-row"><div class="lab">결제 구분</div>
+          <div style="display:flex;gap:14px;align-items:center;font-size:12px">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:700"><input type="radio" name="pay" id="jfPayPre" onchange="document.getElementById('jfArBox').style.display='none'"> 💵 선불 <span style="font-size:10.5px;color:var(--gray-500);font-weight:500">발송만 관리</span></label>
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:700"><input type="radio" name="pay" id="jfPayPost" checked onchange="document.getElementById('jfArBox').style.display='block'"> 💳 후불 (미수) <span style="font-size:10.5px;color:var(--gray-500);font-weight:500">발송 + 수금 관리</span></label>
+          </div>
+        </div>
       </div>
 
-      <!-- ⑩ 업무 기록 (메모 누적) — 비고와 분리: 카테고리별 라벨 다름 -->
-      <div class="form-section">
-        <h4 id="jfRecTitle">📝 업무 기록 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">방문/설치/진행을 메모 형식으로 누적</span></h4>
+      <!-- ⑨-b 소모품 전용: 발송 관리 (모든 거래) -->
+      <div class="form-section jf-only-supplies">
+        <h4 style="display:flex;justify-content:space-between;align-items:center">
+          <span>🚚 발송 관리</span>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11.5px;font-weight:700"><input type="checkbox" id="jfShipDone"> ✅ 발송 완료</label>
+        </h4>
+        <div class="jf-two-col">
+          <div class="form-row"><div class="lab">택배사</div><select><option>CJ대한통운</option><option>한진택배</option><option>롯데택배</option><option>로젠</option><option>방문 수령</option></select></div>
+          <div class="form-row"><div class="lab">송장번호</div><input placeholder="송장번호 입력"></div>
+        </div>
+        <div class="jf-two-col">
+          <div class="form-row"><div class="lab">발송일</div><input type="date"></div>
+          <div class="form-row"><div class="lab">예정 도착일</div><input type="date"></div>
+        </div>
+      </div>
+
+      <!-- ⑨-c 소모품 전용: 수금 관리 (후불일 때만) -->
+      <div class="form-section jf-only-supplies" id="jfArBox">
+        <h4 style="display:flex;justify-content:space-between;align-items:center">
+          <span>💰 수금 관리 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">후불일 때만 — 발송 후 수금 추적</span></span>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11.5px;font-weight:700"><input type="checkbox" id="jfPaidDone"> ✅ 수금 완료</label>
+        </h4>
+        <div class="jf-two-col">
+          <div class="form-row"><div class="lab">수금 예정일</div><input type="date" value="2026-06-15"></div>
+          <div class="form-row"><div class="lab">수금일</div><input type="date" placeholder="수금 완료 시 입력"></div>
+        </div>
+        <div class="form-row"><div class="lab">수금 방법</div>
+          <select><option>현금</option><option>계좌이체</option><option>월정산 차감</option><option>기타</option></select>
+        </div>
+        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:7px;padding:8px 12px;font-size:11.5px;color:#991b1b;margin-top:6px">
+          ⚠ <strong>미수 경과 23일</strong> — 30일 이상 시 미수금 안내 메시지 자동 발송 권장
+        </div>
+      </div>
+
+      <!-- ⑩ 신규 — 업무 기록 (각 기록에 완료 체크 — 완료 시 LINE 알림) -->
+      <div class="form-section jf-only-new">
+        <h4 id="jfRecTitleNew">📝 업무 기록 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">오픈 전까지 추가되는 일정은 여기로 — 완료 체크 시 LINE 자동 발송</span></h4>
+        <div class="records-list">
+          <div class="rec-item" style="display:flex;align-items:flex-start;gap:8px">
+            <input type="checkbox" checked style="margin-top:2px;width:15px;height:15px">
+            <div style="flex:1;text-decoration:line-through;color:var(--gray-500)">
+              <div class="meta">5-15 14:23 · 김기사</div>
+              장비 입고 확인, 5/20 출고 준비 완료
+              <div style="font-size:10px;color:var(--success);font-weight:700;margin-top:2px">✓ 완료 처리 · LINE 발송 5-15 14:25</div>
+            </div>
+          </div>
+          <div class="rec-item" style="display:flex;align-items:flex-start;gap:8px;border-left-color:var(--warning);background:#fffbeb">
+            <input type="checkbox" style="margin-top:2px;width:15px;height:15px" onchange="if(this.checked) alert('✅ 업무 기록 완료 — LINE 메시지가 발송됩니다')">
+            <div style="flex:1">
+              <div class="meta">5-16 10:30 · 박기사</div>
+              5/18 사장님 매장 방문 — 키오스크 위치 최종 확정 필요
+              <div style="font-size:10px;color:var(--warning);font-weight:700;margin-top:2px">⏳ 미완료 — 체크 시 LINE 발송</div>
+            </div>
+          </div>
+        </div>
+        <div class="rec-add">
+          <input placeholder="새 기록 입력... (오픈 전까지 들어오는 추가 일정)">
+          <button class="btn primary">+ 기록 추가</button>
+        </div>
+      </div>
+
+      <!-- ⑪ 신규 — 진행 상황 체크리스트 (서류/사무실/POS/가오픈/오픈) -->
+      <div class="form-section jf-only-new">
+        <h4 style="display:flex;justify-content:space-between;align-items:center">
+          <span>🏁 진행 상황 체크리스트 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">모두 체크 시 신규 업무 자동 완료 처리</span></span>
+          <span id="jfProgressLabel" style="font-size:11.5px;color:var(--gray-500);font-weight:700">2 / 5 완료</span>
+        </h4>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label style="display:flex;align-items:center;gap:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-left:3px solid var(--success);border-radius:7px;padding:9px 12px;cursor:pointer">
+            <input type="checkbox" checked style="width:16px;height:16px">
+            <div style="flex:1;font-size:12px">
+              <div style="font-weight:800;color:#065f46;text-decoration:line-through">📑 서류 처리</div>
+              <div style="font-size:10.5px;color:#065f46">5-14 박기사</div>
+            </div>
+            <span style="font-size:11px;color:var(--success);font-weight:800">✓</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-left:3px solid var(--success);border-radius:7px;padding:9px 12px;cursor:pointer">
+            <input type="checkbox" checked style="width:16px;height:16px">
+            <div style="flex:1;font-size:12px">
+              <div style="font-weight:800;color:#065f46;text-decoration:line-through">🖥 사무실 설치 (계산대/모니터/POS 본체)</div>
+              <div style="font-size:10.5px;color:#065f46">5-20 김기사</div>
+            </div>
+            <span style="font-size:11px;color:var(--success);font-weight:800">✓</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:9px 12px;cursor:pointer">
+            <input type="checkbox" style="width:16px;height:16px">
+            <div style="flex:1;font-size:12px">
+              <div style="font-weight:800">💻 POS 설치 (소프트웨어 + 상품DB)</div>
+              <div style="font-size:10.5px;color:var(--gray-500)">미완료</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:9px 12px;cursor:pointer">
+            <input type="checkbox" style="width:16px;height:16px">
+            <div style="flex:1;font-size:12px">
+              <div style="font-weight:800">🟡 가오픈</div>
+              <div style="font-size:10.5px;color:var(--gray-500)">예정 5/25</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:9px 12px;cursor:pointer">
+            <input type="checkbox" style="width:16px;height:16px">
+            <div style="flex:1;font-size:12px">
+              <div style="font-weight:800">🎉 오픈</div>
+              <div style="font-size:10.5px;color:var(--gray-500)">예정 5/27</div>
+            </div>
+          </label>
+        </div>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:9px 12px;margin-top:8px;font-size:11.5px;color:#1e40af;line-height:1.5">
+          ℹ 5개 항목 모두 체크 시 신규 업무가 자동 <strong>완료 종결</strong>되고, 매장 상태가 '거래중'으로 전환됩니다.
+        </div>
+      </div>
+
+      <!-- ⑩-as AS/단말기/이탈 — 처리 기록 (과거 AS 내역 누적 + 미완료 빨강 + 완료 버튼) -->
+      <div class="form-section jf-only-as jf-only-device jf-only-churn jf-only-van jf-only-stock jf-only-supplies">
+        <h4 id="jfRecTitle">📝 처리 기록 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">현재 업무 처리기록 + 이 매장의 과거 AS 내역 누적</span></h4>
+
+        <!-- 현재 업무 기록 -->
+        <div style="font-size:11px;font-weight:800;color:var(--gray-600);margin-bottom:6px;text-transform:uppercase">현재 업무</div>
         <div class="records-list">
           <div class="rec-item">
             <div class="meta">5-15 14:23 · 김기사</div>
-            장비 입고 확인, 5/20 출고 준비 완료
-          </div>
-          <div class="rec-item">
-            <div class="meta">5-14 11:08 · 홍길동</div>
-            견적 OK, 설치일 5/20 확정
-          </div>
-          <div class="rec-item">
-            <div class="meta">5-12 09:50 · 홍길동</div>
-            견적 발송, 매장 답변 대기
+            부품 발주, 5/17 방문 예정
           </div>
         </div>
         <div class="rec-add">
           <input placeholder="새 기록 입력...">
           <button class="btn primary">+ 기록 추가</button>
         </div>
-      </div>
 
-      <!-- ⑪ 비고 (신규 전용 — 주의/염두할 사항만) -->
-      <div class="form-section jf-only-new">
-        <h4>⚠️ 비고 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">주의/염두 사항만 (업무 진행 기록은 위 업무 기록에)</span></h4>
-        <textarea placeholder="입구 좌측 1대, 우측 1대 / 사장님 직접 요청">입구 좌측 1대, 우측 1대 / 사장님 직접 요청</textarea>
+        <!-- 과거 AS 내역 누적 -->
+        <div style="font-size:11px;font-weight:800;color:var(--gray-600);margin:14px 0 6px;text-transform:uppercase">이 매장의 과거 처리 내역 <span style="font-weight:600;color:var(--gray-400)">(클릭 시 해당 업무로 이동)</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <!-- 미완료 — 붉은색 + 완료 버튼 -->
+          <div style="background:#fef2f2;border:1px solid #fca5a5;border-left:3px solid var(--danger);border-radius:6px;padding:8px 12px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+            <div style="flex:1">
+              <div style="font-weight:800;color:#991b1b">🔧 AS/VAN — VAN 단말기 통신 끊김</div>
+              <div style="font-size:10.5px;color:#991b1b;margin-top:2px">📅 5/12 접수 · 박기사 · ⚠ 미완료 4일 경과</div>
+            </div>
+            <button class="btn" style="background:var(--danger);color:#fff;border:none;font-size:11px;padding:5px 12px;font-weight:800">✅ 완료 처리</button>
+          </div>
+          <div style="background:#fef2f2;border:1px solid #fca5a5;border-left:3px solid var(--danger);border-radius:6px;padding:8px 12px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+            <div style="flex:1">
+              <div style="font-weight:800;color:#991b1b">🔧 AS/장비교체 — 2번 POS 키보드 인식 불량</div>
+              <div style="font-size:10.5px;color:#991b1b;margin-top:2px">📅 5/05 접수 · 김기사 · ⚠ 미완료 11일 경과</div>
+            </div>
+            <button class="btn" style="background:var(--danger);color:#fff;border:none;font-size:11px;padding:5px 12px;font-weight:800">✅ 완료 처리</button>
+          </div>
+          <!-- 완료 -->
+          <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-left:3px solid var(--success);border-radius:6px;padding:8px 12px;font-size:11.5px;color:var(--gray-700)">
+            <div style="font-weight:700">🔧 AS/POS — 영수증프린터 헤드 청소 <span style="background:#d1fae5;color:#065f46;font-size:9.5px;padding:1px 6px;border-radius:99px;font-weight:800;margin-left:5px">완료</span></div>
+            <div style="font-size:10.5px;color:var(--gray-500);margin-top:2px">📅 4/22 접수 · 4/24 완료 · 김기사</div>
+          </div>
+          <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-left:3px solid var(--success);border-radius:6px;padding:8px 12px;font-size:11.5px;color:var(--gray-700)">
+            <div style="font-weight:700">🔧 AS/장비교체 — VAN 단말 IC리더 교체 <span style="background:#d1fae5;color:#065f46;font-size:9.5px;padding:1px 6px;border-radius:99px;font-weight:800;margin-left:5px">완료</span></div>
+            <div style="font-size:10.5px;color:var(--gray-500);margin-top:2px">📅 3/15 접수 · 3/16 완료 · 박기사</div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -1397,28 +1636,47 @@
     headEl.closest('.group-card').classList.toggle('expanded');
   }
 
-  // 카테고리별 폼 섹션 가시성 제어
+  // 카테고리별 폼 섹션 가시성 제어 — 진입 메뉴에 따라 카테고리 셀렉트도 제한
   function updateJobForm(cat) {
-    // cat: new | as | device | van | churn | stock | supplies
     const cats = ['new','as','device','van','churn','stock','supplies'];
     cats.forEach(c => {
       document.querySelectorAll('.jf-only-' + c).forEach(el => {
         el.style.display = (c === cat) ? '' : 'none';
       });
     });
-    // 업무 기록 라벨도 카테고리에 맞게
-    const recTitleMap = {
-      new: '📝 업무 기록',
-      as: '📝 처리 기록',
-      device: '📝 처리 기록',
-      van: '📝 추가 기록',
-      churn: '📝 처리 기록',
-      stock: '📝 작업 기록',
-      supplies: '📝 처리 기록',
-    };
-    const rt = document.getElementById('jfRecTitle');
-    if (rt) rt.innerHTML = (recTitleMap[cat] || '📝 기록') +
-      ' <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">메모 형식으로 누적</span>';
+    // 진입 카테고리에 맞는 셀렉트만 활성화 (다른 셀렉트 숨김)
+    ['new','as','device','van','churn','supplies'].forEach(c => {
+      document.querySelectorAll('.jf-cat-' + c).forEach(el => {
+        el.style.display = (c === cat) ? '' : 'none';
+      });
+    });
+    // 후불 라디오 기준 수금 박스 가시성 동기화
+    if (cat === 'supplies') {
+      const post = document.getElementById('jfPayPost');
+      const arBox = document.getElementById('jfArBox');
+      if (post && arBox) arBox.style.display = post.checked ? 'block' : 'none';
+    }
+  }
+
+  // 4상태 토글 (접수/진행 중/미처리/완료)
+  function bindJfStatusButtons() {
+    const btns = document.querySelectorAll('.jf-stbtn');
+    btns.forEach(b => {
+      b.onclick = () => {
+        btns.forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        const st = b.dataset.st;
+        const pBox = document.getElementById('jfPendingBox');
+        if (pBox) pBox.style.display = (st === 'pending') ? 'block' : 'none';
+      };
+    });
+    // VAN사 토글
+    document.querySelectorAll('.jf-vanco').forEach(b => {
+      b.onclick = () => {
+        document.querySelectorAll('.jf-vanco').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+      };
+    });
   }
 
   // 업무 폼 팝업
@@ -1432,17 +1690,19 @@
       stock:'📦 재고조사 상세',
       supplies:'🏷️ 소모품 거래 상세',
     };
+    const subs = {
+      new:'카테고리: 신규/오픈·프로그램교체·VAN변경 + 단말개통 + VAN/신규등록',
+      as:'카테고리: AS/POS·VAN·장비*·단말기·VAN/변경·매장이탈',
+      van:'카테고리: VAN 신규등록·재신고·정산·계약·당사간 변경',
+      supplies:'카테고리: 판매·미수·택배 (발송/수금 관리)',
+      stock:'재고조사 (상담→일정→완료→정산)',
+      churn:'매장이탈 (폐업/매각/거래종료)',
+      device:'단말기 (개통/AS/해지)',
+    };
     document.getElementById('jfTitle').textContent = titles[cat] || '업무 상세';
-    // 카테고리 셀렉트 기본값
-    const sel = document.getElementById('jfCatSelect');
-    if (sel) {
-      const map = { new:'new/open', as:'as/pos', device:'device/open', van:'van/new', churn:'churn/close', stock:'stock/regist', supplies:'supplies/sell' };
-      if (map[cat]) {
-        const opt = Array.from(sel.options).find(o => o.value === map[cat]);
-        if (opt) sel.value = opt.value;
-      }
-    }
+    const sub = document.getElementById('jfSub'); if (sub) sub.textContent = subs[cat] || '';
     updateJobForm(cat);
+    bindJfStatusButtons();
     document.getElementById('jobFormModal').classList.add('show');
   }
 
