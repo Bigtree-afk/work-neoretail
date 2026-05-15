@@ -272,6 +272,50 @@
   .search-row > select { width: auto !important; flex: 0 0 auto; min-width: 140px; }
   .search-row > input  { flex: 1 1 auto; min-width: 0; }
 
+  /* ═══════════════ Hub 화면 (newhub/ashub/vanhub) ═══════════════ */
+  .hub-filter{font-size:11.5px;background:var(--gray-100);border:1px solid var(--gray-200);border-radius:7px;padding:5px 10px;cursor:pointer;font-weight:700;color:var(--gray-700);font-family:inherit}
+  .hub-filter.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .hub-filter:hover:not(.active){background:var(--gray-200)}
+  .hub-filter span{font-size:10px;opacity:0.85;margin-left:3px}
+  .hub-group{background:#fff;border:1.5px solid var(--gray-200);border-radius:10px;overflow:hidden;transition:box-shadow .12s}
+  .hub-group.cat-new{border-left:4px solid var(--success)}
+  .hub-group.cat-as{border-left:4px solid var(--warning)}
+  .hub-group.cat-van{border-left:4px solid var(--primary)}
+  .hub-group.cat-supplies{border-left:4px solid #8B5CF6}
+  .hub-group.expanded{box-shadow:0 6px 20px rgba(0,0,0,.06)}
+  .hub-ghead{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer}
+  .hub-ghead:hover{background:var(--gray-50)}
+  .hub-ghead .gleft{flex:1;min-width:0}
+  .hub-ghead .gname{font-size:14px;font-weight:900;color:var(--gray-900);cursor:pointer;text-decoration:underline;text-decoration-color:var(--gray-300);text-underline-offset:3px;margin-right:8px}
+  .hub-ghead .gname:hover{color:var(--primary);text-decoration-color:var(--primary)}
+  .hub-ghead .gmeta{font-size:11px;color:var(--gray-500);margin-top:3px}
+  .hub-ghead .gbadges{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+  .hub-ghead .gbtag{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:99px;background:var(--gray-100);color:var(--gray-600)}
+  .hub-ghead .gbtag.new{background:#d1fae5;color:#065f46}
+  .hub-ghead .gbtag.as{background:#fef3c7;color:#92400e}
+  .hub-ghead .gbtag.van{background:#dbeafe;color:#1e40af}
+  .hub-ghead .gbtag.supplies{background:#ede9fe;color:#5b21b6}
+  .hub-ghead .gright{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .hub-ghead .gcnt{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;background:var(--gray-100);color:var(--gray-700)}
+  .hub-ghead .gcnt.urgent{background:var(--neo-red);color:#fff}
+  .hub-ghead .gchev{font-size:14px;color:var(--gray-400);transition:transform .2s}
+  .hub-group.expanded .hub-ghead .gchev{transform:rotate(90deg)}
+  .hub-gjobs{display:none;border-top:1px solid var(--gray-100);background:var(--gray-50);padding:10px 14px;flex-direction:column;gap:8px}
+  .hub-group.expanded .hub-gjobs{display:flex}
+  .hub-sj{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;transition:all .12s;font-size:12px}
+  .hub-sj:hover{border-color:var(--primary);box-shadow:0 2px 6px rgba(0,0,0,.05)}
+  .hub-sj .sjl{flex:1;min-width:0}
+  .hub-sj .sjtag{display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:99px;color:#fff;margin-right:4px}
+  .hub-sj .sjtag.new{background:var(--success)}.hub-sj .sjtag.as{background:var(--warning)}
+  .hub-sj .sjtag.van{background:var(--primary)}.hub-sj .sjtag.supplies{background:#8B5CF6}
+  .hub-sj .sjtag.churn{background:var(--danger)}
+  .hub-sj .sjti{font-weight:700;color:var(--gray-900);margin-top:2px;font-size:12.5px}
+  .hub-sj .sjmt{font-size:10.5px;color:var(--gray-500);margin-top:2px}
+  .hub-sj .sjwn{font-size:10.5px;background:var(--gray-100);color:var(--gray-700);padding:3px 8px;border-radius:6px;font-weight:700;flex-shrink:0}
+  .hub-sj .sjwn.urgent{background:var(--neo-red);color:#fff}
+  .hub-sj .sjwn.done{background:#d1fae5;color:#065f46}
+  .hub-empty{padding:40px 20px;text-align:center;color:var(--gray-400);font-size:12px;background:#fff;border:1px dashed var(--gray-300);border-radius:10px}
+
   /* ═══════════════ 매장 상세 모달 V2 (8탭) ═══════════════ */
   .sdv2 { padding:0 !important; }
   .sdv2-head { background:linear-gradient(135deg,#1F2937 0%,#111827 100%);color:#fff;padding:14px 20px;
@@ -858,7 +902,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   <!-- 네비게이션 링크 (데스크탑) — Phase A: 라벨 재설계 (라우팅은 기존 화면 유지) -->
   <div class="topnav-links" id="topnavLinks">
-    <a class="nav-item active" onclick="showScreen('newopen')">
+    <a class="nav-item active" onclick="showScreen('newhub')">
       <span class="nav-icon">🆕</span> 신규
     </a>
     <a class="nav-item" onclick="showScreen('asmgmt')">
@@ -907,8 +951,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 <!-- 모바일 드롭다운 메뉴 — Phase A: 라벨 재설계 -->
 <div class="topnav-mobile-menu" id="mobileMenu">
   <div class="nav-section">업무</div>
-  <a class="nav-item active" onclick="showScreen('newopen'); closeMenu()">
+  <a class="nav-item active" onclick="showScreen('newhub'); closeMenu()">
     <span class="nav-icon">🆕</span> 신규
+  </a>
+  <a class="nav-item" onclick="showScreen('newopen'); closeMenu()" style="font-size:11px;opacity:0.7">
+    <span class="nav-icon">📋</span> 신규/상담 (기존)
   </a>
   <a class="nav-item" onclick="showScreen('asmgmt'); closeMenu()">
     <span class="nav-icon">🔧</span> AS
@@ -1636,6 +1683,33 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             </td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- SCREEN: NEWHUB (신규 — 매장별 그룹 hub)  -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="screen" id="screen-newhub">
+      <div class="hub-route-info" style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px 13px;font-size:11.5px;color:#92400e;margin-bottom:12px;display:flex;align-items:center;gap:8px;line-height:1.5">
+        <span style="font-size:16px">ℹ️</span>
+        <div>모이는 카테고리: <strong>신규/오픈</strong> · <strong>신규/프로그램교체</strong> · <strong>신규/VAN변경</strong> · <strong>단말개통</strong>(신규측) · <strong>VAN/신규등록</strong></div>
+      </div>
+
+      <div class="hub-actbar" style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:9px 14px;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap" id="newhubFilters">
+          <button class="hub-filter active" data-filter="all">전체 <span id="newhubCntAll">0</span></button>
+          <button class="hub-filter" data-filter="progress">진행 중 <span id="newhubCntProg">0</span></button>
+          <button class="hub-filter" data-filter="done">완료 <span id="newhubCntDone">0</span></button>
+          <input id="newhubSearch" placeholder="🔍 매장명 검색..." style="border:1px solid var(--gray-300);border-radius:7px;padding:5px 10px;font-size:11.5px;width:180px;font-family:inherit;margin-left:6px">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="showModal('newJobModal')" style="font-size:11.5px;padding:6px 12px;font-weight:800">+ 신규 업무 등록</button>
+      </div>
+
+      <div id="newhubContainer" style="display:flex;flex-direction:column;gap:10px">
+        <div style="padding:40px 20px;text-align:center;color:var(--gray-400);font-size:12px">
+          <div style="font-size:32px;margin-bottom:8px">📭</div>
+          <div>신규 업무를 불러오는 중...</div>
+        </div>
       </div>
     </div>
 
@@ -3691,13 +3765,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   const titles = {
     dashboard: '대시보드',
-    newopen: '신규/상담',
+    newopen: '신규/상담 (기존)',
+    newhub: '🆕 신규',
     consult: '상담 조회',
-    stores: '점포 관리',
+    stores: '점포관리',
     jobs: '작업/일정',
     calendar: '작업/일정',
-    asmgmt: 'AS 관리',
-    equipment: '장비 재고',
+    asmgmt: '🔧 AS',
+    equipment: '장비재고',
     quote: '견적 작성'
   };
 
@@ -3743,7 +3818,197 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     if (id === 'stores' && typeof hydrateSavedStores === 'function') {
       try { hydrateSavedStores(); } catch(e) {}
     }
+    // 신규 hub 진입 시 매장별 그룹 렌더
+    if (id === 'newhub' && typeof renderNewHub === 'function') {
+      try { renderNewHub(); } catch(e) { console.warn('[newhub] render 실패', e); }
+    }
   }
+
+  /* ═══════════════ Hub 화면 공용 로직 ═══════════════ */
+  // 업무 → 메뉴 카테고리 분류 (sdvCatOf 와 동일 — window 전역 노출)
+  window.classifyJobCategory = function(j) {
+    const lc = String(j.lineCategory || '').toLowerCase();
+    const tp = String(j.type || j.category || '').toLowerCase();
+    const all = lc + ' ' + tp;
+    if (/label|equip_out|delivery|라벨|영수증|프라이스텍|소모품|택배/.test(all)) return 'supplies';
+    if (/van_doc|밴서류|van.*신규|van.*재신고|van.*정산|van.*계약|van.*변경/.test(all)) return 'van';
+    if (/open_store|오픈|신규|new_open|newopen/.test(all)) return 'new';
+    if (/churn|폐업|매각|해지|이탈/.test(all)) return 'churn';
+    if (/pos_as|van_as|device_mgmt|as_pos|단말|a\/s|as\s|에이에스/.test(all)) return 'as';
+    return 'as';
+  };
+
+  // 매장별 그룹화 — 카테고리 필터링 후 storeId/storeName 기준 묶기
+  function _hubGroupByStore(filterFn) {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const storeById = new Map();
+    stores.forEach(s => { if (s.id) storeById.set(s.id, s); });
+
+    const filtered = jobs.filter(filterFn);
+    const groupMap = new Map(); // key = storeId 또는 normalized storeName
+    filtered.forEach(j => {
+      const key = j.storeId || ('name:' + String(j.storeName||j.store||'').trim());
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          storeId: j.storeId || null,
+          storeName: j.storeName || j.store || '(매장명 없음)',
+          store: j.storeId ? storeById.get(j.storeId) : null,
+          jobs: [],
+        });
+      }
+      groupMap.get(key).jobs.push(j);
+    });
+    return [...groupMap.values()];
+  }
+
+  const _hubDoneFn = (j) => (typeof window._isJobDone === 'function') ? window._isJobDone(j) : false;
+
+  // D-day 계산
+  function _hubDday(j) {
+    const sched = j.scheduleDate || j.date;
+    if (!sched) return { text:'진행중', urgent:false, done:false };
+    if (_hubDoneFn(j)) return { text:'완료', urgent:false, done:true };
+    const today = new Date(); today.setHours(0,0,0,0);
+    const tgt = new Date(sched + 'T00:00:00');
+    const diff = Math.round((tgt - today)/86400000);
+    const text = diff < 0 ? `D+${-diff}` : diff === 0 ? 'D-Day' : `D-${diff}`;
+    const urgent = diff <= 2 && diff >= -3;
+    return { text, urgent, done:false };
+  }
+
+  function _hubEsc(s) { return (typeof esc === 'function') ? esc(s) : String(s||''); }
+
+  // 그룹 카드 렌더
+  function _hubRenderGroup(g, cat, opts) {
+    opts = opts || {};
+    const escFn = _hubEsc;
+    const s = g.store || {};
+    const undone = g.jobs.filter(j => !_hubDoneFn(j)).length;
+    const totalCnt = g.jobs.length;
+    const allDone = undone === 0;
+    const cntClass = (undone > 0 && opts.urgentIfPending) ? ' urgent' : '';
+    const cntTxt = allDone ? `완료 (${totalCnt})` : `${undone} 업무`;
+
+    // 카테고리 뱃지 (현재 매장 그룹에 있는 카테고리들)
+    const subCats = [...new Set(g.jobs.map(j => j.type || j.category || ''))].filter(Boolean).slice(0, 3);
+    const badgesHtml = subCats.map(c => `<span class="gbtag ${cat}">${escFn(c)}</span>`).join('');
+
+    // 서브 업무 카드
+    const subsHtml = g.jobs.map(j => {
+      const dd = _hubDday(j);
+      const wnCls = dd.urgent ? 'urgent' : (dd.done ? 'done' : '');
+      const who = j.engineer || j.assignee || '';
+      const memos = Array.isArray(j.memos) ? j.memos.length : 0;
+      const date = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
+      const onclick = j.id ? `editNewopen('${escFn(j.id)}')` : '';
+      return `<div class="hub-sj" onclick="${onclick}">
+        <div class="sjl">
+          <span class="sjtag ${cat}">${escFn(j.type || cat)}</span>
+          <div class="sjti">${escFn(j.title || j.type || '업무')}</div>
+          <div class="sjmt">${date ? '📅 '+date+' · ' : ''}${who?who+' · ':''}${memos?'메모 '+memos+'건':''}</div>
+        </div>
+        <div class="sjwn ${wnCls}">${dd.text}</div>
+      </div>`;
+    }).join('');
+
+    // 매장 클릭: 매장 상세 모달 열기 (toggleStoreDetail 가 row 를 요구 — 가짜 row 만들기)
+    const sIdAttr = s.id ? `data-store-id="${escFn(s.id)}"` : '';
+    const onStoreClick = s.id ? `event.stopPropagation();_hubOpenStoreById('${escFn(s.id)}')` : `event.stopPropagation();showToast('매장 정보 없음')`;
+    const metaParts = [];
+    if (s.biz) metaParts.push(escFn(s.biz));
+    if (s.addr) metaParts.push(escFn(s.addr));
+    if (s.van) metaParts.push(escFn(s.van) + ' VAN');
+    const metaTxt = metaParts.join(' · ') || '';
+
+    return `<div class="hub-group cat-${cat}" ${sIdAttr}>
+      <div class="hub-ghead" onclick="this.parentElement.classList.toggle('expanded')">
+        <div class="gleft">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="gname" onclick="${onStoreClick}">${escFn(g.storeName)}</span>
+            ${s.status ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:#d1fae5;color:#065f46">${escFn(s.status)}</span>` : ''}
+          </div>
+          <div class="gmeta">${metaTxt}</div>
+          <div class="gbadges">${badgesHtml}</div>
+        </div>
+        <div class="gright">
+          <span class="gcnt${cntClass}">${cntTxt}</span>
+          <span class="gchev">▶</span>
+        </div>
+      </div>
+      <div class="hub-gjobs">${subsHtml}</div>
+    </div>`;
+  }
+
+  // 매장 ID 로 상세 모달 열기 (가짜 row 만들어서 toggleStoreDetail 호출)
+  window._hubOpenStoreById = function(storeId) {
+    if (!storeId) return;
+    // 점포 테이블에서 row 찾기 우선
+    const tr = document.querySelector(`#savedStoresTable tr[data-store-id="${storeId}"]`);
+    if (tr && typeof window.toggleStoreDetail === 'function') {
+      window.toggleStoreDetail(tr);
+      return;
+    }
+    // 가짜 row 만들어 호출
+    const fakeRow = document.createElement('tr');
+    fakeRow.dataset.storeId = storeId;
+    const stores = (typeof getStores === 'function') ? getStores() : [];
+    const s = stores.find(x => x.id === storeId);
+    if (s) {
+      // 셀 채우기 (toggleStoreDetail 가 row cell 에서 추출하는 정보들)
+      fakeRow.innerHTML = `<td><b>${_hubEsc(s.name||'')}</b></td><td>${_hubEsc(s.biz||'')}</td><td>${_hubEsc(s.ceo||'')}</td><td>${_hubEsc(s.tel||'')}</td><td>${_hubEsc(s.addr||'')}</td><td><span class="badge">${_hubEsc(s.van||'')}</span></td><td><span class="pk-chip">POS ${s.pos||0}</span></td><td></td><td><span class="badge">${_hubEsc(s.status||'거래중')}</span></td>`;
+    }
+    if (typeof window.toggleStoreDetail === 'function') window.toggleStoreDetail(fakeRow);
+  };
+
+  // 신규 hub 렌더
+  window.renderNewHub = function() {
+    const container = document.getElementById('newhubContainer');
+    if (!container) return;
+    const search = (document.getElementById('newhubSearch')?.value || '').trim().toLowerCase();
+    const filter = document.querySelector('#newhubFilters .hub-filter.active')?.dataset.filter || 'all';
+
+    const groups = _hubGroupByStore(j => window.classifyJobCategory(j) === 'new');
+    // 검색 필터
+    let displayed = groups.filter(g => !search || g.storeName.toLowerCase().includes(search));
+    // 상태 필터
+    if (filter === 'progress') displayed = displayed.filter(g => g.jobs.some(j => !_hubDoneFn(j)));
+    else if (filter === 'done') displayed = displayed.filter(g => g.jobs.every(j => _hubDoneFn(j)));
+
+    // 카운트
+    const cntAll = groups.length;
+    const cntProg = groups.filter(g => g.jobs.some(j => !_hubDoneFn(j))).length;
+    const cntDone = groups.filter(g => g.jobs.every(j => _hubDoneFn(j))).length;
+    const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    setTxt('newhubCntAll', cntAll);
+    setTxt('newhubCntProg', cntProg);
+    setTxt('newhubCntDone', cntDone);
+
+    if (displayed.length === 0) {
+      container.innerHTML = `<div class="hub-empty"><div style="font-size:32px;margin-bottom:8px">📭</div>${search ? '검색 결과 없음' : '진행 중인 신규 업무가 없습니다'}</div>`;
+      return;
+    }
+    // 진행 중 → 완료 순 정렬
+    displayed.sort((a,b) => {
+      const aUndone = a.jobs.some(j => !_hubDoneFn(j)) ? 0 : 1;
+      const bUndone = b.jobs.some(j => !_hubDoneFn(j)) ? 0 : 1;
+      return aUndone - bUndone;
+    });
+    container.innerHTML = displayed.map(g => _hubRenderGroup(g, 'new', { urgentIfPending: true })).join('');
+  };
+
+  // 필터/검색 이벤트 바인딩 (한 번만)
+  (function _bindNewHubEvents(){
+    document.addEventListener('click', (ev) => {
+      const f = ev.target.closest('#newhubFilters .hub-filter');
+      if (!f) return;
+      f.parentElement.querySelectorAll('.hub-filter').forEach(x => x.classList.remove('active'));
+      f.classList.add('active');
+      if (typeof renderNewHub === 'function') renderNewHub();
+    });
+    const sIn = document.getElementById('newhubSearch');
+    if (sIn) sIn.addEventListener('input', () => { if (typeof renderNewHub === 'function') renderNewHub(); });
+  })();
 
   function showModal(id) {
     document.getElementById(id).classList.add('show');
