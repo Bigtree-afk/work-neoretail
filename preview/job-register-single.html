@@ -77,13 +77,20 @@
   .store-suggestion b { font-size:13px; }
   .store-suggestion small { font-size:11px; color:var(--gray-500); display:block; margin-top:2px; }
 
-  .ongoing-job { padding:8px 10px; background:#FFFBEB; border:1.5px solid #FCD34D; border-radius:7px;
-                 margin-bottom:6px; cursor:pointer; display:flex; justify-content:space-between; gap:8px;
-                 align-items:center; transition:all .12s; }
-  .ongoing-job:hover { background:#FEF3C7; }
-  .ongoing-job b { font-size:12px; color:var(--gray-800); }
-  .ongoing-job small { font-size:10px; color:var(--gray-600); display:block; margin-top:2px; }
-  .ongoing-job .b-badge { font-size:10px; background:#F59E0B; color:#fff; padding:2px 7px; border-radius:99px; font-weight:800; white-space:nowrap; }
+  /* PC 진행중 업무 카드 (모바일과 동일 패턴) */
+  .pc-job-card { background:#fff; border:1.5px solid var(--gray-200); border-radius:8px;
+                  padding:9px 11px; margin-bottom:6px; cursor:pointer; transition:all .12s; }
+  .pc-job-card:hover { border-color:#F59E0B; background:#FFFBEB; }
+  .pc-job-card.picked { border-color:#F59E0B; background:#FEF3C7; box-shadow:0 0 0 3px rgba(245,158,11,.2); }
+  .pc-job-card .b-badge { font-size:10px; background:#F59E0B; color:#fff; padding:2px 7px;
+                           border-radius:99px; font-weight:800; white-space:nowrap; flex-shrink:0; }
+  .pc-job-card .pc-job-pick {
+    margin-top:6px; padding:5px 8px; background:var(--gray-50); border-radius:5px;
+    font-size:10px; color:var(--gray-500); font-weight:700; text-align:center;
+  }
+  .pc-job-card.picked .pc-job-pick { background:#F59E0B; color:#fff; }
+  .pc-job-card.picked .pc-job-pick::before { content:'✓ '; }
+  .pc-job-card.picked .pc-job-pick::after { content:' (선택됨)'; }
 
   .contact-box { background:#FFFBEB; border:1.5px solid #FCD34D; border-radius:10px; padding:12px; margin-bottom:14px; }
   .contact-box .ttl { font-size:11px; font-weight:800; color:#92400E; margin-bottom:8px; display:flex; gap:5px; align-items:center; }
@@ -244,23 +251,59 @@
             </div>
           </div>
 
-          <div class="section-title">진행중 업무 (2건)</div>
-          <div class="ongoing-job">
-            <div>
-              <b>POS 영수 프린터 용지 걸림</b>
-              <small>📅 5/13 · 박기사 · 부품발주중 (2/4)</small>
-            </div>
-            <span class="b-badge">진행중</span>
+          <div class="section-title">
+            진행중 업무 (2건)
+            <span style="margin-left:auto;font-weight:600;color:var(--gray-500);font-size:10px">클릭=그 업무 갱신</span>
           </div>
-          <div class="ongoing-job">
-            <div>
-              <b>VAN 단말기 신규 개통</b>
-              <small>📅 5/12 · 한소현 · 심사중 (3/5)</small>
+          <div class="pc-job-card" data-jobid="J-001" onclick="pickPCJob(this)">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+              <div style="flex:1;min-width:0">
+                <b style="font-size:13px">🖥 POS 영수 프린터 용지 걸림</b>
+                <small style="display:block;font-size:11px;color:var(--gray-500);margin-top:3px">
+                  📅 5/13 · 박기사 · POS A/S<br>현재: <b style="color:#92400E">부품 발주중 (2/4)</b>
+                </small>
+              </div>
+              <span class="b-badge">진행중</span>
             </div>
-            <span class="b-badge" style="background:#3B82F6">대기</span>
+            <div class="pc-job-pick">클릭하여 이 업무 갱신</div>
           </div>
-          <div style="margin-top:8px;font-size:11px;color:var(--gray-500);text-align:center">
-            ↑ 클릭하여 <b>해당 작업 갱신</b> · 신규는 그대로 입력 진행
+          <div class="pc-job-card" data-jobid="J-002" onclick="pickPCJob(this)">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+              <div style="flex:1;min-width:0">
+                <b style="font-size:13px">📑 VAN 단말기 신규 개통</b>
+                <small style="display:block;font-size:11px;color:var(--gray-500);margin-top:3px">
+                  📅 5/12 · 한소현 · 밴서류<br>현재: <b style="color:#92400E">심사중 (3/5)</b>
+                </small>
+              </div>
+              <span class="b-badge" style="background:#3B82F6">대기</span>
+            </div>
+            <div class="pc-job-pick">클릭하여 이 업무 갱신</div>
+          </div>
+
+          <!-- 신규 분리 -->
+          <div style="display:flex;align-items:center;gap:8px;margin:10px 0 8px">
+            <div style="flex:1;height:1px;background:var(--gray-200)"></div>
+            <span style="font-size:10px;color:var(--gray-400);font-weight:700">또는</span>
+            <div style="flex:1;height:1px;background:var(--gray-200)"></div>
+          </div>
+          <button id="pcNewBtn" onclick="pickPCNew()" style="width:100%;padding:9px;border:1.5px dashed var(--primary);background:var(--primary-light);color:var(--primary);border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">
+            ➕ 신규 업무로 등록하기
+          </button>
+
+          <!-- 갱신 모드 패널 -->
+          <div id="pcUpdatePanel" style="display:none;margin-top:10px;padding:10px 12px;background:#FFFBEB;border:1.5px solid #FCD34D;border-radius:8px">
+            <div style="font-size:11px;font-weight:800;color:#92400E;margin-bottom:6px">
+              🔄 갱신: <span id="pcPickedJobTitle">-</span>
+              <button onclick="cancelPCPick()" style="float:right;background:none;border:none;color:var(--gray-500);font-size:12px;cursor:pointer">✕</button>
+            </div>
+            <div class="field" style="margin-bottom:6px">
+              <label style="font-size:10px">다음 단계</label>
+              <select style="font-size:12px;padding:6px"><option>현재 단계 유지</option><option>방문 수리 →</option><option>완료 ✓</option></select>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label style="font-size:10px">진행 메모</label>
+              <textarea style="font-size:12px;min-height:50px;padding:6px">부품 입고 완료 · 내일 오전 방문</textarea>
+            </div>
           </div>
         </div>
 
@@ -670,6 +713,41 @@ function renderAllPreviews() { renderPCPreview(); renderMobilePreview(); }
   .forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', renderPCPreview); });
 
 renderAllPreviews();
+
+/* ───── PC 진행중 업무 클릭 선택 / 신규 토글 ───── */
+function pickPCJob(card) {
+  document.querySelectorAll('.pc-job-card').forEach(c => c.classList.remove('picked'));
+  card.classList.add('picked');
+  const newBtn = document.getElementById('pcNewBtn');
+  if (newBtn) {
+    newBtn.style.background = '#fff';
+    newBtn.style.color = 'var(--gray-500)';
+    newBtn.style.borderColor = 'var(--gray-300)';
+  }
+  const panel = document.getElementById('pcUpdatePanel');
+  const title = card.querySelector('b')?.textContent || '';
+  document.getElementById('pcPickedJobTitle').textContent = title;
+  panel.style.display = 'block';
+}
+function cancelPCPick() {
+  document.querySelectorAll('.pc-job-card').forEach(c => c.classList.remove('picked'));
+  document.getElementById('pcUpdatePanel').style.display = 'none';
+  const newBtn = document.getElementById('pcNewBtn');
+  if (newBtn) {
+    newBtn.style.background = 'var(--primary-light)';
+    newBtn.style.color = 'var(--primary)';
+    newBtn.style.borderColor = 'var(--primary)';
+  }
+}
+function pickPCNew() {
+  cancelPCPick();
+  const newBtn = document.getElementById('pcNewBtn');
+  if (newBtn) {
+    newBtn.style.background = 'var(--primary)';
+    newBtn.style.color = '#fff';
+  }
+  showQuickToast('➕ 신규 업무 모드 — 중앙 폼에 새 내용 입력');
+}
 
 /* ───── Mobile 진행중 업무 탭 선택 / 신규 토글 ───── */
 function pickMobileJob(card) {
