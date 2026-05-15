@@ -1019,6 +1019,60 @@
     </div>
     <div class="modal-body">
 
+      <!-- ⚠️ 안전장치 ①: 같은 매장 진행 업무 미리보기 (중복 등록 방지) -->
+      <div class="form-section" style="background:#fffbeb;border:2px solid #fde68a;padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:12.5px;font-weight:900;color:#92400e;display:flex;align-items:center;gap:6px">
+            ⚠️ 이 매장의 진행 중 업무 <span style="background:#92400e;color:#fff;font-size:10px;padding:1px 7px;border-radius:99px;font-weight:800">3건</span>
+          </div>
+          <button id="jfSimToggle" onclick="toggleSimList()" style="background:#92400e;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:inherit">펼쳐보기 ▼</button>
+        </div>
+        <div style="font-size:11px;color:#92400e;line-height:1.5">
+          새 업무 등록 전 <strong>같은 매장의 진행 중 업무</strong>를 확인하세요. 중복 등록 시 기존 업무에 기록을 추가하는 것이 더 효율적일 수 있습니다.
+        </div>
+        <div id="jfSimList" style="display:none;margin-top:10px;display:flex;flex-direction:column;gap:6px">
+          <div style="background:#fff;border:1px solid #fde68a;border-radius:7px;padding:8px 12px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer">
+            <div style="flex:1">
+              <div style="font-weight:800;color:var(--gray-900)">
+                <span style="background:var(--success);color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:99px;margin-right:4px">신규/오픈</span>
+                키오스크 2대 추가 설치
+              </div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:2px">📅 5/20 예정 · 김기사 · 메모 3건</div>
+            </div>
+            <div style="display:flex;gap:4px">
+              <button class="btn" style="font-size:10.5px;padding:4px 8px">이 업무에 기록 추가</button>
+              <button class="btn outline" style="font-size:10.5px;padding:4px 8px;color:var(--gray-500)">새로 등록</button>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #fde68a;border-radius:7px;padding:8px 12px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer">
+            <div style="flex:1">
+              <div style="font-weight:800;color:var(--gray-900)">
+                <span style="background:var(--warning);color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:99px;margin-right:4px">AS/POS</span>
+                3번 POS 영수증 프린터 불량
+              </div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:2px">접수 5/14 · 처리예정 5/17 · 김기사</div>
+            </div>
+            <div style="display:flex;gap:4px">
+              <button class="btn" style="font-size:10.5px;padding:4px 8px">이 업무에 기록 추가</button>
+              <button class="btn outline" style="font-size:10.5px;padding:4px 8px;color:var(--gray-500)">새로 등록</button>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #fde68a;border-radius:7px;padding:8px 12px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer">
+            <div style="flex:1">
+              <div style="font-weight:800;color:var(--gray-900)">
+                <span style="background:var(--primary);color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:99px;margin-right:4px">VAN/신규등록</span>
+                신한카드 외 4사 가맹 등록
+              </div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:2px">접수 5/15 · 진행 중 · 카드사 4건 누적</div>
+            </div>
+            <div style="display:flex;gap:4px">
+              <button class="btn" style="font-size:10.5px;padding:4px 8px">이 업무에 기록 추가</button>
+              <button class="btn outline" style="font-size:10.5px;padding:4px 8px;color:var(--gray-500)">새로 등록</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ① 매장 정보 (접수 시점 고정 — 모든 카테고리 공통) -->
       <div class="form-section">
         <h4>🏪 매장 정보 <span style="font-size:10px;color:var(--gray-500);font-weight:600;margin-left:6px">접수 시점 고정 (수정불가) — 매장명 클릭 시 매장 상세</span></h4>
@@ -1536,11 +1590,123 @@
 
     </div>
     <div class="modal-foot">
+      <button class="btn" onclick="openCatMoveDialog()" title="잘못 등록된 업무를 다른 카테고리로 이동">🔀 카테고리 이동</button>
       <button class="btn">📋 복제</button>
       <button class="btn outline" style="color:var(--danger);border-color:var(--danger)">🗑 삭제</button>
       <div style="flex:1"></div>
       <button class="btn" onclick="document.getElementById('jobFormModal').classList.remove('show')">취소</button>
-      <button class="btn primary">💾 저장</button>
+      <button class="btn primary" onclick="openDupCheckDialog()">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 중복 감지 확인 다이얼로그 (저장 시 표시) ═════════ -->
+<div class="backdrop" id="dupCheckModal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head" style="background:linear-gradient(135deg,#dc2626 0%,#991b1b 100%)">
+      <div>
+        <h3>⚠ 유사 업무 감지</h3>
+        <div class="sub">같은 매장에 같은 카테고리 업무가 이미 있습니다</div>
+      </div>
+      <button class="x" onclick="document.getElementById('dupCheckModal').classList.remove('show')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:800;color:#991b1b;margin-bottom:8px">🔍 감지된 유사 업무</div>
+        <div style="background:#fff;border:1px solid #fca5a5;border-radius:7px;padding:9px 12px;font-size:11.5px">
+          <div style="font-weight:800;color:var(--gray-900)">
+            <span style="background:var(--success);color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:99px;margin-right:4px">신규/오픈</span>
+            키오스크 2대 추가 설치
+          </div>
+          <div style="font-size:10.5px;color:var(--gray-500);margin-top:3px">📅 5/20 예정 · 김기사 · 메모 3건 · 5/12 등록</div>
+        </div>
+      </div>
+
+      <div style="font-size:12.5px;font-weight:700;color:var(--gray-800);margin-bottom:8px">어떻게 처리하시겠습니까?</div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button onclick="alert('기존 업무에 새 기록 추가됩니다')" style="background:var(--primary-light);border:1.5px solid var(--primary);border-radius:9px;padding:12px;cursor:pointer;font-family:inherit;text-align:left">
+          <div style="font-size:13px;font-weight:800;color:var(--primary-dark);margin-bottom:3px">✏️ 기존 업무에 기록 추가 <span style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-left:4px">권장</span></div>
+          <div style="font-size:11px;color:var(--gray-600)">같은 업무에 진행 기록을 누적합니다. 중복 등록을 피할 수 있습니다.</div>
+        </button>
+        <button onclick="alert('별도 업무로 새로 등록됩니다');document.getElementById('dupCheckModal').classList.remove('show');document.getElementById('jobFormModal').classList.remove('show')" style="background:#fff;border:1.5px solid var(--gray-300);border-radius:9px;padding:12px;cursor:pointer;font-family:inherit;text-align:left">
+          <div style="font-size:13px;font-weight:800;color:var(--gray-800);margin-bottom:3px">🆕 별도 업무로 새로 등록</div>
+          <div style="font-size:11px;color:var(--gray-600)">기존과 무관한 새 업무라면 그대로 등록합니다.</div>
+        </button>
+        <button onclick="document.getElementById('dupCheckModal').classList.remove('show')" style="background:#fff;border:1px solid var(--gray-200);border-radius:9px;padding:9px;cursor:pointer;font-family:inherit;text-align:left;color:var(--gray-500);font-size:11.5px">
+          ← 다시 검토하기 (저장 취소)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 카테고리 이동 다이얼로그 ═════════ -->
+<div class="backdrop" id="catMoveModal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-head" style="background:linear-gradient(135deg,#7c3aed 0%,#5b21b6 100%)">
+      <div>
+        <h3>🔀 카테고리 이동</h3>
+        <div class="sub">잘못 등록된 업무를 다른 메뉴/카테고리로 이동</div>
+      </div>
+      <button class="x" onclick="document.getElementById('catMoveModal').classList.remove('show')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px">
+        <div style="font-weight:800;color:#5b21b6;margin-bottom:4px">현재 업무</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="background:var(--warning);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px">AS/POS</span>
+          <span style="font-weight:700">3번 POS 영수증 프린터 불량</span>
+        </div>
+        <div style="font-size:10.5px;color:var(--gray-500);margin-top:3px">접수 5/14 · 김기사 · 처리 기록 1건</div>
+      </div>
+
+      <div style="font-size:12.5px;font-weight:800;color:var(--gray-800);margin-bottom:8px">↓ 이동할 카테고리 선택</div>
+
+      <div class="form-row" style="grid-template-columns:90px 1fr"><div class="lab">메뉴</div>
+        <select style="border:1px solid var(--gray-300);border-radius:6px;padding:7px 10px;font-family:inherit;font-size:12px">
+          <option value="">선택...</option>
+          <option>🆕 신규</option>
+          <option selected>🔧 AS</option>
+          <option>📑 VAN</option>
+          <option>📦 재고조사</option>
+          <option>🏷️ 소모품판매</option>
+        </select>
+      </div>
+      <div class="form-row" style="grid-template-columns:90px 1fr"><div class="lab">카테고리</div>
+        <select style="border:1px solid var(--gray-300);border-radius:6px;padding:7px 10px;font-family:inherit;font-size:12px">
+          <option>AS/POS (현재)</option>
+          <option>AS/VAN</option>
+          <option>AS/장비판매</option>
+          <option>AS/장비교체</option>
+          <option>AS/장비회수</option>
+          <option>단말 AS / 대체</option>
+          <option>단말해지</option>
+          <option>VAN/변경 (타VAN)</option>
+          <option>이탈/폐업</option>
+          <option>이탈/매각</option>
+          <option>VAN 거래 종료</option>
+        </select>
+      </div>
+
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin-top:10px;font-size:11.5px;color:#92400e;line-height:1.5">
+        ℹ <strong>이동 시 보존되는 정보</strong>: 매장 정보 · 접수 일시 · 요청 내역 · 처리 기록 · 메모<br>
+        <strong>초기화될 수 있는 정보</strong>: 카테고리별 전용 필드 (예: 계약 체결 여부, VAN사 정보, 위약금 등)
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+          <input type="checkbox" checked> 카테고리 이동 이력을 처리 기록에 자동 추가
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+          <input type="checkbox"> 이동 후 새 카테고리 폼으로 자동 전환
+        </label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1"></div>
+      <button class="btn" onclick="document.getElementById('catMoveModal').classList.remove('show')">취소</button>
+      <button class="btn primary" style="background:#7c3aed;border-color:#7c3aed" onclick="alert('🔀 카테고리 이동 완료\n\n변경: AS/POS → AS/VAN\n이동 이력이 처리 기록에 추가되었습니다.');document.getElementById('catMoveModal').classList.remove('show')">🔀 이동 확정</button>
     </div>
   </div>
 </div>
@@ -1683,6 +1849,26 @@
     window.scrollTo({top:0,behavior:'smooth'});
   }));
   function goTo(pane) { document.querySelector(`.nav-item[data-pane="${pane}"]`)?.click(); }
+
+  // 같은 매장 진행 업무 미리보기 토글
+  function toggleSimList() {
+    const list = document.getElementById('jfSimList');
+    const btn = document.getElementById('jfSimToggle');
+    if (!list || !btn) return;
+    const shown = list.style.display !== 'none';
+    list.style.display = shown ? 'none' : 'flex';
+    btn.innerHTML = shown ? '펼쳐보기 ▼' : '접기 ▲';
+  }
+
+  // 저장 시 중복 감지 다이얼로그
+  function openDupCheckDialog() {
+    document.getElementById('dupCheckModal').classList.add('show');
+  }
+
+  // 카테고리 이동 다이얼로그
+  function openCatMoveDialog() {
+    document.getElementById('catMoveModal').classList.add('show');
+  }
 
   // 그룹 카드 펼침/접기
   function toggleGroup(headEl) {
