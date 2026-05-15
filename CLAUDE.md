@@ -175,6 +175,24 @@ Autocomplete.register('myKind', {
 3. 클라이언트와 서버의 `STORE_FIELD_POLICY` 가 동일한지 비교
 4. 사용자에게 페이지 강제 새로고침 안내 (Ctrl+Shift+R)
 
+### 🛡 동기화 무한 echo 차단 — dirty flag (필수)
+이전에 client 가 sync 받자마자 1.5초 뒤 자동으로 같은 데이터를 KV 에 push 해서, 다른 endpoint (예: `/api/stores-patch-ecount`) 의 write 를 stale 데이터로 덮어쓰는 무한 echo loop 가 race condition 의 주된 원인이었음.
+
+**규칙:**
+- `saveStores(arr, opts)` — 사용자 편집은 그냥 호출 (`_storesDirty=true` + push 예약)
+- `saveStores(arr, { fromSync:true })` — sync/server 에서 받아 저장할 때 (`dirty` 안 켜고 push 안 함)
+- `pushStoresToCloud()` — `_storesDirty=true` 일 때만 실제 push 실행, push 성공시 dirty=false
+- `pushStoresToCloud({ force:true })` — admin 강제 동기화 버튼 등 명시적 호출
+
+**원리:**
+- 사용자가 매장 데이터를 편집했을 때만 client → KV push 발생
+- sync 로 KV 의 새 데이터를 받은 직후엔 push 안 함 → 다른 endpoint 의 작업물 보호
+- Cloudflare KV PoP cache eventual consistency 한계를 client 측에서 회피
+
+**위반시 증상:**
+- bulk patch endpoint (예: `/api/stores-patch-ecount`) 결과가 client push 에 덮이는 race condition
+- KV 의 신규 데이터가 30~60초간 사라졌다 나타났다 반복
+
 ## 운영 규칙
 
 ### 🚨 파싱 오류 알림 (필수)

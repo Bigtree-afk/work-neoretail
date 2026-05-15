@@ -3451,10 +3451,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         result.push(rem);
       }
       const merged = result;
-      if (merged.length > 0 && typeof saveStores === 'function') saveStores(merged);
+      // sync 결과 save 는 fromSync:true — dirty 안 켜고 echo push 안 함 (race-condition 재발방지)
+      if (merged.length > 0 && typeof saveStores === 'function') saveStores(merged, { fromSync:true });
       if (typeof hydrateSavedStores === 'function') hydrateSavedStores();
-      // 로컬이 클라우드보다 많으면 (= Excel 업로드 등으로 추가됨) 즉시 푸시 → 다른 PC 자동 반영
+      // 로컬이 클라우드보다 많은 경우(엑셀 업로드 등)는 명시적으로 dirty + push
       if (merged.length > remote.length) {
+        markStoresDirty();
         schedulePushStoresToCloud();
       }
       // 마지막 동기화 시각 표시
@@ -8939,18 +8941,39 @@ ${text.slice(0, 4000)}`;
   function getStores() {
     try { return JSON.parse(localStorage.getItem('ns_stores') || '[]'); } catch { return []; }
   }
-  function saveStores(arr) {
+  /* dirty flag — 로컬에서 사용자가 수정한 적 있을 때만 true
+     sync 로 받은 데이터를 save 할 땐 dirty=false 유지 → 불필요한 echo push 차단
+     이게 race condition (KV PoP cache) 의 가장 큰 원인이었음 */
+  let _storesDirty = false;
+  function markStoresDirty() { _storesDirty = true; }
+  window.markStoresDirty = markStoresDirty;
+
+  function saveStores(arr, opts) {
+    opts = opts || {};
     localStorage.setItem('ns_stores', JSON.stringify(arr));
     scheduleAutoBackup();
+    // fromSync: true 면 dirty 안 켜고 push 스케줄 안 함 (sync 후 echo push 방지)
+    if (opts.fromSync) return;
+    // 일반 save = 사용자 편집 → dirty + push 예약
+    _storesDirty = true;
     schedulePushStoresToCloud();
   }
-  // 점포 데이터를 클라우드에 자동 푸시 (saveStores 호출 시 1.5초 디바운스)
+  // 점포 데이터를 클라우드에 자동 푸시 — dirty=true 일 때만
   let _pushStoresTimer = null;
   function schedulePushStoresToCloud() {
     if (_pushStoresTimer) clearTimeout(_pushStoresTimer);
-    _pushStoresTimer = setTimeout(() => { pushStoresToCloud(); }, 1500);
+    _pushStoresTimer = setTimeout(() => {
+      if (!_storesDirty) return;   // 변경 없으면 push 안 함 (재발방지 핵심)
+      pushStoresToCloud();
+    }, 1500);
   }
   async function pushStoresToCloud(opts) {
+    opts = opts || {};
+    // 강제 호출이 아니고 dirty 가 false 면 skip (admin 'force sync' 버튼은 force:true)
+    if (!opts.force && !_storesDirty) {
+      if (opts.toast && typeof showToast === 'function') showToast('변경 사항 없음 — push 생략');
+      return { ok:true, skipped:true };
+    }
     const stores = (function(){ try { return JSON.parse(localStorage.getItem('ns_stores')||'[]'); } catch { return []; } })();
     try {
       const res = await fetch('/api/sync', {
@@ -8960,14 +8983,15 @@ ${text.slice(0, 4000)}`;
       });
       if (!res.ok) {
         const txt = await res.text();
-        if (opts && opts.toast && typeof showToast === 'function') showToast(`⚠ 점포 클라우드 푸시 실패 (${res.status}): ${txt.slice(0,80)}`);
+        if (opts.toast && typeof showToast === 'function') showToast(`⚠ 점포 클라우드 푸시 실패 (${res.status}): ${txt.slice(0,80)}`);
         return { ok:false, status:res.status };
       }
       const data = await res.json();
-      if (opts && opts.toast && typeof showToast === 'function') showToast(`☁ 점포 클라우드 동기화 완료 (${data.count}건)`);
+      _storesDirty = false;   // push 성공시 dirty 클리어
+      if (opts.toast && typeof showToast === 'function') showToast(`☁ 점포 클라우드 동기화 완료 (${data.count}건)`);
       return { ok:true, ...data };
     } catch(e) {
-      if (opts && opts.toast && typeof showToast === 'function') showToast('⚠ 점포 클라우드 푸시 실패 (네트워크)');
+      if (opts.toast && typeof showToast === 'function') showToast('⚠ 점포 클라우드 푸시 실패 (네트워크)');
       return { ok:false, error:String(e) };
     }
   }
