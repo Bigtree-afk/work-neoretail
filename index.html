@@ -272,6 +272,81 @@
   .search-row > select { width: auto !important; flex: 0 0 auto; min-width: 140px; }
   .search-row > input  { flex: 1 1 auto; min-width: 0; }
 
+  /* ═══════════════ 매장 상세 모달 V2 (8탭) ═══════════════ */
+  .sdv2 { padding:0 !important; }
+  .sdv2-head { background:linear-gradient(135deg,#1F2937 0%,#111827 100%);color:#fff;padding:14px 20px;
+               display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-shrink:0 }
+  .sdv2-banner { display:flex;gap:12px;align-items:center;min-width:0;flex:1 }
+  .sdv2-avatar { width:50px;height:50px;background:rgba(255,255,255,.1);border-radius:13px;
+                 display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0 }
+  .sdv2-name { font-size:17px;font-weight:900;letter-spacing:-0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+  .sdv2-meta { font-size:11px;opacity:0.75;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+  .sdv2-tags { display:flex;gap:4px;margin-top:6px;flex-wrap:wrap }
+  .sdv2-tags .badge { font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,.18);color:#fff;border:none }
+  .sdv2-actions { display:flex;gap:5px;flex-shrink:0 }
+  .sdv2-actbtn { background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);
+                 border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit }
+  .sdv2-actbtn:hover { background:rgba(255,255,255,.25) }
+
+  .sdv2-tabbar { background:#fff;border-bottom:1.5px solid var(--gray-200);display:flex;overflow-x:auto;
+                 scrollbar-width:none;flex-shrink:0 }
+  .sdv2-tabbar::-webkit-scrollbar { display:none }
+  .sdv2-tab { padding:12px 16px;font-size:12.5px;font-weight:700;color:var(--gray-500);border-bottom:3px solid transparent;
+              cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;transition:all .12s;font-family:inherit;
+              background:none;border-top:none;border-left:none;border-right:none }
+  .sdv2-tab:hover { color:var(--gray-800);background:var(--gray-50) }
+  .sdv2-tab.active { color:var(--primary);border-bottom-color:var(--primary);font-weight:800 }
+  .sdv2-count { font-size:10px;background:var(--gray-200);color:var(--gray-700);padding:1px 6px;border-radius:99px;font-weight:800 }
+  .sdv2-tab.active .sdv2-count { background:var(--primary);color:#fff }
+  .sdv2-tab.urgent .sdv2-count { background:var(--neo-red);color:#fff;animation:sdv2pulse 1.5s infinite }
+  @keyframes sdv2pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+  .sdv2-body { flex:1;overflow-y:auto;background:var(--gray-50);padding:18px 20px }
+  .sdv2-pane { display:none }
+  .sdv2-pane.active { display:block;animation:sdv2fade .15s }
+  @keyframes sdv2fade { from{opacity:0} to{opacity:1} }
+
+  .sdv2-actbar { display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--gray-200);
+                 border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:12px;font-weight:700;color:var(--gray-700) }
+  .sdv2-actbar-label { display:flex;align-items:center;gap:6px;flex-wrap:wrap }
+
+  .sdv2-joblist { display:flex;flex-direction:column;gap:9px }
+  .sdv2-jobcard { background:#fff;border:1.5px solid var(--gray-200);border-left:4px solid var(--primary);border-radius:9px;
+                  padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;transition:all .12s }
+  .sdv2-jobcard:hover { box-shadow:0 4px 12px rgba(0,0,0,.06);transform:translateY(-1px) }
+  .sdv2-jobcard.cat-new { border-left-color:var(--success) }
+  .sdv2-jobcard.cat-as { border-left-color:var(--warning) }
+  .sdv2-jobcard.cat-van { border-left-color:var(--primary) }
+  .sdv2-jobcard.cat-supplies { border-left-color:#8B5CF6 }
+  .sdv2-jobcard.cat-churn { border-left-color:var(--danger) }
+  .sdv2-jobcard .left { flex:1;min-width:0 }
+  .sdv2-jobcard .cat-tag { display:inline-block;font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:99px;color:#fff;margin-right:5px }
+  .sdv2-jobcard .cat-tag.new { background:var(--success) }
+  .sdv2-jobcard .cat-tag.as { background:var(--warning) }
+  .sdv2-jobcard .cat-tag.van { background:var(--primary) }
+  .sdv2-jobcard .cat-tag.supplies { background:#8B5CF6 }
+  .sdv2-jobcard .cat-tag.churn { background:var(--danger) }
+  .sdv2-jobcard .title { font-size:13px;font-weight:800;color:var(--gray-900);margin-top:3px }
+  .sdv2-jobcard .meta { font-size:11px;color:var(--gray-500);margin-top:3px }
+  .sdv2-jobcard .when { font-size:11px;background:var(--gray-100);color:var(--gray-700);padding:5px 10px;border-radius:6px;font-weight:700;flex-shrink:0 }
+  .sdv2-jobcard .when.urgent { background:var(--neo-red);color:#fff }
+  .sdv2-jobcard .when.done { background:#d1fae5;color:#065f46 }
+
+  .sdv2-info-grid { display:grid;grid-template-columns:1fr 1fr;gap:12px }
+  @media(max-width:760px) { .sdv2-info-grid { grid-template-columns:1fr } }
+  .sdv2-info-card { background:#fff;border:1.5px solid var(--gray-200);border-radius:10px;padding:14px 16px }
+  .sdv2-info-card h4 { font-size:12.5px;font-weight:900;margin-bottom:10px;display:flex;align-items:center;gap:6px;color:var(--gray-700) }
+  .sdv2-info-row { display:flex;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:12.5px }
+  .sdv2-info-row:last-child { border-bottom:none }
+  .sdv2-info-row .k { width:90px;color:var(--gray-500);font-weight:700;flex-shrink:0 }
+  .sdv2-info-row .v { color:var(--gray-800);font-weight:600;flex:1;word-break:break-all }
+  .sdv2-equip-table { width:100%;font-size:11.5px;border-collapse:collapse }
+  .sdv2-equip-table th,.sdv2-equip-table td { padding:7px 6px;border-bottom:1px solid var(--gray-200);text-align:left }
+  .sdv2-equip-table th { background:var(--gray-100);font-weight:800;font-size:10.5px;color:var(--gray-700) }
+
+  .sdv2-empty { padding:40px 20px;text-align:center;color:var(--gray-400);font-size:12px;background:#fff;border:1px dashed var(--gray-300);border-radius:10px }
+  .sdv2-empty .ico { font-size:32px;margin-bottom:6px }
+
   /* ── MODAL ── */
   .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(2px); z-index: 200; display: none; align-items: center; justify-content: center; }
   /* 상담 등록 모드: 입고가 칸 숨김 (판매가만 노출) */
@@ -1623,87 +1698,118 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
     </div>
 
-    <!-- MODAL: 점포 상세 (점포관리에서 매장 클릭 시) -->
-    <div class="modal-overlay" id="storeDetailModal" >
-      <div class="modal" style="max-width:1100px;width:95vw;max-height:90vh;display:flex;flex-direction:column;background:#fff">
-        <div class="modal-header">
-          <div class="modal-title">🏪 점포 상세</div>
-          <button class="modal-close" onclick="closeModal('storeDetailModal')">✕</button>
-        </div>
-        <div class="modal-body" style="overflow-y:auto;flex:1">
-          <div class="detail-header">
-            <div class="store-avatar">🏪</div>
-            <div class="store-info" style="flex:1">
-              <h2 id="detailStoreName" style="color:var(--gray-400)">점포 정보</h2>
-              <p id="detailStoreMeta" style="color:var(--gray-400)">-</p>
-              <div class="store-tags" id="detailStoreTags"></div>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-top:14px" class="store-detail-grid">
-            <!-- 설치 장비 현황 (좌측 — 길게 한 칸) -->
-            <div class="card">
-              <div style="padding:14px 18px; border-bottom:1px solid var(--gray-100)">
-                <div class="section-title">🖥️ 설치 장비 현황</div>
-              </div>
-              <table>
-                <thead><tr><th>장비</th><th>모델</th><th>수량</th><th>설치일</th><th>상태</th></tr></thead>
-                <tbody id="detailEquipTbody">
-                  <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">점포를 선택하면 설치 장비 정보가 표시됩니다.</td></tr>
-                </tbody>
-              </table>
-            </div>
+    <!-- MODAL: 점포 상세 (점포관리에서 매장 클릭 시) — 8탭 구조 v2 -->
+    <div class="modal-overlay" id="storeDetailModal">
+      <div class="modal sdv2" style="max-width:1024px;width:95vw;max-height:92vh;display:flex;flex-direction:column;background:#fff;padding:0;overflow:hidden">
 
-            <!-- 우측 — 작업 이력 + 메모 (위아래) -->
-            <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
-              <!-- 작업 이력 타임라인 -->
-              <div class="card">
-                <div style="padding:14px 18px; border-bottom:1px solid var(--gray-100)">
-                  <div class="section-title">📋 작업 이력</div>
-                </div>
-                <div style="padding:16px 18px;max-height:300px;overflow-y:auto">
-                  <div class="timeline" id="detailHistoryTimeline">
-                    <div style="padding:24px 8px;text-align:center;color:var(--gray-400);font-size:12px">
-                      <div style="font-size:28px;margin-bottom:8px">📭</div>
-                      <div>점포를 선택하면 작업 이력이 표시됩니다.</div>
-                    </div>
-                  </div>
-                </div>
+        <!-- 헤더 (다크) -->
+        <div class="sdv2-head">
+          <div class="sdv2-banner">
+            <div class="sdv2-avatar">🏪</div>
+            <div style="min-width:0;flex:1">
+              <div class="sdv2-name" id="detailStoreName">점포 정보</div>
+              <div class="sdv2-meta" id="detailStoreMeta">-</div>
+              <div class="sdv2-tags" id="detailStoreTags"></div>
+            </div>
+          </div>
+          <div class="sdv2-actions">
+            <button class="sdv2-actbtn" id="storeDetailChangeBtn">✏️ 정보 변경</button>
+            <button class="sdv2-actbtn" id="storeDetailMergeBtn">🔗 병합</button>
+            <button class="sdv2-actbtn" onclick="closeModal('storeDetailModal')">✕</button>
+          </div>
+        </div>
+
+        <!-- 탭바 -->
+        <div class="sdv2-tabbar" id="storeDetailTabbar">
+          <button class="sdv2-tab active" data-pane="ongoing">⚠️ 진행 중 <span class="sdv2-count" id="sdv2CntOngoing">0</span></button>
+          <button class="sdv2-tab" data-pane="info">🏪 매장정보</button>
+          <button class="sdv2-tab" data-pane="new">🆕 신규 <span class="sdv2-count" id="sdv2CntNew">0</span></button>
+          <button class="sdv2-tab" data-pane="as">🔧 AS <span class="sdv2-count" id="sdv2CntAs">0</span></button>
+          <button class="sdv2-tab" data-pane="van">📑 VAN <span class="sdv2-count" id="sdv2CntVan">0</span></button>
+          <button class="sdv2-tab" data-pane="log">🕒 업무기록 <span class="sdv2-count" id="sdv2CntLog">0</span></button>
+          <button class="sdv2-tab" data-pane="supplies">🏷️ 소모품 <span class="sdv2-count" id="sdv2CntSupplies">0</span></button>
+          <button class="sdv2-tab" data-pane="memo">📝 메모 <span class="sdv2-count" id="sdv2CntMemo">0</span></button>
+        </div>
+
+        <!-- 본문 -->
+        <div class="sdv2-body">
+
+          <!-- 진행 중 -->
+          <div class="sdv2-pane active" data-pane="ongoing">
+            <div class="sdv2-actbar"><span class="sdv2-actbar-label">⚠️ 현재 진행 중인 업무 <span id="detailOngoingCount">0</span>건</span></div>
+            <div id="detailOngoingList" class="sdv2-joblist"></div>
+          </div>
+
+          <!-- 매장정보 -->
+          <div class="sdv2-pane" data-pane="info">
+            <div class="sdv2-info-grid">
+              <div class="sdv2-info-card">
+                <h4>📋 기본 정보</h4>
+                <div id="detailBasicInfo"></div>
               </div>
-              <!-- 작업 메모 (모든 작업의 메모 통합) -->
-              <div class="card">
-                <div style="padding:14px 18px; border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;gap:8px">
-                  <div class="section-title">📝 작업 메모</div>
-                  <span id="detailMemoCount" style="font-size:11px;color:var(--gray-500);font-weight:600"></span>
-                </div>
-                <div id="detailMemoList" style="padding:12px 14px;max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
-                  <div style="padding:24px 8px;text-align:center;color:var(--gray-400);font-size:12px">
-                    <div style="font-size:28px;margin-bottom:8px">🗒</div>
-                    <div>점포를 선택하면 작업 메모가 표시됩니다.</div>
-                  </div>
-                </div>
+              <div class="sdv2-info-card">
+                <h4>🖥 설치 장비</h4>
+                <table class="sdv2-equip-table">
+                  <thead><tr><th>장비</th><th>모델</th><th>수량</th><th>설치일</th><th>상태</th></tr></thead>
+                  <tbody id="detailEquipTbody">
+                    <tr><td colspan="5" style="text-align:center;padding:18px;color:var(--gray-400);font-size:12px">점포 정보를 불러오는 중...</td></tr>
+                  </tbody>
+                </table>
               </div>
-              <!-- 정보 변경 이력 -->
-              <div class="card" id="detailChangeLogCard" style="display:none">
-                <div style="padding:14px 18px; border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;gap:8px">
-                  <div class="section-title">📜 정보 변경 이력</div>
-                  <span id="detailChangeCount" style="font-size:11px;color:var(--gray-500);font-weight:600"></span>
-                </div>
-                <div id="detailChangeLogList" style="padding:12px 14px;max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
+            </div>
+            <!-- 정보 변경 이력 (있을 때만) -->
+            <div class="sdv2-info-card" id="detailChangeLogCard" style="display:none;margin-top:14px">
+              <h4>📜 정보 변경 이력 <span id="detailChangeCount" style="margin-left:6px;font-size:11px;color:var(--gray-500);font-weight:600"></span></h4>
+              <div id="detailChangeLogList" style="display:flex;flex-direction:column;gap:8px"></div>
+            </div>
+          </div>
+
+          <!-- 신규 -->
+          <div class="sdv2-pane" data-pane="new">
+            <div class="sdv2-actbar"><span class="sdv2-actbar-label">🆕 신규 업무 (신규/오픈, 프로그램교체, VAN 신규등록, 단말개통)</span></div>
+            <div id="detailNewList" class="sdv2-joblist"></div>
+          </div>
+
+          <!-- AS -->
+          <div class="sdv2-pane" data-pane="as">
+            <div class="sdv2-actbar"><span class="sdv2-actbar-label">🔧 AS 업무 (AS 전체 · 단말기 A/S · 매장이탈)</span></div>
+            <div id="detailAsList" class="sdv2-joblist"></div>
+          </div>
+
+          <!-- VAN -->
+          <div class="sdv2-pane" data-pane="van">
+            <div class="sdv2-actbar"><span class="sdv2-actbar-label">📑 VAN 서류 업무 (신규등록·재신고·정산·계약·변경)</span></div>
+            <div id="detailVanList" class="sdv2-joblist"></div>
+          </div>
+
+          <!-- 업무기록 (통합 타임라인) -->
+          <div class="sdv2-pane" data-pane="log">
+            <div class="sdv2-actbar"><span class="sdv2-actbar-label">🕒 전체 업무 통합 타임라인 (최근순)</span></div>
+            <div class="timeline" id="detailHistoryTimeline">
+              <div style="padding:24px;text-align:center;color:var(--gray-400);font-size:12px">
+                <div style="font-size:28px;margin-bottom:8px">📭</div>
+                <div>점포를 선택하면 작업 이력이 표시됩니다.</div>
               </div>
             </div>
           </div>
-          <style>
-            @media (max-width: 900px) {
-              .store-detail-grid { grid-template-columns: 1fr !important; }
-            }
-          </style>
-        </div>
-        <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn btn-outline btn-sm" id="storeDetailChangeBtn" style="font-weight:700">ℹ 정보 변경</button>
-            <button class="btn btn-outline btn-sm" id="storeDetailMergeBtn">🔗 다른 매장과 병합</button>
+
+          <!-- 소모품 -->
+          <div class="sdv2-pane" data-pane="supplies">
+            <div class="sdv2-actbar"><span class="sdv2-actbar-label">🏷️ 소모품 거래 (라벨지·영수증용지·프라이스텍·택배)</span></div>
+            <div id="detailSuppliesList" class="sdv2-joblist"></div>
           </div>
-          <button class="btn btn-outline" onclick="closeModal('storeDetailModal')">닫기</button>
+
+          <!-- 메모 -->
+          <div class="sdv2-pane" data-pane="memo">
+            <div class="sdv2-actbar"><span class="sdv2-actbar-label">📝 매장 메모 <span id="detailMemoCount" style="margin-left:6px;color:var(--gray-500);font-weight:600"></span></span></div>
+            <div id="detailMemoList" style="display:flex;flex-direction:column;gap:8px">
+              <div style="padding:24px;text-align:center;color:var(--gray-400);font-size:12px">
+                <div style="font-size:28px;margin-bottom:8px">🗒</div>
+                <div>점포를 선택하면 작업 메모가 표시됩니다.</div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -12867,10 +12973,38 @@ ${text.slice(0, 4000)}`;
     }
     if (tagsEl) {
       const tags = [];
-      if (displayStat) tags.push(`<span class="badge badge-green">${displayStat}</span>`);
-      if (displayPos) tags.push(`<span class="badge badge-blue">${displayPos}</span>`);
-      if (displayVan) tags.push(`<span class="badge badge-purple">${displayVan} VAN</span>`);
-      tagsEl.innerHTML = tags.join(' ') || '<span class="badge badge-gray">정보 없음</span>';
+      if (displayStat) tags.push(`<span class="badge">🟢 ${displayStat}</span>`);
+      if (displayPos) tags.push(`<span class="badge">${displayPos}</span>`);
+      if (displayVan) tags.push(`<span class="badge">${displayVan} VAN</span>`);
+      tagsEl.innerHTML = tags.join(' ') || '<span class="badge">정보 없음</span>';
+    }
+
+    // sdv2 헤더 meta 는 ID·주소·연락처 한 줄
+    if (metaEl) {
+      const metaParts = [];
+      if (displayAddr && displayAddr !== '-') metaParts.push(displayAddr);
+      if (displayBiz) metaParts.push(displayBiz);
+      if (code) metaParts.push('코드 ' + code);
+      metaEl.textContent = metaParts.join(' · ') || '-';
+    }
+
+    /* ── 매장정보 탭: 기본 정보 카드 채우기 ── */
+    const basicInfoEl = document.getElementById('detailBasicInfo');
+    if (basicInfoEl) {
+      const escSafe = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+      const row = (k, v) => `<div class="sdv2-info-row"><div class="k">${k}</div><div class="v">${escSafe(v||'-')}</div></div>`;
+      basicInfoEl.innerHTML = [
+        row('매장명', displayName),
+        row('대표자', displayCeo),
+        row('사업자번호', displayBiz),
+        row('매장코드', code || (store && store.code) || '-'),
+        row('VAN사', displayVan),
+        row('주소', displayAddr),
+        row('연락처', displayTel),
+        row('매장 등록일', store?.storeRegDate || '-'),
+        row('이카운트 등록', store?.ecountRegDate || '-'),
+        row('상태', displayStat),
+      ].join('');
     }
 
     /* ── 설치 장비 현황 — store.equipment[] (Plan B 정식 DB) ── */
@@ -13003,6 +13137,121 @@ ${text.slice(0, 4000)}`;
         }).join('');
       }
 
+      /* ════════════════════════════════════════
+         sdv2 — 8탭 카테고리 분류 + 진행 중 리스트
+      ════════════════════════════════════════ */
+      const sdvDoneFn = (typeof _isJobDone === 'function') ? _isJobDone : () => false;
+      const sdvEsc = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+
+      // 카테고리 매핑 — j.lineCategory(LINE 분류) / j.type(jobType) / j.category 종합 판정
+      const sdvCatOf = (j) => {
+        const lc = String(j.lineCategory || '').toLowerCase();
+        const tp = String(j.type || j.category || '').toLowerCase();
+        // 소모품
+        if (/label|equip_out|delivery|라벨|영수증|프라이스텍|소모품|택배/.test(lc + ' ' + tp)) return 'supplies';
+        // VAN 서류
+        if (/van_doc|밴서류|van.*신규|van.*재신고|van.*정산|van.*계약|van.*변경/.test(lc + ' ' + tp)) return 'van';
+        // 신규 (오픈/프로그램교체/VAN신규)
+        if (/open_store|오픈|신규|new_open|newopen/.test(lc + ' ' + tp)) return 'new';
+        // 매장이탈
+        if (/churn|폐업|매각|해지|이탈/.test(lc + ' ' + tp)) return 'churn';
+        // AS / 단말기 (POS/VAN A/S, 단말기관리)
+        if (/pos_as|van_as|device_mgmt|as_pos|단말|a\/s|as\s|에이에스/.test(lc + ' ' + tp)) return 'as';
+        return 'as'; // 기본값 — 미분류는 AS 로
+      };
+
+      const sdvCatLabel = {
+        new:      { tag:'🆕 신규',    color:'new' },
+        as:       { tag:'🔧 AS',      color:'as' },
+        van:      { tag:'📑 VAN',     color:'van' },
+        supplies: { tag:'🏷️ 소모품',  color:'supplies' },
+        churn:    { tag:'🏪 이탈',    color:'churn' },
+      };
+
+      const groups = { ongoing:[], new:[], as:[], van:[], supplies:[], churn:[] };
+      matched.forEach(j => {
+        const cat = sdvCatOf(j);
+        if (!sdvDoneFn(j)) groups.ongoing.push({ j, cat });
+        groups[cat] = groups[cat] || [];
+        groups[cat].push(j);
+      });
+
+      const sdvJobCard = (j, cat) => {
+        const meta = sdvCatLabel[cat] || sdvCatLabel.as;
+        const done = sdvDoneFn(j);
+        const date = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
+        const who = j.engineer || j.assignee || '';
+        const memos = Array.isArray(j.memos) ? j.memos.length : 0;
+        const lineTag = j.lineCategory && (typeof LINE_TYPE_META !== 'undefined') ? (LINE_TYPE_META[j.lineCategory]?.label || j.lineCategory) : '';
+
+        // D-day 계산 (예정일 기준)
+        let whenBadge = '';
+        if (done) {
+          whenBadge = `<div class="when done">완료</div>`;
+        } else {
+          const sched = j.scheduleDate || j.date;
+          if (sched) {
+            const today = new Date(); today.setHours(0,0,0,0);
+            const tgt = new Date(sched + 'T00:00:00');
+            const diff = Math.round((tgt - today)/86400000);
+            const txt = diff < 0 ? `D+${-diff}` : diff === 0 ? 'D-Day' : `D-${diff}`;
+            const urgent = diff <= 2 && diff >= -3;
+            whenBadge = `<div class="when ${urgent?'urgent':''}">${txt}</div>`;
+          } else {
+            whenBadge = `<div class="when">진행중</div>`;
+          }
+        }
+
+        const onclick = j.id ? `try{closeModal('storeDetailModal');setTimeout(()=>{editNewopen('${sdvEsc(j.id)}')},120)}catch(e){}` : '';
+        return `<div class="sdv2-jobcard cat-${meta.color}" ${onclick?`onclick="${onclick}"`:''}>
+          <div class="left">
+            <span class="cat-tag ${meta.color}">${meta.tag}</span>
+            ${lineTag ? `<span style="font-size:10px;color:var(--gray-500);font-weight:700">${sdvEsc(lineTag)}</span>` : ''}
+            <div class="title">${sdvEsc(j.title || j.type || '업무')}</div>
+            <div class="meta">${date ? '📅 '+date+' · ' : ''}${who?who+' · ':''}${memos?'메모 '+memos+'건':''}</div>
+          </div>
+          ${whenBadge}
+        </div>`;
+      };
+
+      const sdvFill = (elId, jobs, cat) => {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        if (!jobs || jobs.length === 0) {
+          el.innerHTML = `<div class="sdv2-empty"><div class="ico">📭</div>등록된 업무가 없습니다</div>`;
+          return;
+        }
+        el.innerHTML = jobs.map(j => sdvJobCard(j, cat || sdvCatOf(j))).join('');
+      };
+
+      // 진행 중
+      const ongEl = document.getElementById('detailOngoingList');
+      if (ongEl) {
+        if (groups.ongoing.length === 0) {
+          ongEl.innerHTML = `<div class="sdv2-empty"><div class="ico">✅</div>현재 진행 중인 업무가 없습니다</div>`;
+        } else {
+          ongEl.innerHTML = groups.ongoing.map(({j, cat}) => sdvJobCard(j, cat)).join('');
+        }
+      }
+      const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      setText('detailOngoingCount', groups.ongoing.length);
+      setText('sdv2CntOngoing', groups.ongoing.length);
+      setText('sdv2CntNew', (groups.new||[]).length);
+      setText('sdv2CntAs', ((groups.as||[]).length + (groups.churn||[]).length));
+      setText('sdv2CntVan', (groups.van||[]).length);
+      setText('sdv2CntLog', matched.length);
+      setText('sdv2CntSupplies', (groups.supplies||[]).length);
+
+      // 진행 중 탭 urgent 표시
+      const ongTab = document.querySelector('.sdv2-tab[data-pane="ongoing"]');
+      if (ongTab) ongTab.classList.toggle('urgent', groups.ongoing.length > 0);
+
+      // 카테고리 탭 — AS 탭에는 churn 매장이탈도 합쳐서 보여줌
+      sdvFill('detailNewList', groups.new||[], 'new');
+      sdvFill('detailAsList', [...(groups.as||[]), ...(groups.churn||[])], 'as');
+      sdvFill('detailVanList', groups.van||[], 'van');
+      sdvFill('detailSuppliesList', groups.supplies||[], 'supplies');
+
       /* ── 작업 메모 (해당 매장 관련 모든 작업의 메모 수집) ── */
       const memoListEl = document.getElementById('detailMemoList');
       const memoCountEl = document.getElementById('detailMemoCount');
@@ -13037,6 +13286,9 @@ ${text.slice(0, 4000)}`;
         // 최신순 정렬 (at 문자열 비교 — 'YY.MM.DD HH:mm' / 'YYYY-MM-DD HH:mm' 모두 정렬 가능)
         flatMemos.sort((a,b) => (b.at || '').localeCompare(a.at || ''));
         if (memoCountEl) memoCountEl.textContent = flatMemos.length ? `${flatMemos.length}건` : '';
+        // 메모 탭 카운트
+        const memoCntTab = document.getElementById('sdv2CntMemo');
+        if (memoCntTab) memoCntTab.textContent = flatMemos.length;
         if (flatMemos.length === 0) {
           memoListEl.innerHTML = `<div style="padding:24px 8px;text-align:center;color:var(--gray-400);font-size:12px">
             <div style="font-size:28px;margin-bottom:8px">🗒</div>
@@ -13115,8 +13367,34 @@ ${text.slice(0, 4000)}`;
     if (mergeBtn)  mergeBtn.onclick  = () => openStoreMergeDialog(store ? store.id : null, store);
 
     // 상세 모달로 표시 (스크롤 대신 팝업)
+    // sdv2 — 첫 탭(진행 중)으로 초기화
+    try {
+      const tabs = document.querySelectorAll('#storeDetailTabbar .sdv2-tab');
+      const panes = document.querySelectorAll('#storeDetailModal .sdv2-pane');
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.pane === 'ongoing'));
+      panes.forEach(p => p.classList.toggle('active', p.dataset.pane === 'ongoing'));
+    } catch(e) {}
+
     if (typeof showModal === 'function') showModal('storeDetailModal');
   };
+
+  /* sdv2 — 탭 클릭 전환 (한 번만 바인딩) */
+  (function bindStoreDetailTabs(){
+    const tabbar = document.getElementById('storeDetailTabbar');
+    if (!tabbar || tabbar._sdv2Bound) return;
+    tabbar._sdv2Bound = true;
+    tabbar.addEventListener('click', (ev) => {
+      const t = ev.target.closest('.sdv2-tab');
+      if (!t) return;
+      const key = t.dataset.pane;
+      const tabs = tabbar.querySelectorAll('.sdv2-tab');
+      const panes = document.querySelectorAll('#storeDetailModal .sdv2-pane');
+      tabs.forEach(x => x.classList.toggle('active', x === t));
+      panes.forEach(p => p.classList.toggle('active', p.dataset.pane === key));
+      const body = document.querySelector('#storeDetailModal .sdv2-body');
+      if (body) body.scrollTop = 0;
+    });
+  })();
 
   /* ══════════════════════════════════════════════
      점포 정보 변경 / 매장 병합
