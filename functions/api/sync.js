@@ -125,7 +125,7 @@ export async function onRequestPost({ request, env }) {
   if (incoming.length > 50000) return text('too many stores', 413);
 
   // 기존 KV 데이터 로드 — cacheTtl:0 으로 PoP 캐시 우회 (다른 endpoint 의 최신 write 보기 위해)
-  const cur = (await env.STORES_KV.get('stores', { type:'json', cacheTtl:0 })) || { stores: [] };
+  const cur = (await env.STORES_KV.get('stores', 'json')) || { stores: [] };
   const existingArr = Array.isArray(cur.stores) ? cur.stores : (Array.isArray(cur) ? cur : []);
 
   // id / biz / code 기준 인덱스
@@ -177,7 +177,7 @@ export async function onRequestPost({ request, env }) {
   // POST /api/sync 와 /api/stores-patch-ecount 가 거의 동시에 실행될 때,
   // 처음 읽은 cur 가 stale 이면 patch 결과를 덮어쓸 수 있음.
   // → KV 쓰기 직전에 다시 읽어, 그 사이 변경된 필드를 보존.
-  const freshCur = await env.STORES_KV.get('stores', { type:'json', cacheTtl:0 });
+  const freshCur = await env.STORES_KV.get('stores', 'json');
   const freshArr = Array.isArray(freshCur?.stores) ? freshCur.stores
                   : (Array.isArray(freshCur) ? freshCur : null);
   if (freshArr && freshArr !== existingArr) {
