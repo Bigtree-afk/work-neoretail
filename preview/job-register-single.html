@@ -135,6 +135,27 @@
   .m-ongoing { background:#FFFBEB; border:1.5px solid #FCD34D; border-radius:8px; padding:9px 11px; margin-top:8px; }
   .m-ongoing b { font-size:12px; }
   .m-ongoing small { font-size:10px; color:var(--gray-600); display:block; margin-top:2px; }
+
+  /* 진행중 업무 — 탭으로 선택하는 카드 */
+  .m-job-card {
+    background:#fff; border:1.5px solid var(--gray-200); border-radius:10px;
+    padding:11px 12px; margin-bottom:6px; cursor:pointer;
+    transition:all .15s; position:relative; user-select:none;
+  }
+  .m-job-card:hover, .m-job-card:active { border-color:#F59E0B; background:#FFFBEB; }
+  .m-job-card.picked { border-color:#F59E0B; background:#FEF3C7; box-shadow:0 0 0 3px rgba(245,158,11,.2); }
+  .m-job-card .info b { font-size:12.5px; color:var(--gray-800); }
+  .m-job-card .info small { font-size:10.5px; color:var(--gray-600); display:block; margin-top:3px; line-height:1.45; }
+  .m-job-card .info small b { font-size:10.5px; color:#92400E; }
+  .m-job-card .b-badge { font-size:10px; background:#F59E0B; color:#fff; padding:2px 7px;
+                          border-radius:99px; font-weight:800; white-space:nowrap; flex-shrink:0; }
+  .m-job-card .m-job-pick {
+    margin-top:6px; padding:6px 9px; background:var(--gray-50); border-radius:6px;
+    font-size:10px; color:var(--gray-500); font-weight:700; text-align:center;
+  }
+  .m-job-card.picked .m-job-pick { background:#F59E0B; color:#fff; }
+  .m-job-card.picked .m-job-pick::before { content:'✓ '; }
+  .m-job-card.picked .m-job-pick::after { content:' (선택됨)'; }
   .m-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .m-bottom { position:sticky; bottom:0; background:#fff; padding:12px 16px;
               border-top:1.5px solid var(--gray-200); display:flex; gap:8px; }
@@ -402,12 +423,64 @@
               <b>토마토마켓 강서점</b>
               <small>서울 강서구 화곡동 · POS 2대</small>
             </div>
-            <div class="m-ongoing">
-              <b>⚠ 진행중 업무 2건</b>
-              <small>POS 영수 프린터 용지 걸림 · 부품발주중<br>VAN 단말기 신규 개통 · 심사중</small>
-              <div style="margin-top:6px;display:flex;gap:6px">
-                <button style="flex:1;padding:7px;border:1px solid #F59E0B;background:#fff;color:#92400E;border-radius:6px;font-size:11px;font-weight:800;font-family:inherit">🔄 갱신</button>
-                <button style="flex:1;padding:7px;border:none;background:var(--primary);color:#fff;border-radius:6px;font-size:11px;font-weight:800;font-family:inherit">➕ 신규</button>
+
+            <!-- 진행중 업무 카드들 -->
+            <div style="margin-top:10px">
+              <div style="font-size:11px;font-weight:800;color:#92400E;margin-bottom:6px;display:flex;align-items:center;gap:5px">
+                ⚠ 이 매장의 진행중 업무 <span style="background:#F59E0B;color:#fff;padding:1px 7px;border-radius:99px;font-size:10px">2건</span>
+                <span style="margin-left:auto;font-weight:600;color:var(--gray-500);font-size:10px">탭 = 그 업무에 추가입력</span>
+              </div>
+
+              <div class="m-job-card" data-jobid="J-001" onclick="pickMobileJob(this)">
+                <div class="info">
+                  <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+                    <b>🖥 POS 영수 프린터 용지 걸림</b>
+                    <span class="b-badge">진행중</span>
+                  </div>
+                  <small>📅 5/13 접수 · 박기사 · POS A/S<br>현재 단계: <b>부품 발주중 (2/4)</b></small>
+                </div>
+                <div class="m-job-pick">탭하여 이 업무 갱신</div>
+              </div>
+
+              <div class="m-job-card" data-jobid="J-002" onclick="pickMobileJob(this)">
+                <div class="info">
+                  <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+                    <b>📑 VAN 단말기 신규 개통</b>
+                    <span class="b-badge" style="background:#3B82F6">대기</span>
+                  </div>
+                  <small>📅 5/12 접수 · 한소현 · 밴서류<br>현재 단계: <b>심사중 (3/5)</b></small>
+                </div>
+                <div class="m-job-pick">탭하여 이 업무 갱신</div>
+              </div>
+
+              <!-- 신규 옵션 -->
+              <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+                <div style="flex:1;height:1px;background:var(--gray-200)"></div>
+                <span style="font-size:10px;color:var(--gray-400);font-weight:700">또는</span>
+                <div style="flex:1;height:1px;background:var(--gray-200)"></div>
+              </div>
+              <button onclick="pickMobileNew()" id="mNewBtn" style="margin-top:8px;width:100%;padding:11px;border:1.5px dashed var(--primary);background:var(--primary-light);color:var(--primary);border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">
+                ➕ 신규 업무로 등록하기
+              </button>
+            </div>
+
+            <!-- 갱신 모드 입력 패널 (탭하면 표시) -->
+            <div id="mUpdatePanel" style="display:none;margin-top:12px;padding:12px;background:#FFFBEB;border:1.5px solid #FCD34D;border-radius:10px">
+              <div style="font-size:11px;font-weight:800;color:#92400E;margin-bottom:8px">
+                🔄 갱신 대상: <span id="mPickedJobTitle">-</span>
+                <button onclick="cancelMobilePick()" style="float:right;background:none;border:none;color:var(--gray-500);font-size:14px;cursor:pointer;font-family:inherit">✕</button>
+              </div>
+              <div class="field" style="margin-bottom:8px">
+                <label>다음 진행 단계로 이동</label>
+                <select id="mNextStep">
+                  <option>현재 단계 유지</option>
+                  <option>방문 수리 →</option>
+                  <option>완료 처리 ✓</option>
+                </select>
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label>추가 메모 / 진행 상황</label>
+                <textarea placeholder="이번 처리 내용·다음 단계 메모" style="min-height:70px">부품 입고 완료 · 내일 오전 방문 예정</textarea>
               </div>
             </div>
           </div>
@@ -487,7 +560,7 @@
         <li><b>거래처 담당 박스</b> 노란색 강조 — LINE 핵심 정보임을 시각화</li>
         <li><b>하단 고정 버튼</b> [등록] 항상 접근 가능</li>
         <li><b>큰 입력 필드</b> 42px+ — 터치 친화</li>
-        <li><b>매장 진행중 업무</b>를 인라인 카드로 — 신규/갱신 즉시 결정</li>
+        <li><b>매장 진행중 업무</b> 카드별 분리 — 탭하면 그 업무에 추가 입력, [신규] 버튼은 분리</li>
         <li>모든 입력 한 화면 (스크롤) — 단계 wizard 없음, 자유 순서</li>
       </ul>
     </div>
@@ -597,6 +670,53 @@ function renderAllPreviews() { renderPCPreview(); renderMobilePreview(); }
   .forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', renderPCPreview); });
 
 renderAllPreviews();
+
+/* ───── Mobile 진행중 업무 탭 선택 / 신규 토글 ───── */
+function pickMobileJob(card) {
+  document.querySelectorAll('.m-job-card').forEach(c => c.classList.remove('picked'));
+  card.classList.add('picked');
+  // 신규 버튼 상태 — 선택됐으니 강조 해제
+  const newBtn = document.getElementById('mNewBtn');
+  if (newBtn) {
+    newBtn.style.background = '#fff';
+    newBtn.style.color = 'var(--gray-500)';
+    newBtn.style.borderColor = 'var(--gray-300)';
+  }
+  // 갱신 패널 노출 + 정보 채우기
+  const panel = document.getElementById('mUpdatePanel');
+  const title = card.querySelector('.info b')?.textContent || '';
+  document.getElementById('mPickedJobTitle').textContent = title;
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+function cancelMobilePick() {
+  document.querySelectorAll('.m-job-card').forEach(c => c.classList.remove('picked'));
+  document.getElementById('mUpdatePanel').style.display = 'none';
+  const newBtn = document.getElementById('mNewBtn');
+  if (newBtn) {
+    newBtn.style.background = 'var(--primary-light)';
+    newBtn.style.color = 'var(--primary)';
+    newBtn.style.borderColor = 'var(--primary)';
+  }
+}
+function pickMobileNew() {
+  cancelMobilePick();
+  // 강조 — 신규 모드 진입 표시
+  const newBtn = document.getElementById('mNewBtn');
+  if (newBtn) {
+    newBtn.style.background = 'var(--primary)';
+    newBtn.style.color = '#fff';
+  }
+  // toast 처럼 알림
+  showQuickToast('➕ 신규 업무 모드 — 아래 폼에 새 내용을 입력하세요');
+}
+function showQuickToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1F2937;color:#fff;padding:9px 16px;border-radius:99px;font-size:12px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:9999;animation:fadeIn .2s';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
 </script>
 </body>
 </html>
