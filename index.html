@@ -1836,10 +1836,46 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <!-- SCREEN: SCHEDULEHUB (📅 일정조회)        -->
     <!-- ═══════════════════════════════════════ -->
     <div class="screen" id="screen-schedulehub">
-      <div style="background:#fff;border:1.5px solid var(--gray-200);border-radius:12px;padding:16px;text-align:center;font-size:12.5px;color:var(--gray-600);line-height:1.7">
-        📅 <strong>일정조회</strong> — 기존 작업/일정 캘린더는 그대로 사용 가능합니다.<br>
-        <button class="btn btn-primary" style="margin-top:10px" onclick="showScreen('jobs')">📅 작업/일정 캘린더로 이동</button>
-        <div style="margin-top:14px;font-size:11px;color:var(--gray-400)">신규 캘린더+카드 통합 뷰는 다음 단계에 추가됩니다.</div>
+      <!-- 헤더: 월 네비 + 필터 -->
+      <div class="filter-row" style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+        <div style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--gray-200);border-radius:10px;padding:4px 6px">
+          <button class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:13px" onclick="window._scheduleHubNavMonth(-1)" title="이전 달">◀</button>
+          <div id="scheduleHubMonthLabel" style="font-weight:700;font-size:14px;min-width:120px;text-align:center;color:var(--gray-800)">—</div>
+          <button class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:13px" onclick="window._scheduleHubNavMonth(1)" title="다음 달">▶</button>
+          <button class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:12px;margin-left:4px" onclick="window._scheduleHubGoToday()">오늘</button>
+        </div>
+        <div id="scheduleHubFilters" style="display:flex;gap:6px;flex-wrap:wrap">
+          <div class="filter-chip active" data-cat="all" onclick="window._scheduleHubSetCat(this,'all')">전체</div>
+          <div class="filter-chip" data-cat="new" onclick="window._scheduleHubSetCat(this,'new')">🆕 신규</div>
+          <div class="filter-chip" data-cat="as" onclick="window._scheduleHubSetCat(this,'as')">🔧 AS</div>
+          <div class="filter-chip" data-cat="van" onclick="window._scheduleHubSetCat(this,'van')">📑 VAN</div>
+          <div class="filter-chip" data-cat="supplies" onclick="window._scheduleHubSetCat(this,'supplies')">🏷️ 소모품</div>
+        </div>
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--gray-600);margin-left:auto;cursor:pointer">
+          <input type="checkbox" id="scheduleHubShowDone" onchange="window.renderScheduleHub && window.renderScheduleHub()"> 완료 포함
+        </label>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px" id="scheduleHubGrid">
+        <!-- 캘린더 -->
+        <div class="card" style="padding:12px">
+          <div id="scheduleHubCalendar"></div>
+          <div style="margin-top:8px;font-size:11px;color:var(--gray-500);display:flex;gap:10px;flex-wrap:wrap">
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3B82F6;margin-right:4px"></span>신규</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#EF4444;margin-right:4px"></span>AS</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#8B5CF6;margin-right:4px"></span>VAN</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#F59E0B;margin-right:4px"></span>소모품</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6B7280;margin-right:4px"></span>이탈</span>
+          </div>
+        </div>
+        <!-- 다가오는 일정 -->
+        <div class="card" style="padding:12px">
+          <div id="scheduleHubListHeader" style="font-weight:700;font-size:13px;color:var(--gray-800);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+            <span>📋 다가오는 일정</span>
+            <button class="btn btn-outline btn-sm" style="padding:3px 8px;font-size:11px" onclick="window._scheduleHubClearDate()" id="scheduleHubClearDateBtn" style="display:none">전체 보기</button>
+          </div>
+          <div id="scheduleHubList" style="max-height:560px;overflow:auto"></div>
+        </div>
       </div>
     </div>
 
@@ -4028,6 +4064,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     if (id === 'supplieshub' && typeof renderSuppliesHub === 'function') {
       try { renderSuppliesHub(); } catch(e) { console.warn('[supplieshub] render 실패', e); }
     }
+    if (id === 'schedulehub' && typeof renderScheduleHub === 'function') {
+      try { renderScheduleHub(); } catch(e) { console.warn('[schedulehub] render 실패', e); }
+    }
   }
 
   /* ═══════════════ Hub 화면 공용 로직 ═══════════════ */
@@ -4393,6 +4432,260 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     const sIn = document.getElementById('ashubSearch');
     if (sIn) sIn.addEventListener('input', () => { if (typeof renderAsHub === 'function') renderAsHub(); });
   })();
+
+  /* ─── 일정조회 (Schedule Hub) ─── */
+  window._scheduleHubState = window._scheduleHubState || {
+    year: null, month: null, // 0-based month
+    cat: 'all',
+    selectedDate: null, // 'YYYY-MM-DD'
+  };
+  window._scheduleHubInitState = function() {
+    const st = window._scheduleHubState;
+    if (st.year === null || st.month === null) {
+      const d = new Date();
+      st.year = d.getFullYear();
+      st.month = d.getMonth();
+    }
+  };
+  window._scheduleHubNavMonth = function(delta) {
+    const st = window._scheduleHubState;
+    window._scheduleHubInitState();
+    st.month += delta;
+    while (st.month < 0) { st.month += 12; st.year -= 1; }
+    while (st.month > 11) { st.month -= 12; st.year += 1; }
+    st.selectedDate = null;
+    window.renderScheduleHub();
+  };
+  window._scheduleHubGoToday = function() {
+    const st = window._scheduleHubState;
+    const d = new Date();
+    st.year = d.getFullYear(); st.month = d.getMonth();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    st.selectedDate = `${d.getFullYear()}-${m}-${day}`;
+    window.renderScheduleHub();
+  };
+  window._scheduleHubSetCat = function(el, cat) {
+    const st = window._scheduleHubState;
+    st.cat = cat;
+    try {
+      el.parentElement.querySelectorAll('.filter-chip').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+    } catch(e){}
+    window.renderScheduleHub();
+  };
+  window._scheduleHubClearDate = function() {
+    window._scheduleHubState.selectedDate = null;
+    window.renderScheduleHub();
+  };
+  window._scheduleHubGetDate = function(j) {
+    // 우선순위: scheduleDate, asDueDate, installDate, softOpenDate, openDate, date
+    const keys = ['scheduleDate','asDueDate','installDate','softOpenDate','openDate','date'];
+    for (const k of keys) {
+      const v = j && j[k];
+      if (v && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+    }
+    return null;
+  };
+  window._scheduleHubCatColor = function(cat) {
+    return ({ new:'#3B82F6', as:'#EF4444', van:'#8B5CF6', supplies:'#F59E0B', churn:'#6B7280' })[cat] || '#9CA3AF';
+  };
+  window._scheduleHubCatLabel = function(cat) {
+    return ({ new:'🆕 신규', as:'🔧 AS', van:'📑 VAN', supplies:'🏷️ 소모품', churn:'🏪 이탈' })[cat] || cat;
+  };
+  window._scheduleHubEsc = function(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  };
+  window._scheduleHubOpenStore = function(ev, storeId, storeName) {
+    try { ev && ev.stopPropagation && ev.stopPropagation(); } catch(e){}
+    if (storeId && typeof window._hubOpenStoreById === 'function') {
+      try { window._hubOpenStoreById(storeId); return; } catch(e){}
+    }
+    try { typeof showToast === 'function' && showToast(storeName ? `매장: ${storeName}` : '매장 정보 없음'); } catch(e){}
+  };
+  window._scheduleHubOpenJob = function(jobId) {
+    if (!jobId) return;
+    try { if (typeof editNewopen === 'function') { editNewopen(jobId); return; } } catch(e){}
+    try { typeof showToast === 'function' && showToast('작업 편집 화면 없음'); } catch(e){}
+  };
+  window._scheduleHubSelectDate = function(ymd) {
+    const st = window._scheduleHubState;
+    st.selectedDate = (st.selectedDate === ymd) ? null : ymd;
+    window.renderScheduleHub();
+  };
+
+  window.renderScheduleHub = function() {
+    window._scheduleHubInitState();
+    const st = window._scheduleHubState;
+    const esc = window._scheduleHubEsc;
+    const showDone = !!document.getElementById('scheduleHubShowDone')?.checked;
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+
+    // 헤더 라벨
+    const label = `${st.year}년 ${st.month+1}월`;
+    const lblEl = document.getElementById('scheduleHubMonthLabel');
+    if (lblEl) lblEl.textContent = label;
+
+    // 일정이 있는 작업만 추출 (날짜+카테고리 포함)
+    const dated = [];
+    for (const j of jobs) {
+      const ymd = window._scheduleHubGetDate(j);
+      if (!ymd) continue;
+      const cat = window.classifyJobCategory(j);
+      if (st.cat !== 'all' && cat !== st.cat) continue;
+      const done = (typeof window._isJobDone === 'function') ? !!window._isJobDone(j) : false;
+      if (done && !showDone) continue;
+      dated.push({ j, ymd, cat, done });
+    }
+
+    // 날짜별 그룹
+    const byDate = {};
+    for (const it of dated) {
+      (byDate[it.ymd] = byDate[it.ymd] || []).push(it);
+    }
+
+    // 캘린더 빌드
+    const firstDow = new Date(st.year, st.month, 1).getDay();
+    const daysInMonth = new Date(st.year, st.month+1, 0).getDate();
+    const today = new Date();
+    const todayY = today.getFullYear(), todayM = today.getMonth(), todayD = today.getDate();
+
+    const dows = ['일','월','화','수','목','금','토'];
+    let calHtml = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px"><thead><tr>';
+    for (let i=0;i<7;i++) {
+      const color = (i===0)?'#EF4444':(i===6?'#3B82F6':'var(--gray-700)');
+      calHtml += `<th style="padding:6px 2px;font-size:11.5px;color:${color};font-weight:700;border-bottom:1.5px solid var(--gray-200)">${dows[i]}</th>`;
+    }
+    calHtml += '</tr></thead><tbody>';
+
+    let day = 1;
+    const totalCells = Math.ceil((firstDow + daysInMonth) / 7) * 7;
+    for (let i=0;i<totalCells;i++) {
+      if (i % 7 === 0) calHtml += '<tr>';
+      if (i < firstDow || day > daysInMonth) {
+        calHtml += '<td style="height:78px;border:1px solid var(--gray-100);background:#FAFAFA"></td>';
+      } else {
+        const m = String(st.month+1).padStart(2,'0');
+        const dd = String(day).padStart(2,'0');
+        const ymd = `${st.year}-${m}-${dd}`;
+        const isToday = (st.year===todayY && st.month===todayM && day===todayD);
+        const isSel = (st.selectedDate === ymd);
+        const items = byDate[ymd] || [];
+        const dow = (i % 7);
+        const dayColor = isToday ? '#fff' : (dow===0 ? '#EF4444' : (dow===6 ? '#3B82F6' : 'var(--gray-800)'));
+        const dayBg = isToday ? 'background:#3B82F6;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-weight:700' : `color:${dayColor};font-weight:600`;
+        const cellBorder = isSel ? '2px solid #3B82F6' : '1px solid var(--gray-100)';
+        const cellBg = isSel ? '#EFF6FF' : '#fff';
+
+        // dots (up to 3 distinct cats)
+        const seen = new Set();
+        let dotsHtml = '';
+        let extraN = 0;
+        for (const it of items) {
+          if (seen.has(it.cat)) continue;
+          if (seen.size >= 3) { extraN = items.length - seen.size; break; }
+          seen.add(it.cat);
+          const c = window._scheduleHubCatColor(it.cat);
+          dotsHtml += `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-right:2px"></span>`;
+        }
+        if (items.length > 0) {
+          dotsHtml = `<div style="margin-top:4px">${dotsHtml}<span style="font-size:10px;color:var(--gray-600);margin-left:2px">${items.length}</span></div>`;
+        }
+
+        calHtml += `<td onclick="window._scheduleHubSelectDate('${ymd}')" style="height:78px;vertical-align:top;padding:4px;border:${cellBorder};background:${cellBg};cursor:pointer">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="${dayBg};font-size:11.5px">${day}</span></div>
+          ${dotsHtml}
+        </td>`;
+        day++;
+      }
+      if (i % 7 === 6) calHtml += '</tr>';
+    }
+    calHtml += '</tbody></table>';
+    const calEl = document.getElementById('scheduleHubCalendar');
+    if (calEl) calEl.innerHTML = calHtml;
+
+    // 리스트
+    const listEl = document.getElementById('scheduleHubList');
+    const headerEl = document.getElementById('scheduleHubListHeader');
+    if (!listEl) return;
+
+    // 결정: selectedDate 있으면 그 날짜만, 아니면 오늘 이후 7일
+    let listItems = [];
+    let listTitle = '📋 다가오는 일정';
+    if (st.selectedDate) {
+      listItems = (byDate[st.selectedDate] || []).slice();
+      listTitle = `📋 ${st.selectedDate} 일정`;
+    } else {
+      const base = new Date(); base.setHours(0,0,0,0);
+      const endBase = new Date(base); endBase.setDate(endBase.getDate()+7);
+      for (const it of dated) {
+        const d = new Date(it.ymd + 'T00:00:00');
+        if (d >= base && d <= endBase) listItems.push(it);
+      }
+      listItems.sort((a,b) => a.ymd.localeCompare(b.ymd));
+    }
+    if (headerEl) {
+      const showClear = !!st.selectedDate;
+      headerEl.innerHTML = `<span>${esc(listTitle)} <span style="color:var(--gray-500);font-weight:500;font-size:11.5px">(${listItems.length})</span></span>` +
+        (showClear ? `<button class="btn btn-outline btn-sm" style="padding:3px 8px;font-size:11px" onclick="window._scheduleHubClearDate()">전체 보기</button>` : '');
+    }
+
+    if (!listItems.length) {
+      listEl.innerHTML = `<div style="padding:24px;text-align:center;color:var(--gray-500);font-size:12.5px">예정된 일정이 없습니다.</div>`;
+      return;
+    }
+
+    // 날짜별 그룹 카드
+    const grouped = {};
+    for (const it of listItems) (grouped[it.ymd] = grouped[it.ymd] || []).push(it);
+    const ymdList = Object.keys(grouped).sort();
+    const todayYmd = (function(){
+      const d = new Date(); const m = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0');
+      return `${d.getFullYear()}-${m}-${dd}`;
+    })();
+
+    let html = '';
+    for (const ymd of ymdList) {
+      const dObj = new Date(ymd + 'T00:00:00');
+      const diff = Math.round((dObj - new Date(todayYmd + 'T00:00:00')) / (1000*60*60*24));
+      let dBadge = '';
+      if (diff === 0) dBadge = '<span style="background:#3B82F6;color:#fff;padding:2px 6px;border-radius:6px;font-size:10.5px;font-weight:700">D-DAY</span>';
+      else if (diff > 0) dBadge = `<span style="background:#FEF3C7;color:#92400E;padding:2px 6px;border-radius:6px;font-size:10.5px;font-weight:700">D-${diff}</span>`;
+      else dBadge = `<span style="background:#FEE2E2;color:#991B1B;padding:2px 6px;border-radius:6px;font-size:10.5px;font-weight:700">D+${-diff}</span>`;
+      const dow = ['일','월','화','수','목','금','토'][dObj.getDay()];
+      html += `<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+        <span>${esc(ymd)} (${dow})</span>${dBadge}
+      </div>`;
+      for (const it of grouped[ymd]) {
+        const j = it.j;
+        const cat = it.cat;
+        const color = window._scheduleHubCatColor(cat);
+        const catLabel = window._scheduleHubCatLabel(cat);
+        const storeName = j.storeName || j.store || '(매장 미지정)';
+        const sid = j.storeId || '';
+        const engineer = j.engineer || j.assignee || '';
+        const time = j.asDueTime || '';
+        const title = j.title || j.type || j.workType || '';
+        const doneBadge = it.done ? '<span style="background:#D1FAE5;color:#065F46;padding:1.5px 5px;border-radius:4px;font-size:10px;margin-left:4px">완료</span>' : '';
+        html += `<div onclick="window._scheduleHubOpenJob('${esc(j.id||'')}')" style="background:#fff;border:1px solid var(--gray-200);border-left:4px solid ${color};border-radius:8px;padding:9px 11px;margin-bottom:6px;cursor:pointer;transition:all .12s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='#fff'">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
+                <span style="background:${color};color:#fff;padding:1.5px 6px;border-radius:5px;font-size:10.5px;font-weight:700">${esc(catLabel)}</span>
+                ${time ? `<span style="font-size:11px;color:var(--gray-600);font-weight:600">⏰ ${esc(time)}</span>` : ''}
+                ${doneBadge}
+              </div>
+              <div onclick="window._scheduleHubOpenStore(event,'${esc(sid)}','${esc(storeName)}')" style="font-weight:700;font-size:13px;color:var(--gray-900);text-decoration:underline;text-decoration-color:var(--gray-300);text-underline-offset:2px">${esc(storeName)}</div>
+              ${title ? `<div style="font-size:11.5px;color:var(--gray-600);margin-top:2px">${esc(title)}</div>` : ''}
+              ${engineer ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">👷 ${esc(engineer)}</div>` : ''}
+            </div>
+          </div>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+    listEl.innerHTML = html;
+  };
 
   /* ─── VAN hub ─── */
   window.renderVanHub = function() {
