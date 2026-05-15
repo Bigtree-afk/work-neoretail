@@ -3289,6 +3289,124 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
      - 페이지 로드 시 /api/stores 에서 받아 ns_stores 와 머지
      - 관리자 "🔄 지금 동기화" 버튼이 다시 호출
   ══════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════════════
+     매장 데이터 머지 정책 (Single Source of Truth)
+     ──────────────────────────────────────────────────────────────────────
+     클라이언트(syncFromCloud) 와 서버(/api/sync.js) 가 동일 규칙 사용해야 함.
+     변경 시 양쪽 모두 업데이트 — sync.js 의 STORE_FIELD_POLICY 와 동일하게 유지.
+
+     정책 종류:
+       'kv-wins'              — 서버 KV 값 항상 우선 (관리자 패치 필드)
+       'prefer-non-empty'     — 둘 다 비어있지 않으면 KV 가 이김; 한쪽만 있으면 그 값
+       'additive-by-id'       — 양쪽 모두 보존 (instanceId/phone 키로 dedupe)
+       'additive-time-sorted' — 양쪽 합치고 at 기준 시간 정렬
+       'aliases-union'        — 양쪽 합쳐 unique
+       'local-only'           — KV 값 무시, 로컬 보존 (UI 임시 상태)
+     기본: 'prefer-non-empty'
+  ══════════════════════════════════════════════════════════════════════ */
+  window.STORE_FIELD_POLICY = {
+    // 서버 자동 패치 (이카운트 업로드 시각 등) — KV 가 진실
+    storeRegDate:   'kv-wins',
+    ecountRegDate:  'kv-wins',
+    // 누적 인스턴스 컬렉션 — 양쪽 모두 보존
+    equipment:      { type:'additive-by-id', idKey:'instanceId' },
+    contacts:       { type:'additive-by-id', idKey:'phone', normalize:'phone' },
+    memos:          'additive-time-sorted',
+    changeLog:      'additive-time-sorted',
+    // 별칭 — 양쪽 합쳐서 유니크
+    aliases:        'aliases-union',
+    // 그 외 (storeName, biz, ceo, address, phone, pos, kiosk 등) → 'prefer-non-empty' (기본)
+  };
+
+  // 빈 값 판별 (null/undefined/''/빈배열/빈객체)
+  function _isEmptyValue(v) {
+    if (v == null || v === '') return true;
+    if (Array.isArray(v) && v.length === 0) return true;
+    if (typeof v === 'object' && Object.keys(v).length === 0) return true;
+    return false;
+  }
+  // 전화번호 정규화 (숫자만)
+  function _normPhone(p) { return String(p||'').replace(/\D/g,''); }
+
+  /* 단일 필드 머지 — 정책에 따라 loc/rem 합치기 */
+  function mergeStoreField(loc, rem, key) {
+    const policy = window.STORE_FIELD_POLICY[key] || 'prefer-non-empty';
+    const ptype = typeof policy === 'string' ? policy : policy.type;
+    const lv = loc[key], rv = rem[key];
+
+    switch (ptype) {
+      case 'local-only':
+        return lv;   // KV 값 무시
+
+      case 'kv-wins':
+        if (!_isEmptyValue(rv)) return rv;
+        return lv;
+
+      case 'prefer-non-empty':
+      default: {
+        const le = _isEmptyValue(lv), re = _isEmptyValue(rv);
+        if (le && re) return undefined;
+        if (le)  return rv;
+        if (re)  return lv;
+        return rv;   // 둘 다 있으면 KV 가 이김
+      }
+
+      case 'additive-by-id': {
+        const idKey = policy.idKey || 'id';
+        const norm  = policy.normalize === 'phone' ? _normPhone : (x => x);
+        const out = [];
+        const seen = new Set();
+        const push = (item) => {
+          if (!item) return;
+          const id = norm(item[idKey] || '');
+          if (id) {
+            if (seen.has(id)) return;
+            seen.add(id);
+          }
+          out.push(item);
+        };
+        (Array.isArray(lv) ? lv : []).forEach(push);   // 로컬 우선
+        (Array.isArray(rv) ? rv : []).forEach(push);   // KV 추가
+        return out.length > 0 ? out : undefined;
+      }
+
+      case 'additive-time-sorted': {
+        const merged = [...(Array.isArray(lv) ? lv : []), ...(Array.isArray(rv) ? rv : [])];
+        // at 기준 내림차순 + 중복 제거 (at + 본문 해시 정도로 충분)
+        const seen = new Set();
+        const out = [];
+        merged.sort((a,b) => String(b?.at||'').localeCompare(String(a?.at||''))).forEach(m => {
+          const key = String(m?.at||'') + '|' + String(m?.text||m?.note||'').slice(0,60);
+          if (seen.has(key)) return;
+          seen.add(key);
+          out.push(m);
+        });
+        return out.length > 0 ? out : undefined;
+      }
+
+      case 'aliases-union': {
+        const set = new Set();
+        (Array.isArray(lv) ? lv : []).forEach(a => { if (a) set.add(a); });
+        (Array.isArray(rv) ? rv : []).forEach(a => { if (a) set.add(a); });
+        return set.size > 0 ? [...set] : undefined;
+      }
+    }
+  }
+
+  /* 매장 객체 통합 머지 — 모든 필드를 정책에 따라 처리 */
+  function mergeStoreObjects(loc, rem) {
+    if (!rem) return loc;
+    if (!loc) return rem;
+    const out = {};
+    const allKeys = new Set([...Object.keys(loc), ...Object.keys(rem)]);
+    for (const k of allKeys) {
+      const v = mergeStoreField(loc, rem, k);
+      if (v !== undefined) out[k] = v;
+    }
+    return out;
+  }
+  window.mergeStoreObjects = mergeStoreObjects;
+
   async function syncFromCloud(opts) {
     opts = opts || {};
     try {
@@ -3314,52 +3432,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       const localIdx = indexBy(local);
       const findIn = (idx, s) => idx.id.get(s.id) || idx.biz.get(normBiz(s.biz||s.bizno)) || idx.code.get(s.code);
 
-      // 서버 권위 필드(KV 가 정답) — 로컬이 비어 있으면 KV 값 채움
-      const SERVER_FIELDS = ['storeRegDate', 'ecountRegDate'];
-      // 로컬 전용 필드(브라우저가 관리) — KV 덮어쓰지 않음
-      const LOCAL_FIELDS  = ['aliases', 'changeLog', 'mergedFrom', 'mergedSnapshot'];
-
-      // 빈값 판별 — null/undefined/빈 문자열/빈 배열/빈 객체 모두 '없음' 으로 취급
-      const isEmpty = (v) => {
-        if (v == null || v === '') return true;
-        if (Array.isArray(v) && v.length === 0) return true;
-        if (typeof v === 'object' && Object.keys(v).length === 0) return true;
-        return false;
-      };
-      // equipment 같은 인스턴스 배열은 instanceId 기반 additive 머지
-      const INSTANCE_ARRAYS = new Set(['equipment', 'contacts']);
-
-      const mergeStore = (loc, rem) => {
-        if (!rem) return loc;
-        if (!loc) return rem;
-        const out = { ...loc };
-        // 서버 권위 필드 — KV 값 우선 (로컬에 같은 필드 있어도 KV 가 갱신)
-        for (const f of SERVER_FIELDS) {
-          if (rem[f] != null && rem[f] !== '') out[f] = rem[f];
-        }
-        // KV 의 신선한 일반 필드도 머지
-        for (const k of Object.keys(rem)) {
-          if (SERVER_FIELDS.includes(k)) continue;
-          if (LOCAL_FIELDS.includes(k)) continue;
-          // 인스턴스 배열(equipment, contacts) — instanceId 기준 additive 머지
-          // (로컬 우선이되, KV 에만 있는 새 인스턴스는 추가)
-          if (INSTANCE_ARRAYS.has(k) && Array.isArray(rem[k])) {
-            if (!Array.isArray(out[k])) out[k] = [];
-            const localIds = new Set(out[k].map(x => x && (x.instanceId || x.id || x.phone)).filter(Boolean));
-            rem[k].forEach(item => {
-              if (!item) return;
-              const id = item.instanceId || item.id || item.phone;
-              if (id && !localIds.has(id)) out[k].push(item);
-              else if (!id) out[k].push(item);  // id 없으면 단순 추가
-            });
-            continue;
-          }
-          // 일반 필드 — 로컬이 비어있으면 KV 값 사용 (빈 배열/객체도 '없음' 처리)
-          if (isEmpty(out[k]) && !isEmpty(rem[k])) out[k] = rem[k];
-        }
-        // 로컬 전용 필드는 그대로 유지 (이미 ...loc 로 들어감)
-        return out;
-      };
+      // 정책 기반 통합 머지 사용 — window.mergeStoreObjects 가 모든 필드 처리
+      // (정책: window.STORE_FIELD_POLICY 에서 명시. 새 필드는 정책만 추가하면 됨)
+      const mergeStore = (loc, rem) => mergeStoreObjects(loc, rem);
 
       const result = [];
       const seen = new Set();

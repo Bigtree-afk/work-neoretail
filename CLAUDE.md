@@ -141,6 +141,40 @@ Autocomplete.register('myKind', {
 - 새 분류 체계 도입시: `categoryV2` 같은 추가 필드 사용. 구 `category` 도 보존.
 - 매장 장비 ↔ 카탈로그 재매칭이 필요하면 `findCatalogByName` 일괄 실행 후 catalogId 갱신
 
+### 🔄 매장 데이터 동기화 — 정책 테이블 기반 머지 (필수 규칙)
+
+매장 데이터 머지 정책은 **클라이언트와 서버가 동일** 해야 함. 양쪽 모두 `STORE_FIELD_POLICY` 사용.
+- 클라이언트: `index.html` 의 `window.STORE_FIELD_POLICY`
+- 서버: `functions/api/sync.js` 의 `STORE_FIELD_POLICY`
+
+**정책 종류:**
+
+| 정책 | 의미 | 예시 필드 |
+|---|---|---|
+| `kv-wins` | KV 가 항상 우선 (서버 자동 패치) | `storeRegDate`, `ecountRegDate` |
+| `prefer-non-empty` | 비어있지 않은 쪽 우선 (기본) | `storeName`, `biz`, `ceo`, `address`, `phone` |
+| `additive-by-id` | 인스턴스 추가 머지 (양쪽 보존) | `equipment` (instanceId), `contacts` (phone) |
+| `additive-time-sorted` | 시간순 정렬 합본 | `memos`, `changeLog` |
+| `aliases-union` | set union | `aliases` |
+| `local-only` | KV 값 무시 (UI 임시 상태) | — |
+
+**핵심 규칙:**
+- **빈 배열 `[]` / 빈 객체 `{}` 는 '값 있음' 이 아니라 '없음' 처리** (이전 버그 반복 방지)
+- 새 필드 추가 시: 정책 테이블에만 한 줄 추가하면 됨 (구현 변경 불필요)
+- 클라이언트는 `window.mergeStoreObjects(loc, rem)` 사용
+- 서버 `sync.js` 는 `mergeStoreObjects(incoming, kvOld)` 사용
+
+**진단 도구:**
+- `GET /api/sync-diagnostics` — 전체 매장 데이터 헬스 (빈 배열 카운트 등)
+- `GET /api/sync-diagnostics?store=<name>` — 특정 매장 필드별 상태
+- `POST /api/migrate-store-equipment` — 일괄 마이그레이션 (force/fixShape/createMissingStores 옵션)
+
+**문제 발생 시 체크리스트:**
+1. `/api/sync-diagnostics` 호출 — `shape` 가 `bare-array` 인지 확인
+2. `emptyEquipment` / `emptyContacts` 카운트 확인 → 0 보다 크면 마이그레이션 endpoint 호출
+3. 클라이언트와 서버의 `STORE_FIELD_POLICY` 가 동일한지 비교
+4. 사용자에게 페이지 강제 새로고침 안내 (Ctrl+Shift+R)
+
 ## 운영 규칙
 
 ### 🚨 파싱 오류 알림 (필수)

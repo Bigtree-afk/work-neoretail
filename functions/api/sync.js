@@ -9,13 +9,110 @@
  *   - KV 에만 있는 매장도 보존 (클라이언트 삭제는 별도 API)
  */
 
-// 클라이언트 push 가 명시적으로 안 보내면 KV 측 값을 보존하는 필드들
-// (서버측 패치/관리 데이터 — 브라우저 localStorage 에는 없을 수 있음)
-const SERVER_PRESERVED_FIELDS = [
-  'storeRegDate',
-  'ecountRegDate',
-  'equipment',         // store.equipment[] — 인스턴스 단위 장비 DB (Plan B). 구버전 클라이언트가 누락 push 해도 보존
-];
+// ═══════════════════════════════════════════════════════════════════════
+// 매장 필드 머지 정책 (Single Source of Truth — 클라이언트와 동일하게 유지)
+// ───────────────────────────────────────────────────────────────────────
+// 클라이언트 (index.html 의 STORE_FIELD_POLICY) 와 동일 의미.
+// 변경 시 양쪽 모두 업데이트.
+//
+// 정책:
+//   'kv-wins'              — KV 가 항상 우선
+//   'prefer-non-empty'     — 비어있지 않은 쪽 우선, 둘 다 있으면 클라이언트
+//   'additive-by-id'       — 인스턴스 추가 머지 (instanceId/phone)
+//   'additive-time-sorted' — 시간순 정렬 합본
+//   'aliases-union'        — set union
+// 기본: 'prefer-non-empty' (호환 — 기존 동작과 동일하게 incoming 이 이김)
+// ═══════════════════════════════════════════════════════════════════════
+const STORE_FIELD_POLICY = {
+  storeRegDate:   'kv-wins',
+  ecountRegDate:  'kv-wins',
+  equipment:      { type: 'additive-by-id', idKey: 'instanceId' },
+  contacts:       { type: 'additive-by-id', idKey: 'phone', normalize: 'phone' },
+  memos:          'additive-time-sorted',
+  changeLog:      'additive-time-sorted',
+  aliases:        'aliases-union',
+};
+
+function _isEmptyValue(v) {
+  if (v == null || v === '') return true;
+  if (Array.isArray(v) && v.length === 0) return true;
+  if (typeof v === 'object' && Object.keys(v).length === 0) return true;
+  return false;
+}
+function _normPhone(p) { return String(p||'').replace(/\D/g,''); }
+
+function mergeStoreField(loc, rem, key) {
+  const policy = STORE_FIELD_POLICY[key] || 'prefer-non-empty';
+  const ptype = typeof policy === 'string' ? policy : policy.type;
+  const lv = loc[key], rv = rem[key];
+
+  switch (ptype) {
+    case 'kv-wins':
+      if (!_isEmptyValue(rv)) return rv;
+      return lv;
+
+    case 'prefer-non-empty':
+    default: {
+      const le = _isEmptyValue(lv), re = _isEmptyValue(rv);
+      if (le && re) return undefined;
+      if (le)  return rv;
+      if (re)  return lv;
+      return lv;   // 둘 다 있으면 incoming(loc) 이 이김 — 서버 머지 컨텍스트
+    }
+
+    case 'additive-by-id': {
+      const idKey = policy.idKey || 'id';
+      const norm  = policy.normalize === 'phone' ? _normPhone : (x => x);
+      const out = [];
+      const seen = new Set();
+      const push = (item) => {
+        if (!item) return;
+        const id = norm(item[idKey] || '');
+        if (id) {
+          if (seen.has(id)) return;
+          seen.add(id);
+        }
+        out.push(item);
+      };
+      (Array.isArray(lv) ? lv : []).forEach(push);
+      (Array.isArray(rv) ? rv : []).forEach(push);
+      return out.length > 0 ? out : undefined;
+    }
+
+    case 'additive-time-sorted': {
+      const merged = [...(Array.isArray(lv) ? lv : []), ...(Array.isArray(rv) ? rv : [])];
+      const seen = new Set();
+      const out = [];
+      merged.sort((a,b) => String(b?.at||'').localeCompare(String(a?.at||''))).forEach(m => {
+        const k = String(m?.at||'') + '|' + String(m?.text||m?.note||'').slice(0,60);
+        if (seen.has(k)) return;
+        seen.add(k);
+        out.push(m);
+      });
+      return out.length > 0 ? out : undefined;
+    }
+
+    case 'aliases-union': {
+      const set = new Set();
+      (Array.isArray(lv) ? lv : []).forEach(a => { if (a) set.add(a); });
+      (Array.isArray(rv) ? rv : []).forEach(a => { if (a) set.add(a); });
+      return set.size > 0 ? [...set] : undefined;
+    }
+  }
+}
+
+function mergeStoreObjects(incoming, kvOld) {
+  // 서버 머지에서는 incoming 이 'loc' 역할, kvOld 가 'rem' 역할 (이 함수 시그니처는 그렇게 호출됨)
+  if (!kvOld) return incoming;
+  if (!incoming) return kvOld;
+  const out = {};
+  const allKeys = new Set([...Object.keys(incoming), ...Object.keys(kvOld)]);
+  for (const k of allKeys) {
+    const v = mergeStoreField(incoming, kvOld, k);
+    if (v !== undefined) out[k] = v;
+  }
+  return out;
+}
 
 export async function onRequestPost({ request, env }) {
   if (!env.STORES_KV) return text('KV not bound', 500);
@@ -43,24 +140,15 @@ export async function onRequestPost({ request, env }) {
     if (s.code) byCode.set(s.code, s);
   }
 
-  // 머지: 각 incoming 매장에 대해 기존 KV 매장 찾기
-  let preservedCount = 0;
+  // 머지: 각 incoming 매장에 대해 기존 KV 매장 찾기 + 정책 기반 머지
+  let preservedCount = 0;   // 호환용 카운터 (legacy)
   const merged = incoming.map(inc => {
     const old = byId.get(inc.id)
               || byBiz.get(normBiz(inc.biz || inc.bizno))
               || byCode.get(inc.code);
-    if (!old) return inc;   // 신규 매장은 그대로
-    // 서버 보존 필드: incoming 에 없거나 빈 배열이면 KV 값 유지
-    const result = { ...inc };
-    for (const field of SERVER_PRESERVED_FIELDS) {
-      const v = result[field];
-      const incomingIsEmpty = (v == null || v === '' || (Array.isArray(v) && v.length === 0));
-      const oldHas = old[field] && (!Array.isArray(old[field]) || old[field].length > 0);
-      if (incomingIsEmpty && oldHas) {
-        result[field] = old[field];
-        preservedCount++;
-      }
-    }
+    if (!old) return inc;
+    const result = mergeStoreObjects(inc, old);
+    preservedCount++;
     return result;
   });
 
