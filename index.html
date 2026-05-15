@@ -12802,15 +12802,32 @@ ${text.slice(0, 4000)}`;
       window._currentStoreEquipCtx = { storeId: store?.id || store?.storeId, storeName: displayName, businessNumber: store?.businessNumber || store?.biz };
     }
 
-    /* ── 작업 이력 (ns_jobs 기반) ── */
+    /* ── 작업 이력 (ns_jobs 기반)
+       매칭 전략:
+         1. storeId 정확 일치
+         2. 매장명 또는 aliases 의 정규화 일치 (병합 시 rerouting 누락 안전망)
+         3. fallback: 부분 문자열 포함 (옛 동작 호환)
+    ── */
     const tlEl = document.getElementById('detailHistoryTimeline');
     if (tlEl) {
       let jobs = [];
       try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e) {}
       const nameKey = (displayName || '').trim();
+      // 매장의 모든 식별자 (id + 본명 + aliases) 의 정규화 set
+      const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+      const aliasNames = Array.isArray(store?.aliases) ? store.aliases : [];
+      const matchNorms = new Set([nameKey, ...aliasNames].filter(Boolean).map(normFn));
+      const storeIdKey = store?.id || store?.storeId;
       const matched = jobs.filter(j => {
+        // (1) storeId 매칭
+        if (storeIdKey && (j.storeId === storeIdKey)) return true;
         const s = (j.store || j.storeName || '').trim();
-        return s && nameKey && (s === nameKey || s.includes(nameKey) || nameKey.includes(s));
+        if (!s) return false;
+        // (2) 정규화 매칭 (본명 또는 aliases)
+        if (matchNorms.has(normFn(s))) return true;
+        // (3) fallback: 부분 일치 (구버전 데이터 호환)
+        if (nameKey && (s === nameKey || s.includes(nameKey) || nameKey.includes(s))) return true;
+        return false;
       });
       // 최신순 정렬
       matched.sort((a,b) => {
@@ -13186,7 +13203,13 @@ ${text.slice(0, 4000)}`;
   }
   window.openStoreMergeDialog = openStoreMergeDialog;
 
-  /* 매장 병합 실행 — 취소 가능 스냅샷 포함 */
+  /* 매장 병합 실행 — 취소 가능 스냅샷 포함
+     v2 (2026-05): 모든 데이터 완전 흡수
+     - 작업 재라우팅: id 매칭 + 정규화 이름 매칭 + survivor.aliases 매칭
+     - 장비(equipment[]) 인스턴스 흡수 (instanceId 충돌시 신규 발급)
+     - 거래처(contacts[]) / 메모(memos[]) / 변경이력(changeLog[]) 통합
+     - 사용자 정의 필드(notes, tags 등) survivor 가 빈 값이면 merged 값 채움
+  */
   function mergeStores(survivorId, mergedId) {
     const stores = getStores();
     const survivor = stores.find(s => s.id === survivorId);
@@ -13196,7 +13219,7 @@ ${text.slice(0, 4000)}`;
     // 흡수 매장 전체 스냅샷 (취소 시 복원용)
     const mergedSnapshot = JSON.parse(JSON.stringify(merged));
 
-    // 이 병합에서 추가한 aliases 만 따로 기록 (취소 시 정확히 그 항목만 제거)
+    // 1) Aliases 흡수 — merged 이름과 별칭을 survivor.aliases 에 모두 추가
     const addedAliases = [];
     if (!Array.isArray(survivor.aliases)) survivor.aliases = [];
     if (merged.name && !survivor.aliases.includes(merged.name)) {
@@ -13212,25 +13235,104 @@ ${text.slice(0, 4000)}`;
       });
     }
 
-    // 작업(jobs) storeId/store/storeName 재라우팅 — 이전 값 보존
+    // 2) Equipment 인스턴스 흡수 — store.equipment[]
+    const absorbedEquipment = [];
+    if (Array.isArray(merged.equipment) && merged.equipment.length > 0) {
+      if (!Array.isArray(survivor.equipment)) survivor.equipment = [];
+      const existingIds = new Set(survivor.equipment.map(e => e.instanceId));
+      merged.equipment.forEach(e => {
+        const inst = JSON.parse(JSON.stringify(e));  // deep copy
+        // instanceId 충돌 시 신규 발급 (이론상 거의 안 일어남)
+        if (existingIds.has(inst.instanceId)) {
+          inst.instanceId = 'eqi-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+        }
+        // 이력에 흡수 사실 기록
+        inst.history = inst.history || [];
+        inst.history.push({
+          at: new Date().toISOString(),
+          kind: 'absorbed_via_merge',
+          by: (typeof _currentUserName === 'function' ? _currentUserName() : ''),
+          note: `매장 병합으로 흡수 (${merged.name} → ${survivor.name})`,
+        });
+        survivor.equipment.push(inst);
+        absorbedEquipment.push(inst.instanceId);
+      });
+    }
+
+    // 3) Contacts 흡수 — store.contacts[] (있는 경우)
+    const absorbedContacts = [];
+    if (Array.isArray(merged.contacts) && merged.contacts.length > 0) {
+      if (!Array.isArray(survivor.contacts)) survivor.contacts = [];
+      // 전화번호 정규화 후 중복 제거
+      const normPhone = p => String(p||'').replace(/\D/g,'');
+      const existingPhones = new Set(survivor.contacts.map(c => normPhone(c.phone)).filter(Boolean));
+      merged.contacts.forEach(c => {
+        const np = normPhone(c.phone);
+        if (np && existingPhones.has(np)) return;  // 동일 전화번호 = 중복
+        const copy = JSON.parse(JSON.stringify(c));
+        // primary 플래그 보존하되 survivor 에 이미 primary 있으면 해제
+        if (copy.primary && survivor.contacts.some(x => x.primary)) copy.primary = false;
+        survivor.contacts.push(copy);
+        absorbedContacts.push(c.name || c.phone || '');
+      });
+    }
+
+    // 4) Memos / changeLog 등 누적성 배열
+    if (Array.isArray(merged.memos) && merged.memos.length > 0) {
+      if (!Array.isArray(survivor.memos)) survivor.memos = [];
+      survivor.memos.push(...merged.memos);
+    }
+    if (Array.isArray(merged.changeLog) && merged.changeLog.length > 0) {
+      if (!Array.isArray(survivor.changeLog)) survivor.changeLog = [];
+      // 시간순 머지
+      survivor.changeLog = [...survivor.changeLog, ...merged.changeLog]
+        .sort((a,b) => String(b.at||'').localeCompare(String(a.at||'')));
+    }
+
+    // 5) survivor 가 비어있는 필드는 merged 값으로 채움 (정보 보존)
+    const fillIfEmpty = ['biz','bizno','ceo','phone','address','road','memo','notes','pos','kiosk','displayPos','displayVan'];
+    const filledFields = {};
+    fillIfEmpty.forEach(k => {
+      if ((survivor[k] == null || survivor[k] === '') && merged[k]) {
+        survivor[k] = merged[k];
+        filledFields[k] = merged[k];
+      }
+    });
+
+    // 6) 작업(jobs) 재라우팅 — id 매칭 + 정규화 이름 매칭 + aliases 매칭
     const reroutedJobs = [];
     try {
       const jobs = getJobs();
-      const mergedName = merged.name;
-      const survivorName = survivor.name;
+      const mergedName = merged.name || '';
+      const survivorName = survivor.name || '';
+      const mergedNorm = _normalizeSearch ? _normalizeSearch(mergedName) : mergedName.toLowerCase();
+      // merged 의 모든 별칭 (자기 이름 포함) 의 정규화 형태 set
+      const mergedAliasesNorm = new Set([mergedName, ...(merged.aliases || [])]
+        .filter(Boolean)
+        .map(s => _normalizeSearch ? _normalizeSearch(s) : s.toLowerCase()));
+
       jobs.forEach(j => {
         const changed = {};
         let touched = false;
+        // (a) storeId 정확 매칭
         if (j.storeId === merged.id) { changed.storeId = j.storeId; j.storeId = survivor.id; touched = true; }
-        if ((j.store || '') === mergedName) { changed.store = j.store; j.store = survivorName; touched = true; }
-        if ((j.storeName || '') === mergedName) { changed.storeName = j.storeName; j.storeName = survivorName; touched = true; }
+        // (b) store/storeName 의 정규화 매칭 (variants/whitespace/괄호 위치 흡수)
+        const jStore = j.store || j.storeName || '';
+        if (jStore) {
+          const jNorm = _normalizeSearch ? _normalizeSearch(jStore) : jStore.toLowerCase();
+          if (mergedAliasesNorm.has(jNorm)) {
+            if ('store' in j) { changed.store = j.store; j.store = survivorName; }
+            if ('storeName' in j) { changed.storeName = j.storeName; j.storeName = survivorName; }
+            touched = true;
+          }
+        }
         if (touched) reroutedJobs.push({ id: j.id, prev: changed });
       });
       if (reroutedJobs.length) saveJobs(jobs);
       try { pushJobsToCloud({ toast: false }); } catch(e){}
-    } catch(e){}
+    } catch(e){ console.warn('[mergeStores] job reroute failed:', e); }
 
-    // changeLog 기록 (취소용 스냅샷 포함)
+    // 7) changeLog 기록 (취소용 스냅샷 + 모든 흡수 정보 포함)
     if (!Array.isArray(survivor.changeLog)) survivor.changeLog = [];
     survivor.changeLog.unshift({
       at: _kstDateTimeStr(),
@@ -13241,16 +13343,29 @@ ${text.slice(0, 4000)}`;
       by:   _currentAuthName(),
       mergedSnapshot,
       addedAliases,
+      absorbedEquipment,
+      absorbedContacts,
+      filledFields,
       reroutedJobs,
     });
 
-    // 흡수 매장 삭제
+    // 8) 흡수 매장 삭제
     const idx = stores.findIndex(s => s.id === merged.id);
     if (idx >= 0) stores.splice(idx, 1);
 
     saveStores(stores);
     try { pushStoresToCloud({ toast: false }); } catch(e){}
     try { hydrateSavedStores(); } catch(e){}
+
+    // 사용자 피드백 — 흡수된 데이터 요약
+    const summary = [];
+    if (reroutedJobs.length) summary.push(`작업 ${reroutedJobs.length}건`);
+    if (absorbedEquipment.length) summary.push(`장비 ${absorbedEquipment.length}건`);
+    if (absorbedContacts.length) summary.push(`담당자 ${absorbedContacts.length}건`);
+    if (addedAliases.length) summary.push(`별칭 ${addedAliases.length}건`);
+    if (summary.length && typeof showToast === 'function') {
+      showToast(`✅ 병합 완료 — ${summary.join(' · ')} 흡수`, 5000);
+    }
     return true;
   }
   window.mergeStores = mergeStores;
@@ -13300,6 +13415,31 @@ ${text.slice(0, 4000)}`;
         try { pushJobsToCloud({ toast: false }); } catch(e){}
       }
     } catch(e){}
+
+    // 흡수된 장비 인스턴스 제거 (취소: survivor 에서 빼냄)
+    if (Array.isArray(entry.absorbedEquipment) && entry.absorbedEquipment.length > 0 && Array.isArray(survivor.equipment)) {
+      const removeSet = new Set(entry.absorbedEquipment);
+      survivor.equipment = survivor.equipment.filter(e => !removeSet.has(e.instanceId));
+    }
+    // 흡수된 contacts 제거 (이름/전화 매칭)
+    if (Array.isArray(entry.absorbedContacts) && entry.absorbedContacts.length > 0 && Array.isArray(survivor.contacts)) {
+      const normP = p => String(p||'').replace(/\D/g,'');
+      const mSnap = entry.mergedSnapshot || {};
+      const mContacts = Array.isArray(mSnap.contacts) ? mSnap.contacts : [];
+      const removePhones = new Set(mContacts.map(c => normP(c.phone)).filter(Boolean));
+      survivor.contacts = survivor.contacts.filter(c => {
+        const np = normP(c.phone);
+        return !np || !removePhones.has(np);
+      });
+    }
+    // filledFields 되돌리기 — 병합으로 채워진 빈 필드 비우기
+    if (entry.filledFields && typeof entry.filledFields === 'object') {
+      Object.keys(entry.filledFields).forEach(k => {
+        if (survivor[k] === entry.filledFields[k]) {
+          delete survivor[k];
+        }
+      });
+    }
 
     // 취소 사실을 changeLog 상단에 기록
     entry._undone = true;

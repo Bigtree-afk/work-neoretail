@@ -1,92 +1,98 @@
-# NeoRetail 다음 작업 To-Do
+# NeoRetail — 작업 계획 리스트
 
-## 🟢 즉시 가능 (1시간 이내)
+## ✅ 완료된 작업
 
-### 인증/배포
-- [ ] **Google OAuth Client ID 등록 확인**
-  - 관리자 페이지 → Google 로그인 설정 펼침 → Client ID 비어있으면 등록
-  - Google Cloud Console → APIs & Services → Credentials → Web application
-  - Authorized origins: `https://work.neoretail.net`, `https://work-neoretail.pages.dev`
+### 인프라 / 안정성
+- [x] LINE 파싱 cron **3중 방어** — Cloudflare Worker(주) + GitHub Actions(보조) + endpoint 내 watchdog
+- [x] 라인 알림 (giveup / many_errors / no_api_key / overflow / cron_stale)
 
-### UI 다듬기
-- [ ] 모바일 화면 점검 (768px 이하 — 폼/테이블/캘린더 작동 확인)
-- [ ] 견적 작성 페이지 (현재 정적 데모 상태 → 실제 작업 데이터 기반 견적서 생성)
-- [ ] 작업 목록 페이지 동적 렌더 (현재 빈 placeholder 카드만 있음)
+### 매장 장비 DB (Plan B)
+- [x] `store.equipment[]` 인스턴스 단위 + snapshot 모델 (`STORE_EQUIP_SCHEMA_VER=1`)
+- [x] 헬퍼: `getStoreEquipment` / `addStoreEquipment` / `updateStoreEquipment` / `transferStoreEquipment` / `ingestJobEquipmentToStore` / `migrateJobEquipmentToStore` / `findCatalogByName`
+- [x] 매장 상세 모달의 장비 패널 풀 재작성 (활성/이력 분리 + [편집] [상태변경] [+ 추가])
+- [x] 작업 완료시 자동 적재 hook (`completeNewopen`)
+- [x] **서버사이드 일괄 마이그레이션 endpoint** (`/api/migrate-store-equipment`)
+  - `includeUncheckedPending` / `createMissingStores` / `fixShape` 옵션
+- [x] 기존 데이터 전수 적재: **8개 매장 / 36 인스턴스**
+- [x] `sync.js` 의 `SERVER_PRESERVED_FIELDS` 에 `equipment` 추가
 
----
+### UI 버그 수정
+- [x] 대시보드 AS 미처리 → 풀폭 2열 카드 (모바일 1열)
+- [x] 오늘 일정 클릭 시 중복 팝업 제거
+- [x] 매장 상세에 ⚠ 카탈로그 끊김 표시
 
-## 🟡 중간 작업 (반나절~1일)
-
-### 장비 재고 시스템 ⭐ (사용자 메모: 디테일 확장 필요)
-
-**전제 — 품목 마스터 데이터 먼저 정립**:
-- [ ] 현재 16개 고정 품목 → 운영용 카탈로그로 확장
-  - 신품/중고 별 단가 분리
-  - 모델 코드, 제조사, 호환 정보, 보증기간
-  - 단종/판매중 상태
-  - 사진 / 사양서 첨부
-- [ ] 별도 화면: **품목 관리** (CRUD)
-
-**그 위에 재고 시스템 빌드**:
-- [ ] 재고 단위 정의 (대 / 세트 / 박스 등)
-- [ ] 입고/출고 트랜잭션 기록 (`ns_inventory_txns`)
-- [ ] 작업 등록 시 출고 자동 차감 옵션
-- [ ] 재고 부족 알림 (현재 0대인 품목 강조)
-- [ ] 발주 필요 품목 목록 (재주문 임계치)
-- [ ] 월별 입출고 리포트
-- [ ] 장비 위치 (창고/출고대기/현장)
-
-→ 이거 하려면 **품목 마스터 + 재고 워크플로 + UI** 가 한 묶음. 작업량 큼. 별도 세션에서 천천히.
-
-### 이카운트 자동 동기화 활성화
-- [ ] 사무실 공인 IP를 이카운트 [IP등록]에 등록
-- [ ] API 인증키 재발급
-- [ ] `sync/.env` 갱신 → `python sync_ecount.py` 테스트
-- [ ] `install_task.ps1` 실행 → 매일 07:00 자동
-- [ ] 인프라는 이미 다 깔려있음 (`functions/api/sync.js`, KV, SYNC_SECRET)
+### Mockup 작성 (3개)
+- [x] `preview/job-register-flow.html` — 5-step wizard
+- [x] `preview/job-register-single.html` — 단일 페이지 PC 3-column + Mobile 폰프레임
+- [x] `preview/store-detail-redesign.html` — 매장 상세 10-tab 재설계
 
 ---
 
-## 🔵 큰 작업 (별도 일정)
+## 🚧 진행 필요 작업
 
-### 알림/푸시
-- [ ] 작업 등록 시 담당 엔지니어에게 카톡/SMS 알림
-- [ ] 가오픈일/오픈일 D-3 자동 리마인드
-- [ ] AS 48시간 초과 자동 경고
+### A. 매장 병합 버그 수정 (지금 진행)
+- [ ] 매장 병합시 `equipment[]` / `contacts[]` 등 모든 배열 데이터 흡수
+- [ ] 작업 재라우팅 — 정확 일치 → **정규화 매칭 + aliases** 매칭
+- [ ] 매장 상세 작업 이력 매칭 로직 — `aliases` 도 검사 (rerouting 누락 안전망)
+- [ ] 매장 병합 취소(undo) 시 위 모든 데이터 복원
 
-### 리포트/통계
-- [ ] 월별 신규 매장 추이
-- [ ] 엔지니어별 처리 건수
-- [ ] 매출 집계 (작업 합계 기반)
-- [ ] PDF 리포트 출력
+### B. 사용자가 정리할 부분 (개발 보류)
+- [ ] **카테고리별 고유 필드 확정** — 매트릭스 (12 카테고리)
+- [ ] 각 카테고리의 필수/선택 필드 결정
+- [ ] 진행 단계(`status`) 흐름 카테고리별 표준 정의
 
-### 외부 연동
-- [ ] 이카운트 → 매출 거래 자동 입력
-- [ ] 카드사 VAN 가맹점 등록 자동화
-- [ ] 캘린더 구글/네이버 캘린더 연동
+### C. 업무 등록 단일 페이지 실제 구현 (mockup → 코드)
+- [ ] PC 3-column 레이아웃 컴포넌트
+- [ ] Mobile 수직 섹션 레이아웃 (반응형 분기)
+- [ ] 카테고리 12개 chip + 카테고리별 동적 필드 분기
+- [ ] 매장 자동완성 (`Autocomplete.register('store2', ...)`)
+- [ ] 매장 선택 시 진행중 업무 자동 노출 + 갱신/신규 토글
+- [ ] 거래처 담당 ↔ `store.contacts[]` 양방향 동기화
+- [ ] 우선순위·일정·당사담당 입력
+- [ ] LINE 메시지 자동 작성 (표준 포맷 + 사용자 override)
+- [ ] LINE 그룹 자동 매칭 (카테고리 ↔ roomMap)
 
-### 모바일 앱 (선택)
-- [ ] PWA 설치 가능하게 manifest 추가
-- [ ] 현장 사진 업로드 (장비 설치 인증)
-- [ ] 오프라인 모드 (현장에서 인터넷 끊겨도 입력)
+### D. LINE 메시지 발송 + 루프 차단 구현
+- [ ] `/api/line-send` endpoint — LINE Messaging API push
+- [ ] 발송 전 `sha256(roomId:text).slice(0,16)` 시그니처 KV 저장 (TTL 10분)
+  - 키: `line_outbound_sig:<hash>`
+  - 값: `{jobId, sentAt, by}`
+- [ ] `line-webhook.js` 수신 시 시그니처 매칭 → `processedStatus='self_echo'`
+- [ ] `line-parse-cron.js` 에서 `self_echo` skip
+- [ ] 작업 상세에 **발송 이력 탭** 추가 (jobId ↔ message 양방향)
+
+### E. 매장 상세 모달 재설계 구현
+- [ ] 10-tab 구조 (진행 업무 / 매장정보 / 오픈·신규 / A/S / 밴서류 / 출고·택배 / 라벨 / 상담 / 설치장비 / 메모)
+- [ ] 각 탭 lazy 렌더링 + URL hash 상태 보존
+- [ ] 탭별 필터 (카테고리 / 완료여부 / 년도)
+- [ ] 진행 업무 탭 — 모든 카테고리 통합 + 진행률 bar
+
+### F. 자산 관리 강화 (Plan B 후속)
+- [ ] stub 매장 정보 보완 UI — `autoCreated:true` 매장 모아보기 + 일괄 정정
+- [ ] 매장 장비 이전 UI (`transferStoreEquipment` 호출)
+- [ ] 장비 인스턴스 검색 (전체 매장 대상 — 시리얼/이름/카탈로그)
+
+### G. 거래처 담당 통합 (Plan H — mockup 메모)
+- [ ] `store.contacts[]` 스키마 정착 (이름·직책·전화·primary·linkedFrom)
+- [ ] 작업 등록 폼의 거래처 담당 필드 → 매장 DB 자동 추가
+- [ ] 매장 상세에 contacts 편집 UI
+
+### H. 카테고리 v2 마이그레이션 (장기)
+- [ ] `categoryV2` 추가 필드 도입 (구 `lineCategory` 유지)
+- [ ] CATEGORY_MIGRATION_MAP 매핑 테이블
+- [ ] 점진적 배치 마이그레이션 (cron)
+- [ ] 관리자 v1/v2 토글 UI
 
 ---
 
-## 📦 인프라 점검
+## 🎯 권장 순서
 
-- [ ] localStorage quota 5MB 한계 모니터링 (점포 2,700+ 작업 누적)
-  → 임계점 도달 시 IndexedDB로 마이그레이션
-- [ ] Cloudflare KV에 점포·작업 클라우드 백업 (이카운트 동기화 인프라 재활용)
-  → PC 바뀌어도 데이터 유지
-- [ ] 자동 백업 → 외부 저장소 (Google Drive / Dropbox API)
-
----
-
-## 📝 작은 보완
-
-- [ ] 작업 검색 (점포명/담당/상태 등으로)
-- [ ] 작업 일괄 상태 변경 (체크박스 + 일괄 완료 처리)
-- [ ] 점포 상세 페이지에서 해당 점포의 작업 이력 표시 (현재 작업↔점포 연결만 됨)
-- [ ] 점포 정보 직접 수정 화면 (현재 엑셀 업로드만 가능)
-- [ ] 댓글 시스템 활성화 (현재 데모)
-- [ ] 음성 입력 정확도 개선
+```
+1. (지금) 매장 병합 버그 수정          ← 데이터 무결성
+2. 사용자: 카테고리 고유 필드 매트릭스 확정
+3. 업무 등록 단일 페이지 구현           ← 사용자 최대 체감
+4. LINE 발송 + 루프 차단 구현           ← 등록 흐름 완성
+5. 매장 상세 탭 재설계 구현             ← 정보 정리 가시화
+6. 거래처 담당 통합 + 자산 관리 강화
+7. 카테고리 v2 (장기)
+```
