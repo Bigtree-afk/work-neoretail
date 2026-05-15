@@ -6,8 +6,9 @@ export async function onRequestGet({ env }) {
   if (!env.STORES_KV) {
     return json({ stores: [], meta: { error: 'KV not bound' } }, 200);
   }
-  const stores = (await env.STORES_KV.get('stores', 'json')) || [];
-  const meta = (await env.STORES_KV.get('meta', 'json')) || {};
+  // cacheTtl:0 — patch / sync 의 최신 write 가 PoP 캐시에 막혀 stale 안 되도록
+  const stores = (await env.STORES_KV.get('stores', { type:'json', cacheTtl:0 })) || [];
+  const meta = (await env.STORES_KV.get('meta', { type:'json', cacheTtl:0 })) || {};
   return json({ stores, meta }, 200);
 }
 

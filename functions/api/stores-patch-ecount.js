@@ -30,8 +30,8 @@ export async function onRequestPost({ env, request }) {
   const dryRun = !!body.dryRun;
   if (!rows.length) return json({ matched:0, updated:0, unmatched:[], alreadySet:0, bizNormalized:0 }, 200);
 
-  // 매장 로드
-  const cur = (await env.STORES_KV.get(STORES_KEY, 'json')) || { stores: [] };
+  // 매장 로드 — cacheTtl:0 으로 PoP 캐시 우회 (race-safe 필수)
+  const cur = (await env.STORES_KV.get(STORES_KEY, { type:'json', cacheTtl:0 })) || { stores: [] };
   const stores = Array.isArray(cur.stores) ? cur.stores : (Array.isArray(cur) ? cur : []);
 
   // biz 정규화 인덱스 (숫자만 10자리 → store)
@@ -105,7 +105,7 @@ export async function onRequestPost({ env, request }) {
     // ⚠ Write-time re-read — 동시 client push 와의 race condition 회피
     // 처음 읽은 cur 가 stale 일 수 있음. 쓰기 직전 KV 를 다시 읽고
     // 우리가 패치한 필드만 새 KV 위에 다시 덮는다.
-    const freshCur = await env.STORES_KV.get(STORES_KEY, 'json');
+    const freshCur = await env.STORES_KV.get(STORES_KEY, { type:'json', cacheTtl:0 });
     const freshArr = Array.isArray(freshCur?.stores) ? freshCur.stores
                     : (Array.isArray(freshCur) ? freshCur : null);
     if (freshArr && freshArr !== stores) {
