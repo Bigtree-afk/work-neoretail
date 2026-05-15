@@ -2720,8 +2720,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
-      <!-- 투입 장비 (카탈로그 + 커스텀 행) -->
-      <div style="background:var(--gray-50);border-radius:12px;padding:16px 20px;border:1px solid var(--gray-200)">
+      <!-- 투입 장비 — AS 카테고리 전용 (간소화 — 팝업 폼으로 추가) -->
+      <div class="js-as-only" style="background:var(--gray-50);border-radius:12px;padding:14px 18px;border:1px solid var(--gray-200);display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:700;color:var(--gray-700)">🔧 AS 투입 장비 <span id="asEquipCount" style="font-size:11px;color:var(--gray-500);font-weight:600;margin-left:4px"></span></div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openAsEquipAdd()" style="padding:5px 12px;font-size:11.5px;font-weight:800">＋ 장비 추가</button>
+        </div>
+        <div id="asEquipList" style="display:flex;flex-direction:column;gap:6px;min-height:40px"></div>
+        <div id="asEquipEmpty" style="text-align:center;padding:18px;color:var(--gray-400);font-size:12px;background:#fff;border:1px dashed var(--gray-300);border-radius:8px">투입 장비가 없습니다 — 우상단 "＋ 장비 추가"로 등록</div>
+        <div style="margin-top:6px;font-size:11px;color:var(--gray-400)">💡 장비 종류 → 카탈로그 항목 → 세부 정보 입력</div>
+      </div>
+
+      <!-- 투입 장비 (카탈로그 + 커스텀 행) — AS 가 아닐 때만 -->
+      <div class="js-non-as" style="background:var(--gray-50);border-radius:12px;padding:16px 20px;border:1px solid var(--gray-200)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
           <div style="font-size:13px;font-weight:700;color:var(--gray-700)">📦 투입 장비</div>
           <button type="button" class="btn btn-outline btn-sm" onclick="addEquipRow()" style="padding:4px 12px;font-size:11px">＋ 행 추가</button>
@@ -10416,6 +10427,81 @@ ${text.slice(0, 4000)}`;
     btn.innerHTML = shown ? '펼쳐보기 ▼' : '접기 ▲';
   };
 
+  /* ─── AS 폼 투입 장비 — 팝업 기반 추가 ─── */
+  // 작업 등록 폼이 열린 동안의 투입 장비 임시 저장
+  window._asEquipDraft = [];
+
+  function _renderAsEquipList() {
+    const list = document.getElementById('asEquipList');
+    const empty = document.getElementById('asEquipEmpty');
+    const cnt = document.getElementById('asEquipCount');
+    if (!list) return;
+    const items = window._asEquipDraft || [];
+    if (cnt) cnt.textContent = items.length ? '(' + items.length + '건)' : '';
+    if (items.length === 0) {
+      list.style.display = 'none';
+      if (empty) empty.style.display = 'block';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    list.style.display = 'flex';
+    const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+    list.innerHTML = items.map((e, idx) => {
+      const optsTxt = e.options && Object.keys(e.options).length
+        ? Object.entries(e.options).map(([k,v]) => `${k}: ${v}`).join(' · ')
+        : '';
+      const cond = e.condition === 'used' ? '<span style="background:#FEE2E2;color:#991B1B;font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;font-weight:700">중고</span>' : '<span style="background:#DBEAFE;color:#1E40AF;font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;font-weight:700">신품</span>';
+      return `<div style="background:#fff;border:1px solid var(--gray-200);border-left:3px solid var(--primary);border-radius:7px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:12.5px;color:var(--gray-900)">
+            ${escFn(e.name||'-')} × ${e.qty||1}
+            ${cond}
+            ${e.category ? `<span style="background:#F3F4F6;color:var(--gray-600);font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;font-weight:700">${escFn(e.category)}</span>` : ''}
+          </div>
+          ${e.serialNo ? `<div style="font-size:10.5px;color:var(--gray-500);margin-top:2px">S/N: ${escFn(e.serialNo)}</div>` : ''}
+          ${optsTxt ? `<div style="font-size:10.5px;color:var(--gray-500);margin-top:2px">${escFn(optsTxt)}</div>` : ''}
+          ${e.installedAt ? `<div style="font-size:10.5px;color:var(--gray-500);margin-top:2px">설치 ${escFn(e.installedAt)}${e.installedBy?' · '+escFn(e.installedBy):''}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button type="button" onclick="_asEquipEdit(${idx})" style="background:none;border:1px solid var(--gray-300);border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:inherit">✎</button>
+          <button type="button" onclick="_asEquipRemove(${idx})" style="background:none;border:1px solid #fca5a5;color:var(--danger);border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:inherit">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // AS 장비 추가 — 팝업 형태 (storeEquipEditorModal 재사용)
+  window.openAsEquipAdd = function(editIdx) {
+    const modal = (typeof _ensureStoreEquipModal === 'function') ? _ensureStoreEquipModal() : null;
+    if (!modal) { alert('장비 입력 모달을 불러올 수 없습니다'); return; }
+    const isEdit = typeof editIdx === 'number';
+    const current = isEdit ? (window._asEquipDraft[editIdx] || {}) : {};
+    document.getElementById('seemTitle').textContent = isEdit ? '🔧 AS 투입 장비 — 수정' : '🔧 AS 투입 장비 — 추가';
+    document.getElementById('seemBody').innerHTML = _renderEquipFormFields('seem_as', current);
+    document.getElementById('seemFooterLeft').innerHTML = '';
+    const saveBtn = document.getElementById('seemSaveBtn');
+    if (saveBtn) {
+      saveBtn.onclick = () => {
+        const data = _collectEquipForm('seem_as');
+        if (!data.name) { alert('장비명을 입력하세요'); return; }
+        if (!window._asEquipDraft) window._asEquipDraft = [];
+        if (isEdit) window._asEquipDraft[editIdx] = data;
+        else window._asEquipDraft.push(data);
+        modal.classList.remove('show');
+        _renderAsEquipList();
+      };
+    }
+    modal.classList.add('show');
+  };
+  window._asEquipEdit = (idx) => window.openAsEquipAdd(idx);
+  window._asEquipRemove = (idx) => {
+    if (!confirm('이 장비를 목록에서 제거하시겠습니까?')) return;
+    if (!window._asEquipDraft) return;
+    window._asEquipDraft.splice(idx, 1);
+    _renderAsEquipList();
+  };
+  window._renderAsEquipList = _renderAsEquipList;
+
   // 사용자가 다시 타이핑하면 선택 표시 숨김
   function _resetStorePickInfo() {
     const info = document.getElementById('jobStorePickedInfo');
@@ -12363,12 +12449,21 @@ ${text.slice(0, 4000)}`;
     const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
     // 매장
     setVal('jobStoreName', '');
-    setVal('jobStorePickedBiz', '-');
-    setVal('jobStorePickedCeo', '');
+    const bizEl = document.getElementById('jobStorePickedBiz');
+    if (bizEl) bizEl.textContent = '-';
+    const ceoEl = document.getElementById('jobStorePickedCeo');
+    if (ceoEl) ceoEl.textContent = '';
     const pickedInfo = document.getElementById('jobStorePickedInfo');
     if (pickedInfo) pickedInfo.style.display = 'none';
     const unregNotice = document.getElementById('unregNotice');
     if (unregNotice) unregNotice.style.display = 'none';
+    // 동일 매장 배너 숨김 (매장이 비었으니 표시할 게 없음)
+    const simBanner = document.getElementById('jobSimilarBanner');
+    if (simBanner) simBanner.style.display = 'none';
+    const simList = document.getElementById('jobSimList');
+    if (simList) simList.style.display = 'none';
+    const simToggle = document.getElementById('jobSimToggle');
+    if (simToggle) simToggle.innerHTML = '펼쳐보기 ▼';
     // 일정/메모/AS 접수
     setVal('jobInstallDate', '');
     setVal('jobSoftOpenDate', '');
@@ -12383,8 +12478,13 @@ ${text.slice(0, 4000)}`;
     setVal('jobVanSubcat', '');
     // 담당자
     const eng = document.getElementById('jobEngineer'); if (eng) eng.value = '';
+    // AS 투입 장비 임시 목록 초기화 + 렌더
+    window._asEquipDraft = [];
+    try { _renderAsEquipList(); } catch(e){}
     // 장비 카운터 (당구공) — buildBallSelectors 가 다시 그리지만 데이터 카운터는 별도
     try { if (typeof _resetEquipCounters === 'function') _resetEquipCounters(); } catch(e){}
+    // 등록 직후 다시 열 때 잔여 selected store id 도 초기화
+    try { window._currentJobPickedStoreId = null; } catch(e){}
   }
   window._resetJobForm = _resetJobForm;
 
