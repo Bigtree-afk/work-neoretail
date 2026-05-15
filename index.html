@@ -856,25 +856,28 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   <div class="topnav-divider"></div>
 
-  <!-- 네비게이션 링크 (데스크탑) -->
+  <!-- 네비게이션 링크 (데스크탑) — Phase A: 라벨 재설계 (라우팅은 기존 화면 유지) -->
   <div class="topnav-links" id="topnavLinks">
     <a class="nav-item active" onclick="showScreen('newopen')">
-      <span class="nav-icon">✚</span> 신규/상담
-    </a>
-    <a class="nav-item" onclick="showScreen('stores')">
-      <span class="nav-icon">▣</span> 점포 관리
-    </a>
-    <a class="nav-item" onclick="showScreen('jobs')">
-      <span class="nav-icon">●</span> 작업/일정
+      <span class="nav-icon">🆕</span> 신규
     </a>
     <a class="nav-item" onclick="showScreen('asmgmt')">
-      <span class="nav-icon">🔧</span> AS 관리
-    </a>
-    <a class="nav-item" onclick="showScreen('equipment')">
-      <span class="nav-icon">▦</span> 장비 재고
+      <span class="nav-icon">🔧</span> AS
     </a>
     <a class="nav-item" href="/vandocs.html" target="_blank" rel="noopener" title="VAN 가맹/변경 서류 업로드 (별도 창)">
-      <span class="nav-icon">📑</span> VAN서류
+      <span class="nav-icon">📑</span> VAN
+    </a>
+    <a class="nav-item" onclick="showScreen('jobs')">
+      <span class="nav-icon">🏷️</span> 소모품판매
+    </a>
+    <a class="nav-item" onclick="showScreen('stores')">
+      <span class="nav-icon">🏪</span> 점포관리
+    </a>
+    <a class="nav-item" onclick="showScreen('jobs')">
+      <span class="nav-icon">📅</span> 일정조회
+    </a>
+    <a class="nav-item" onclick="showScreen('equipment')">
+      <span class="nav-icon">▦</span> 장비재고
     </a>
   </div>
 
@@ -901,28 +904,31 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   </div>
 </nav>
 
-<!-- 모바일 드롭다운 메뉴 -->
+<!-- 모바일 드롭다운 메뉴 — Phase A: 라벨 재설계 -->
 <div class="topnav-mobile-menu" id="mobileMenu">
-  <div class="nav-section">메인</div>
-  <a class="nav-item active" onclick="showScreen('newopen'); closeMenu()">
-    <span class="nav-icon">✚</span> 신규/상담
-  </a>
-  <a class="nav-item" onclick="showScreen('stores'); closeMenu()">
-    <span class="nav-icon">▣</span> 점포 관리
-  </a>
   <div class="nav-section">업무</div>
-  <a class="nav-item" onclick="showScreen('jobs'); closeMenu()">
-    <span class="nav-icon">●</span> 작업/일정
+  <a class="nav-item active" onclick="showScreen('newopen'); closeMenu()">
+    <span class="nav-icon">🆕</span> 신규
   </a>
   <a class="nav-item" onclick="showScreen('asmgmt'); closeMenu()">
-    <span class="nav-icon">🔧</span> AS 관리
+    <span class="nav-icon">🔧</span> AS
+  </a>
+  <a class="nav-item" href="/vandocs.html" target="_blank" rel="noopener" onclick="closeMenu()">
+    <span class="nav-icon">📑</span> VAN
+  </a>
+  <a class="nav-item" onclick="showScreen('jobs'); closeMenu()">
+    <span class="nav-icon">🏷️</span> 소모품판매
+  </a>
+  <div class="nav-section">매장</div>
+  <a class="nav-item" onclick="showScreen('stores'); closeMenu()">
+    <span class="nav-icon">🏪</span> 점포관리
+  </a>
+  <a class="nav-item" onclick="showScreen('jobs'); closeMenu()">
+    <span class="nav-icon">📅</span> 일정조회
   </a>
   <div class="nav-section">운영</div>
   <a class="nav-item" onclick="showScreen('equipment'); closeMenu()">
-    <span class="nav-icon">▦</span> 장비 재고
-  </a>
-  <a class="nav-item" href="/vandocs.html" target="_blank" rel="noopener" onclick="closeMenu()">
-    <span class="nav-icon">📑</span> VAN서류
+    <span class="nav-icon">▦</span> 장비재고
   </a>
 </div>
 
