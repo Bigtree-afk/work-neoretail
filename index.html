@@ -7865,6 +7865,12 @@ ${text.slice(0, 4000)}`;
     try {
       const auth = (typeof getAuthState === 'function') ? getAuthState() : null;
       if (auth) {
+        // ns_users 의 최신 이름 우선 (관리자 페이지에서 이름 변경 즉시 반영)
+        try {
+          const users = JSON.parse(localStorage.getItem('ns_users') || '[]');
+          const me = users.find(u => (u.id||'').toLowerCase() === (auth.id||auth.email||'').toLowerCase());
+          if (me && me.name) return me.name;
+        } catch(_){}
         return auth.name || auth.displayName || auth.email || '익명';
       }
     } catch(e) {}
@@ -9074,7 +9080,8 @@ ${text.slice(0, 4000)}`;
       u = { id: email, name, role, picture, provider: 'google', createdAt: Date.now() };
       users.push(u);
     } else {
-      u.name = name || u.name;
+      // 이름은 처음 등록시에만 Google 값 사용 — 관리자가 수정한 이름을 보존
+      u.name = u.name || name;
       u.role = role;         // 화이트리스트 기준으로 매번 갱신
       u.picture = picture || u.picture || '';
       u.provider = 'google';
@@ -13614,8 +13621,8 @@ ${text.slice(0, 4000)}`;
     const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
     const normalized = window._threadMigrate(Array.isArray(thread) ? thread : []);
 
-    // ROOTs 시간순 정렬 (가장 오래된 것 먼저)
-    const roots = normalized.filter(e => e.parentId === null).sort((a,b) => String(a.ts||'').localeCompare(String(b.ts||'')));
+    // ROOTs — 미완료 우선(최신 → 오래된), 그 다음 완료(최신 → 오래된)
+    const roots = normalized.filter(e => e.parentId === null);
     const childrenByRoot = new Map();
     for (const e of normalized) {
       if (e.parentId) {
@@ -13624,6 +13631,17 @@ ${text.slice(0, 4000)}`;
       }
     }
     childrenByRoot.forEach(arr => arr.sort((a,b) => String(a.ts||'').localeCompare(String(b.ts||''))));
+    // 각 ROOT 의 그룹 상태 캐싱
+    const rootGroupStatus = new Map();
+    roots.forEach(r => {
+      rootGroupStatus.set(r.threadId, _groupStatus(r, childrenByRoot.get(r.threadId) || []));
+    });
+    roots.sort((a, b) => {
+      const aDone = rootGroupStatus.get(a.threadId) === '완료' ? 1 : 0;
+      const bDone = rootGroupStatus.get(b.threadId) === '완료' ? 1 : 0;
+      if (aDone !== bDone) return aDone - bDone;          // 미완료 먼저
+      return String(b.ts||'').localeCompare(String(a.ts||'')); // 동일 그룹 내 최신 ts 먼저
+    });
 
     // 펼침 상태 캐시 (DOM 재렌더 사이 유지)
     const openKey = '_threadOpen_' + (jobId || 'draft');
@@ -13837,6 +13855,12 @@ ${text.slice(0, 4000)}`;
     let arr = window._threadMigrate(_getThreadFor(jobId, draftMode));
     arr.push(entry);
     _setThreadFor(jobId, draftMode, arr);
+    // 완료 처리 시 — 해당 ROOT 자동 접힘 (사용자 토글값도 false 로 강제)
+    if (st === '완료') {
+      const openKey = '_threadOpen_' + (jobId || 'draft');
+      window[openKey] = window[openKey] || {};
+      window[openKey][rootId] = false;
+    }
     _rerenderThread(containerId, jobId, draftMode);
     try { showToast(st==='완료' ? '✅ 완료 처리되었습니다' : '🔄 진행 기록이 추가되었습니다'); } catch(e){}
   };
@@ -16116,9 +16140,17 @@ ${text.slice(0, 4000)}`;
   function _currentAuthName() {
     try {
       const a = JSON.parse(localStorage.getItem('ns_auth') || 'null');
-      return a && (a.name || a.email) || '';
+      if (!a) return '';
+      // 항상 ns_users 의 최신 이름 우선 (관리자 페이지에서 이름 변경 즉시 반영)
+      try {
+        const users = JSON.parse(localStorage.getItem('ns_users') || '[]');
+        const me = users.find(u => (u.id||'').toLowerCase() === (a.id||a.email||'').toLowerCase());
+        if (me && me.name) return me.name;
+      } catch(_){}
+      return a.name || a.email || '';
     } catch(e) { return ''; }
   }
+  window._currentAuthName = _currentAuthName;
 
   /* ── 정보 변경 다이얼로그 ── */
   function openStoreChangeDialog(storeId, fallbackStore) {
