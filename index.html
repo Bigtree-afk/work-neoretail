@@ -14785,18 +14785,29 @@ ${text.slice(0, 4000)}`;
       const cat2 = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
       if (cat2 === 'new' || cat2 === 'as') {
         if (typeof window._renderThreadGroups === 'function') {
-          // AS — 기존 asRequest 텍스트가 있고 스레드가 비었다면 첫 ROOT 로 자동 시드
+          // 기존 업무내역/접수정보를 첫 ROOT 로 자동 시드 — 스레드가 비었을 때만
+          // 소스 우선순위: LINE 메시지 → AS 접수내용 → 비고
           let initialThread = j.thread || [];
-          if (cat2 === 'as' && (!initialThread || initialThread.length === 0) && (j.asRequest || j.notes)) {
-            const seedText = (j.asRequest || j.notes || '').trim();
-            if (seedText) {
-              const seedTs = (j.asReceivedAt || '').slice(0,16).replace('T',' ')
+          if (!initialThread || initialThread.length === 0) {
+            const parts = [];
+            // 1) LINE 원문/요약
+            if (j.lineParsed && j.lineParsed.trim()) parts.push('📩 ' + j.lineParsed.trim());
+            else if (j.lineRaw && j.lineRaw.trim()) parts.push('📩 ' + j.lineRaw.trim());
+            // 2) AS 접수 요청
+            const asText = (j.asRequest || '').trim();
+            if (asText && !parts.some(p => p.includes(asText))) parts.push(asText);
+            // 3) 비고/notes (LINE/AS 와 중복 아닐 때만)
+            const notesText = (j.notes || '').trim();
+            if (notesText && !parts.some(p => p.includes(notesText))) parts.push(notesText);
+            if (parts.length > 0) {
+              const seedTs = (j.lineMsgAt || '').slice(0,16).replace('T',' ')
+                          || (j.asReceivedAt || '').slice(0,16).replace('T',' ')
                           || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,16).replace('T',' ') : '');
-              const seedAuthor = j.engineer || j.assignee || '담당자';
-              const seedRoot = { ts: seedTs, author: seedAuthor, status: '요청접수', text: seedText,
-                                 threadId: 'TR-seed-' + (j.id||'') , parentId: null };
+              const seedAuthor = j.lineSender || j.engineer || j.assignee || '담당자';
+              const seedRoot = { ts: seedTs, author: seedAuthor, status: '요청접수',
+                                 text: parts.join('\n\n'),
+                                 threadId: 'TR-seed-' + (j.id||Date.now()), parentId: null };
               initialThread = [seedRoot];
-              // 영구 저장
               try {
                 const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
                 const ix = jobs.findIndex(x => x.id === j.id);
