@@ -6330,8 +6330,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     job.equipment.forEach((e, i) => {
       // 적재 조건: (a) 명시적 체크 OR (b) 완료된 작업이면 무조건
       if (!checked[i] && !isDone) return;
-      // 중복 방지
-      const dupe = s.equipment.find(x => x.sourceJobId === job.id && x.sourceJobItemIdx === i);
+      // 중복 방지 — equipment 배열 미초기화 가드
+      const existing = Array.isArray(s.equipment) ? s.equipment : [];
+      const dupe = existing.find(x => x.sourceJobId === job.id && x.sourceJobItemIdx === i);
       if (dupe) return;
       const meta = checkedBy[i] || {};
       const inst = buildEquipInstance({
