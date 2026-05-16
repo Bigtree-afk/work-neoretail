@@ -17103,24 +17103,135 @@ ${text.slice(0, 4000)}`;
             <div style="margin-top:4px;font-size:11px">상단의 "+ 작업 등록"으로 추가하세요.</div>
           </div>`;
       } else {
-        tlEl.innerHTML = matched.map((j, idx) => {
-          const done = _isJobDone(j);
-          const dotClass = done ? 'done' : (idx === 0 ? 'current' : '');
-          const dotIcon  = done ? '✓' : '!';
-          const title    = (j.type ? `${j.type} — ` : '') + (j.title || '작업');
-          const date     = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '-');
-          const who      = j.engineer || j.assignee || '-';
-          const desc     = j.note || j.description || '';
-          return `
-            <div class="tl-item">
-              <div class="tl-dot ${dotClass}">${dotIcon}</div>
-              <div class="tl-content">
-                <div class="tl-title">${title}</div>
-                <div class="tl-date">${date} | ${who}</div>
-                ${desc ? `<div class="tl-desc">${desc}</div>` : ''}
+        // 디테일 렌더 — 조회 전용. 카테고리 태그 / thread 흐름 / 메모 / 일정 / 장비 모두 표시
+        const esc2 = (typeof esc === 'function') ? esc : (s)=>String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+        const catOfJob = (j) => {
+          const lc = String(j.lineCategory || '').toLowerCase();
+          const tp = String(j.type || j.category || '').toLowerCase();
+          const all = lc + ' ' + tp;
+          if (/label|equip_out|delivery|라벨|영수증|프라이스텍|소모품|택배/.test(all)) return { key:'supplies', tag:'🏷️ 소모품', color:'#a16207', bg:'#FEF3C7' };
+          if (/van_doc|밴서류|van.*신규|van.*재신고|van.*정산|van.*계약|van.*변경/.test(all)) return { key:'van', tag:'📑 VAN 서류', color:'#1d4ed8', bg:'#DBEAFE' };
+          if (/open_store|오픈|신규|new_open|newopen/.test(all)) return { key:'new', tag:'🆕 신규', color:'#15803d', bg:'#DCFCE7' };
+          if (/churn|폐업|매각|해지|이탈/.test(all)) return { key:'churn', tag:'🏪 이탈', color:'#7c2d12', bg:'#FED7AA' };
+          if (/pos_as|van_as|device_mgmt|as_pos|단말|a\/s|에이에스/.test(all) || /\bas\b/.test(all)) return { key:'as', tag:'🔧 AS', color:'#b91c1c', bg:'#FEE2E2' };
+          return { key:'etc', tag:'📋 업무', color:'#475569', bg:'#E2E8F0' };
+        };
+        const fmtDate = (v) => {
+          if (!v) return '';
+          if (typeof v === 'number') return new Date(v).toLocaleString('ko-KR');
+          const s = String(v);
+          if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.replace('T',' ').slice(0,16);
+          try { return new Date(s).toLocaleString('ko-KR'); } catch(e){ return s; }
+        };
+        const renderEquipList = (eq) => {
+          if (!Array.isArray(eq) || eq.length === 0) return '';
+          return `<div style="margin-top:6px;padding:6px 8px;background:#fff;border:1px dashed var(--gray-300);border-radius:6px;font-size:11px;color:var(--gray-700)">
+            <b style="font-size:10px;color:var(--gray-500)">📦 장비</b>
+            ${eq.map(e=>{
+              const name = esc2(e.name||e.item||'장비');
+              const v = e.variant||e.option||e.options||'';
+              const q = e.qty ? ` ×${e.qty}` : '';
+              const cond = e.condition ? ` <span style="color:var(--gray-500)">[${esc2(e.condition)}]</span>` : '';
+              return `<div style="margin-top:2px">• ${name}${v?' <span style="color:var(--gray-500)">'+esc2(v)+'</span>':''}${q}${cond}</div>`;
+            }).join('')}
+          </div>`;
+        };
+        const renderThread = (j) => {
+          const th = Array.isArray(j.thread) ? j.thread.slice() : [];
+          if (th.length === 0) return '';
+          // ts 오름차순 정렬 (시간 순서로 흐름 보이도록)
+          th.sort((a,b)=>String(a.ts||'').localeCompare(String(b.ts||'')));
+          const roots = th.filter(e => e && e.parentId === null);
+          if (roots.length === 0) {
+            // ROOT 없는 잔존 데이터 — flat 으로
+            return `<div style="margin-top:8px">${th.map(e=>`<div style="padding:4px 0;font-size:12px"><b>${esc2(e.status||'')}</b> · ${esc2(e.author||'')} · ${esc2(fmtDate(e.ts))}<br><span style="color:var(--gray-700)">${esc2((e.text||'').slice(0,300))}</span></div>`).join('')}</div>`;
+          }
+          // ts 오름차순 → 최근 요청이 아래. 사용자 요청대로 접수→진행→완료 흐름을 자연스럽게 노출
+          return `<div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">${roots.map((r,ri)=>{
+            const kids = th.filter(e => e && e.parentId === r.threadId);
+            const isDone = kids.some(k => k.status === '완료');
+            const isProg = kids.some(k => k.status === '진행');
+            const stateLabel = isDone ? '✅ 완료' : (isProg ? '🚗 진행중' : '📋 접수');
+            const stateColor = isDone ? '#15803d' : (isProg ? '#b45309' : '#1d4ed8');
+            return `<div style="border-left:3px solid ${stateColor};padding-left:10px;background:#FAFAFA;border-radius:0 8px 8px 0;padding:8px 10px">
+              <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+                <div>
+                  <span style="font-size:11px;font-weight:700;color:${stateColor}">📥 요청접수 #${ri+1}</span>
+                  <span style="font-size:11px;color:var(--gray-500);margin-left:6px">${esc2(fmtDate(r.ts))} · ${esc2(r.author||'-')}</span>
+                </div>
+                <span style="font-size:10px;font-weight:700;padding:2px 8px;background:${stateColor};color:#fff;border-radius:10px">${stateLabel}</span>
               </div>
+              <div style="font-size:12.5px;color:var(--gray-800);background:#fff;padding:6px 8px;border-radius:6px;border:1px solid var(--gray-200);white-space:pre-wrap;word-break:break-word">${esc2(r.text||'(내용 없음)')}</div>
+              ${kids.length > 0 ? `<div style="margin-top:8px;padding-left:14px;border-left:2px dotted var(--gray-300)">${kids.map(c=>{
+                const cColor = c.status === '완료' ? '#15803d' : (c.status === '진행' ? '#b45309' : '#475569');
+                const cIcon = c.status === '완료' ? '✅' : (c.status === '진행' ? '🚗' : '•');
+                return `<div style="margin-top:6px">
+                  <div style="font-size:11px"><b style="color:${cColor}">${cIcon} ${esc2(c.status||'기록')}</b> <span style="color:var(--gray-500)">· ${esc2(fmtDate(c.ts))} · ${esc2(c.author||'-')}</span></div>
+                  ${c.text ? `<div style="font-size:12px;color:var(--gray-700);margin-top:3px;padding:4px 6px;background:#fff;border:1px solid var(--gray-100);border-radius:4px;white-space:pre-wrap;word-break:break-word">${esc2(c.text)}</div>` : ''}
+                  ${renderEquipList(c.equipment)}
+                </div>`;
+              }).join('')}</div>` : '<div style="font-size:10px;color:var(--gray-400);margin-top:6px">↳ 처리 기록 없음</div>'}
             </div>`;
-        }).join('');
+          }).join('')}</div>`;
+        };
+        const renderMemos = (j) => {
+          const m = Array.isArray(j.memos) ? j.memos : [];
+          if (m.length === 0) return '';
+          return `<div style="margin-top:8px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:6px 8px">
+            <div style="font-size:10px;font-weight:700;color:#92400E;margin-bottom:4px">📝 메모 ${m.length}건</div>
+            ${m.slice().reverse().map(x=>`<div style="font-size:11.5px;color:#78350F;padding:3px 0;border-bottom:1px dotted #FCD34D"><span style="color:#92400E;font-size:10px">${esc2(fmtDate(x.at))} · ${esc2(x.by||'-')}</span><br>${esc2(x.text||'')}</div>`).join('')}
+          </div>`;
+        };
+        const renderSchedule = (j, cat) => {
+          if (cat.key !== 'new') return '';
+          const parts = [];
+          if (j.installDate)   parts.push(`<span style="color:var(--gray-600)">🔧 설치 <b>${esc2(j.installDate)}</b></span>`);
+          if (j.softOpenDate)  parts.push(`<span style="color:var(--gray-600)">🌅 가오픈 <b>${esc2(j.softOpenDate)}</b></span>`);
+          if (j.openDate)      parts.push(`<span style="color:var(--gray-600)">🎉 오픈 <b>${esc2(j.openDate)}</b></span>`);
+          if (j.contractDate)  parts.push(`<span style="color:var(--gray-600)">📄 계약 <b>${esc2(j.contractDate)}</b></span>`);
+          if (parts.length === 0) return '';
+          return `<div style="margin-top:6px;font-size:11px;display:flex;flex-wrap:wrap;gap:10px">${parts.join('')}</div>`;
+        };
+        const renderVanDocs = (j) => {
+          const vd = j.vandocs || {};
+          const keys = Object.keys(vd).filter(k => vd[k]);
+          if (keys.length === 0) return '';
+          return `<div style="margin-top:6px;font-size:11px;color:var(--gray-700)"><b style="font-size:10px;color:var(--gray-500)">📑 첨부 서류</b> ${keys.map(k=>esc2(k)).join(' · ')}</div>`;
+        };
+
+        tlEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:14px">` + matched.map((j) => {
+          const cat = catOfJob(j);
+          const done = _isJobDone(j);
+          const created = fmtDate(j.createdAt || j.date);
+          const finished = done ? fmtDate(j.completedAt || j.doneAt) : '';
+          const who = esc2(j.engineer || j.assignee || j._whoCreated || '-');
+          const lineLabel = j.lineCategory && (typeof LINE_TYPE_META !== 'undefined') ? (LINE_TYPE_META[j.lineCategory]?.label || '') : '';
+          const title = esc2(j.title || j.type || '업무');
+          const desc = j.note || j.description || j.notes || j.asRequest || j.lineParsed || '';
+          const hasThread = Array.isArray(j.thread) && j.thread.length > 0;
+          return `<div style="background:#fff;border:1px solid var(--gray-200);border-left:4px solid ${cat.color};border-radius:8px;padding:12px 14px;box-shadow:0 1px 2px rgba(0,0,0,.03)">
+            <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <span style="background:${cat.bg};color:${cat.color};font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px">${cat.tag}</span>
+                ${lineLabel ? `<span style="font-size:10px;color:var(--gray-500);font-weight:700">${esc2(lineLabel)}</span>` : ''}
+                <span style="font-size:13.5px;font-weight:700;color:var(--gray-800)">${title}</span>
+              </div>
+              <span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:${done?'#DCFCE7':'#FEF3C7'};color:${done?'#15803d':'#92400E'}">${done?'✓ 완료':'● 진행중'}</span>
+            </div>
+            <div style="font-size:11px;color:var(--gray-500);display:flex;flex-wrap:wrap;gap:10px">
+              ${created ? `<span>📅 등록 ${esc2(created)}</span>` : ''}
+              ${finished ? `<span>✅ 완료 ${esc2(finished)}</span>` : ''}
+              <span>👤 ${who}</span>
+              <span style="color:var(--gray-400)">· ID ${esc2(j.id||'')}</span>
+            </div>
+            ${renderSchedule(j, cat)}
+            ${desc && !hasThread ? `<div style="margin-top:8px;font-size:12.5px;color:var(--gray-700);background:#F9FAFB;padding:8px 10px;border-radius:6px;white-space:pre-wrap;word-break:break-word">${esc2(desc)}</div>` : ''}
+            ${renderThread(j)}
+            ${renderVanDocs(j)}
+            ${(!hasThread && Array.isArray(j.equipment) && j.equipment.length) ? renderEquipList(j.equipment) : ''}
+            ${renderMemos(j)}
+          </div>`;
+        }).join('') + `</div>`;
       }
 
       /* ════════════════════════════════════════
