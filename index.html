@@ -16807,46 +16807,76 @@ ${text.slice(0, 4000)}`;
       const groups = { ongoing:[], new:[], as:[], van:[], supplies:[], churn:[] };
       matched.forEach(j => {
         const cat = sdvCatOf(j);
-        if (!sdvDoneFn(j)) groups.ongoing.push({ j, cat });
+        // 진행 중 탭 — AS/신규는 미완료 ROOT 마다 1건씩 노출, 그 외는 job 단위
+        if (cat === 'as' || cat === 'new') {
+          const th = Array.isArray(j.thread) ? j.thread : [];
+          const incompleteRoots = th.filter(e => e && e.parentId === null)
+            .filter(r => !th.some(c => c && c.parentId === r.threadId && c.status === '완료'));
+          if (incompleteRoots.length > 0) {
+            incompleteRoots.forEach(r => groups.ongoing.push({ j, cat, r }));
+          } else if (!sdvDoneFn(j) && th.filter(e => e && e.parentId === null).length === 0) {
+            // thread 가 비어 있는 미완료 job (legacy) — job 단위로 표시
+            groups.ongoing.push({ j, cat });
+          }
+        } else if (!sdvDoneFn(j)) {
+          groups.ongoing.push({ j, cat });
+        }
         groups[cat] = groups[cat] || [];
         groups[cat].push(j);
       });
 
-      const sdvJobCard = (j, cat) => {
+      const sdvJobCard = (j, cat, root) => {
         const meta = sdvCatLabel[cat] || sdvCatLabel.as;
         const done = sdvDoneFn(j);
-        const date = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
-        const who = j.engineer || j.assignee || '';
-        const memos = Array.isArray(j.memos) ? j.memos.length : 0;
         const lineTag = j.lineCategory && (typeof LINE_TYPE_META !== 'undefined') ? (LINE_TYPE_META[j.lineCategory]?.label || j.lineCategory) : '';
 
-        // D-day 계산 (예정일 기준)
-        let whenBadge = '';
-        if (done) {
-          whenBadge = `<div class="when done">완료</div>`;
+        // root 가 주어지면 — 요청접수 ROOT 단위 표시 (AS/신규의 진행 중 탭에서 활용)
+        let titleHtml, metaHtml, whenBadge;
+        if (root) {
+          const txt = (root.text || '').replace(/\s+/g,' ').slice(0, 90);
+          titleHtml = sdvEsc(txt || '(내용 없음)');
+          const author = root.author || '';
+          const ts = root.ts || '';
+          metaHtml = `${ts ? '📅 '+sdvEsc(ts)+' · ' : ''}${author?sdvEsc(author):''}`;
+          // ROOT 의 진행 상태 — 자식 중 완료 여부
+          const th = j.thread || [];
+          const kids = th.filter(e => e && e.parentId === root.threadId);
+          const rootDone = kids.some(e => e.status === '완료');
+          const rootProg = kids.some(e => e.status === '진행');
+          whenBadge = rootDone
+            ? `<div class="when done">완료</div>`
+            : (rootProg ? `<div class="when">진행 중</div>` : `<div class="when">요청접수</div>`);
         } else {
-          const sched = j.scheduleDate || j.date;
-          if (sched) {
-            const today = new Date(); today.setHours(0,0,0,0);
-            const tgt = new Date(sched + 'T00:00:00');
-            const diff = Math.round((tgt - today)/86400000);
-            const txt = diff < 0 ? `D+${-diff}` : diff === 0 ? 'D-Day' : `D-${diff}`;
-            const urgent = diff <= 2 && diff >= -3;
-            whenBadge = `<div class="when ${urgent?'urgent':''}">${txt}</div>`;
+          const date = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
+          const who = j.engineer || j.assignee || '';
+          const memos = Array.isArray(j.memos) ? j.memos.length : 0;
+          titleHtml = sdvEsc(j.title || j.type || '업무');
+          metaHtml = `${date ? '📅 '+date+' · ' : ''}${who?who+' · ':''}${memos?'메모 '+memos+'건':''}`;
+          if (done) {
+            whenBadge = `<div class="when done">완료</div>`;
           } else {
-            whenBadge = `<div class="when">진행중</div>`;
+            const sched = j.scheduleDate || j.date;
+            if (sched) {
+              const today = new Date(); today.setHours(0,0,0,0);
+              const tgt = new Date(sched + 'T00:00:00');
+              const diff = Math.round((tgt - today)/86400000);
+              const txt = diff < 0 ? `D+${-diff}` : diff === 0 ? 'D-Day' : `D-${diff}`;
+              const urgent = diff <= 2 && diff >= -3;
+              whenBadge = `<div class="when ${urgent?'urgent':''}">${txt}</div>`;
+            } else {
+              whenBadge = `<div class="when">진행중</div>`;
+            }
           }
         }
 
-        // 업무 클릭 → 업무 폼 팝업을 위에 띄움 (매장 상세는 닫지 않음 → 닫으면 매장 상세로 복귀)
         const onclick = j.id ? `try{editNewopen('${sdvEsc(j.id)}')}catch(e){}` : '';
-        const moveBtn = j.id ? `<button type="button" title="카테고리 이동" onclick="event.stopPropagation();promptMoveJobCategory(event,'${sdvEsc(j.id)}')" style="background:transparent;border:1px solid var(--gray-300,#d1d5db);border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer;color:var(--gray-600,#4b5563);margin-right:6px">📂</button>` : '';
+        const moveBtn = (j.id && !root) ? `<button type="button" title="카테고리 이동" onclick="event.stopPropagation();promptMoveJobCategory(event,'${sdvEsc(j.id)}')" style="background:transparent;border:1px solid var(--gray-300,#d1d5db);border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer;color:var(--gray-600,#4b5563);margin-right:6px">📂</button>` : '';
         return `<div class="sdv2-jobcard cat-${meta.color}" ${onclick?`onclick="${onclick}"`:''}>
           <div class="left">
             <span class="cat-tag ${meta.color}">${meta.tag}</span>
             ${lineTag ? `<span style="font-size:10px;color:var(--gray-500);font-weight:700">${sdvEsc(lineTag)}</span>` : ''}
-            <div class="title">${sdvEsc(j.title || j.type || '업무')}</div>
-            <div class="meta">${date ? '📅 '+date+' · ' : ''}${who?who+' · ':''}${memos?'메모 '+memos+'건':''}</div>
+            <div class="title">${titleHtml}</div>
+            <div class="meta">${metaHtml}</div>
           </div>
           <div style="display:flex;align-items:center">${moveBtn}${whenBadge}</div>
         </div>`;
@@ -16981,7 +17011,7 @@ ${text.slice(0, 4000)}`;
         if (groups.ongoing.length === 0) {
           ongEl.innerHTML = `<div class="sdv2-empty"><div class="ico">✅</div>현재 진행 중인 업무가 없습니다</div>`;
         } else {
-          ongEl.innerHTML = groups.ongoing.map(({j, cat}) => sdvJobCard(j, cat)).join('');
+          ongEl.innerHTML = groups.ongoing.map(({j, cat, r}) => sdvJobCard(j, cat, r)).join('');
         }
       }
       const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
