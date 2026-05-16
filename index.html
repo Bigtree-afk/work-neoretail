@@ -4345,8 +4345,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     const groupMap = new Map();
     filtered.forEach(j => {
       const jName = (j.storeName || j.store || '').trim();
-      // 1) storeId 매칭 → 2) 매장명 정규화 매칭 (storeId 삭제됐거나 미설정된 경우)
+      // 매칭 우선순위:
+      //   1) storeId 매칭 + 매장명이 일치하면 그대로 사용
+      //   2) storeId 매칭됐지만 매장명이 다르면 → 매장명 매칭을 우선 (storeId 오염 보호)
+      //   3) storeId 매칭 실패면 매장명 매칭
       let store = j.storeId ? storeById.get(j.storeId) : null;
+      if (store && jName) {
+        const storeNameNorm = normFn(store.name || '');
+        const jNameNorm = normFn(jName);
+        if (storeNameNorm !== jNameNorm) {
+          const byName = storeByName.get(jNameNorm);
+          if (byName) store = byName;  // 이름이 맞는 매장 우선
+        }
+      }
       if (!store && jName) store = storeByName.get(normFn(jName)) || null;
       // 그룹 키 — store 가 매칭됐으면 그 id, 아니면 정규화 매장명
       const key = (store && store.id) || ('name:' + normFn(jName));
