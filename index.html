@@ -11331,8 +11331,18 @@ ${text.slice(0, 4000)}`;
           const bakHas = !(bv === undefined || bv === null || bv === '' || (Array.isArray(bv) && bv.length === 0));
           if (curEmpty && bakHas) cur[f] = (Array.isArray(bv) ? bv.slice() : bv);
         });
-        // _originalType 백업으로 type 복구 도움
-        if (b.type && !cur.type) cur.type = b.type;
+        // type 복구 — 백업이 신규/오픈이고 현재가 'AS 처리' 면 백업 우선
+        if (b.type && b.type !== cur.type) {
+          const bIsNew = /신규|오픈|new|open/i.test(b.type);
+          const curIsForcedAs = /^AS\s*처리$/.test(cur.type || '') || /^AS$/i.test(cur.type || '');
+          if (!cur.type) cur.type = b.type;
+          else if (bIsNew && curIsForcedAs) cur.type = b.type;
+        }
+        // 마이그레이션 흔적 제거
+        if (cur._asAggregated && b.type && /신규|오픈|new|open/i.test(b.type)) {
+          delete cur._asAggregated;
+          delete cur._originalType;
+        }
         // thread/memos 는 _mergeJobRecord 로 union (현재 우선)
         if (typeof _mergeJobRecord === 'function') {
           const m = _mergeJobRecord(cur, b);
