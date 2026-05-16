@@ -2760,37 +2760,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </div>
         </div>
 
-        <!-- 신규 전용 — 요청사항 / 처리 기록 스레드 -->
+        <!-- 신규 전용 — 요청사항 / 처리 기록 스레드 (그룹형) -->
         <div class="form-group js-new-only" style="margin:0;grid-column:1/-1">
-          <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:12px 14px">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-              <div style="font-weight:700;color:#1E40AF;font-size:13.5px">📋 요청사항 · 처리 기록</div>
-              <div style="font-size:10.5px;color:#1E40AF;opacity:0.8">시간/작성자 자동 기록 · 상태 토글로 진행관리</div>
-            </div>
-            <!-- 누적 스레드 -->
-            <div id="jobThreadList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;max-height:280px;overflow-y:auto"></div>
-            <div id="jobThreadEmpty" style="text-align:center;padding:14px;color:#64748B;font-size:11.5px;background:#fff;border:1px dashed #CBD5E1;border-radius:8px">기록이 없습니다 — 아래 입력칸에 요청사항을 작성해 추가하세요</div>
-            <!-- 입력 폼 -->
-            <div style="margin-top:8px;background:#fff;border:1px solid #BFDBFE;border-radius:8px;padding:9px 10px">
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
-                <span style="font-size:11px;color:var(--gray-600);font-weight:700">상태:</span>
-                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
-                  <input type="radio" name="jobThreadStatus" value="접수" checked style="margin:0"> 📥 접수
-                </label>
-                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
-                  <input type="radio" name="jobThreadStatus" value="진행" style="margin:0"> 🔄 진행
-                </label>
-                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
-                  <input type="radio" name="jobThreadStatus" value="완료" style="margin:0"> ✅ 완료
-                </label>
-                <span style="margin-left:auto;font-size:10.5px;color:var(--gray-500)">작성자: <b id="jobThreadAuthor">-</b></span>
-              </div>
-              <div style="display:flex;gap:6px">
-                <textarea id="jobThreadInput" placeholder="요청사항 / 처리 내용을 입력하세요..." style="flex:1;min-height:44px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
-                <button type="button" class="btn btn-primary btn-sm" onclick="_addJobThreadEntry()" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">＋ 기록 추가</button>
-              </div>
-            </div>
-          </div>
+          <div id="jobThreadContainer"></div>
+        </div>
+
+        <!-- 신규 전용 — VAN 서류 진행 -->
+        <div class="form-group js-new-only" style="margin:0;grid-column:1/-1">
+          <div id="jobVandocsContainer"></div>
         </div>
       </div>
 
@@ -11238,9 +11215,14 @@ ${text.slice(0, 4000)}`;
         : ((document.getElementById('jobNotes') || {}).value?.trim() || ''),
       equipment,
       equipTotal,
-      // 신규 업무 — 요청사항/처리 기록 스레드 (1단계: 신규에만 적용)
+      // 신규 업무 — 요청사항/처리 기록 스레드 (그룹형)
       thread: (Array.isArray(window._jobThreadDraft) && window._jobThreadDraft.length > 0)
-              ? window._jobThreadDraft.slice() : [],
+              ? (typeof window._threadMigrate === 'function' ? window._threadMigrate(window._jobThreadDraft.slice()) : window._jobThreadDraft.slice())
+              : [],
+      // VAN 서류 진행
+      vandocs: (window._jobVandocsDraft && typeof window._jobVandocsDraft === 'object')
+              ? JSON.parse(JSON.stringify(window._jobVandocsDraft))
+              : { van:{status:'서류접수',tid:'',serial:''}, easy:{status:'서류접수',tid:'',serial:''}, kakao:{status:'서류접수',tid:'',serial:''} },
       status:    isConsult ? '상담중' : (isAs ? '접수' : '진행중'),
       createdAt: Date.now()
     };
@@ -13472,23 +13454,12 @@ ${text.slice(0, 4000)}`;
     // AS 투입 장비 임시 목록 초기화 + 렌더
     window._asEquipDraft = [];
     try { _renderAsEquipList(); } catch(e){}
-    // 신규 — 요청사항 스레드 임시 목록 초기화 + 렌더
+    // 신규 — 요청사항 스레드 + VAN 서류 임시 목록 초기화 + 렌더
     window._jobThreadDraft = [];
     window._jobThreadJobId = null;
-    const thrInp = document.getElementById('jobThreadInput');
-    if (thrInp) thrInp.value = '';
-    const thrAuth = document.getElementById('jobThreadAuthor');
-    if (thrAuth) {
-      try {
-        const eng = (document.getElementById('jobEngineer')||{}).value || '';
-        const who = eng || ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자');
-        thrAuth.textContent = who || '담당자';
-      } catch(e){ thrAuth.textContent = '담당자'; }
-    }
-    // 기본 상태는 접수
-    const rec = document.querySelector('input[name="jobThreadStatus"][value="접수"]');
-    if (rec) rec.checked = true;
-    try { _renderJobThread(); } catch(e){}
+    window._jobVandocsDraft = { van:{status:'서류접수',tid:'',serial:''}, easy:{status:'서류접수',tid:'',serial:''}, kakao:{status:'서류접수',tid:'',serial:''} };
+    try { if (typeof window._renderThreadGroups === 'function') window._renderThreadGroups('jobThreadContainer', window._jobThreadDraft, { editable:true, jobId:null, draftMode:true }); } catch(e){}
+    try { if (typeof window._renderJobVandocs === 'function') window._renderJobVandocs('jobVandocsContainer', window._jobVandocsDraft, { editable:true, jobId:null, draftMode:true }); } catch(e){}
     // 장비 카운터 (당구공) — buildBallSelectors 가 다시 그리지만 데이터 카운터는 별도
     try { if (typeof _resetEquipCounters === 'function') _resetEquipCounters(); } catch(e){}
     // 등록 직후 다시 열 때 잔여 selected store id 도 초기화
@@ -13496,142 +13467,424 @@ ${text.slice(0, 4000)}`;
   }
   window._resetJobForm = _resetJobForm;
 
-  /* ─── 요청사항/처리 기록 스레드 (신규 업무 전용 — 1단계) ─── */
+  /* ─── 요청사항/처리 기록 스레드 (그룹형 — ROOT '요청접수' + children '진행'/'완료') ─── */
   window._jobThreadDraft = window._jobThreadDraft || [];
-  window._jobThreadJobId = window._jobThreadJobId || null;
+  window._jobVandocsDraft = window._jobVandocsDraft || { van:{status:'서류접수',tid:'',serial:''}, easy:{status:'서류접수',tid:'',serial:''}, kakao:{status:'서류접수',tid:'',serial:''} };
 
   function _threadStatusMeta(s) {
     if (s === '완료') return { color:'#065F46', bg:'#D1FAE5', border:'#A7F3D0', icon:'✅' };
     if (s === '진행') return { color:'#92400E', bg:'#FEF3C7', border:'#FCD34D', icon:'🔄' };
-    return { color:'#1E40AF', bg:'#DBEAFE', border:'#BFDBFE', icon:'📥' };  // 접수
+    return { color:'#1E40AF', bg:'#DBEAFE', border:'#BFDBFE', icon:'📥' };  // 요청접수
   }
 
-  function _renderJobThread() {
-    const list = document.getElementById('jobThreadList');
-    const empty = document.getElementById('jobThreadEmpty');
-    if (!list) return;
-    const arr = window._jobThreadDraft || [];
-    if (arr.length === 0) {
-      list.innerHTML = '';
-      if (empty) empty.style.display = '';
-      return;
-    }
-    if (empty) empty.style.display = 'none';
-    const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
-    list.innerHTML = arr.map((e, idx) => {
-      const meta = _threadStatusMeta(e.status);
-      return `<div style="background:#fff;border:1px solid ${meta.border};border-left:4px solid ${meta.color};border-radius:8px;padding:9px 11px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:5px">
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <span style="background:${meta.bg};color:${meta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${meta.icon} ${escFn(e.status||'접수')}</span>
-            <span style="font-size:11px;color:var(--gray-600);font-weight:700">${escFn(e.author||'담당자')}</span>
-            <span style="font-size:10.5px;color:var(--gray-400)">${escFn(e.ts||'')}</span>
-          </div>
-          <button type="button" onclick="_removeJobThreadEntry(${idx})" title="삭제" style="background:transparent;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 4px">✕</button>
-        </div>
-        <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${escFn(e.text||'')}</div>
-      </div>`;
-    }).join('');
+  // 상태 정규화 — 구버전 '접수' 를 '요청접수' 로 호환 처리
+  function _normalizeStatus(s) {
+    if (s === '접수') return '요청접수';
+    return s || '요청접수';
   }
-  window._renderJobThread = _renderJobThread;
 
-  window._addJobThreadEntry = function() {
-    const inp = document.getElementById('jobThreadInput');
-    const text = (inp && inp.value || '').trim();
-    if (!text) { try { showToast('내용을 입력하세요'); } catch(e){} return; }
-    const status = (document.querySelector('input[name="jobThreadStatus"]:checked')||{}).value || '접수';
-    const eng = (document.getElementById('jobEngineer')||{}).value || '';
-    const who = eng || ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
-    const ts = (typeof _kstDateTimeStr === 'function')
-      ? _kstDateTimeStr()
-      : new Date().toISOString().slice(0,16).replace('T',' ');
-    const entry = { ts, author: who, status, text };
-    window._jobThreadDraft = window._jobThreadDraft || [];
-    window._jobThreadDraft.push(entry);
-    _renderJobThread();
-    if (inp) inp.value = '';
-    // 편집 중인 기존 업무라면 즉시 저장 (편집 모드)
-    if (window._jobThreadJobId) {
-      try {
-        const arr = (typeof getJobs === 'function') ? (getJobs() || []) : [];
-        const idx = arr.findIndex(j => j.id === window._jobThreadJobId);
-        if (idx >= 0) {
-          arr[idx].thread = window._jobThreadDraft.slice();
-          // 마지막 상태를 업무 status 와 동기화
-          if (status === '완료') {
-            arr[idx].completed = true;
-            arr[idx].doneAt = ts;
-            arr[idx].status = '완료';
-          } else if (status === '진행') {
-            arr[idx].status = '진행중';
-          }
-          if (typeof saveJobs === 'function') saveJobs(arr);
-          try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
-          try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
+  // 마이그레이션 — 구버전 flat 스레드를 ROOT/child 구조로 정규화
+  window._threadMigrate = function(arr) {
+    if (!Array.isArray(arr)) return [];
+    const out = [];
+    let lastRootId = null;
+    let rand = 0;
+    const newId = () => 'TR-' + Date.now() + '-' + (++rand) + '-' + Math.random().toString(36).slice(2,7);
+    for (const raw of arr) {
+      if (!raw) continue;
+      const e = Object.assign({}, raw);
+      e.status = _normalizeStatus(e.status);
+      if (e.threadId && (e.parentId !== undefined)) {
+        // 이미 마이그된 항목
+        if (e.parentId === null && e.status === '요청접수') lastRootId = e.threadId;
+        out.push(e);
+        continue;
+      }
+      // 신규 정규화
+      if (e.status === '요청접수') {
+        e.threadId = newId();
+        e.parentId = null;
+        lastRootId = e.threadId;
+      } else {
+        // 진행/완료 → 가장 가까운 ROOT 의 child
+        if (!lastRootId) {
+          // 고아 child — 합성 ROOT 생성
+          const synth = { ts:e.ts||'', author:e.author||'담당자', status:'요청접수', text:'(이전 요청)', threadId:newId(), parentId:null };
+          out.push(synth);
+          lastRootId = synth.threadId;
         }
-      } catch(e) { console.warn('[thread] live-save 실패', e); }
+        e.threadId = newId();
+        e.parentId = lastRootId;
+      }
+      out.push(e);
     }
-    try { showToast('✅ 기록이 추가되었습니다'); } catch(e){}
+    return out;
   };
 
-  /* editNewopen 상세 모달용 — 기존 업무에 스레드 기록 추가 */
-  window.addJobThreadAt = function(jobId) {
-    const inp = document.getElementById('jobThreadEditInput-' + jobId);
-    const text = (inp && inp.value || '').trim();
-    if (!text) { try { showToast('내용을 입력하세요'); } catch(e){} return; }
-    const status = (document.querySelector('input[name="jobThreadEditStatus"]:checked')||{}).value || '접수';
-    const who = ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
-    const ts = (typeof _kstDateTimeStr === 'function')
-      ? _kstDateTimeStr()
-      : new Date().toISOString().slice(0,16).replace('T',' ');
-    const entry = { ts, author: who, status, text };
+  // 그룹의 resolved 상태
+  function _groupStatus(root, children) {
+    if (children.some(c => c.status === '완료')) return '완료';
+    if (children.some(c => c.status === '진행')) return '진행';
+    return '요청접수';
+  }
+
+  // 메인 렌더러 — newJobModal 과 editNewopen 양쪽에서 공유
+  window._renderThreadGroups = function(containerId, thread, opts) {
+    const root = document.getElementById(containerId);
+    if (!root) return;
+    opts = opts || {};
+    const editable = !!opts.editable;
+    const jobId = opts.jobId || null;
+    const draftMode = !!opts.draftMode;
+    const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+    const normalized = window._threadMigrate(Array.isArray(thread) ? thread : []);
+
+    // ROOTs 시간순 정렬 (가장 오래된 것 먼저)
+    const roots = normalized.filter(e => e.parentId === null).sort((a,b) => String(a.ts||'').localeCompare(String(b.ts||'')));
+    const childrenByRoot = new Map();
+    for (const e of normalized) {
+      if (e.parentId) {
+        if (!childrenByRoot.has(e.parentId)) childrenByRoot.set(e.parentId, []);
+        childrenByRoot.get(e.parentId).push(e);
+      }
+    }
+    childrenByRoot.forEach(arr => arr.sort((a,b) => String(a.ts||'').localeCompare(String(b.ts||''))));
+
+    // 펼침 상태 캐시 (DOM 재렌더 사이 유지)
+    const openKey = '_threadOpen_' + (jobId || 'draft');
+    window[openKey] = window[openKey] || {};
+    const openMap = window[openKey];
+
+    const ctxAttr = `data-ctx="${draftMode?'draft':'edit'}" data-jobid="${escFn(jobId||'')}"`;
+
+    const headerHtml = `
+      <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px 10px 0 0;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div style="font-weight:700;color:#1E40AF;font-size:13.5px">📋 요청사항 · 처리 기록 <span style="font-size:11px;font-weight:600;opacity:0.8">(요청 ${roots.length}건)</span></div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="window._toggleNewRootForm('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode})" style="padding:5px 12px;font-size:11.5px;font-weight:800">＋ 새 요청 접수</button>
+      </div>`;
+
+    // 새 ROOT 입력 폼 (토글)
+    const newRootOpen = !!openMap['__newroot__'];
+    const newRootFormHtml = newRootOpen ? `
+      <div style="background:#fff;border:1px solid #BFDBFE;border-top:none;padding:10px 12px">
+        <div style="display:flex;gap:6px">
+          <textarea id="${escFn(containerId)}__newroot" placeholder="새 요청 내용을 입력하세요..." style="flex:1;min-height:46px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
+          <button type="button" class="btn btn-primary btn-sm" onclick="window._submitNewRoot('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode})" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">등록</button>
+        </div>
+      </div>` : '';
+
+    let bodyHtml = '';
+    if (roots.length === 0) {
+      bodyHtml = `<div style="background:#fff;border:1px solid #BFDBFE;border-top:none;border-radius:0 0 10px 10px;padding:18px;text-align:center;color:#64748B;font-size:11.5px">요청이 없습니다 — 위 [＋ 새 요청 접수] 버튼으로 첫 요청을 등록하세요</div>`;
+    } else {
+      bodyHtml = `<div style="background:#fff;border:1px solid #BFDBFE;border-top:none;border-radius:0 0 10px 10px;padding:10px 12px;display:flex;flex-direction:column;gap:10px">`;
+      roots.forEach(r => {
+        const kids = childrenByRoot.get(r.threadId) || [];
+        const gStatus = _groupStatus(r, kids);
+        const isCompleted = (gStatus === '완료');
+        // 기본 펼침 상태: 미완료는 펼침, 완료는 접힘 — 사용자가 토글한 값 있으면 그것 사용
+        const userExpanded = openMap[r.threadId];
+        const expanded = (userExpanded === undefined) ? !isCompleted : !!userExpanded;
+        const rootMeta = _threadStatusMeta('요청접수');
+        const gMeta = _threadStatusMeta(gStatus);
+
+        const summaryText = (r.text || '').replace(/\s+/g,' ').slice(0,80);
+        const headerLine = `
+          <div onclick="window._toggleRoot('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}')" style="cursor:pointer;background:${rootMeta.bg};border:1px solid ${rootMeta.border};border-left:4px solid ${rootMeta.color};border-radius:8px;padding:8px 11px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="background:#fff;color:${rootMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${rootMeta.icon} 요청접수</span>
+            <span style="font-size:11px;color:var(--gray-700);font-weight:700">${escFn(r.author||'담당자')}</span>
+            <span style="font-size:10.5px;color:var(--gray-500)">${escFn(r.ts||'')}</span>
+            ${isCompleted ? `<span style="background:${gMeta.bg};color:${gMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${gMeta.icon} 완료</span>` : (gStatus==='진행' ? `<span style="background:${gMeta.bg};color:${gMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${gMeta.icon} 진행</span>` : '')}
+            <span style="margin-left:auto;font-size:14px;color:${rootMeta.color}">${expanded?'▾':'▸'}</span>
+          </div>`;
+
+        let detail = '';
+        if (expanded) {
+          // 요청 본문
+          detail += `<div style="background:#fff;border:1px solid ${rootMeta.border};border-left:4px solid ${rootMeta.color};border-radius:8px;padding:9px 11px;margin-top:6px">
+            <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${escFn(r.text||'')}</div>
+            ${editable ? `<div style="margin-top:6px;text-align:right"><button type="button" onclick="window._removeThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',true)" style="background:transparent;border:none;color:var(--gray-400);font-size:11px;cursor:pointer">요청 삭제</button></div>` : ''}
+          </div>`;
+
+          // children
+          kids.forEach(c => {
+            const cm = _threadStatusMeta(c.status);
+            detail += `<div style="background:#fff;border:1px solid ${cm.border};border-left:4px solid ${cm.color};border-radius:8px;padding:9px 11px;margin-top:6px;margin-left:18px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                  <span style="background:${cm.bg};color:${cm.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${cm.icon} ${escFn(c.status||'')}</span>
+                  <span style="font-size:11px;color:var(--gray-600);font-weight:700">${escFn(c.author||'담당자')}</span>
+                  <span style="font-size:10.5px;color:var(--gray-400)">${escFn(c.ts||'')}</span>
+                </div>
+                ${editable ? `<button type="button" onclick="if(confirm('이 기록을 삭제할까요?'))window._removeThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(c.threadId)}',false)" title="삭제" style="background:transparent;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 4px">✕</button>` : ''}
+              </div>
+              <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${escFn(c.text||'')}</div>
+            </div>`;
+          });
+
+          // 진행/완료 추가 폼 — 완료 그룹은 잠금
+          if (editable && !isCompleted) {
+            const formId = containerId + '__add_' + r.threadId;
+            detail += `<div style="margin-top:8px;margin-left:18px;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:8px;padding:9px 10px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
+                <span style="font-size:11px;color:var(--gray-600);font-weight:700">상태:</span>
+                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#fff;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
+                  <input type="radio" name="${escFn(formId)}_st" value="진행" checked style="margin:0"> 🔄 진행
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#fff;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
+                  <input type="radio" name="${escFn(formId)}_st" value="완료" style="margin:0"> ✅ 완료
+                </label>
+              </div>
+              <div style="display:flex;gap:6px">
+                <textarea id="${escFn(formId)}_text" placeholder="처리 내용을 입력하세요..." style="flex:1;min-height:42px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
+                <button type="button" class="btn btn-primary btn-sm" onclick="window._submitChild('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}','${escFn(formId)}')" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">＋ 기록 추가</button>
+              </div>
+            </div>`;
+          }
+        }
+
+        bodyHtml += `<div ${ctxAttr} data-rootid="${escFn(r.threadId)}">${headerLine}${detail}</div>`;
+      });
+      bodyHtml += `</div>`;
+    }
+
+    root.innerHTML = headerHtml + newRootFormHtml + bodyHtml;
+  };
+
+  // 새 ROOT 폼 토글
+  window._toggleNewRootForm = function(containerId, jobId, draftMode) {
+    const openKey = '_threadOpen_' + (jobId || 'draft');
+    window[openKey] = window[openKey] || {};
+    window[openKey]['__newroot__'] = !window[openKey]['__newroot__'];
+    _rerenderThread(containerId, jobId, draftMode);
+  };
+
+  // ROOT 펼침 토글
+  window._toggleRoot = function(containerId, jobId, draftMode, rootId) {
+    const openKey = '_threadOpen_' + (jobId || 'draft');
+    window[openKey] = window[openKey] || {};
+    // 현재 effective 상태 계산
+    const thread = _getThreadFor(jobId, draftMode);
+    const normalized = window._threadMigrate(thread);
+    const root = normalized.find(e => e.threadId === rootId);
+    if (!root) return;
+    const kids = normalized.filter(e => e.parentId === rootId);
+    const gStatus = _groupStatus(root, kids);
+    const cur = window[openKey][rootId];
+    const effective = (cur === undefined) ? (gStatus !== '완료') : !!cur;
+    window[openKey][rootId] = !effective;
+    _rerenderThread(containerId, jobId, draftMode);
+  };
+
+  function _getThreadFor(jobId, draftMode) {
+    if (draftMode) return window._jobThreadDraft || [];
+    if (!jobId) return [];
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const j = jobs.find(x => x.id === jobId);
+    return (j && Array.isArray(j.thread)) ? j.thread : [];
+  }
+
+  function _setThreadFor(jobId, draftMode, arr) {
+    if (draftMode) { window._jobThreadDraft = arr.slice(); return; }
+    if (!jobId) return;
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const i = jobs.findIndex(x => x.id === jobId);
     if (i < 0) return;
-    jobs[i].thread = (jobs[i].thread || []).concat([entry]);
-    // 상태 동기화
-    if (status === '완료') {
+    jobs[i].thread = arr.slice();
+    // job status 동기화
+    const norm = window._threadMigrate(arr);
+    const anyDone = norm.some(e => e.status === '완료');
+    const anyProg = norm.some(e => e.status === '진행');
+    if (anyDone) {
       jobs[i].completed = true;
+      const ts = norm.filter(e => e.status==='완료').slice(-1)[0]?.ts || '';
       jobs[i].doneAt = ts;
       jobs[i].completedAt = jobs[i].completedAt || new Date().toISOString();
       jobs[i].status = '완료';
-    } else if (status === '진행') {
+    } else if (anyProg) {
       jobs[i].status = '진행중';
       jobs[i].completed = false;
     }
     if (typeof saveJobs === 'function') saveJobs(jobs);
-    try { showToast('✅ 기록이 추가되었습니다'); } catch(e){}
     try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
     try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
-    try { editNewopen(jobId); } catch(e){}  // 모달 재렌더
-  };
-  window.removeJobThreadAt = function(jobId, idx) {
-    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
-    const i = jobs.findIndex(x => x.id === jobId);
-    if (i < 0) return;
-    const arr = jobs[i].thread || [];
-    if (idx < 0 || idx >= arr.length) return;
-    arr.splice(idx, 1);
-    jobs[i].thread = arr;
-    if (typeof saveJobs === 'function') saveJobs(jobs);
-    try { editNewopen(jobId); } catch(e){}
+  }
+
+  function _rerenderThread(containerId, jobId, draftMode) {
+    const thread = _getThreadFor(jobId, draftMode);
+    window._renderThreadGroups(containerId, thread, { editable:true, jobId: jobId||null, draftMode: !!draftMode });
+  }
+
+  function _newThreadId() {
+    return 'TR-' + Date.now() + '-' + Math.floor(Math.random()*1e9).toString(36);
+  }
+
+  function _kstNow() {
+    return (typeof _kstDateTimeStr === 'function')
+      ? _kstDateTimeStr()
+      : new Date().toISOString().slice(0,16).replace('T',' ');
+  }
+
+  function _whoNow() {
+    const eng = (document.getElementById('jobEngineer')||{}).value || '';
+    return eng || ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
+  }
+
+  // 새 ROOT 제출
+  window._submitNewRoot = function(containerId, jobId, draftMode) {
+    const ta = document.getElementById(containerId + '__newroot');
+    const text = (ta && ta.value || '').trim();
+    if (!text) { try { showToast('내용을 입력하세요'); } catch(e){} return; }
+    const ts = _kstNow();
+    const who = _whoNow();
+    const entry = { ts, author: who, status: '요청접수', text, threadId: _newThreadId(), parentId: null };
+    let arr = window._threadMigrate(_getThreadFor(jobId, draftMode));
+    arr.push(entry);
+    _setThreadFor(jobId, draftMode, arr);
+    // 새 ROOT 폼 닫기, 새 ROOT 펼침
+    const openKey = '_threadOpen_' + (jobId || 'draft');
+    window[openKey] = window[openKey] || {};
+    window[openKey]['__newroot__'] = false;
+    window[openKey][entry.threadId] = true;
+    _rerenderThread(containerId, jobId, draftMode);
+    try { showToast('✅ 새 요청이 접수되었습니다'); } catch(e){}
   };
 
+  // child 제출
+  window._submitChild = function(containerId, jobId, draftMode, rootId, formId) {
+    const ta = document.getElementById(formId + '_text');
+    const text = (ta && ta.value || '').trim();
+    if (!text) { try { showToast('내용을 입력하세요'); } catch(e){} return; }
+    const st = (document.querySelector(`input[name="${formId}_st"]:checked`)||{}).value || '진행';
+    const ts = _kstNow();
+    const who = _whoNow();
+    const entry = { ts, author: who, status: st, text, threadId: _newThreadId(), parentId: rootId };
+    let arr = window._threadMigrate(_getThreadFor(jobId, draftMode));
+    arr.push(entry);
+    _setThreadFor(jobId, draftMode, arr);
+    _rerenderThread(containerId, jobId, draftMode);
+    try { showToast(st==='완료' ? '✅ 완료 처리되었습니다' : '🔄 진행 기록이 추가되었습니다'); } catch(e){}
+  };
+
+  // 노드 삭제 (ROOT 또는 child)
+  window._removeThreadNode = function(containerId, jobId, draftMode, nodeId, isRoot) {
+    if (isRoot && !confirm('이 요청과 하위 기록을 모두 삭제할까요?')) return;
+    let arr = window._threadMigrate(_getThreadFor(jobId, draftMode));
+    if (isRoot) {
+      arr = arr.filter(e => e.threadId !== nodeId && e.parentId !== nodeId);
+    } else {
+      arr = arr.filter(e => e.threadId !== nodeId);
+    }
+    _setThreadFor(jobId, draftMode, arr);
+    _rerenderThread(containerId, jobId, draftMode);
+  };
+
+  // 구버전 호환 wrapper — 기존 호출자(있다면) 보호
+  window._renderJobThread = function() {
+    try { window._renderThreadGroups('jobThreadContainer', window._jobThreadDraft || [], { editable:true, jobId:null, draftMode:true }); } catch(e){}
+  };
+  window.addJobThreadAt = function(jobId) {
+    // 구 진입점 — 호환을 위해 그냥 모달 재오픈
+    try { editNewopen(jobId); } catch(e){}
+  };
+  window.removeJobThreadAt = function(jobId, idx) {
+    try { editNewopen(jobId); } catch(e){}
+  };
+  window._addJobThreadEntry = function() {
+    try { window._renderJobThread(); } catch(e){}
+  };
   window._removeJobThreadEntry = function(idx) {
-    const arr = window._jobThreadDraft || [];
-    if (idx < 0 || idx >= arr.length) return;
-    if (!confirm('이 기록을 삭제할까요?')) return;
-    arr.splice(idx, 1);
-    _renderJobThread();
-    if (window._jobThreadJobId) {
-      try {
-        const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
-        const i = jobs.findIndex(j => j.id === window._jobThreadJobId);
-        if (i >= 0) {
-          jobs[i].thread = arr.slice();
-          if (typeof saveJobs === 'function') saveJobs(jobs);
-        }
-      } catch(e){}
+    try { window._renderJobThread(); } catch(e){}
+  };
+
+  /* ─── VAN 서류 진행 ─── */
+  const VANDOC_KINDS = [
+    { key:'van',   label:'VAN',       icon:'💳' },
+    { key:'easy',  label:'간편결제',  icon:'📱' },
+    { key:'kakao', label:'카카오페이', icon:'🟡' }
+  ];
+  const VANDOC_STATES = [
+    { v:'서류접수', icon:'📥' },
+    { v:'신청진행', icon:'📤' },
+    { v:'진행완료', icon:'✅' }
+  ];
+
+  function _vandocStatusMeta(s) {
+    if (s === '진행완료') return { color:'#065F46', bg:'#D1FAE5', border:'#A7F3D0' };
+    if (s === '신청진행') return { color:'#92400E', bg:'#FEF3C7', border:'#FCD34D' };
+    return { color:'#1E40AF', bg:'#DBEAFE', border:'#BFDBFE' };
+  }
+
+  window._renderJobVandocs = function(containerId, vandocs, opts) {
+    const root = document.getElementById(containerId);
+    if (!root) return;
+    opts = opts || {};
+    const editable = !!opts.editable;
+    const jobId = opts.jobId || null;
+    const draftMode = !!opts.draftMode;
+    const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+    const data = vandocs || {};
+
+    const cards = VANDOC_KINDS.map(k => {
+      const d = data[k.key] || {};
+      const st = d.status || '서류접수';
+      const m = _vandocStatusMeta(st);
+      const tid = d.tid || '';
+      const serial = d.serial || '';
+      const radioName = `${containerId}_${k.key}_st`;
+      const states = VANDOC_STATES.map(s => `
+        <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:${st===s.v?m.bg:'#F1F5F9'};border:1px solid ${st===s.v?m.color:'#CBD5E1'};color:${st===s.v?m.color:'var(--gray-600)'};border-radius:14px;cursor:pointer;font-size:11px;font-weight:700">
+          <input type="radio" name="${escFn(radioName)}" value="${escFn(s.v)}" ${st===s.v?'checked':''} ${editable?'':'disabled'} onchange="window._updateVandoc('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(k.key)}','status',this.value)" style="margin:0"> ${s.icon} ${escFn(s.v)}
+        </label>`).join('');
+      return `
+        <div style="background:#fff;border:1px solid ${m.border};border-left:4px solid ${m.color};border-radius:10px;padding:11px 12px;display:flex;flex-direction:column;gap:7px;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:${m.color};font-size:13px">
+            <span>${k.icon}</span><span>${escFn(k.label)}</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">${states}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px">
+            <label style="display:flex;flex-direction:column;gap:3px">
+              <span style="font-size:10.5px;color:var(--gray-500);font-weight:600">TID</span>
+              <input type="text" value="${escFn(tid)}" placeholder="TID" ${editable?'':'disabled'} onchange="window._updateVandoc('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(k.key)}','tid',this.value)" style="padding:6px 8px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;background:#fff;font-family:inherit;width:100%;box-sizing:border-box">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:3px">
+              <span style="font-size:10.5px;color:var(--gray-500);font-weight:600">Serial</span>
+              <input type="text" value="${escFn(serial)}" placeholder="Serial" ${editable?'':'disabled'} onchange="window._updateVandoc('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(k.key)}','serial',this.value)" style="padding:6px 8px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;background:#fff;font-family:inherit;width:100%;box-sizing:border-box">
+            </label>
+          </div>
+        </div>`;
+    }).join('');
+
+    root.innerHTML = `
+      <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:12px 14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+          <div style="font-weight:700;color:#1E40AF;font-size:13.5px">📑 VAN 서류 진행</div>
+          <div style="font-size:10.5px;color:#1E40AF;opacity:0.8">3종 서류 — 상태 토글 · TID/Serial 자동 저장</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">${cards}</div>
+      </div>`;
+  };
+
+  window._updateVandoc = function(containerId, jobId, draftMode, kind, field, value) {
+    if (draftMode) {
+      window._jobVandocsDraft = window._jobVandocsDraft || { van:{}, easy:{}, kakao:{} };
+      window._jobVandocsDraft[kind] = window._jobVandocsDraft[kind] || {};
+      window._jobVandocsDraft[kind][field] = value;
+      // 상태 색상 갱신을 위해 재렌더
+      if (field === 'status') {
+        try { window._renderJobVandocs(containerId, window._jobVandocsDraft, { editable:true, jobId:null, draftMode:true }); } catch(e){}
+      }
+    } else if (jobId) {
+      const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+      const i = jobs.findIndex(x => x.id === jobId);
+      if (i < 0) return;
+      jobs[i].vandocs = jobs[i].vandocs || { van:{}, easy:{}, kakao:{} };
+      jobs[i].vandocs[kind] = jobs[i].vandocs[kind] || {};
+      jobs[i].vandocs[kind][field] = value;
+      if (typeof saveJobs === 'function') saveJobs(jobs);
+      if (field === 'status') {
+        try { window._renderJobVandocs(containerId, jobs[i].vandocs, { editable:true, jobId:jobId, draftMode:false }); } catch(e){}
+      }
     }
   };
 
@@ -14217,57 +14470,12 @@ ${text.slice(0, 4000)}`;
         </div>
 
         ${(() => {
-          /* 📋 요청사항 · 처리 기록 스레드 — 신규 업무 전용 (1단계) */
+          /* 📋 요청사항 · 처리 기록 (그룹) + VAN 서류 — 신규 업무 전용 */
           const cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
           if (cat !== 'new') return '';
-          const arr = Array.isArray(j.thread) ? j.thread : [];
-          const meta = (s) => {
-            if (s === '완료') return { color:'#065F46', bg:'#D1FAE5', border:'#A7F3D0', icon:'✅' };
-            if (s === '진행') return { color:'#92400E', bg:'#FEF3C7', border:'#FCD34D', icon:'🔄' };
-            return { color:'#1E40AF', bg:'#DBEAFE', border:'#BFDBFE', icon:'📥' };
-          };
-          const items = arr.map((e, idx) => {
-            const m = meta(e.status);
-            return `<div style="background:#fff;border:1px solid ${m.border};border-left:4px solid ${m.color};border-radius:8px;padding:9px 11px">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:5px">
-                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                  <span style="background:${m.bg};color:${m.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${m.icon} ${esc(e.status||'접수')}</span>
-                  <span style="font-size:11px;color:var(--gray-600);font-weight:700">${esc(e.author||'담당자')}</span>
-                  <span style="font-size:10.5px;color:var(--gray-400)">${esc(e.ts||'')}</span>
-                </div>
-                <button type="button" onclick="if(confirm('이 기록을 삭제할까요?'))removeJobThreadAt('${j.id}',${idx})" title="삭제" style="background:transparent;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 4px">✕</button>
-              </div>
-              <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${esc(e.text||'')}</div>
-            </div>`;
-          }).join('');
-          return `<div style="grid-column:1/-1;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:12px 14px">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-              <div style="font-weight:700;color:#1E40AF;font-size:13.5px">📋 요청사항 · 처리 기록 <span style="font-size:11px;font-weight:600;opacity:0.8">(${arr.length}건)</span></div>
-              <div style="font-size:10.5px;color:#1E40AF;opacity:0.8">시간/작성자 자동 · 상태 토글로 진행관리</div>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;max-height:320px;overflow-y:auto">
-              ${arr.length === 0
-                ? '<div style="text-align:center;padding:14px;color:#64748B;font-size:11.5px;background:#fff;border:1px dashed #CBD5E1;border-radius:8px">기록이 없습니다 — 아래 입력칸에 요청사항을 작성해 추가하세요</div>'
-                : items}
-            </div>
-            <div style="background:#fff;border:1px solid #BFDBFE;border-radius:8px;padding:9px 10px">
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
-                <span style="font-size:11px;color:var(--gray-600);font-weight:700">상태:</span>
-                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
-                  <input type="radio" name="jobThreadEditStatus" value="접수" checked style="margin:0"> 📥 접수
-                </label>
-                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
-                  <input type="radio" name="jobThreadEditStatus" value="진행" style="margin:0"> 🔄 진행
-                </label>
-                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
-                  <input type="radio" name="jobThreadEditStatus" value="완료" style="margin:0"> ✅ 완료
-                </label>
-              </div>
-              <div style="display:flex;gap:6px">
-                <textarea id="jobThreadEditInput-${j.id}" placeholder="요청사항 / 처리 내용을 입력하세요..." style="flex:1;min-height:44px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
-                <button type="button" class="btn btn-primary btn-sm" onclick="addJobThreadAt('${j.id}')" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">＋ 기록 추가</button>
-              </div>
-            </div>
+          return `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:14px">
+            <div id="jobThreadContainerEdit-${j.id}"></div>
+            <div id="jobVandocsContainerEdit-${j.id}"></div>
           </div>`;
         })()}
       </div>
@@ -14432,6 +14640,19 @@ ${text.slice(0, 4000)}`;
         </div>
       ` : ''}
     `;
+
+    // 🔁 신규 카테고리만 스레드/VAN서류 렌더
+    try {
+      const cat2 = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
+      if (cat2 === 'new') {
+        if (typeof window._renderThreadGroups === 'function') {
+          window._renderThreadGroups('jobThreadContainerEdit-' + j.id, j.thread || [], { editable:true, jobId:j.id, draftMode:false });
+        }
+        if (typeof window._renderJobVandocs === 'function') {
+          window._renderJobVandocs('jobVandocsContainerEdit-' + j.id, j.vandocs || {}, { editable:true, jobId:j.id, draftMode:false });
+        }
+      }
+    } catch(e){ console.warn('[editNewopen] thread/vandocs render 실패', e); }
 
     modal.classList.add('show');
   }
