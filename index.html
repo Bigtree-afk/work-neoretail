@@ -15305,22 +15305,14 @@ ${text.slice(0, 4000)}`;
     const body  = document.getElementById('newopenDetailBody');
     title.textContent = `📋 ${j.storeName || j.store || '-'} · ${j.type || '-'}`;
 
-    // 모달 푸터 좌측 — AS 작업은 상태 토글 픽커 / 그 외는 종료/되돌리기 버튼
+    // 모달 푸터 좌측 — AS 는 thread(요청사항·처리기록) 기반이므로 옛 상태 픽커 제거
+    // 신규/VAN/소모품 등은 기존 종료/되돌리기 버튼 유지
     const footerLeft = document.getElementById('newopenDetailFooterLeft');
     if (footerLeft) {
-      const isAsType = /AS/i.test(j.type || '');
-      if (isAsType) {
-        const cur = j.status || '접수';
-        const pickerHtml = AS_STATUS_FLOW.map(s => {
-          const m = AS_STATUS_META[s];
-          const active = (s === cur);
-          return `<button class="btn btn-sm" style="background:${active?m.color:'#fff'};color:${active?'#fff':m.color};border:1.5px solid ${m.color};font-size:11px;padding:5px 10px;font-weight:700;border-radius:8px${active?';box-shadow:0 0 0 2px '+m.bg:''}" onclick="setAsStatus('${j.id}','${s}')">${m.icon} ${esc(s)}</button>`;
-        }).join('');
-        footerLeft.innerHTML = `<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-          <span style="font-size:11px;color:var(--gray-500);font-weight:600;margin-right:4px">AS 상태:</span>
-          ${pickerHtml}
-          ${j.completedAt ? `<span style="margin-left:8px;font-size:11px;color:var(--gray-500)">완료 ${esc((j.completedAt||'').slice(0,16).replace('T',' '))}</span>` : ''}
-        </div>`;
+      const catFooter = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
+      if (catFooter === 'as') {
+        // 안내 문구만 (실제 상태 전환은 thread 의 진행/완료 라디오로)
+        footerLeft.innerHTML = `<span style="font-size:11px;color:var(--gray-500);font-weight:600">AS 진행 상태는 위쪽 <b>요청사항·처리 기록</b> 의 진행/완료 라디오로 관리하세요.</span>`;
       } else {
         const isJobDone = _isJobDone(j);
         footerLeft.innerHTML = isJobDone
@@ -16812,6 +16804,119 @@ ${text.slice(0, 4000)}`;
         el.innerHTML = jobs.map(j => sdvJobCard(j, cat || sdvCatOf(j))).join('');
       };
 
+      // AS 탭 전용 — 모든 ROOT(요청접수) 를 매장 단위로 통합 표시
+      // 노출 규칙:
+      //  · 미완료 ROOT 는 전부 표시 (개수 무제한)
+      //  · 미완료가 5건 미만이면 모자란 자리에 최근 완료 ROOT 채워 최대 5건
+      //  · 모두 완료라면 최근 5건만, 전체보기 버튼으로 펼침
+      const _sdvFillAsRootList = function(elId, asJobs) {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        if (!asJobs || asJobs.length === 0) {
+          el.innerHTML = `<div class="sdv2-empty"><div class="ico">📭</div>AS 이력이 없습니다</div>`;
+          return;
+        }
+        // 모든 AS job 의 ROOT 모으기 — 각 ROOT 에 parent job 참조
+        const allRoots = [];
+        asJobs.forEach(j => {
+          const th = Array.isArray(j.thread) ? j.thread : [];
+          th.filter(e => e && e.parentId === null).forEach(r => {
+            const isDone = th.some(e => e && e.parentId === r.threadId && e.status === '완료');
+            const doneEntry = isDone ? th.filter(e => e && e.parentId === r.threadId && e.status === '완료').slice(-1)[0] : null;
+            const lastChild = th.filter(e => e && e.parentId === r.threadId).slice(-1)[0];
+            allRoots.push({ j, r, isDone, doneAt: doneEntry?.ts || lastChild?.ts || r.ts || '' });
+          });
+        });
+        if (allRoots.length === 0) {
+          el.innerHTML = `<div class="sdv2-empty"><div class="ico">📭</div>등록된 AS 요청이 없습니다</div>`;
+          return;
+        }
+        const incomplete = allRoots.filter(x => !x.isDone)
+          .sort((a,b) => String(b.r.ts||'').localeCompare(String(a.r.ts||'')));
+        const completed  = allRoots.filter(x => x.isDone)
+          .sort((a,b) => String(b.doneAt||b.r.ts||'').localeCompare(String(a.doneAt||a.r.ts||'')));
+        // 노출 규칙 적용
+        const MAX = 5;
+        let visible = [];
+        let hasMore = false;
+        if (incomplete.length >= MAX) {
+          visible = incomplete;  // 미완료가 많으면 미완료만 (개수 무제한)
+        } else {
+          visible = incomplete.concat(completed.slice(0, MAX - incomplete.length));
+          hasMore = completed.length > (MAX - incomplete.length);
+        }
+        const cards = visible.map(x => _sdvAsRootCard(x.j, x.r, x.isDone, x.doneAt)).join('');
+        const totalIncomplete = incomplete.length;
+        const totalCompleted = completed.length;
+        const summary = `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;margin-bottom:8px;font-size:11.5px">
+          <div style="color:#991B1B;font-weight:700">🔧 AS 이력 — 미완료 ${totalIncomplete} · 완료 ${totalCompleted} · 총 ${allRoots.length}건</div>
+          ${hasMore ? `<button type="button" onclick="window._sdvShowAllAs('${esc(asJobs[0]?.storeId||'')}','${esc(asJobs[0]?.storeName||asJobs[0]?.store||'')}')" style="background:#B91C1C;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:10.5px;font-weight:800;cursor:pointer">📂 전체보기 (${totalCompleted}건 완료)</button>` : ''}
+        </div>`;
+        el.innerHTML = summary + cards;
+      };
+
+      // ROOT 카드 — 요청접수 단위 표시
+      const _sdvAsRootCard = function(j, r, isDone, doneAt) {
+        const meta = isDone
+          ? { bg:'#D1FAE5', color:'#065F46', border:'#A7F3D0', icon:'✅', tag:'완료' }
+          : { bg:'#DBEAFE', color:'#1E40AF', border:'#BFDBFE', icon:'📥', tag:'요청접수' };
+        const txt = (r.text || '').replace(/\s+/g,' ').slice(0,90);
+        const onclick = j.id ? `try{editNewopen('${sdvEsc(j.id)}')}catch(e){}` : '';
+        return `<div class="sdv2-jobcard" ${onclick?`onclick="${onclick}"`:''} style="border-left:4px solid ${meta.color}">
+          <div class="left">
+            <span class="cat-tag" style="background:${meta.bg};color:${meta.color}">${meta.icon} ${meta.tag}</span>
+            <div class="title" style="${isDone?'opacity:0.7':''}">${sdvEsc(txt || '(내용 없음)')}</div>
+            <div class="meta">${r.ts ? '📅 '+sdvEsc(r.ts)+' · ' : ''}${sdvEsc(r.author||'담당자')}${isDone && doneAt ? ' · 완료 '+sdvEsc(doneAt) : ''}</div>
+          </div>
+          <div class="when ${isDone?'done':''}">${isDone?'완료':'진행중'}</div>
+        </div>`;
+      };
+
+      // 전체보기 — AS 탭 인라인에서 모든 ROOT 펼침 (페이지 이동 대신 inline expand)
+      window._sdvShowAllAs = function(storeId, storeName) {
+        // 매장 상세 모달 활성화 상태에서 호출됨
+        const el = document.getElementById('detailAsList');
+        if (!el) return;
+        const allJobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+        const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
+        const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+        const target = normFn(storeName||'');
+        const asJobs = allJobs.filter(j => {
+          if (classifyFn(j) !== 'as') return false;
+          if (storeId && j.storeId === storeId) return true;
+          const sn = (j.storeName || j.store || '');
+          return sn && normFn(sn) === target;
+        });
+        const allRoots = [];
+        asJobs.forEach(j => {
+          const th = Array.isArray(j.thread) ? j.thread : [];
+          th.filter(e => e && e.parentId === null).forEach(r => {
+            const isDone = th.some(e => e && e.parentId === r.threadId && e.status === '완료');
+            const doneEntry = isDone ? th.filter(e => e && e.parentId === r.threadId && e.status === '완료').slice(-1)[0] : null;
+            allRoots.push({ j, r, isDone, doneAt: doneEntry?.ts || '' });
+          });
+        });
+        // 미완료 먼저 (최신순), 완료 (최신순)
+        const incomplete = allRoots.filter(x => !x.isDone).sort((a,b) => String(b.r.ts||'').localeCompare(String(a.r.ts||'')));
+        const completed = allRoots.filter(x => x.isDone).sort((a,b) => String(b.doneAt||b.r.ts||'').localeCompare(String(a.doneAt||a.r.ts||'')));
+        const all = incomplete.concat(completed);
+        const summary = `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;margin-bottom:8px;font-size:11.5px">
+          <div style="color:#991B1B;font-weight:700">🔧 AS 전체 이력 — 미완료 ${incomplete.length} · 완료 ${completed.length} · 총 ${all.length}건</div>
+          <button type="button" onclick="window._sdvAsRefresh('${esc(storeId||'')}','${esc(storeName||'')}')" style="background:#fff;color:#B91C1C;border:1px solid #B91C1C;border-radius:5px;padding:3px 10px;font-size:10.5px;font-weight:700;cursor:pointer">⏎ 최근 5건만 보기</button>
+        </div>`;
+        el.innerHTML = summary + all.map(x => _sdvAsRootCard(x.j, x.r, x.isDone, x.doneAt)).join('');
+      };
+      window._sdvAsRefresh = function(storeId, storeName) {
+        // 모달을 다시 열어 기본 5건 보기로 복귀
+        if (storeId && typeof window._hubOpenStoreById === 'function') {
+          window._hubOpenStoreById(storeId);
+        } else {
+          // storeId 없으면 그냥 5건 뷰로 재렌더 — 현재 매장 컨텍스트 사용
+          // (간단 처리: 모달 닫기)
+          try { document.getElementById('storeDetailModal')?.classList?.remove('show'); } catch(e){}
+        }
+      };
+
       // 진행 중
       const ongEl = document.getElementById('detailOngoingList');
       if (ongEl) {
@@ -16853,9 +16958,9 @@ ${text.slice(0, 4000)}`;
       const ongTab = document.querySelector('.sdv2-tab[data-pane="ongoing"]');
       if (ongTab) ongTab.classList.toggle('urgent', groups.ongoing.length > 0);
 
-      // 카테고리 탭 — AS 탭에는 churn 매장이탈도 합쳐서 보여줌
+      // 카테고리 탭 — AS 탭은 요청접수 ROOT 단위로 렌더 (매장의 모든 AS 이력 표시)
       sdvFill('detailNewList', groups.new||[], 'new');
-      sdvFill('detailAsList', [...(groups.as||[]), ...(groups.churn||[])], 'as');
+      _sdvFillAsRootList('detailAsList', [...(groups.as||[]), ...(groups.churn||[])]);
       sdvFill('detailVanList', groups.van||[], 'van');
       sdvFill('detailSuppliesList', groups.supplies||[], 'supplies');
 
