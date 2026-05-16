@@ -4375,30 +4375,69 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     const undone = g.jobs.filter(j => !_hubDoneFn(j)).length;
     const totalCnt = g.jobs.length;
     const allDone = undone === 0;
-    const cntClass = (undone > 0 && opts.urgentIfPending) ? ' urgent' : '';
-    const cntTxt = allDone ? `완료 (${totalCnt})` : `${undone} 업무`;
 
-    // 카테고리 뱃지 (현재 매장 그룹에 있는 카테고리들)
-    const subCats = [...new Set(g.jobs.map(j => j.type || j.category || ''))].filter(Boolean).slice(0, 3);
-    const badgesHtml = subCats.map(c => `<span class="gbtag ${cat}">${escFn(c)}</span>`).join('');
+    // byRoots — ROOT(요청접수) 단위로 카운트/렌더
+    let cntTxt, cntClass = '', badgesHtml = '', subsHtml = '';
+    if (opts.byRoots) {
+      const incRoots = _groupIncomplete(g);
+      const allRoots = _groupRoots(g);
+      const doneRoots = _groupCompleted(g);
+      cntTxt = (incRoots.length === 0)
+        ? `완료 (${doneRoots.length})`
+        : `${incRoots.length} 요청 · 총 ${allRoots.length}건`;
+      cntClass = (incRoots.length > 0 && opts.urgentIfPending) ? ' urgent' : '';
 
-    // 서브 업무 카드
-    const subsHtml = g.jobs.map(j => {
-      const dd = _hubDday(j);
-      const wnCls = dd.urgent ? 'urgent' : (dd.done ? 'done' : '');
-      const who = j.engineer || j.assignee || '';
-      const memos = Array.isArray(j.memos) ? j.memos.length : 0;
-      const date = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
-      const onclick = j.id ? `editNewopen('${escFn(j.id)}')` : '';
-      return `<div class="hub-sj" onclick="${onclick}">
-        <div class="sjl">
-          <span class="sjtag ${cat}">${escFn(j.type || cat)}</span>
-          <div class="sjti">${escFn(j.title || j.type || '업무')}</div>
-          <div class="sjmt">${date ? '📅 '+date+' · ' : ''}${who?who+' · ':''}${memos?'메모 '+memos+'건':''}</div>
-        </div>
-        <div class="sjwn ${wnCls}">${dd.text}</div>
-      </div>`;
-    }).join('');
+      // 뱃지 — 진행/완료 요약
+      const tags = [];
+      if (incRoots.length) tags.push(`<span class="gbtag ${cat}">📥 진행 ${incRoots.length}</span>`);
+      if (doneRoots.length) tags.push(`<span class="gbtag ${cat}" style="opacity:0.6">✅ 완료 ${doneRoots.length}</span>`);
+      badgesHtml = tags.join('');
+
+      // 서브 카드 — ROOT 별로 표시 (진행 먼저, 완료 나중)
+      const sortedRoots = [];
+      g.jobs.forEach(j => {
+        _jobRoots(j).forEach(r => sortedRoots.push({ j, r, done: _rootIsDone(j, r) }));
+      });
+      sortedRoots.sort((a, b) => {
+        if (a.done !== b.done) return a.done ? 1 : -1;  // 미완료 먼저
+        return String(b.r.ts||'').localeCompare(String(a.r.ts||'')); // 최신 먼저
+      });
+      subsHtml = sortedRoots.slice(0, 8).map(({ j, r, done }) => {
+        const txt = (r.text || '').replace(/\s+/g,' ').slice(0, 70);
+        const meta = j.asDueDate ? `예정 ${j.asDueDate}${j.asDueTime?' '+j.asDueTime:''}` : '';
+        const onclick = j.id ? `editNewopen('${escFn(j.id)}')` : '';
+        return `<div class="hub-sj" onclick="${onclick}">
+          <div class="sjl">
+            <span class="sjtag ${cat}" style="${done?'opacity:0.6':''}">${done?'✅ 완료':'📥 요청접수'}</span>
+            <div class="sjti">${escFn(txt || '(내용 없음)')}</div>
+            <div class="sjmt">${r.ts ? '📅 '+escFn(r.ts)+' · ' : ''}${escFn(r.author||'')}${meta?' · '+meta:''}</div>
+          </div>
+          <div class="sjwn ${done?'done':''}">${done?'완료':'진행중'}</div>
+        </div>`;
+      }).join('') + (sortedRoots.length > 8 ? `<div style="text-align:center;font-size:11px;color:var(--gray-400);padding:6px">... 외 ${sortedRoots.length - 8}건 (열어서 모두 보기)</div>` : '');
+    } else {
+      cntClass = (undone > 0 && opts.urgentIfPending) ? ' urgent' : '';
+      cntTxt = allDone ? `완료 (${totalCnt})` : `${undone} 업무`;
+      // 카테고리 뱃지
+      const subCats = [...new Set(g.jobs.map(j => j.type || j.category || ''))].filter(Boolean).slice(0, 3);
+      badgesHtml = subCats.map(c => `<span class="gbtag ${cat}">${escFn(c)}</span>`).join('');
+      subsHtml = g.jobs.map(j => {
+        const dd = _hubDday(j);
+        const wnCls = dd.urgent ? 'urgent' : (dd.done ? 'done' : '');
+        const who = j.engineer || j.assignee || '';
+        const memos = Array.isArray(j.memos) ? j.memos.length : 0;
+        const date = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
+        const onclick = j.id ? `editNewopen('${escFn(j.id)}')` : '';
+        return `<div class="hub-sj" onclick="${onclick}">
+          <div class="sjl">
+            <span class="sjtag ${cat}">${escFn(j.type || cat)}</span>
+            <div class="sjti">${escFn(j.title || j.type || '업무')}</div>
+            <div class="sjmt">${date ? '📅 '+date+' · ' : ''}${who?who+' · ':''}${memos?'메모 '+memos+'건':''}</div>
+          </div>
+          <div class="sjwn ${wnCls}">${dd.text}</div>
+        </div>`;
+      }).join('');
+    }
 
     // 매장 클릭: 매장 상세 모달 열기 (toggleStoreDetail 가 row 를 요구 — 가짜 row 만들기)
     const sIdAttr = s.id ? `data-store-id="${escFn(s.id)}"` : '';
@@ -4513,8 +4552,22 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   })();
 
   /* ─── 공용 hub 렌더 generator (AS/VAN/Supplies 공유) ─── */
+  // ROOT(요청접수) 단위 헬퍼 — AS/신규처럼 thread 그룹화된 카테고리에서 사용
+  function _jobRoots(j) {
+    return (Array.isArray(j.thread) ? j.thread : []).filter(e => e && e.parentId === null);
+  }
+  function _rootIsDone(j, root) {
+    return (j.thread||[]).some(e => e && e.parentId === root.threadId && e.status === '완료');
+  }
+  function _jobIncompleteRoots(j) { return _jobRoots(j).filter(r => !_rootIsDone(j, r)); }
+  function _jobCompletedRoots(j) { return _jobRoots(j).filter(r =>  _rootIsDone(j, r)); }
+  // 매장 그룹의 ROOT 총합/미완료/완료
+  function _groupRoots(g)         { return g.jobs.flatMap(j => _jobRoots(j)); }
+  function _groupIncomplete(g)    { return g.jobs.flatMap(j => _jobIncompleteRoots(j)); }
+  function _groupCompleted(g)     { return g.jobs.flatMap(j => _jobCompletedRoots(j)); }
+
   function _hubGenericRender(opts) {
-    // opts: { containerId, filtersId, searchId, cats:[...], cardCat, urgentIfPending, includeChurn, extraFilter }
+    // opts: { containerId, filtersId, searchId, cats:[...], cardCat, urgentIfPending, byRoots, includeChurn, extraFilter }
     const container = document.getElementById(opts.containerId);
     if (!container) return;
     const search = (document.getElementById(opts.searchId)?.value || '').trim().toLowerCase();
@@ -4524,19 +4577,42 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     const groups = _hubGroupByStore(j => catSet.has(window.classifyJobCategory(j)));
 
     let displayed = groups.filter(g => !search || g.storeName.toLowerCase().includes(search));
-    if (filter === 'progress') displayed = displayed.filter(g => g.jobs.some(j => !_hubDoneFn(j)));
-    else if (filter === 'done') displayed = displayed.filter(g => g.jobs.every(j => _hubDoneFn(j)));
-    else if (filter === 'urgent') displayed = displayed.filter(g => g.jobs.some(j => !_hubDoneFn(j) && _hubDday(j).urgent));
-    else if (filter === 'ar') displayed = displayed.filter(g => g.jobs.some(j => /후불|미수|outstanding/i.test(String(j.payment||j.note||j.notes||''))));
+    // ROOT 기반 필터 (AS/신규) — 그룹 안의 ROOT 가 진행/완료 인지로 판정
+    if (opts.byRoots) {
+      if (filter === 'progress') displayed = displayed.filter(g => _groupIncomplete(g).length > 0);
+      else if (filter === 'done') displayed = displayed.filter(g => _groupRoots(g).length > 0 && _groupIncomplete(g).length === 0);
+      else if (filter === 'urgent') displayed = displayed.filter(g => g.jobs.some(j => !_hubDoneFn(j) && _hubDday(j).urgent));
+      else if (filter === 'ar') displayed = displayed.filter(g => g.jobs.some(j => /후불|미수|outstanding/i.test(String(j.payment||j.note||j.notes||''))));
+    } else {
+      if (filter === 'progress') displayed = displayed.filter(g => g.jobs.some(j => !_hubDoneFn(j)));
+      else if (filter === 'done') displayed = displayed.filter(g => g.jobs.every(j => _hubDoneFn(j)));
+      else if (filter === 'urgent') displayed = displayed.filter(g => g.jobs.some(j => !_hubDoneFn(j) && _hubDday(j).urgent));
+      else if (filter === 'ar') displayed = displayed.filter(g => g.jobs.some(j => /후불|미수|outstanding/i.test(String(j.payment||j.note||j.notes||''))));
+    }
 
-    // 카운트 갱신
-    const cnts = {
-      all: groups.length,
-      prog: groups.filter(g => g.jobs.some(j => !_hubDoneFn(j))).length,
-      done: groups.filter(g => g.jobs.every(j => _hubDoneFn(j))).length,
-      urgent: groups.filter(g => g.jobs.some(j => !_hubDoneFn(j) && _hubDday(j).urgent)).length,
-      ar: groups.filter(g => g.jobs.some(j => /후불|미수/i.test(String(j.payment||j.note||j.notes||'')))).length,
-    };
+    // 카운트 갱신 — byRoots 면 ROOT 단위, 아니면 매장 단위
+    let cnts;
+    if (opts.byRoots) {
+      const allRoots = groups.flatMap(_groupRoots);
+      const progRoots = groups.flatMap(_groupIncomplete);
+      const doneRoots = groups.flatMap(_groupCompleted);
+      const urgentRoots = groups.flatMap(g => g.jobs.flatMap(j => _jobIncompleteRoots(j).filter(r => _hubDday(j).urgent)));
+      cnts = {
+        all: allRoots.length,
+        prog: progRoots.length,
+        done: doneRoots.length,
+        urgent: urgentRoots.length,
+        ar: groups.filter(g => g.jobs.some(j => /후불|미수/i.test(String(j.payment||j.note||j.notes||'')))).length,
+      };
+    } else {
+      cnts = {
+        all: groups.length,
+        prog: groups.filter(g => g.jobs.some(j => !_hubDoneFn(j))).length,
+        done: groups.filter(g => g.jobs.every(j => _hubDoneFn(j))).length,
+        urgent: groups.filter(g => g.jobs.some(j => !_hubDoneFn(j) && _hubDday(j).urgent)).length,
+        ar: groups.filter(g => g.jobs.some(j => /후불|미수/i.test(String(j.payment||j.note||j.notes||'')))).length,
+      };
+    }
     if (opts.cntMap) Object.entries(opts.cntMap).forEach(([k, id]) => {
       const el = document.getElementById(id); if (el && cnts[k] !== undefined) el.textContent = cnts[k];
     });
@@ -4546,7 +4622,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       return;
     }
     displayed.sort((a,b) => (a.jobs.some(j => !_hubDoneFn(j)) ? 0 : 1) - (b.jobs.some(j => !_hubDoneFn(j)) ? 0 : 1));
-    container.innerHTML = displayed.map(g => _hubRenderGroup(g, opts.cardCat, { urgentIfPending: !!opts.urgentIfPending })).join('');
+    container.innerHTML = displayed.map(g => _hubRenderGroup(g, opts.cardCat, { urgentIfPending: !!opts.urgentIfPending, byRoots: !!opts.byRoots })).join('');
   }
 
   /* ─── AS hub ─── */
@@ -4558,6 +4634,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       cats: ['as', 'churn'],
       cardCat: 'as',
       urgentIfPending: true,
+      byRoots: true,  // AS — 요청접수 ROOT 단위로 카운트·표시
       cntMap: { all:'ashubCntAll', prog:'ashubCntProg', done:'ashubCntDone', urgent:'ashubCntUrg' },
     });
   };
@@ -16750,10 +16827,29 @@ ${text.slice(0, 4000)}`;
         }
       }
       const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-      setText('detailOngoingCount', groups.ongoing.length);
-      setText('sdv2CntOngoing', groups.ongoing.length);
-      setText('sdv2CntNew', (groups.new||[]).length);
-      setText('sdv2CntAs', ((groups.as||[]).length + (groups.churn||[]).length));
+      // ROOT(요청접수) 단위 카운트 헬퍼 — AS / 신규처럼 thread 그룹 사용 카테고리
+      const _countRoots = (jobs) => jobs.reduce((s, j) => s + ((j.thread||[]).filter(e => e && e.parentId === null).length), 0);
+      const _countIncompleteRoots = (jobs) => jobs.reduce((s, j) => {
+        const th = j.thread || [];
+        const roots = th.filter(e => e && e.parentId === null);
+        const inc = roots.filter(r => !th.some(e => e && e.parentId === r.threadId && e.status === '완료'));
+        return s + inc.length;
+      }, 0);
+      // 진행 중 — ROOT 단위 (job 단위 + 진행 중 ROOT 합산)
+      const onAs = (groups.as||[]).concat(groups.churn||[]);
+      const onNew = (groups.new||[]);
+      const asRootIncomplete = _countIncompleteRoots(onAs);
+      const newRootIncomplete = _countIncompleteRoots(onNew);
+      const onTotal = groups.ongoing.length;  // job 단위 진행중
+      // 진행 중 탭 표시 — job 단위가 아니라 ROOT 단위로 (AS+신규는 ROOT, 그 외는 job)
+      const ongoingRootSum = asRootIncomplete + newRootIncomplete
+        + (groups.van||[]).filter(j => !sdvDoneFn(j)).length
+        + (groups.supplies||[]).filter(j => !sdvDoneFn(j)).length;
+      setText('detailOngoingCount', ongoingRootSum || onTotal);
+      setText('sdv2CntOngoing', ongoingRootSum || onTotal);
+      // 카테고리 탭 — AS/신규는 ROOT 총합 / 나머지는 job 갯수
+      setText('sdv2CntNew', _countRoots(onNew) || onNew.length);
+      setText('sdv2CntAs', _countRoots(onAs) || onAs.length);
       setText('sdv2CntVan', (groups.van||[]).length);
       setText('sdv2CntLog', matched.length);
       setText('sdv2CntSupplies', (groups.supplies||[]).length);
