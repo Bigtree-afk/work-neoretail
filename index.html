@@ -3446,8 +3446,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div id="backupStatusBox" style="background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;margin-bottom:10px"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <button class="btn btn-outline btn-sm" onclick="exportBackupFile()">📥 JSON 파일로 내보내기</button>
+          <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0;border-color:#16a34a;color:#15803d">
+            🩹 JSON 파일 선택복원
+            <input type="file" accept="application/json" onchange="selectiveImportBackupFile(this)" style="display:none">
+          </label>
           <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0">
-            📤 JSON 파일 복원
+            ↺ JSON 파일 전체복원
             <input type="file" accept="application/json" onchange="importBackupFile(this)" style="display:none">
           </label>
           <button class="btn btn-outline btn-sm" onclick="(function(){const s=createSnapshot();pushSnapshot(s);if(typeof showToast==='function')showToast('💾 지금 스냅샷 저장됨');})()">💾 지금 백업</button>
@@ -11372,6 +11376,31 @@ ${text.slice(0, 4000)}`;
     setTimeout(() => location.reload(), 300);
   }
   window.selectiveRestoreSnapshot = selectiveRestoreSnapshot;
+
+  // 파일에서 선택적 복원 — 다른 기기의 JSON 백업을 현재 데이터에 머지
+  function selectiveImportBackupFile(input) {
+    const file = input?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const snap = JSON.parse(String(e.target.result || '{}'));
+        if (typeof snap !== 'object' || snap == null) throw new Error('형식 오류');
+        // 임시로 ns_backups 마지막에 추가한 뒤 selectiveRestoreSnapshot 호출
+        const arr = getBackups();
+        arr.push(snap);
+        const tempIdx = arr.length - 1;
+        saveBackups(arr);
+        renderBackupStatus();
+        selectiveRestoreSnapshot(tempIdx);
+      } catch (err) {
+        alert('파일 복원 실패: ' + (err.message || err));
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+    input.value = '';
+  }
+  window.selectiveImportBackupFile = selectiveImportBackupFile;
 
   function renderBackupStatus() {
     const wrap = document.getElementById('backupStatusBox');
