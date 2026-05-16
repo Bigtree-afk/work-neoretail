@@ -11258,6 +11258,110 @@ ${text.slice(0, 4000)}`;
   }
   window.restoreSnapshot = restoreSnapshot;
 
+  /* ══════════════════════════════════════════════
+     선택적 복원 — 오늘 AS 작업을 보존하면서 손실 데이터만 복구
+
+     원칙:
+     - 같은 id 의 작업이 양쪽에 있으면 — 현재 thread/memos union 보존,
+       backup 에만 있는 installDate/softOpenDate/openDate/asTargets/equipment 등
+       을 현재에 채워 넣음 (현재 값이 비어있는 경우만)
+     - backup 에만 있고 현재에 없는 작업(=마이그레이션 삭제됨) → 그대로 추가
+     - 현재에만 있는 작업(=오늘 새로 만든 것) → 그대로 보존
+     - stores 도 동일하게 union 머지 (id 기준, 백업의 빈필드 보강 X, 누락된 매장만 추가)
+     - users / allowedEmails / comments 는 건드리지 않음
+  ══════════════════════════════════════════════ */
+  function selectiveRestoreSnapshot(idx) {
+    const arr = getBackups();
+    const snap = arr[idx];
+    if (!snap) return;
+    const snapJobs = Array.isArray(snap.jobs) ? snap.jobs : [];
+    const snapStores = Array.isArray(snap.stores) ? snap.stores : [];
+    const curJobs = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
+    const curStores = (function(){ try { return JSON.parse(localStorage.getItem('ns_stores')||'[]'); } catch { return []; } })();
+
+    // 미리 보기 카운트
+    const curJobIds = new Set(curJobs.map(j => j.id));
+    const curStoreIds = new Set(curStores.map(s => s.id));
+    const restoredJobs = snapJobs.filter(j => j && j.id && !curJobIds.has(j.id));
+    const restoredStores = snapStores.filter(s => s && s.id && !curStoreIds.has(s.id));
+    const fieldRestoreFields = ['installDate','softOpenDate','openDate','contractDate','jobDate','asReceivedAt','asDueDate','asTargets','equipment','equipTotal','engineer','assignee','memo','notes','lineParsed','lineRaw','lineCategory'];
+
+    // 필드 보강 시뮬레이션 (현재에 빈 필드 카운트)
+    let fieldFills = 0;
+    const snapById = new Map(snapJobs.map(j => [j.id, j]));
+    curJobs.forEach(j => {
+      const b = snapById.get(j.id);
+      if (!b) return;
+      fieldRestoreFields.forEach(f => {
+        const cur = j[f];
+        const bak = b[f];
+        const curEmpty = (cur === undefined || cur === null || cur === '' || (Array.isArray(cur) && cur.length === 0));
+        const bakHas = !(bak === undefined || bak === null || bak === '' || (Array.isArray(bak) && bak.length === 0));
+        if (curEmpty && bakHas) fieldFills++;
+      });
+    });
+
+    const ts = new Date(snap.ts).toLocaleString('ko-KR');
+    const msg = `[${ts}] 시점에서 선택적 복원합니다.\n\n` +
+      `• 삭제된 작업 되살리기: ${restoredJobs.length}건\n` +
+      `• 누락된 매장 되살리기: ${restoredStores.length}건\n` +
+      `• 현재 작업의 빈 필드 채우기: ${fieldFills}건 (설치예정일/오픈일/장비 등)\n\n` +
+      `오늘 추가한 AS 스레드/요청은 그대로 유지됩니다.\n계속하시겠습니까?`;
+    if (!confirm(msg)) return;
+
+    // 복원 직전 현재 상태 백업
+    pushSnapshot(createSnapshot());
+
+    // jobs 머지
+    const merged = curJobs.slice();
+    const mergedById = new Map(merged.map(j => [j.id, j]));
+    snapJobs.forEach(b => {
+      if (!b || !b.id) return;
+      const cur = mergedById.get(b.id);
+      if (!cur) {
+        // 통째로 부활
+        merged.push(b);
+        mergedById.set(b.id, b);
+      } else {
+        // 필드 보강 — 현재가 비어있는 필드만
+        fieldRestoreFields.forEach(f => {
+          const c = cur[f];
+          const bv = b[f];
+          const curEmpty = (c === undefined || c === null || c === '' || (Array.isArray(c) && c.length === 0));
+          const bakHas = !(bv === undefined || bv === null || bv === '' || (Array.isArray(bv) && bv.length === 0));
+          if (curEmpty && bakHas) cur[f] = (Array.isArray(bv) ? bv.slice() : bv);
+        });
+        // _originalType 백업으로 type 복구 도움
+        if (b.type && !cur.type) cur.type = b.type;
+        // thread/memos 는 _mergeJobRecord 로 union (현재 우선)
+        if (typeof _mergeJobRecord === 'function') {
+          const m = _mergeJobRecord(cur, b);
+          cur.thread = m.thread;
+          cur.memos = m.memos;
+          if (m.vandocs) cur.vandocs = m.vandocs;
+        }
+      }
+    });
+
+    // stores 머지 — 백업에만 있는 매장 추가, 기존 매장은 손대지 않음
+    const finalStores = curStores.slice();
+    const sById = new Map(finalStores.map(s => [s.id, s]));
+    snapStores.forEach(b => {
+      if (!b || !b.id) return;
+      if (!sById.has(b.id)) { finalStores.push(b); sById.set(b.id, b); }
+    });
+
+    localStorage.setItem('ns_jobs', JSON.stringify(merged));
+    localStorage.setItem('ns_stores', JSON.stringify(finalStores));
+
+    // 즉시 cloud push (다른 PC 가 stale cloud 로 다시 덮지 않게)
+    try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
+
+    alert(`✅ 선택적 복원 완료\n• 작업 ${restoredJobs.length}건 부활 · ${fieldFills}필드 보강\n• 매장 ${restoredStores.length}건 부활\n\n페이지를 새로고침합니다.`);
+    setTimeout(() => location.reload(), 300);
+  }
+  window.selectiveRestoreSnapshot = selectiveRestoreSnapshot;
+
   function renderBackupStatus() {
     const wrap = document.getElementById('backupStatusBox');
     if (!wrap) return;
@@ -11273,7 +11377,10 @@ ${text.slice(0, 4000)}`;
           <b>${new Date(s.ts).toLocaleString('ko-KR')}</b>
           <span style="color:var(--gray-400);margin-left:8px">점포 ${(s.stores||[]).length} · 작업 ${(s.jobs||[]).length} · 직원 ${(s.users||[]).length}</span>
         </div>
-        <button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px" onclick="restoreSnapshot(${realIdx})">복원</button>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px;border-color:#16a34a;color:#15803d" onclick="selectiveRestoreSnapshot(${realIdx})" title="현재 작업 보존하면서 누락 데이터만 복구">🩹 선택복원</button>
+          <button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px" onclick="restoreSnapshot(${realIdx})" title="이 시점으로 통째로 되돌림 (현재 작업 사라짐)">↺ 전체복원</button>
+        </div>
       </div>`;
     }).join('') || '<div style="padding:12px;text-align:center;color:var(--gray-400);font-size:11px">백업 없음</div>';
     wrap.innerHTML = `
