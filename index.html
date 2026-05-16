@@ -10999,6 +10999,182 @@ ${text.slice(0, 4000)}`;
   });
 
   /* ══════════════════════════════════════════════
+     AS 업무 매장당 집계 마이그레이션
+     — 기존 산재된 AS jobs 를 매장당 1건으로 통합
+     — thread[] 에 각 요청을 ROOT 로 누적
+     — 자동 1회 실행 (localStorage._as_aggregate_migration_v1)
+  ══════════════════════════════════════════════ */
+  window.migrateAsJobsToAggregate = function(opts) {
+    opts = opts || {};
+    const force = !!opts.force;
+    const FLAG = '_as_aggregate_migration_v1';
+    if (!force && localStorage.getItem(FLAG) === 'done') {
+      return { skipped: true, mergedStores: 0, removedJobs: 0 };
+    }
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    if (jobs.length === 0) {
+      localStorage.setItem(FLAG, 'done');
+      return { skipped: false, mergedStores: 0, removedJobs: 0 };
+    }
+    const classifyFn = window.classifyJobCategory || (() => 'as');
+    const isDoneFn = window._isJobDone || (j => j.completed || /완료/.test(j.status||''));
+    const normFn = (typeof _normalizeSearch === 'function')
+                  ? _normalizeSearch
+                  : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+
+    // 매장별 AS 업무 묶기
+    const groupsByStore = new Map();
+    jobs.forEach((j, idx) => {
+      if (classifyFn(j) !== 'as') return;
+      const key = j.storeId || ('name:' + normFn(j.storeName || j.store || ''));
+      if (!key || key === 'name:') return;  // 식별 불가 매장 skip
+      if (!groupsByStore.has(key)) groupsByStore.set(key, []);
+      groupsByStore.get(key).push({ idx, j });
+    });
+
+    let mergedStores = 0;
+    let removedJobs = 0;
+    const toRemove = new Set();
+
+    groupsByStore.forEach((items) => {
+      if (items.length < 2) return;
+      // 가장 오래된 업무를 canonical 로 보존 (createdAt 오름차순)
+      items.sort((a, b) => (Number(a.j.createdAt)||0) - (Number(b.j.createdAt)||0));
+      const canonical = items[0].j;
+      const canonicalIdx = items[0].idx;
+      const others = items.slice(1);
+
+      let mergedThread = Array.isArray(canonical.thread) ? canonical.thread.slice() : [];
+      // canonical 자체에 thread 가 없으면 자기 자신의 asRequest/notes 로 ROOT 시드
+      if (mergedThread.length === 0) {
+        const t = (canonical.asRequest || canonical.notes || canonical.lineParsed || canonical.lineRaw || '').trim();
+        if (t) {
+          const ts = (canonical.asReceivedAt || '').slice(0,16).replace('T',' ')
+                  || (canonical.createdAt ? new Date(canonical.createdAt).toISOString().slice(0,16).replace('T',' ') : '');
+          const rootId = 'TR-mig-' + (canonical.id || Date.now());
+          mergedThread.push({
+            ts, author: canonical.engineer || canonical.assignee || '담당자',
+            status: '요청접수', text: t,
+            threadId: rootId, parentId: null,
+          });
+          // canonical 도 완료 상태였다면 완료 child 추가
+          if (isDoneFn(canonical)) {
+            const dts = (canonical.completedAt || canonical.doneAt || '').slice(0,16).replace('T',' ') || ts;
+            mergedThread.push({
+              ts: dts, author: canonical.completedBy || canonical.engineer || '담당자',
+              status: '완료', text: '(완료 이력)',
+              threadId: 'TR-mig-done-' + (canonical.id || Date.now()),
+              parentId: rootId,
+            });
+          }
+        }
+      }
+
+      others.forEach(o => {
+        const oj = o.j;
+        const oth = Array.isArray(oj.thread) ? oj.thread : [];
+        if (oth.length > 0) {
+          // 기존 thread 가 있으면 그대로 append (threadId 충돌 방지 위해 prefix 부여)
+          oth.forEach(e => {
+            const cp = Object.assign({}, e);
+            if (cp.threadId) cp.threadId = 'TR-mig-' + oj.id + '-' + cp.threadId;
+            if (cp.parentId) cp.parentId = 'TR-mig-' + oj.id + '-' + cp.parentId;
+            mergedThread.push(cp);
+          });
+        } else {
+          // ROOT 합성
+          const t = (oj.asRequest || oj.notes || oj.lineParsed || oj.lineRaw || '').trim();
+          if (t) {
+            const ts = (oj.asReceivedAt || '').slice(0,16).replace('T',' ')
+                    || (oj.createdAt ? new Date(oj.createdAt).toISOString().slice(0,16).replace('T',' ') : '');
+            const rootId = 'TR-mig-' + (oj.id || Date.now());
+            mergedThread.push({
+              ts, author: oj.engineer || oj.assignee || '담당자',
+              status: '요청접수', text: t,
+              threadId: rootId, parentId: null,
+            });
+            if (isDoneFn(oj)) {
+              const dts = (oj.completedAt || oj.doneAt || '').slice(0,16).replace('T',' ') || ts;
+              mergedThread.push({
+                ts: dts, author: oj.completedBy || oj.engineer || '담당자',
+                status: '완료', text: '(완료 이력 — 마이그레이션)',
+                threadId: 'TR-mig-done-' + (oj.id || Date.now()),
+                parentId: rootId,
+              });
+            }
+          }
+        }
+
+        // AS 메타 머지 (canonical 에 없는 값만)
+        ['asReceivedAt','asDueDate','asDueTime','asRequest'].forEach(k => {
+          if (!canonical[k] && oj[k]) canonical[k] = oj[k];
+        });
+        if (Array.isArray(oj.asTargets) && oj.asTargets.length) {
+          const cur = Array.isArray(canonical.asTargets) ? canonical.asTargets : [];
+          canonical.asTargets = Array.from(new Set(cur.concat(oj.asTargets)));
+        }
+        if (Array.isArray(oj.equipment) && oj.equipment.length) {
+          canonical.equipment = (Array.isArray(canonical.equipment) ? canonical.equipment : []).concat(oj.equipment);
+          canonical.equipTotal = (Number(canonical.equipTotal)||0) + (Number(oj.equipTotal)||0);
+        }
+        if (Array.isArray(oj.memos) && oj.memos.length) {
+          canonical.memos = (Array.isArray(canonical.memos) ? canonical.memos : []).concat(oj.memos);
+        }
+        toRemove.add(o.idx);
+        removedJobs++;
+      });
+
+      // 스레드 정규화
+      if (typeof window._threadMigrate === 'function') {
+        mergedThread = window._threadMigrate(mergedThread);
+      }
+      canonical.thread = mergedThread;
+
+      // 상태 재평가
+      const roots = mergedThread.filter(e => e.parentId === null);
+      const hasIncomplete = roots.some(r => {
+        const kids = mergedThread.filter(k => k.parentId === r.threadId);
+        return !kids.some(k => k.status === '완료');
+      });
+      if (hasIncomplete) {
+        canonical.completed = false;
+        if (canonical.status === '완료' || canonical.status === '처리완료') canonical.status = '진행중';
+      } else if (roots.length > 0) {
+        canonical.completed = true;
+        canonical.status = '완료';
+      }
+      canonical._asAggregated = true;
+      jobs[canonicalIdx] = canonical;
+      mergedStores++;
+    });
+
+    // 인덱스 내림차순으로 삭제 (안전)
+    [...toRemove].sort((a,b)=>b-a).forEach(i => jobs.splice(i, 1));
+
+    if (typeof saveJobs === 'function') saveJobs(jobs);
+    localStorage.setItem(FLAG, 'done');
+    return { skipped: false, mergedStores, removedJobs };
+  };
+
+  // 자동 1회 실행 — getJobs/saveJobs 가 정의된 후
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      try {
+        if (typeof getJobs !== 'function' || typeof saveJobs !== 'function') return;
+        const result = window.migrateAsJobsToAggregate();
+        if (!result.skipped && result.mergedStores > 0) {
+          const msg = `🔁 AS 업무 통합 완료 — ${result.mergedStores}개 매장의 ${result.removedJobs + result.mergedStores}건을 매장당 1건으로 집계 (요청은 thread 에 누적)`;
+          if (typeof showToast === 'function') showToast(msg);
+          console.info('[AS 마이그레이션]', result);
+          try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
+          try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(e){}
+          try { if (typeof window.renderAsHub === 'function') window.renderAsHub(); } catch(e){}
+        }
+      } catch(e) { console.warn('[AS 마이그레이션 실패]', e); }
+    }, 1500);
+  });
+
+  /* ══════════════════════════════════════════════
      점포 등록 저장
   ══════════════════════════════════════════════ */
   function saveNewStore() {
