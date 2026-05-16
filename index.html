@@ -11277,10 +11277,17 @@ ${text.slice(0, 4000)}`;
                   ? _normalizeSearch
                   : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
 
-    // 매장별 AS 업무 묶기
+    // 매장별 AS 업무 묶기 — 명시적 AS 시그널만 합병 대상 (신규 fallthrough 보호)
+    const isExplicitAs = (j) => {
+      const lc = String(j.lineCategory || '').toLowerCase();
+      const tp = String(j.type || '').toLowerCase();
+      const all = lc + ' ' + tp;
+      return /pos_as|van_as|device_mgmt|as_pos|단말|a\/s|에이에스/.test(all) || /\bas\b/.test(all);
+    };
     const groupsByStore = new Map();
     jobs.forEach((j, idx) => {
       if (classifyFn(j) !== 'as') return;
+      if (!isExplicitAs(j)) return;  // 신규/기타가 fallthrough 로 끼는 사고 차단
       const key = j.storeId || ('name:' + normFn(j.storeName || j.store || ''));
       if (!key || key === 'name:') return;  // 식별 불가 매장 skip
       if (!groupsByStore.has(key)) groupsByStore.set(key, []);
@@ -11411,10 +11418,17 @@ ${text.slice(0, 4000)}`;
     // 인덱스 내림차순으로 삭제 (안전)
     [...toRemove].sort((a,b)=>b-a).forEach(i => jobs.splice(i, 1));
 
-    // v2 — AS 분류이지만 type 이 AS 가 아닌 모든 업무 일괄 정규화 (이미 통합된 단건 포함)
+    // v2 — AS 분류이고 + 명시적 AS 시그널 (lineCategory 가 AS 토큰) 인 경우만 type 정규화
+    // classifyJobCategory 의 fallthrough(=default 'as') 로 신규 작업이 잘못 잡혀
+    // type 이 'AS 처리' 로 덮어써지는 사고 방지
     let typeFixed = 0;
     jobs.forEach(j => {
       if (classifyFn(j) !== 'as') return;
+      const lc = String(j.lineCategory || '').toLowerCase();
+      const tp = String(j.type || '').toLowerCase();
+      const explicitAs = /pos_as|van_as|device_mgmt|as_pos|단말|a\/s|에이에스/.test(lc + ' ' + tp)
+                       || /\bas\b/.test(lc + ' ' + tp);
+      if (!explicitAs) return;  // 신규/기타 작업이 AS 로 fallthrough 된 경우 보호
       if (!/AS|에이에스/i.test(j.type || '')) {
         if (!j._originalType) j._originalType = j.type || '';
         j.type = 'AS 처리';
@@ -11428,10 +11442,63 @@ ${text.slice(0, 4000)}`;
     return { skipped: false, mergedStores, removedJobs };
   };
 
+  // ══════════════════════════════════════════════
+  // 복구 도구 — AS 마이그레이션이 잘못 'AS 처리' 로 바꾼 type 을 _originalType 으로 되돌림
+  // 콘솔: window.diagnoseTypeCoercion() / window.restoreOriginalJobType()
+  // ══════════════════════════════════════════════
+  window.diagnoseTypeCoercion = function() {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const affected = jobs.filter(j => j._originalType !== undefined);
+    const newOrig = affected.filter(j => /신규|오픈|new|open/i.test(j._originalType || ''));
+    const blankOrig = affected.filter(j => !j._originalType);
+    const otherOrig = affected.filter(j => j._originalType && !/신규|오픈|new|open/i.test(j._originalType));
+    console.group('[AS 마이그레이션 type 강제변경 진단]');
+    console.log('총 type 변경된 작업:', affected.length);
+    console.log('① 원본이 신규/오픈 계열:', newOrig.length, '건 ← 복구 후보');
+    newOrig.forEach(j => console.log(`   ${j.id} | now:${j.type} | was:${j._originalType} | store:${j.storeName||j.store}`));
+    console.log('② 원본이 빈 문자열:', blankOrig.length, '건');
+    console.log('③ 기타 원본:', otherOrig.length, '건');
+    otherOrig.forEach(j => console.log(`   ${j.id} | now:${j.type} | was:${j._originalType} | store:${j.storeName||j.store}`));
+    console.groupEnd();
+    return { affected, newOrig, blankOrig, otherOrig };
+  };
+
+  // ①번 (원본이 신규/오픈) 만 자동 복구. 다른 케이스는 옵션으로
+  window.restoreOriginalJobType = function(opts) {
+    opts = opts || {};
+    const includeAll = !!opts.all;
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    let restored = 0;
+    jobs.forEach(j => {
+      if (j._originalType === undefined) return;
+      const orig = j._originalType || '';
+      const isNewish = /신규|오픈|new|open/i.test(orig);
+      if (!isNewish && !includeAll) return;
+      if (!orig) return;
+      j.type = orig;
+      delete j._originalType;
+      delete j._asAggregated;
+      // lineCategory 도 신규 토큰으로 되돌림 (재분류 보장)
+      if (isNewish && !/open_store|new_open|newopen|오픈|신규/i.test(j.lineCategory || '')) {
+        j.lineCategory = 'open_store';
+      }
+      restored++;
+    });
+    if (restored > 0 && typeof saveJobs === 'function') {
+      saveJobs(jobs);
+      try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
+    }
+    console.info('[type 복구 완료]', restored, '건');
+    try { if (typeof showToast === 'function') showToast(`✅ ${restored}건의 작업 type 복구`); } catch(e){}
+    return restored;
+  };
+
   // 자동 1회 실행 — getJobs/saveJobs 가 정의된 후
   document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
       try {
+        // 부팅 시 자동 type 복구 — 신규 계열은 무조건 되돌림
+        try { window.restoreOriginalJobType(); } catch(e){}
         if (typeof getJobs !== 'function' || typeof saveJobs !== 'function') return;
         const result = window.migrateAsJobsToAggregate();
         if (!result.skipped && result.mergedStores > 0) {
