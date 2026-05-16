@@ -11127,16 +11127,20 @@ ${text.slice(0, 4000)}`;
     if (!storeName) { showToast('점포명을 입력하세요'); document.getElementById('jobStoreName')?.focus(); return; }
 
     // F-2: 중복 감지 — 동일 매장+동일 카테고리 7일내 진행 중 업무 존재 시 확인
+    // AS 는 자동 머지 정책이므로 confirm 스킵 (별도 업무 생성 X)
     try {
       const _candType = (document.getElementById('jobType') || {}).value || '';
-      const _dup = (typeof window.findSimilarRecentJob === 'function')
-        ? window.findSimilarRecentJob(storeName, _candType, 7) : null;
-      if (_dup) {
-        const _date = _dup.date || (_dup.createdAt ? new Date(_dup.createdAt).toISOString().slice(0,10) : '');
-        const _who = _dup.engineer || _dup.assignee || '담당자 미지정';
-        const msg = `⚠️ 동일 매장에 최근 7일 내 같은 카테고리의 진행 중 업무가 있습니다.\n\n` +
-                    `· ${storeName}\n· ${_dup.type || '업무'}${_date?' ('+_date+')':''}\n· ${_who}\n\n계속 등록하시겠습니까?`;
-        if (!confirm(msg)) return;
+      const _isAsCheck = /AS/i.test(_candType);
+      if (!_isAsCheck) {
+        const _dup = (typeof window.findSimilarRecentJob === 'function')
+          ? window.findSimilarRecentJob(storeName, _candType, 7) : null;
+        if (_dup) {
+          const _date = _dup.date || (_dup.createdAt ? new Date(_dup.createdAt).toISOString().slice(0,10) : '');
+          const _who = _dup.engineer || _dup.assignee || '담당자 미지정';
+          const msg = `⚠️ 동일 매장에 최근 7일 내 같은 카테고리의 진행 중 업무가 있습니다.\n\n` +
+                      `· ${storeName}\n· ${_dup.type || '업무'}${_date?' ('+_date+')':''}\n· ${_who}\n\n계속 등록하시겠습니까?`;
+          if (!confirm(msg)) return;
+        }
       }
     } catch(e) { console.warn('[saveNewJob] dup-check 실패', e); }
 
@@ -11248,11 +11252,78 @@ ${text.slice(0, 4000)}`;
     };
 
     const jobs = getJobs();
-    jobs.unshift(job);
+
+    // 🔁 AS 통합: 동일 매장에 진행 중 AS 업무가 있으면 별도 업무 생성 X,
+    //    기존 AS 업무의 thread 에 새 요청접수 ROOT 로 추가
+    let mergedIntoExisting = null;
+    if (isAs && !job.unregistered) {
+      const isDoneFn = (typeof window._isJobDone === 'function') ? window._isJobDone : () => false;
+      const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
+      const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+      const target = normFn(storeName);
+      const existingIdx = jobs.findIndex(j => {
+        if (isDoneFn(j)) return false;
+        if (classifyFn(j) !== 'as') return false;
+        const sn = (j.storeName || j.store || '').trim();
+        if (!sn) return false;
+        return normFn(sn) === target;
+      });
+      if (existingIdx >= 0) {
+        const existing = jobs[existingIdx];
+        // 새 요청접수 ROOT 생성 — 신규 모달에서 입력한 텍스트 사용
+        const newRootText = (asInfo && asInfo.request) ? asInfo.request.trim()
+                        : (job.notes && job.notes.trim()) ? job.notes.trim()
+                        : '(요청 내용 없음)';
+        const ts = (typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr()
+                  : new Date().toISOString().slice(0,16).replace('T',' ');
+        const author = ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
+        const newRoot = {
+          ts, author, status:'요청접수', text: newRootText,
+          threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+          parentId: null,
+        };
+        const existingThread = Array.isArray(existing.thread) ? existing.thread.slice() : [];
+        // 신규 등록 폼에서 사용자가 직접 추가한 ROOT/child 가 있다면 함께 머지
+        const draftExtras = Array.isArray(window._jobThreadDraft) ? window._jobThreadDraft.slice() : [];
+        const merged = existingThread.concat([newRoot]).concat(draftExtras);
+        existing.thread = (typeof window._threadMigrate === 'function')
+                        ? window._threadMigrate(merged) : merged;
+        // AS 메타: 최근 접수일/처리예정 등 새 값이 있으면 갱신 (없으면 기존 유지)
+        if (asInfo) {
+          if (asInfo.receivedAt) existing.asReceivedAt = asInfo.receivedAt;
+          if (asInfo.dueDate)    existing.asDueDate    = asInfo.dueDate;
+          if (asInfo.dueTime)    existing.asDueTime    = asInfo.dueTime;
+          if (Array.isArray(asInfo.targets) && asInfo.targets.length) {
+            const cur = Array.isArray(existing.asTargets) ? existing.asTargets : [];
+            existing.asTargets = Array.from(new Set(cur.concat(asInfo.targets)));
+          }
+        }
+        // 투입 장비 머지 (있으면 기존 뒤에 append)
+        if (Array.isArray(job.equipment) && job.equipment.length) {
+          existing.equipment = (Array.isArray(existing.equipment) ? existing.equipment : []).concat(job.equipment);
+          existing.equipTotal = (Number(existing.equipTotal)||0) + (Number(job.equipTotal)||0);
+        }
+        // 현재 진행 중으로 상태 환원
+        if (existing.status === '완료' || existing.completed) {
+          existing.status = '진행중';
+          existing.completed = false;
+        }
+        jobs[existingIdx] = existing;
+        mergedIntoExisting = existing;
+      }
+    }
+
+    if (!mergedIntoExisting) {
+      jobs.unshift(job);
+    }
     saveJobs(jobs);
 
     closeModal('newJobModal');
-    showToast(`✅ ${storeName} 작업이 등록되었습니다${job.unregistered ? ' (미등록 가맹점)' : ''}`);
+    if (mergedIntoExisting) {
+      showToast(`✅ ${storeName} — 기존 AS 업무에 새 요청이 추가되었습니다`);
+    } else {
+      showToast(`✅ ${storeName} 작업이 등록되었습니다${job.unregistered ? ' (미등록 가맹점)' : ''}`);
+    }
 
     // 대시보드/신규관리/상담조회 갱신
     try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
