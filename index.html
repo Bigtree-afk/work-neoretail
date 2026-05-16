@@ -14020,14 +14020,19 @@ ${text.slice(0, 4000)}`;
         const rootMeta = _threadStatusMeta('요청접수');
         const gMeta = _threadStatusMeta(gStatus);
 
-        const summaryText = (r.text || '').replace(/\s+/g,' ').slice(0,80);
+        const summaryText = (r.text || '').replace(/\s+/g,' ').slice(0,120);
+        // 헤더 1행 — 메타 + 상태 뱃지 + 펼침 화살표
+        // 헤더 2행 — 요청 본문 요약 (완료/접힘 상태에서도 항상 노출 → 어떤 요청이었는지 즉시 파악)
         const headerLine = `
-          <div onclick="window._toggleRoot('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}')" style="cursor:pointer;background:${rootMeta.bg};border:1px solid ${rootMeta.border};border-left:4px solid ${rootMeta.color};border-radius:8px;padding:8px 11px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="background:#fff;color:${rootMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${rootMeta.icon} 요청접수</span>
-            <span style="font-size:11px;color:var(--gray-700);font-weight:700">${escFn(r.author||'담당자')}</span>
-            <span style="font-size:10.5px;color:var(--gray-500)">${escFn(r.ts||'')}</span>
-            ${isCompleted ? `<span style="background:${gMeta.bg};color:${gMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${gMeta.icon} 완료</span>` : (gStatus==='진행' ? `<span style="background:${gMeta.bg};color:${gMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${gMeta.icon} 진행</span>` : '')}
-            <span style="margin-left:auto;font-size:14px;color:${rootMeta.color}">${expanded?'▾':'▸'}</span>
+          <div onclick="window._toggleRoot('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}')" style="cursor:pointer;background:${rootMeta.bg};border:1px solid ${rootMeta.border};border-left:4px solid ${rootMeta.color};border-radius:8px;padding:8px 11px;display:flex;flex-direction:column;gap:5px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="background:#fff;color:${rootMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${rootMeta.icon} 요청접수</span>
+              <span style="font-size:11px;color:var(--gray-700);font-weight:700">${escFn(r.author||'담당자')}</span>
+              <span style="font-size:10.5px;color:var(--gray-500)">${escFn(r.ts||'')}</span>
+              ${isCompleted ? `<span style="background:${gMeta.bg};color:${gMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${gMeta.icon} 완료</span>` : (gStatus==='진행' ? `<span style="background:${gMeta.bg};color:${gMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${gMeta.icon} 진행</span>` : '')}
+              <span style="margin-left:auto;font-size:14px;color:${rootMeta.color}">${expanded?'▾':'▸'}</span>
+            </div>
+            ${(summaryText && !expanded) ? `<div style="font-size:12px;color:var(--gray-800);line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escFn(summaryText)}</div>` : ''}
           </div>`;
 
         let detail = '';
@@ -14178,9 +14183,42 @@ ${text.slice(0, 4000)}`;
   }
 
   function _whoNow() {
-    const eng = (document.getElementById('jobEngineer')||{}).value || '';
-    return eng || ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
+    // 작성자는 항상 현재 로그인 사용자 — jobEngineer(담당 엔지니어) 와는 별개 개념
+    return ((typeof _currentAuthName==='function') ? _currentAuthName() : '') || '담당자';
   }
+
+  // 기존 thread/메모/접수기록 등에 박힌 옛 작성자 이름을 일괄 치환
+  // 콘솔에서: window.replaceAuthorName('Live Wire', '이동호')
+  window.replaceAuthorName = function(oldName, newName) {
+    if (!oldName || !newName) { console.warn('oldName, newName 필요'); return 0; }
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    let fixed = 0;
+    jobs.forEach(j => {
+      // thread 작성자
+      if (Array.isArray(j.thread)) {
+        j.thread.forEach(e => { if (e && e.author === oldName) { e.author = newName; fixed++; } });
+      }
+      // 메모 작성자
+      if (Array.isArray(j.memos)) {
+        j.memos.forEach(m => { if (m && m.author === oldName) { m.author = newName; fixed++; } });
+      }
+      // 엔지니어
+      if (j.engineer === oldName) { j.engineer = newName; fixed++; }
+      if (j.assignee === oldName) { j.assignee = newName; fixed++; }
+    });
+    if (typeof saveJobs === 'function') saveJobs(jobs);
+    // ns_users / ns_auth 에서도 동기화
+    try {
+      const users = JSON.parse(localStorage.getItem('ns_users') || '[]');
+      users.forEach(u => { if (u.name === oldName) { u.name = newName; fixed++; } });
+      localStorage.setItem('ns_users', JSON.stringify(users));
+      const auth = JSON.parse(localStorage.getItem('ns_auth') || 'null');
+      if (auth && auth.name === oldName) { auth.name = newName; fixed++; localStorage.setItem('ns_auth', JSON.stringify(auth)); }
+    } catch(_){}
+    console.info(`✅ '${oldName}' → '${newName}' 치환:`, fixed, '건');
+    try { showToast(`✅ '${oldName}' → '${newName}' ${fixed}건 치환 완료`); } catch(_){}
+    return fixed;
+  };
 
   // 새 ROOT 제출
   window._submitNewRoot = function(containerId, jobId, draftMode) {
@@ -14932,7 +14970,11 @@ ${text.slice(0, 4000)}`;
           </select>
         </div>
         <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">담당</div><div>${esc(j.engineer || j.assignee || '미배정')}</div></div>
-        <div style="grid-column:1/-1">
+        ${(() => {
+          // 📌 매장 주요 일정(설치/가오픈/오픈) — AS 카테고리에서는 숨김
+          const _cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
+          if (_cat === 'as') return '';
+          return `<div style="grid-column:1/-1">
           <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">📌 매장 주요 일정 <span style="font-size:10px;color:var(--gray-400)">— 입력 즉시 자동 저장</span></div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;background:#fff;padding:10px;border:1px solid var(--gray-200);border-radius:8px">
             <div>
@@ -14948,7 +14990,8 @@ ${text.slice(0, 4000)}`;
               <input type="date" value="${esc((j.openDate||'').slice(0,10))}" onchange="updateJobDate('${j.id}','openDate',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px">
             </div>
           </div>
-        </div>
+        </div>`;
+        })()}
         <div style="grid-column:1/-1">
           <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;display:flex;align-items:center;gap:6px">
             📍 주소 <span style="font-size:10px;color:var(--gray-400)">— 입력 즉시 자동 저장</span>
@@ -14979,10 +15022,9 @@ ${text.slice(0, 4000)}`;
         </div>
         <div style="grid-column:1/-1">
           <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;gap:8px">
-            <span>📝 비고 <span style="font-size:10px;color:var(--gray-400)">— 내용 수정 후 입력란 밖을 클릭하면 자동 저장</span></span>
+            <span>🗒 메모 <span style="font-size:10px;color:var(--gray-400)">— 시간 순으로 누적 기록</span></span>
           </div>
-          <textarea placeholder="VAN사 변경, 고객 요청, 현장 특이사항 등..." onchange="updateJobNotes('${j.id}',this.value)" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;background:#fff;font-family:inherit;resize:vertical">${esc(j.notes||'')}</textarea>
-          <div style="margin-top:8px;display:flex;gap:6px;align-items:flex-start">
+          <div style="margin-top:0;display:flex;gap:6px;align-items:flex-start">
             <textarea id="jobMemoInput-${j.id}" placeholder="메모 입력 후 [추가] 클릭 — 줄바꿈 가능 (Shift+Enter)" style="flex:1;min-height:46px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;background:#fff;font-family:inherit;resize:vertical" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addJobMemo('${j.id}')}"></textarea>
             <button class="btn btn-primary btn-sm" style="font-size:12px;padding:8px 14px;font-weight:700;white-space:nowrap" onclick="addJobMemo('${j.id}')">+ 추가</button>
           </div>
@@ -15175,6 +15217,12 @@ ${text.slice(0, 4000)}`;
           </div>
         </div>
       ` : ''}
+
+      <!-- 📝 비고 / 특이사항 — 모달 가장 아래 고정 위치 -->
+      <div style="margin-top:18px;padding:14px;background:#FAFAFA;border:1px solid var(--gray-200);border-radius:10px">
+        <div style="font-size:12px;color:var(--gray-700);margin-bottom:6px;font-weight:700">📝 비고 / 특이사항 <span style="font-size:10px;color:var(--gray-400);font-weight:400">— 내용 수정 후 입력란 밖을 클릭하면 자동 저장</span></div>
+        <textarea placeholder="VAN사 변경, 고객 요청, 현장 특이사항 등..." onchange="updateJobNotes('${j.id}',this.value)" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;background:#fff;font-family:inherit;resize:vertical">${esc(j.notes||'')}</textarea>
+      </div>
     `;
 
     // 🔁 스레드 — 신규/AS 공용 / VAN서류 — 신규 전용
