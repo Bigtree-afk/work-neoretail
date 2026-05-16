@@ -3409,6 +3409,33 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
+      <!-- 데이터 신뢰성 / 복구 도구 -->
+      <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+      <div class="admin-section">
+        <div class="admin-section-title">🛠 데이터 복구 도구</div>
+        <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 14px;font-size:11px;color:#92400E;margin-bottom:10px;line-height:1.6">
+          • <b>매장-작업 연결 진단</b> — storeId 가 끊겼거나 매장명만 있는 작업 카운트<br>
+          • <b>매장명 기준 재연결</b> — storeId 가 끊긴 작업의 매장명이 등록된 매장과 일치하면 자동 storeId 복구<br>
+          • <b>신규 type 복구</b> — AS 마이그레이션이 잘못 'AS 처리' 로 바꾼 신규 작업의 원본 type 복원
+        </div>
+        <div id="dataReliabilityReport" style="background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--gray-700);min-height:20px">진단 결과가 여기에 표시됩니다</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-outline btn-sm" onclick="(function(){
+            const r = window.diagnoseOrphanJobs();
+            const t = window.diagnoseTypeCoercion();
+            const el = document.getElementById('dataReliabilityReport');
+            if (el) el.innerHTML = `① storeId 끊긴 작업: <b>${r.byId.length}</b>건<br>② 매장명만 있고 매장 미등록: <b>${r.byName.length}</b>건<br>③ 매장 정보 전혀 없음: <b>${r.noStore.length}</b>건<br>④ type 강제변경된 작업 (신규 의심): <b>${t.newOrig.length}</b>건 · 기타: ${t.otherOrig.length}건<br><span style='color:var(--gray-500);font-size:11px'>상세는 콘솔(F12) 확인</span>`;
+          })()">🔍 진단</button>
+          <button class="btn btn-outline btn-sm" onclick="if(confirm('storeId 가 끊긴 작업을 매장명 기준으로 재연결합니다. 계속할까요?')){const n=window.relinkJobsByName();showToast&&showToast(`✅ ${n}건 재연결`);}">🔗 매장명 기준 재연결</button>
+          <button class="btn btn-outline btn-sm" onclick="if(confirm('AS 마이그레이션이 잘못 \\'AS 처리\\' 로 바꾼 신규/오픈 작업의 type 을 복원합니다. 계속할까요?')){const n=window.restoreOriginalJobType();showToast&&showToast(`✅ ${n}건 type 복구`);}">🔄 신규 type 복구</button>
+          <button class="btn btn-outline btn-sm" onclick="if(confirm('AS 마이그레이션 실행 플래그를 삭제합니다. 다음 새로고침 시 마이그레이션이 다시 실행됩니다 (수정된 안전 버전). 계속할까요?')){localStorage.removeItem('_as_aggregate_migration_v2');showToast&&showToast('✅ 플래그 삭제됨 — 새로고침');}">⚠ 마이그레이션 재실행 허용</button>
+        </div>
+        <div style="background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;padding:8px 12px;font-size:11px;color:#991B1B;margin-top:10px;line-height:1.5">
+          <b>⚠ 데이터가 손실됐다고 판단되면</b> — 아래 "자동 백업" 섹션에서 오늘 작업 이전 시점(어제/그제)으로 복원해 주세요.
+          복원 직전 현재 상태도 자동 스냅샷됩니다.
+        </div>
+      </div>
+
       <!-- 자동 백업 / 복원 -->
       <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
       <div class="admin-section">
