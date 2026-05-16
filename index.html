@@ -5357,6 +5357,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     if (id === 'newJobModal') {
       // 인라인 편집 잔여 상태 초기화
       window._asInlineEditJobId = null;
+      window._lastAsInlineStore = null;
       try { document.body.classList.remove('as-inline-edit-mode'); } catch(e){}
       try {
         const b = document.getElementById('asInlineEditBanner');
@@ -5388,12 +5389,20 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   }
 
   function closeModal(id) {
+    // Fix E: 작성 중인 draft 가 있고 live 모드가 아니면 — 확인 후 닫기
+    if (id === 'newJobModal'
+        && Array.isArray(window._jobThreadDraft) && window._jobThreadDraft.length > 0
+        && !window._asInlineEditJobId) {
+      const n = window._jobThreadDraft.length;
+      if (!confirm('작성 중인 요청이 ' + n + '건 있습니다. 저장하지 않고 닫으시겠습니까?')) return;
+    }
     const el = document.getElementById(id);
     if (el) el.classList.remove('show');
     // newJobModal 닫힘 시 컨텍스트/입력값 초기화 (재오픈 시 stale 데이터 방지)
     if (id === 'newJobModal') {
       window._currentJobContext = null;
       window._asInlineEditJobId = null;
+      window._lastAsInlineStore = null;
       try { document.body.classList.remove('as-inline-edit-mode'); } catch(e){}
       try {
         const b = document.getElementById('asInlineEditBanner');
@@ -11549,17 +11558,23 @@ ${text.slice(0, 4000)}`;
     //    기존 AS 업무의 thread 에 새 요청접수 ROOT 로 추가
     let mergedIntoExisting = null;
     if (isAs && !job.unregistered) {
+      // Fix C: 완료 AS 도 포함 — 매장당 단일 AS 로그 유지, 진행중 우선
       const isDoneFn = (typeof window._isJobDone === 'function') ? window._isJobDone : () => false;
       const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
       const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
       const target = normFn(storeName);
-      const existingIdx = jobs.findIndex(j => {
-        if (isDoneFn(j)) return false;
-        if (classifyFn(j) !== 'as') return false;
+      const candIdxs = [];
+      jobs.forEach((j, idx) => {
+        if (classifyFn(j) !== 'as') return;
         const sn = (j.storeName || j.store || '').trim();
-        if (!sn) return false;
-        return normFn(sn) === target;
+        if (!sn) return;
+        if (normFn(sn) === target) candIdxs.push(idx);
       });
+      let existingIdx = candIdxs.find(i => !isDoneFn(jobs[i]));
+      if (existingIdx === undefined) {
+        candIdxs.sort((a,b) => (jobs[b].createdAt||0) - (jobs[a].createdAt||0));
+        existingIdx = (candIdxs.length > 0) ? candIdxs[0] : -1;
+      }
       if (existingIdx >= 0) {
         const existing = jobs[existingIdx];
         // 새 요청접수 ROOT 생성 — 신규 모달에서 입력한 텍스트 사용
@@ -11736,6 +11751,7 @@ ${text.slice(0, 4000)}`;
     // 컨텍스트가 AS 가 아니면 — 인라인 편집 모드 해제 (draft 빈 thread 로)
     if (window._currentJobContext !== 'as' || !storeName || !storeName.trim()) {
       window._asInlineEditJobId = null;
+      window._lastAsInlineStore = null;
       if (banner) banner.style.display = 'none';
       document.body.classList.remove('as-inline-edit-mode');
       if (window._currentJobContext === 'as') {
@@ -11746,34 +11762,57 @@ ${text.slice(0, 4000)}`;
       }
       return;
     }
+    // Fix B: 동일 매장 재호출이면 draft/UI 보존
+    const sameStoreAsLast = (window._lastAsInlineStore === storeName);
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
     const isDone = (typeof window._isJobDone === 'function') ? window._isJobDone : () => false;
     const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
     const target = normFn(storeName);
-    const existing = jobs.find(j => {
-      if (isDone(j)) return false;
+    // Fix C: 완료 AS 도 후보로 포함, 진행중 우선
+    const candidates = jobs.filter(j => {
       if (classifyFn(j) !== 'as') return false;
       const sn = (j.storeName || j.store || '').trim();
       if (!sn) return false;
       return normFn(sn) === target;
     });
+    let existing = candidates.find(j => !isDone(j));
     if (!existing) {
-      // 기존 AS 없음 — 새 신규 등록 모드, 스레드 빈 draft + 새 요청 접수 폼 자동 펼침
+      existing = candidates.slice().sort((a,b) => (b.createdAt||0) - (a.createdAt||0))[0];
+    }
+    window._lastAsInlineStore = storeName;
+    if (!existing) {
+      // 기존 AS 없음 — draft 모드 유지. 동일 매장 재호출이면 draft 보존
       window._asInlineEditJobId = null;
       if (banner) banner.style.display = 'none';
       document.body.classList.remove('as-inline-edit-mode');
       try {
-        window._jobThreadDraft = [];
+        if (!sameStoreAsLast) {
+          window._jobThreadDraft = [];
+        }
         const openKey = '_threadOpen_draft';
+        if (!sameStoreAsLast) window[openKey] = {};
         window[openKey] = window[openKey] || {};
         window[openKey]['__newroot__'] = true;
-        window._renderThreadGroups('jobThreadContainer', [], { editable:true, jobId:null, draftMode:true });
+        window._renderThreadGroups('jobThreadContainer', window._jobThreadDraft || [],
+          { editable:true, jobId:null, draftMode:true });
       } catch(e){}
       return;
     }
-    // 기존 AS 발견 — 인라인 편집 모드 진입
+    // 기존 AS 발견 — 인라인 편집 모드 진입 (완료 상태였더라도 진행중 환원)
     window._asInlineEditJobId = existing.id;
+    if (existing.completed || existing.status === '완료') {
+      try {
+        const _jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+        const _i = _jobs.findIndex(x => x.id === existing.id);
+        if (_i >= 0) {
+          _jobs[_i].completed = false;
+          _jobs[_i].status = '진행중';
+          existing = _jobs[_i];
+          if (typeof saveJobs === 'function') saveJobs(_jobs);
+        }
+      } catch(e){}
+    }
     document.body.classList.add('as-inline-edit-mode');
     const rootCnt = (existing.thread||[]).filter(e => e && e.parentId == null).length;
     if (banner) {
@@ -14330,19 +14369,23 @@ ${text.slice(0, 4000)}`;
     const i = jobs.findIndex(x => x.id === jobId);
     if (i < 0) return;
     jobs[i].thread = arr.slice();
-    // job status 동기화
+    // job status 동기화 — Fix C: 모든 ROOT 가 '완료' child 를 가질 때만 완료
     const norm = window._threadMigrate(arr);
-    const anyDone = norm.some(e => e.status === '완료');
+    const roots = norm.filter(e => e && e.parentId == null);
+    const allRootsDone = roots.length > 0 && roots.every(r => {
+      const kids = norm.filter(e => e.parentId === r.threadId);
+      return kids.some(k => k.status === '완료');
+    });
     const anyProg = norm.some(e => e.status === '진행');
-    if (anyDone) {
+    if (allRootsDone) {
       jobs[i].completed = true;
       const ts = norm.filter(e => e.status==='완료').slice(-1)[0]?.ts || '';
       jobs[i].doneAt = ts;
       jobs[i].completedAt = jobs[i].completedAt || new Date().toISOString();
       jobs[i].status = '완료';
-    } else if (anyProg) {
-      jobs[i].status = '진행중';
+    } else {
       jobs[i].completed = false;
+      jobs[i].status = anyProg ? '진행중' : (jobs[i].status === '완료' ? '진행중' : (jobs[i].status || '진행중'));
     }
     if (typeof saveJobs === 'function') saveJobs(jobs);
     // 스레드 편집은 즉시 푸시 — 디바운스 갭에서 stale cloud 가 덮을 위험 차단
@@ -14424,7 +14467,7 @@ ${text.slice(0, 4000)}`;
     return matches;
   };
 
-  // 새 ROOT 제출
+  // 새 ROOT 제출 — AS draft 모드인 경우 즉시 live 저장으로 전환 (Fix A)
   window._submitNewRoot = function(containerId, jobId, draftMode) {
     const ta = document.getElementById(containerId + '__newroot');
     const text = (ta && ta.value || '').trim();
@@ -14432,6 +14475,136 @@ ${text.slice(0, 4000)}`;
     const ts = _kstNow();
     const who = _whoNow();
     const entry = { ts, author: who, status: '요청접수', text, threadId: _newThreadId(), parentId: null };
+
+    // Fix A: AS draftMode → 즉시 live job 생성 또는 기존 AS 에 append
+    if (draftMode && window._currentJobContext === 'as') {
+      const storeName = ((document.getElementById('jobStoreName')||{}).value || '').trim();
+      if (!storeName) { try { showToast('점포명을 먼저 입력하세요'); } catch(e){} return; }
+      try {
+        const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+        const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+        const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
+        const target = normFn(storeName);
+        // Fix C: completed 도 포함하여 매장당 단일 AS 로그를 유지 — 진행중 우선
+        const candidates = jobs
+          .map((j, idx) => ({ j, idx }))
+          .filter(x => {
+            if (classifyFn(x.j) !== 'as') return false;
+            const sn = (x.j.storeName || x.j.store || '').trim();
+            return !!sn && normFn(sn) === target;
+          });
+        const isDoneFn = (typeof window._isJobDone === 'function') ? window._isJobDone : () => false;
+        let pick = candidates.find(x => !isDoneFn(x.j));
+        if (!pick) pick = candidates.sort((a,b) => (b.j.createdAt||0) - (a.j.createdAt||0))[0];
+
+        if (pick) {
+          // 기존 AS 에 append (완료 상태였더라도 진행중으로 환원)
+          const existing = jobs[pick.idx];
+          existing.thread = (Array.isArray(existing.thread) ? existing.thread : []).slice();
+          // draft 에 누적된 다른 항목도 함께 머지 후 비움
+          const draftExtras = Array.isArray(window._jobThreadDraft) ? window._jobThreadDraft.slice() : [];
+          existing.thread.push(entry);
+          draftExtras.forEach(e => { if (e) existing.thread.push(e); });
+          existing.thread = (typeof window._threadMigrate === 'function')
+                          ? window._threadMigrate(existing.thread) : existing.thread;
+          existing.completed = false;
+          existing.status = '진행중';
+          jobs[pick.idx] = existing;
+          if (typeof saveJobs === 'function') saveJobs(jobs);
+          try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
+          window._asInlineEditJobId = existing.id;
+          window._jobThreadDraft = [];
+          // UI 인라인 편집 모드 전환
+          try { document.body.classList.add('as-inline-edit-mode'); } catch(e){}
+          try {
+            const rootCnt = (existing.thread||[]).filter(e => e && e.parentId == null).length;
+            const banner = document.getElementById('asInlineEditBanner');
+            if (banner) {
+              banner.style.display = 'block';
+              banner.innerHTML =
+                '<div style="font-size:13px;font-weight:800;color:#1E40AF;margin-bottom:4px">' +
+                '📌 이 매장의 기존 AS 업무에 누적 기록 중 — ID: ' + (existing.id||'') + '</div>' +
+                '<div style="font-size:11.5px;color:#1E40AF;line-height:1.5">' +
+                '요청 ' + rootCnt + '건 · 편집 내용은 즉시 저장됩니다.</div>';
+            }
+            const footer = document.querySelector('#newJobModal .modal-footer .btn.btn-primary');
+            if (footer) footer.textContent = '완료';
+          } catch(e){}
+          const openKey = '_threadOpen_' + existing.id;
+          window[openKey] = window[openKey] || {};
+          window[openKey]['__newroot__'] = false;
+          window[openKey][entry.threadId] = true;
+          try {
+            window._renderThreadGroups(containerId, existing.thread || [],
+              { editable:true, jobId: existing.id, draftMode:false });
+          } catch(e){}
+          try { showToast('✅ 저장됨 (기존 AS 업무에 추가)'); } catch(e){}
+          try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
+          try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(e){}
+          try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
+          return;
+        }
+
+        // 매장에 AS 가 전혀 없음 — 새 AS job 즉시 생성
+        const storeMatch = (typeof getStores === 'function')
+                          ? (getStores() || []).find(s => (s.name || '').trim() === storeName) : null;
+        const draftExtras = Array.isArray(window._jobThreadDraft) ? window._jobThreadDraft.slice() : [];
+        const initialThread = [entry].concat(draftExtras);
+        const newJob = {
+          id: 'JOB-' + Date.now().toString(36).toUpperCase(),
+          type: 'AS 처리',
+          storeName, store: storeName,
+          storeId: storeMatch ? storeMatch.id : '',
+          unregistered: (typeof jobStoreUnregistered !== 'undefined' ? jobStoreUnregistered : false) || !storeMatch,
+          engineer: '',
+          address: '',
+          notes: '',
+          equipment: [], equipTotal: 0,
+          thread: (typeof window._threadMigrate === 'function') ? window._threadMigrate(initialThread) : initialThread,
+          vandocs: { van:{status:'접수',tid:'',serial:''}, easy:{status:'접수',tid:''}, kakao:{status:'접수',tid:''} },
+          status: '진행중',
+          createdAt: Date.now(),
+        };
+        jobs.unshift(newJob);
+        if (typeof saveJobs === 'function') saveJobs(jobs);
+        try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
+        window._asInlineEditJobId = newJob.id;
+        window._jobThreadDraft = [];
+        try { document.body.classList.add('as-inline-edit-mode'); } catch(e){}
+        try {
+          const rootCnt = (newJob.thread||[]).filter(e => e && e.parentId == null).length;
+          const banner = document.getElementById('asInlineEditBanner');
+          if (banner) {
+            banner.style.display = 'block';
+            banner.innerHTML =
+              '<div style="font-size:13px;font-weight:800;color:#1E40AF;margin-bottom:4px">' +
+              '📌 새 AS 업무 — ID: ' + (newJob.id||'') + '</div>' +
+              '<div style="font-size:11.5px;color:#1E40AF;line-height:1.5">' +
+              '요청 ' + rootCnt + '건 · 편집 내용은 즉시 저장됩니다.</div>';
+          }
+          const footer = document.querySelector('#newJobModal .modal-footer .btn.btn-primary');
+          if (footer) footer.textContent = '완료';
+        } catch(e){}
+        const openKey = '_threadOpen_' + newJob.id;
+        window[openKey] = window[openKey] || {};
+        window[openKey]['__newroot__'] = false;
+        window[openKey][entry.threadId] = true;
+        try {
+          window._renderThreadGroups(containerId, newJob.thread || [],
+            { editable:true, jobId: newJob.id, draftMode:false });
+        } catch(e){}
+        try { showToast('✅ 새 AS 업무가 등록되고 첫 요청이 저장되었습니다'); } catch(e){}
+        try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
+        try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(e){}
+        try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
+        return;
+      } catch(err) {
+        console.warn('[_submitNewRoot AS live-save]', err);
+        // fall through to default draft path on error
+      }
+    }
+
+    // 기본 경로 (신규/VAN draft, 또는 기존 live edit)
     let arr = window._threadMigrate(_getThreadFor(jobId, draftMode));
     arr.push(entry);
     _setThreadFor(jobId, draftMode, arr);
@@ -14458,9 +14631,34 @@ ${text.slice(0, 4000)}`;
     const entry = { ts, author: who, status: st, text: text || '(투입 장비만 등록)',
                     threadId: _newThreadId(), parentId: rootId };
     if (eqList.length > 0) entry.equipment = eqList;
-    let arr = window._threadMigrate(_getThreadFor(jobId, draftMode));
-    arr.push(entry);
-    _setThreadFor(jobId, draftMode, arr);
+
+    // Fix A (child): AS draft 모드 — 가능한 경우 즉시 live job 으로 라우팅
+    let _liveRoute = false;
+    if (draftMode && window._currentJobContext === 'as' && window._asInlineEditJobId) {
+      try {
+        const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+        const idx = jobs.findIndex(j => j.id === window._asInlineEditJobId);
+        if (idx >= 0) {
+          const live = jobs[idx];
+          live.thread = (Array.isArray(live.thread) ? live.thread : []).slice();
+          live.thread.push(entry);
+          live.thread = (typeof window._threadMigrate === 'function')
+                       ? window._threadMigrate(live.thread) : live.thread;
+          jobs[idx] = live;
+          if (typeof saveJobs === 'function') saveJobs(jobs);
+          try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
+          jobId = live.id;
+          draftMode = false;
+          _liveRoute = true;
+        }
+      } catch(err) { console.warn('[_submitChild AS live-route]', err); }
+    }
+    let arr;
+    if (!_liveRoute) {
+      arr = window._threadMigrate(_getThreadFor(jobId, draftMode));
+      arr.push(entry);
+      _setThreadFor(jobId, draftMode, arr);
+    }
     // 편집 모드 — job.equipment 에도 누적 (기존 호환)
     if (!draftMode && jobId && eqList.length > 0) {
       try {
