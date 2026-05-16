@@ -2721,7 +2721,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <div>
               <div style="font-size:11px;color:#92400E;margin-bottom:5px;font-weight:600">📝 AS 요청 내용 / 증상</div>
               <textarea id="asRequest" placeholder="예) 카드 단말 통신 오류, 영수증 프린터 용지 걸림, 부팅 안 됨..." style="width:100%;min-height:72px;padding:9px 11px;border:1.5px solid #FCD34D;border-radius:8px;font-size:13px;background:#fff;font-family:inherit;resize:vertical"></textarea>
-              <div style="font-size:10px;color:#92400E;margin-top:4px">고객이 알려온 증상·요청사항을 그대로 기록하세요. 추가 메모는 등록 후 상세에서 누적 메모로 추가 가능합니다.</div>
+              <div style="font-size:10px;color:#92400E;margin-top:4px">고객이 알려온 증상·요청사항을 그대로 기록하세요. 등록 시 아래 요청사항·처리 기록의 '요청접수' ROOT 로 자동 추가됩니다.</div>
+            </div>
+            <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px">
+              <button type="button" onclick="_asReceiptClear()" style="background:#fff;color:#92400E;border:1px solid #FCD34D;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">지우기</button>
+              <button type="button" onclick="_asReceiptRegister()" style="background:#92400E;color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit">📥 접수 등록</button>
             </div>
           </div>
         </div>
@@ -11002,12 +11006,12 @@ ${text.slice(0, 4000)}`;
      AS 업무 매장당 집계 마이그레이션
      — 기존 산재된 AS jobs 를 매장당 1건으로 통합
      — thread[] 에 각 요청을 ROOT 로 누적
-     — 자동 1회 실행 (localStorage._as_aggregate_migration_v1)
+     — 자동 1회 실행 (localStorage._as_aggregate_migration_v2)
   ══════════════════════════════════════════════ */
   window.migrateAsJobsToAggregate = function(opts) {
     opts = opts || {};
     const force = !!opts.force;
-    const FLAG = '_as_aggregate_migration_v1';
+    const FLAG = '_as_aggregate_migration_v2';
     if (!force && localStorage.getItem(FLAG) === 'done') {
       return { skipped: true, mergedStores: 0, removedJobs: 0 };
     }
@@ -11144,6 +11148,11 @@ ${text.slice(0, 4000)}`;
         canonical.status = '완료';
       }
       canonical._asAggregated = true;
+      // canonical 의 type 이 AS 카테고리에 어울리지 않으면 정규화 (예: type='신규'인데 lineCategory 로 AS 분류된 경우)
+      if (!/AS|에이에스/i.test(canonical.type || '')) {
+        if (!canonical._originalType) canonical._originalType = canonical.type || '';
+        canonical.type = 'AS 처리';
+      }
       jobs[canonicalIdx] = canonical;
       mergedStores++;
     });
@@ -11151,7 +11160,19 @@ ${text.slice(0, 4000)}`;
     // 인덱스 내림차순으로 삭제 (안전)
     [...toRemove].sort((a,b)=>b-a).forEach(i => jobs.splice(i, 1));
 
+    // v2 — AS 분류이지만 type 이 AS 가 아닌 모든 업무 일괄 정규화 (이미 통합된 단건 포함)
+    let typeFixed = 0;
+    jobs.forEach(j => {
+      if (classifyFn(j) !== 'as') return;
+      if (!/AS|에이에스/i.test(j.type || '')) {
+        if (!j._originalType) j._originalType = j.type || '';
+        j.type = 'AS 처리';
+        typeFixed++;
+      }
+    });
+
     if (typeof saveJobs === 'function') saveJobs(jobs);
+    if (typeFixed > 0) console.info('[AS 마이그레이션] type 정규화', typeFixed, '건');
     localStorage.setItem(FLAG, 'done');
     return { skipped: false, mergedStores, removedJobs };
   };
@@ -11484,6 +11505,11 @@ ${text.slice(0, 4000)}`;
           existing.status = '진행중';
           existing.completed = false;
         }
+        // type 정규화 — AS 머지된 업무인데 type 이 AS 가 아니면 'AS 처리' 로 통일
+        if (!/AS|에이에스/i.test(existing.type || '')) {
+          if (!existing._originalType) existing._originalType = existing.type || '';
+          existing.type = 'AS 처리';
+        }
         jobs[existingIdx] = existing;
         mergedIntoExisting = existing;
       }
@@ -11713,10 +11739,47 @@ ${text.slice(0, 4000)}`;
   }
   window._refreshJobSimilarBanner = _refreshJobSimilarBanner;
 
+  // AS 접수정보 패널 — 접수 등록 버튼: 폼 값으로 요청접수 ROOT 를 스레드에 추가
+  window._asReceiptRegister = function() {
+    const req = (document.getElementById('asRequest')||{}).value?.trim() || '';
+    if (!req) { try { showToast('AS 요청 내용을 입력하세요'); } catch(e){} const ta = document.getElementById('asRequest'); if (ta) ta.focus(); return; }
+    const dueDate = (document.getElementById('asDueDate')||{}).value || '';
+    const dueTime = (document.getElementById('asDueTime')||{}).value || '';
+    const targets = [];
+    if ((document.getElementById('asTargetVAN')||{}).checked) targets.push('VAN');
+    if ((document.getElementById('asTargetPOS')||{}).checked) targets.push('POS');
+    if ((document.getElementById('asTargetKIO')||{}).checked) targets.push('키오스크');
+    if ((document.getElementById('asTargetETC')||{}).checked) targets.push('기타');
+    const targetTxt = targets.length ? `[대상: ${targets.join(', ')}]` : '';
+    const dueTxt = (dueDate || dueTime) ? `[처리예정: ${dueDate}${dueTime?' '+dueTime:''}]` : '';
+    const headline = [dueTxt, targetTxt].filter(Boolean).join(' ');
+    const text = headline ? (headline + '\n' + req) : req;
+    const ts = (typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr()
+              : new Date().toISOString().slice(0,16).replace('T',' ');
+    const author = ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
+    const rootId = 'TR-as-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7);
+    const entry = { ts, author, status:'요청접수', text, threadId: rootId, parentId: null };
+    window._jobThreadDraft = Array.isArray(window._jobThreadDraft) ? window._jobThreadDraft : [];
+    window._jobThreadDraft.push(entry);
+    try { window._renderThreadGroups('jobThreadContainer', window._jobThreadDraft, { editable:true, jobId:null, draftMode:true }); } catch(e){}
+    // 요청내용만 비움 (날짜/시간/대상은 다음 등록을 위해 유지)
+    const ta = document.getElementById('asRequest'); if (ta) ta.value = '';
+    try { showToast('📥 접수가 요청사항·처리기록에 등록되었습니다'); } catch(e){}
+    // 스레드로 스크롤
+    const cont = document.getElementById('jobThreadContainer');
+    if (cont && cont.scrollIntoView) cont.scrollIntoView({ behavior:'smooth', block:'start' });
+  };
+  window._asReceiptClear = function() {
+    ['asDueDate','asDueTime','asRequest'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['asTargetVAN','asTargetPOS','asTargetKIO','asTargetETC'].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
+  };
+
   // 신규 진행 중 업무의 스레드로 점프 — newJobModal 닫고 editNewopen 열어 새 요청 접수 폼 자동 펼침
   window._jumpToJobThread = function(jobId, openNewRoot) {
     if (!jobId) return;
     try { closeModal('newJobModal'); } catch(e){}
+    // 잔존 body 모드 클래스 정리 — 이전 newJobModal 컨텍스트의 영향 차단
+    try { document.body.classList.remove('new-mode','as-mode','consult-mode'); } catch(e){}
     setTimeout(() => {
       try { editNewopen(jobId); } catch(e){}
       if (openNewRoot) {
