@@ -11903,12 +11903,12 @@ ${text.slice(0, 4000)}`;
     }
     // 기존 job 의 thread 렌더 (draftMode:false, jobId 지정)
     try {
-      window._renderThreadGroups('jobThreadContainer', existing.thread || [], { editable:true, jobId: existing.id, draftMode:false });
+      window._renderThreadGroups('jobThreadContainer', existing.thread || [], { editable:true, jobId: existing.id, draftMode:false, maxRoots:5 });
       // 새 요청 접수 폼 자동 펼침
       const openKey = '_threadOpen_' + existing.id;
       window[openKey] = window[openKey] || {};
       window[openKey]['__newroot__'] = true;
-      window._renderThreadGroups('jobThreadContainer', existing.thread || [], { editable:true, jobId: existing.id, draftMode:false });
+      window._renderThreadGroups('jobThreadContainer', existing.thread || [], { editable:true, jobId: existing.id, draftMode:false, maxRoots:5 });
     } catch(e){ console.warn('[asInlineEdit] render', e); }
     // 푸터 [작업 등록] → [완료] 라벨 변경
     try {
@@ -14257,6 +14257,11 @@ ${text.slice(0, 4000)}`;
     const draftMode = !!opts.draftMode;
     const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
     const normalized = window._threadMigrate(Array.isArray(thread) ? thread : []);
+    // maxRoots 가 지정되면 컨테이너 단위로 보존 (재렌더 시 동일 제한 적용)
+    if (typeof opts.maxRoots === 'number' && opts.maxRoots > 0) {
+      window._threadMaxRootsMap = window._threadMaxRootsMap || {};
+      window._threadMaxRootsMap[containerId] = opts.maxRoots;
+    }
 
     // ROOTs — 미완료 우선(최신 → 오래된), 그 다음 완료(최신 → 오래된)
     const roots = normalized.filter(e => e.parentId === null);
@@ -14280,6 +14285,37 @@ ${text.slice(0, 4000)}`;
       return String(b.ts||'').localeCompare(String(a.ts||'')); // 동일 그룹 내 최신 ts 먼저
     });
 
+    // ── 노출 규칙 (opts.maxRoots 가 지정된 경우만 적용 — AS 인라인편집 등) ──
+    //   미완료 ≥ MAX → 미완료만 (개수 무제한)
+    //   미완료 < MAX → 미완료 + (MAX - 미완료) 최근 완료 = 최대 MAX 건
+    //   모두 완료 → 최근 MAX 건만
+    //   외 건수 있으면 '전체보기' 버튼 노출 (window._threadExpandAll[containerId] 로 토글)
+    window._threadExpandAll = window._threadExpandAll || {};
+    const expandAll = !!window._threadExpandAll[containerId];
+    const maxRoots = Number(opts.maxRoots) || 0;
+    const totalRoots = roots.length;
+    const incompleteAll = roots.filter(r => rootGroupStatus.get(r.threadId) !== '완료');
+    const completedAll = roots.filter(r => rootGroupStatus.get(r.threadId) === '완료');
+    let limitedRoots = roots;
+    let hiddenCount = 0;
+    if (maxRoots > 0 && !expandAll) {
+      if (incompleteAll.length >= maxRoots) {
+        limitedRoots = incompleteAll;            // 미완료만 (개수 무제한)
+        hiddenCount = completedAll.length;
+      } else {
+        const fillN = maxRoots - incompleteAll.length;
+        limitedRoots = incompleteAll.concat(completedAll.slice(0, fillN));
+        hiddenCount = completedAll.length - fillN;
+      }
+      // limitedRoots 도 미완료 우선 + 최신 ts 순서로 정렬 유지
+      limitedRoots.sort((a, b) => {
+        const aDone = rootGroupStatus.get(a.threadId) === '완료' ? 1 : 0;
+        const bDone = rootGroupStatus.get(b.threadId) === '완료' ? 1 : 0;
+        if (aDone !== bDone) return aDone - bDone;
+        return String(b.ts||'').localeCompare(String(a.ts||''));
+      });
+    }
+
     // 펼침 상태 캐시 (DOM 재렌더 사이 유지)
     const openKey = '_threadOpen_' + (jobId || 'draft');
     window[openKey] = window[openKey] || {};
@@ -14287,10 +14323,20 @@ ${text.slice(0, 4000)}`;
 
     const ctxAttr = `data-ctx="${draftMode?'draft':'edit'}" data-jobid="${escFn(jobId||'')}"`;
 
+    // 헤더 — 총 건수 + (제한 적용 시) 표시 건수 + 전체보기 토글
+    const countLabel = (maxRoots > 0 && hiddenCount > 0 && !expandAll)
+      ? `(${limitedRoots.length}/${totalRoots}건 표시 · 완료 ${hiddenCount}건 숨김)`
+      : `(요청 ${totalRoots}건)`;
+    const expandBtn = (maxRoots > 0 && (hiddenCount > 0 || expandAll))
+      ? `<button type="button" onclick="window._threadToggleExpandAll('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode})" style="background:#fff;color:#1E40AF;border:1px solid #1E40AF;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:6px">${expandAll?'⏎ 최근 '+maxRoots+'건만':'📂 전체보기 ('+totalRoots+'건)'}</button>`
+      : '';
     const headerHtml = `
       <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px 10px 0 0;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-        <div style="font-weight:700;color:#1E40AF;font-size:13.5px">📋 요청사항 · 처리 기록 <span style="font-size:11px;font-weight:600;opacity:0.8">(요청 ${roots.length}건)</span></div>
-        <button type="button" class="btn btn-primary btn-sm" onclick="window._toggleNewRootForm('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode})" style="padding:5px 12px;font-size:11.5px;font-weight:800">＋ 새 요청 접수</button>
+        <div style="font-weight:700;color:#1E40AF;font-size:13.5px">📋 요청사항 · 처리 기록 <span style="font-size:11px;font-weight:600;opacity:0.8">${countLabel}</span></div>
+        <div style="display:flex;align-items:center;gap:4px">
+          ${expandBtn}
+          <button type="button" class="btn btn-primary btn-sm" onclick="window._toggleNewRootForm('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode})" style="padding:5px 12px;font-size:11.5px;font-weight:800">＋ 새 요청 접수</button>
+        </div>
       </div>`;
 
     // 새 ROOT 입력 폼 (토글)
@@ -14308,7 +14354,7 @@ ${text.slice(0, 4000)}`;
       bodyHtml = `<div style="background:#fff;border:1px solid #BFDBFE;border-top:none;border-radius:0 0 10px 10px;padding:18px;text-align:center;color:#64748B;font-size:11.5px">요청이 없습니다 — 위 [＋ 새 요청 접수] 버튼으로 첫 요청을 등록하세요</div>`;
     } else {
       bodyHtml = `<div style="background:#fff;border:1px solid #BFDBFE;border-top:none;border-radius:0 0 10px 10px;padding:10px 12px;display:flex;flex-direction:column;gap:10px">`;
-      roots.forEach(r => {
+      limitedRoots.forEach(r => {
         const kids = childrenByRoot.get(r.threadId) || [];
         const gStatus = _groupStatus(r, kids);
         const isCompleted = (gStatus === '완료');
@@ -14406,6 +14452,13 @@ ${text.slice(0, 4000)}`;
     root.innerHTML = headerHtml + newRootFormHtml + bodyHtml;
   };
 
+  // 5건 제한 ↔ 전체보기 토글
+  window._threadToggleExpandAll = function(containerId, jobId, draftMode) {
+    window._threadExpandAll = window._threadExpandAll || {};
+    window._threadExpandAll[containerId] = !window._threadExpandAll[containerId];
+    _rerenderThread(containerId, jobId, draftMode);
+  };
+
   // 새 ROOT 폼 토글
   window._toggleNewRootForm = function(containerId, jobId, draftMode) {
     const openKey = '_threadOpen_' + (jobId || 'draft');
@@ -14473,9 +14526,12 @@ ${text.slice(0, 4000)}`;
     try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
   }
 
+  // 컨테이너별 maxRoots 설정 보존 — 첫 렌더에서 지정된 값을 재렌더 시에도 사용
+  window._threadMaxRootsMap = window._threadMaxRootsMap || {};
   function _rerenderThread(containerId, jobId, draftMode) {
     const thread = _getThreadFor(jobId, draftMode);
-    window._renderThreadGroups(containerId, thread, { editable:true, jobId: jobId||null, draftMode: !!draftMode });
+    const maxRoots = window._threadMaxRootsMap[containerId] || 0;
+    window._renderThreadGroups(containerId, thread, { editable:true, jobId: jobId||null, draftMode: !!draftMode, maxRoots });
   }
 
   function _newThreadId() {
@@ -15726,7 +15782,9 @@ ${text.slice(0, 4000)}`;
               } catch(_){}
             }
           }
-          window._renderThreadGroups('jobThreadContainerEdit-' + j.id, initialThread, { editable:true, jobId:j.id, draftMode:false });
+          // AS 는 최대 5건 (미완료 우선) 노출 + 전체보기 토글 / 신규는 전체 노출
+          const _maxRoots = (cat2 === 'as') ? 5 : 0;
+          window._renderThreadGroups('jobThreadContainerEdit-' + j.id, initialThread, { editable:true, jobId:j.id, draftMode:false, maxRoots: _maxRoots });
         }
       }
       if (cat2 === 'new' && typeof window._renderJobVandocs === 'function') {
