@@ -2778,8 +2778,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
-      <!-- 투입 장비 — AS 카테고리 전용 (간소화 — 팝업 폼으로 추가) -->
-      <div class="js-as-only" style="background:var(--gray-50);border-radius:12px;padding:14px 18px;border:1px solid var(--gray-200);display:none">
+      <!-- 투입 장비 — AS 카테고리 전용 (DEPRECATED: 요청사항·처리기록의 처리에서 추가)
+           UI 노출 X — 데이터 호환을 위해 마크업만 유지 (강제 hidden) -->
+      <div class="js-as-only" style="display:none !important" data-deprecated="as-equip-section">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div style="font-size:13px;font-weight:700;color:var(--gray-700)">🔧 AS 투입 장비 <span id="asEquipCount" style="font-size:11px;color:var(--gray-500);font-weight:600;margin-left:4px"></span></div>
           <button type="button" class="btn btn-primary btn-sm" onclick="openAsEquipAdd()" style="padding:5px 12px;font-size:11.5px;font-weight:800">＋ 장비 추가</button>
@@ -14040,6 +14041,12 @@ ${text.slice(0, 4000)}`;
           // children
           kids.forEach(c => {
             const cm = _threadStatusMeta(c.status);
+            const cEq = Array.isArray(c.equipment) ? c.equipment : [];
+            const eqSummary = cEq.length === 0 ? '' : `
+              <div style="margin-top:6px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;padding:6px 9px">
+                <div style="font-size:10.5px;color:#065F46;font-weight:700;margin-bottom:3px">🔧 투입 장비 (${cEq.length}종)</div>
+                ${cEq.map(eq => `<div style="font-size:11px;color:var(--gray-700)">· ${escFn(eq.name||'-')}${eq.variant?' · '+escFn(eq.variant):''}${eq.condition==='used'?' <span style="background:#FEE2E2;color:#991B1B;font-size:9.5px;padding:0 5px;border-radius:3px">중고</span>':''} <b style="color:var(--primary)">${Number(eq.qty)||0}대</b></div>`).join('')}
+              </div>`;
             detail += `<div style="background:#fff;border:1px solid ${cm.border};border-left:4px solid ${cm.color};border-radius:8px;padding:9px 11px;margin-top:6px;margin-left:18px">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:5px">
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -14050,12 +14057,24 @@ ${text.slice(0, 4000)}`;
                 ${editable ? `<button type="button" onclick="if(confirm('이 기록을 삭제할까요?'))window._removeThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(c.threadId)}',false)" title="삭제" style="background:transparent;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 4px">✕</button>` : ''}
               </div>
               <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${escFn(c.text||'')}</div>
+              ${eqSummary}
             </div>`;
           });
 
           // 진행/완료 추가 폼 — 완료 그룹은 잠금
           if (editable && !isCompleted) {
             const formId = containerId + '__add_' + r.threadId;
+            // 이 폼에 임시 추가된 투입 장비 목록 렌더
+            window._threadChildEquipDraft = window._threadChildEquipDraft || {};
+            const eqDraft = window._threadChildEquipDraft[formId] || [];
+            const eqListHtml = eqDraft.length === 0
+              ? `<div style="text-align:center;color:var(--gray-400);font-size:11px;padding:6px;background:#fff;border:1px dashed var(--gray-200);border-radius:6px">투입 장비 없음 — 우측 [＋ 장비 추가]</div>`
+              : eqDraft.map((eq, ei) => `
+                <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#fff;border:1px solid var(--gray-200);border-radius:6px;font-size:11.5px">
+                  <span style="font-weight:700;color:var(--gray-800);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escFn(eq.name||'-')}${eq.variant?' · '+escFn(eq.variant):''}${eq.condition==='used'?' <span style="background:#FEE2E2;color:#991B1B;font-size:9.5px;padding:0 5px;border-radius:3px">중고</span>':''}</span>
+                  <span style="color:var(--primary);font-weight:700;white-space:nowrap">${Number(eq.qty)||0}대</span>
+                  <button type="button" onclick="window._removeChildEquip('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}','${escFn(formId)}',${ei})" title="제거" style="background:transparent;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 2px">×</button>
+                </div>`).join('');
             detail += `<div style="margin-top:8px;margin-left:18px;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:8px;padding:9px 10px">
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
                 <span style="font-size:11px;color:var(--gray-600);font-weight:700">상태:</span>
@@ -14065,7 +14084,9 @@ ${text.slice(0, 4000)}`;
                 <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#fff;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
                   <input type="radio" name="${escFn(formId)}_st" value="완료" style="margin:0"> ✅ 완료
                 </label>
+                <button type="button" onclick="window._openChildEquipAdd('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}','${escFn(formId)}')" style="margin-left:auto;background:#fff;color:#1E40AF;border:1px solid #1E40AF;border-radius:14px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer">🔧 ＋ 장비 추가</button>
               </div>
+              <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:6px">${eqListHtml}</div>
               <div style="display:flex;gap:6px">
                 <textarea id="${escFn(formId)}_text" placeholder="처리 내용을 입력하세요..." style="flex:1;min-height:42px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
                 <button type="button" class="btn btn-primary btn-sm" onclick="window._submitChild('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}','${escFn(formId)}')" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">＋ 기록 추가</button>
@@ -14185,15 +14206,34 @@ ${text.slice(0, 4000)}`;
   window._submitChild = function(containerId, jobId, draftMode, rootId, formId) {
     const ta = document.getElementById(formId + '_text');
     const text = (ta && ta.value || '').trim();
-    if (!text) { try { showToast('내용을 입력하세요'); } catch(e){} return; }
+    // 폼별 투입 장비 임시 목록 회수
+    window._threadChildEquipDraft = window._threadChildEquipDraft || {};
+    const eqList = (window._threadChildEquipDraft[formId] || []).slice();
+    if (!text && eqList.length === 0) { try { showToast('내용을 입력하거나 장비를 추가하세요'); } catch(e){} return; }
     const st = (document.querySelector(`input[name="${formId}_st"]:checked`)||{}).value || '진행';
     const ts = _kstNow();
     const who = _whoNow();
-    const entry = { ts, author: who, status: st, text, threadId: _newThreadId(), parentId: rootId };
+    const entry = { ts, author: who, status: st, text: text || '(투입 장비만 등록)',
+                    threadId: _newThreadId(), parentId: rootId };
+    if (eqList.length > 0) entry.equipment = eqList;
     let arr = window._threadMigrate(_getThreadFor(jobId, draftMode));
     arr.push(entry);
     _setThreadFor(jobId, draftMode, arr);
-    // 완료 처리 시 — 해당 ROOT 자동 접힘 (사용자 토글값도 false 로 강제)
+    // 편집 모드 — job.equipment 에도 누적 (기존 호환)
+    if (!draftMode && jobId && eqList.length > 0) {
+      try {
+        const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+        const i = jobs.findIndex(x => x.id === jobId);
+        if (i >= 0) {
+          jobs[i].equipment = (Array.isArray(jobs[i].equipment) ? jobs[i].equipment : []).concat(eqList);
+          jobs[i].equipTotal = (Number(jobs[i].equipTotal)||0) + eqList.reduce((s,e)=>s+(Number(e.subtotal)||(Number(e.qty)||0)*(Number(e.salePrice)||0)),0);
+          if (typeof saveJobs === 'function') saveJobs(jobs);
+        }
+      } catch(e){ console.warn('[submitChild] equipment merge fail', e); }
+    }
+    // 폼 임시 장비 목록 비움
+    delete window._threadChildEquipDraft[formId];
+    // 완료 처리 시 — 해당 ROOT 자동 접힘
     if (st === '완료') {
       const openKey = '_threadOpen_' + (jobId || 'draft');
       window[openKey] = window[openKey] || {};
@@ -14201,6 +14241,53 @@ ${text.slice(0, 4000)}`;
     }
     _rerenderThread(containerId, jobId, draftMode);
     try { showToast(st==='완료' ? '✅ 완료 처리되었습니다' : '🔄 진행 기록이 추가되었습니다'); } catch(e){}
+  };
+
+  // 자식 폼의 textarea/상태 스냅샷 후 재렌더 + 복원 — 입력 중인 내용 보존
+  function _rerenderThreadPreserving(containerId, jobId, draftMode, formId) {
+    const taOld = document.getElementById(formId + '_text');
+    const stash = {
+      text: taOld ? taOld.value : '',
+      st: (document.querySelector(`input[name="${formId}_st"]:checked`)||{}).value || ''
+    };
+    _rerenderThread(containerId, jobId, draftMode);
+    const taNew = document.getElementById(formId + '_text');
+    if (taNew && stash.text) taNew.value = stash.text;
+    if (stash.st) {
+      const r = document.querySelector(`input[name="${formId}_st"][value="${stash.st}"]`);
+      if (r) r.checked = true;
+    }
+  }
+
+  // 처리 기록 폼별 — 투입 장비 추가 팝업
+  window._openChildEquipAdd = function(containerId, jobId, draftMode, rootId, formId, editIdx) {
+    const modal = (typeof _ensureStoreEquipModal === 'function') ? _ensureStoreEquipModal() : null;
+    if (!modal) { alert('장비 입력 모달을 불러올 수 없습니다'); return; }
+    window._threadChildEquipDraft = window._threadChildEquipDraft || {};
+    window._threadChildEquipDraft[formId] = window._threadChildEquipDraft[formId] || [];
+    const isEdit = typeof editIdx === 'number';
+    const current = isEdit ? (window._threadChildEquipDraft[formId][editIdx] || {}) : {};
+    document.getElementById('seemTitle').textContent = isEdit ? '🔧 처리 투입 장비 — 수정' : '🔧 처리 투입 장비 — 추가';
+    document.getElementById('seemBody').innerHTML = _renderEquipFormFields('seem_child', current);
+    document.getElementById('seemFooterLeft').innerHTML = '';
+    const saveBtn = document.getElementById('seemSaveBtn');
+    if (saveBtn) {
+      saveBtn.onclick = () => {
+        const data = _collectEquipForm('seem_child');
+        if (!data.name) { alert('장비명을 입력하세요'); return; }
+        if (isEdit) window._threadChildEquipDraft[formId][editIdx] = data;
+        else window._threadChildEquipDraft[formId].push(data);
+        modal.classList.remove('show');
+        _rerenderThreadPreserving(containerId, jobId, draftMode, formId);
+      };
+    }
+    modal.classList.add('show');
+  };
+  window._removeChildEquip = function(containerId, jobId, draftMode, rootId, formId, idx) {
+    window._threadChildEquipDraft = window._threadChildEquipDraft || {};
+    if (!window._threadChildEquipDraft[formId]) return;
+    window._threadChildEquipDraft[formId].splice(idx, 1);
+    _rerenderThreadPreserving(containerId, jobId, draftMode, formId);
   };
 
   // 노드 삭제 (ROOT 또는 child)
