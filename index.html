@@ -11222,7 +11222,7 @@ ${text.slice(0, 4000)}`;
       // VAN 서류 진행
       vandocs: (window._jobVandocsDraft && typeof window._jobVandocsDraft === 'object')
               ? JSON.parse(JSON.stringify(window._jobVandocsDraft))
-              : { van:{status:'서류접수',tid:'',serial:''}, easy:{status:'서류접수',tid:'',serial:''}, kakao:{status:'서류접수',tid:'',serial:''} },
+              : { van:{status:'접수',tid:'',serial:''}, easy:{status:'접수',tid:''}, kakao:{status:'접수',tid:''} },
       status:    isConsult ? '상담중' : (isAs ? '접수' : '진행중'),
       createdAt: Date.now()
     };
@@ -13532,7 +13532,7 @@ ${text.slice(0, 4000)}`;
     // 신규 — 요청사항 스레드 + VAN 서류 임시 목록 초기화 + 렌더
     window._jobThreadDraft = [];
     window._jobThreadJobId = null;
-    window._jobVandocsDraft = { van:{status:'서류접수',tid:'',serial:''}, easy:{status:'서류접수',tid:'',serial:''}, kakao:{status:'서류접수',tid:'',serial:''} };
+    window._jobVandocsDraft = { van:{status:'접수',tid:'',serial:''}, easy:{status:'접수',tid:''}, kakao:{status:'접수',tid:''} };
     try { if (typeof window._renderThreadGroups === 'function') window._renderThreadGroups('jobThreadContainer', window._jobThreadDraft, { editable:true, jobId:null, draftMode:true }); } catch(e){}
     try { if (typeof window._renderJobVandocs === 'function') window._renderJobVandocs('jobVandocsContainer', window._jobVandocsDraft, { editable:true, jobId:null, draftMode:true }); } catch(e){}
     // 장비 카운터 (당구공) — buildBallSelectors 가 다시 그리지만 데이터 카운터는 별도
@@ -13544,7 +13544,7 @@ ${text.slice(0, 4000)}`;
 
   /* ─── 요청사항/처리 기록 스레드 (그룹형 — ROOT '요청접수' + children '진행'/'완료') ─── */
   window._jobThreadDraft = window._jobThreadDraft || [];
-  window._jobVandocsDraft = window._jobVandocsDraft || { van:{status:'서류접수',tid:'',serial:''}, easy:{status:'서류접수',tid:'',serial:''}, kakao:{status:'서류접수',tid:'',serial:''} };
+  window._jobVandocsDraft = window._jobVandocsDraft || { van:{status:'접수',tid:'',serial:''}, easy:{status:'접수',tid:''}, kakao:{status:'접수',tid:''} };
 
   function _threadStatusMeta(s) {
     if (s === '완료') return { color:'#065F46', bg:'#D1FAE5', border:'#A7F3D0', icon:'✅' };
@@ -13874,20 +13874,28 @@ ${text.slice(0, 4000)}`;
 
   /* ─── VAN 서류 진행 ─── */
   const VANDOC_KINDS = [
-    { key:'van',   label:'VAN',       icon:'💳' },
-    { key:'easy',  label:'간편결제',  icon:'📱' },
-    { key:'kakao', label:'카카오페이', icon:'🟡' }
+    { key:'van',   label:'VAN',       icon:'💳', showSerial:true },
+    { key:'easy',  label:'간편결제',  icon:'📱', showSerial:false },
+    { key:'kakao', label:'카카오페이', icon:'🟡', showSerial:false }
   ];
   const VANDOC_STATES = [
-    { v:'서류접수', icon:'📥' },
-    { v:'신청진행', icon:'📤' },
-    { v:'진행완료', icon:'✅' }
+    { v:'접수', icon:'📥' },
+    { v:'진행', icon:'📤' },
+    { v:'완료', icon:'✅' }
   ];
 
   function _vandocStatusMeta(s) {
-    if (s === '진행완료') return { color:'#065F46', bg:'#D1FAE5', border:'#A7F3D0' };
-    if (s === '신청진행') return { color:'#92400E', bg:'#FEF3C7', border:'#FCD34D' };
+    // 신/구 라벨 모두 지원 (legacy: 서류접수/신청진행/진행완료)
+    if (s === '완료' || s === '진행완료') return { color:'#065F46', bg:'#D1FAE5', border:'#A7F3D0' };
+    if (s === '진행' || s === '신청진행') return { color:'#92400E', bg:'#FEF3C7', border:'#FCD34D' };
     return { color:'#1E40AF', bg:'#DBEAFE', border:'#BFDBFE' };
+  }
+  // legacy 상태 정규화
+  function _vandocNormalizeStatus(s) {
+    if (s === '서류접수') return '접수';
+    if (s === '신청진행') return '진행';
+    if (s === '진행완료') return '완료';
+    return s || '접수';
   }
 
   window._renderJobVandocs = function(containerId, vandocs, opts) {
@@ -13902,7 +13910,7 @@ ${text.slice(0, 4000)}`;
 
     const cards = VANDOC_KINDS.map(k => {
       const d = data[k.key] || {};
-      const st = d.status || '서류접수';
+      const st = _vandocNormalizeStatus(d.status);
       const m = _vandocStatusMeta(st);
       const tid = d.tid || '';
       const serial = d.serial || '';
@@ -13911,21 +13919,23 @@ ${text.slice(0, 4000)}`;
         <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:${st===s.v?m.bg:'#F1F5F9'};border:1px solid ${st===s.v?m.color:'#CBD5E1'};color:${st===s.v?m.color:'var(--gray-600)'};border-radius:14px;cursor:pointer;font-size:11px;font-weight:700">
           <input type="radio" name="${escFn(radioName)}" value="${escFn(s.v)}" ${st===s.v?'checked':''} ${editable?'':'disabled'} onchange="window._updateVandoc('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(k.key)}','status',this.value)" style="margin:0"> ${s.icon} ${escFn(s.v)}
         </label>`).join('');
+      const serialField = k.showSerial ? `
+            <label style="display:flex;flex-direction:column;gap:3px">
+              <span style="font-size:10.5px;color:var(--gray-500);font-weight:600">Serial</span>
+              <input type="text" value="${escFn(serial)}" placeholder="Serial" ${editable?'':'disabled'} onchange="window._updateVandoc('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(k.key)}','serial',this.value)" style="padding:6px 8px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;background:#fff;font-family:inherit;width:100%;box-sizing:border-box">
+            </label>` : '';
+      const gridCols = k.showSerial ? '1fr 1fr' : '1fr';
       return `
         <div style="background:#fff;border:1px solid ${m.border};border-left:4px solid ${m.color};border-radius:10px;padding:11px 12px;display:flex;flex-direction:column;gap:7px;min-width:0">
           <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:${m.color};font-size:13px">
             <span>${k.icon}</span><span>${escFn(k.label)}</span>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:4px">${states}</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px">
+          <div style="display:grid;grid-template-columns:${gridCols};gap:6px;margin-top:2px">
             <label style="display:flex;flex-direction:column;gap:3px">
               <span style="font-size:10.5px;color:var(--gray-500);font-weight:600">TID</span>
               <input type="text" value="${escFn(tid)}" placeholder="TID" ${editable?'':'disabled'} onchange="window._updateVandoc('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(k.key)}','tid',this.value)" style="padding:6px 8px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;background:#fff;font-family:inherit;width:100%;box-sizing:border-box">
-            </label>
-            <label style="display:flex;flex-direction:column;gap:3px">
-              <span style="font-size:10.5px;color:var(--gray-500);font-weight:600">Serial</span>
-              <input type="text" value="${escFn(serial)}" placeholder="Serial" ${editable?'':'disabled'} onchange="window._updateVandoc('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(k.key)}','serial',this.value)" style="padding:6px 8px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;background:#fff;font-family:inherit;width:100%;box-sizing:border-box">
-            </label>
+            </label>${serialField}
           </div>
         </div>`;
     }).join('');
