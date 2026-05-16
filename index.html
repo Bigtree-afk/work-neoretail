@@ -4331,17 +4331,30 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     const storeById = new Map();
-    stores.forEach(s => { if (s.id) storeById.set(s.id, s); });
+    const storeByName = new Map();
+    const normFn = (typeof _normalizeSearch === 'function')
+                  ? _normalizeSearch
+                  : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+    stores.forEach(s => {
+      if (s.id) storeById.set(s.id, s);
+      const n = (s.name||'').trim();
+      if (n) storeByName.set(normFn(n), s);
+    });
 
     const filtered = jobs.filter(filterFn);
-    const groupMap = new Map(); // key = storeId 또는 normalized storeName
+    const groupMap = new Map();
     filtered.forEach(j => {
-      const key = j.storeId || ('name:' + String(j.storeName||j.store||'').trim());
+      const jName = (j.storeName || j.store || '').trim();
+      // 1) storeId 매칭 → 2) 매장명 정규화 매칭 (storeId 삭제됐거나 미설정된 경우)
+      let store = j.storeId ? storeById.get(j.storeId) : null;
+      if (!store && jName) store = storeByName.get(normFn(jName)) || null;
+      // 그룹 키 — store 가 매칭됐으면 그 id, 아니면 정규화 매장명
+      const key = (store && store.id) || ('name:' + normFn(jName));
       if (!groupMap.has(key)) {
         groupMap.set(key, {
-          storeId: j.storeId || null,
-          storeName: j.storeName || j.store || '(매장명 없음)',
-          store: j.storeId ? storeById.get(j.storeId) : null,
+          storeId: (store && store.id) || j.storeId || null,
+          storeName: (store && store.name) || jName || '(매장명 없음)',
+          store: store || null,
           jobs: [],
         });
       }
@@ -4349,6 +4362,73 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     });
     return [...groupMap.values()];
   }
+
+  // 매장 정보 누락 진단 — 콘솔에서 window.diagnoseOrphanJobs() 실행
+  window.diagnoseOrphanJobs = function() {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const idSet = new Set(stores.filter(s => s.id).map(s => s.id));
+    const normFn = (typeof _normalizeSearch === 'function')
+                  ? _normalizeSearch
+                  : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+    const nameSet = new Set(stores.map(s => normFn(s.name||'')).filter(Boolean));
+    const orphans = { byId:[], byName:[], noStore:[] };
+    jobs.forEach(j => {
+      const jn = (j.storeName || j.store || '').trim();
+      const hasIdMatch = j.storeId && idSet.has(j.storeId);
+      const hasNameMatch = jn && nameSet.has(normFn(jn));
+      if (j.storeId && !hasIdMatch && !hasNameMatch) {
+        orphans.byId.push(j);
+      } else if (!j.storeId && jn && !hasNameMatch) {
+        orphans.byName.push(j);
+      } else if (!j.storeId && !jn) {
+        orphans.noStore.push(j);
+      }
+    });
+    console.group('[매장 정보 없음 진단]');
+    console.log('총 작업', jobs.length, '/ 총 매장', stores.length);
+    console.log('① storeId 가 매장 DB 에서 사라진 작업:', orphans.byId.length, '건');
+    orphans.byId.forEach(j => console.log(`   ${j.id} | type:${j.type} | name:${j.storeName||j.store} | storeId:${j.storeId}`));
+    console.log('② storeName 만 있고 매장 미등록인 작업:', orphans.byName.length, '건');
+    orphans.byName.forEach(j => console.log(`   ${j.id} | type:${j.type} | name:${j.storeName||j.store}`));
+    console.log('③ 매장명도 없는 작업:', orphans.noStore.length, '건');
+    orphans.noStore.forEach(j => console.log(`   ${j.id} | type:${j.type} | createdAt:${j.createdAt}`));
+    console.groupEnd();
+    return orphans;
+  };
+
+  // 작업의 storeId 를 매장명 기준으로 재연결 (관리 도구)
+  // 콘솔에서 window.relinkJobsByName() — orphans.byId 의 작업 중 매장명이 ns_stores 에 있는 항목을 자동 재연결
+  window.relinkJobsByName = function() {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const normFn = (typeof _normalizeSearch === 'function')
+                  ? _normalizeSearch
+                  : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+    const storeByName = new Map();
+    stores.forEach(s => { const n = (s.name||'').trim(); if (n) storeByName.set(normFn(n), s); });
+    let fixed = 0;
+    jobs.forEach(j => {
+      const jn = (j.storeName || j.store || '').trim();
+      if (!jn) return;
+      const match = storeByName.get(normFn(jn));
+      if (!match) return;
+      // storeId 가 없거나 mismatch 면 재연결
+      if (!j.storeId || j.storeId !== match.id) {
+        const before = j.storeId || '(없음)';
+        j.storeId = match.id;
+        j.unregistered = false;
+        fixed++;
+        console.log(`  ${j.id} ${jn} : ${before} → ${match.id}`);
+      }
+    });
+    if (fixed > 0) {
+      if (typeof saveJobs === 'function') saveJobs(jobs);
+      try { if (typeof showToast === 'function') showToast(`✅ ${fixed}건 작업의 storeId 재연결 완료`); } catch(e){}
+    }
+    console.log('[relinkJobsByName] 재연결:', fixed, '건');
+    return fixed;
+  };
 
   const _hubDoneFn = (j) => (typeof window._isJobDone === 'function') ? window._isJobDone(j) : false;
 
