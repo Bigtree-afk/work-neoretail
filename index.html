@@ -401,6 +401,9 @@
   body.as-mode .js-as-only { display: block !important; }
   .js-new-only { display: none !important; }
   body.new-mode .js-new-only { display: block !important; }
+  .js-thread-mode { display: none !important; }
+  body.new-mode .js-thread-mode,
+  body.as-mode  .js-thread-mode { display: block !important; }
   /* 상담 등록 전용 필드 (상담일 등) */
   .js-consult-only { display: none !important; }
   body.consult-mode .js-consult-only { display: flex !important; }
@@ -2760,8 +2763,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </div>
         </div>
 
-        <!-- 신규 전용 — 요청사항 / 처리 기록 스레드 (그룹형) -->
-        <div class="form-group js-new-only" style="margin:0;grid-column:1/-1">
+        <!-- 신규 + AS 공용 — 요청사항 / 처리 기록 스레드 (그룹형) -->
+        <div class="form-group js-thread-mode" style="margin:0;grid-column:1/-1">
           <div id="jobThreadContainer"></div>
         </div>
 
@@ -11222,10 +11225,20 @@ ${text.slice(0, 4000)}`;
         : ((document.getElementById('jobNotes') || {}).value?.trim() || ''),
       equipment,
       equipTotal,
-      // 신규 업무 — 요청사항/처리 기록 스레드 (그룹형)
-      thread: (Array.isArray(window._jobThreadDraft) && window._jobThreadDraft.length > 0)
-              ? (typeof window._threadMigrate === 'function' ? window._threadMigrate(window._jobThreadDraft.slice()) : window._jobThreadDraft.slice())
-              : [],
+      // 신규/AS 업무 — 요청사항/처리 기록 스레드 (그룹형)
+      // AS 의 경우 asRequest 가 있고 스레드가 비었으면 첫 ROOT 로 자동 시드
+      thread: (() => {
+        let draft = Array.isArray(window._jobThreadDraft) ? window._jobThreadDraft.slice() : [];
+        if (isAs && draft.length === 0 && asInfo && asInfo.request) {
+          const ts = (typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr()
+                    : new Date().toISOString().slice(0,16).replace('T',' ');
+          const author = ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
+          draft = [{ ts, author, status:'요청접수', text: asInfo.request,
+                     threadId: 'TR-as-seed-' + Date.now(), parentId: null }];
+        }
+        return (typeof window._threadMigrate === 'function')
+                ? window._threadMigrate(draft) : draft;
+      })(),
       // VAN 서류 진행
       vandocs: (window._jobVandocsDraft && typeof window._jobVandocsDraft === 'object')
               ? JSON.parse(JSON.stringify(window._jobVandocsDraft))
@@ -11358,16 +11371,17 @@ ${text.slice(0, 4000)}`;
     const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
     const ctx = window._currentJobContext || '';
     const isNewCtx = (ctx === 'new');
+    const isAsCtx  = (ctx === 'as');
+    const isThreadCtx = isNewCtx || isAsCtx;
     let matches = jobs.filter(j => {
       if (isDone(j)) return false; // 진행 중만
       const s = (j.store || j.storeName || '').trim();
       if (!s) return false;
       return normFn(s) === target;
     });
-    // 신규 컨텍스트 — 신규 카테고리 업무만 노출
-    if (isNewCtx) {
-      matches = matches.filter(j => classifyFn(j) === 'new');
-    }
+    // 컨텍스트별 — 해당 카테고리 진행 중 업무만 노출
+    if (isNewCtx) matches = matches.filter(j => classifyFn(j) === 'new');
+    else if (isAsCtx) matches = matches.filter(j => classifyFn(j) === 'as');
     if (matches.length === 0) {
       banner.style.display = 'none';
       return;
@@ -11380,14 +11394,19 @@ ${text.slice(0, 4000)}`;
     if (isNewCtx) {
       if (headerLbl) headerLbl.innerHTML = `🆕 이 매장의 진행 중 <b>신규</b> 업무 <span id="jobSimCount" style="background:#92400e;color:#fff;font-size:10px;padding:1px 7px;border-radius:99px;margin-left:3px">${matches.length}</span>`;
       if (subLbl) subLbl.innerHTML = '기존 업무에 <b>요청접수를 추가</b>하거나 <b>진행 상태를 업데이트</b>할 수 있습니다. 신규 등록을 계속하려면 이 안내를 무시하고 아래에서 등록하세요.';
-      // 신규 컨텍스트는 자동 펼침
+    } else if (isAsCtx) {
+      if (headerLbl) headerLbl.innerHTML = `🔧 이 매장의 진행 중 <b>AS</b> 업무 <span id="jobSimCount" style="background:#92400e;color:#fff;font-size:10px;padding:1px 7px;border-radius:99px;margin-left:3px">${matches.length}</span>`;
+      if (subLbl) subLbl.innerHTML = '진행 중인 AS 에 <b>요청접수를 추가</b>하거나 <b>처리 기록을 갱신</b>할 수 있습니다. 신규 AS 로 등록하려면 안내를 무시하고 아래에서 등록하세요.';
+    } else {
+      if (headerLbl) headerLbl.innerHTML = `⚠️ 이 매장의 진행 중 업무 <span id="jobSimCount" style="background:#92400e;color:#fff;font-size:10px;padding:1px 7px;border-radius:99px;margin-left:3px">${matches.length}</span>`;
+      if (subLbl) subLbl.textContent = '새 업무 등록 전 같은 매장의 진행 중 업무를 확인하세요. 중복 등록 시 기존 업무에 기록을 추가하는 것이 효율적입니다.';
+    }
+    if (isThreadCtx) {
+      // 자동 펼침
       const lst = document.getElementById('jobSimList');
       if (lst) lst.style.display = 'flex';
       const btn = document.getElementById('jobSimToggle');
       if (btn) btn.innerHTML = '접기 ▲';
-    } else {
-      if (headerLbl) headerLbl.innerHTML = `⚠️ 이 매장의 진행 중 업무 <span id="jobSimCount" style="background:#92400e;color:#fff;font-size:10px;padding:1px 7px;border-radius:99px;margin-left:3px">${matches.length}</span>`;
-      if (subLbl) subLbl.textContent = '새 업무 등록 전 같은 매장의 진행 중 업무를 확인하세요. 중복 등록 시 기존 업무에 기록을 추가하는 것이 효율적입니다.';
     }
 
     const list = document.getElementById('jobSimList');
@@ -11401,16 +11420,18 @@ ${text.slice(0, 4000)}`;
         // 진행 중 ROOT 수 (신규일 때만 의미 있음)
         const thread = Array.isArray(j.thread) ? j.thread : [];
         const rootCnt = thread.filter(e => e.parentId == null).length;
-        const rootInfo = (isNewCtx && rootCnt) ? `<span style="background:#DBEAFE;color:#1E40AF;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:4px">요청 ${rootCnt}건</span>` : '';
-        // 액션 버튼 — 신규 컨텍스트면 "+ 요청접수 추가"와 "이 업무 열기" 두 개
+        const rootInfo = (isThreadCtx && rootCnt) ? `<span style="background:${isAsCtx?'#FEE2E2':'#DBEAFE'};color:${isAsCtx?'#991B1B':'#1E40AF'};font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:4px">요청 ${rootCnt}건</span>` : '';
+        // 액션 버튼 — 신규/AS 컨텍스트면 "+ 요청접수 추가"와 "이 업무 열기" 두 개
         const idEsc = escFn(j.id || '');
-        const actionBtns = !j.id ? '' : (isNewCtx
+        const accentBg = isAsCtx ? '#B91C1C' : '#1E40AF';
+        const actionBtns = !j.id ? '' : (isThreadCtx
           ? `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
-               <button type="button" onclick="_jumpToJobThread('${idEsc}', true)" style="background:#1E40AF;color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap">＋ 요청접수 추가</button>
-               <button type="button" onclick="_jumpToJobThread('${idEsc}', false)" style="background:#fff;color:#1E40AF;border:1px solid #1E40AF;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">이 업무 열기</button>
+               <button type="button" onclick="_jumpToJobThread('${idEsc}', true)" style="background:${accentBg};color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap">＋ 요청접수 추가</button>
+               <button type="button" onclick="_jumpToJobThread('${idEsc}', false)" style="background:#fff;color:${accentBg};border:1px solid ${accentBg};border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">이 업무 열기</button>
              </div>`
           : `<button type="button" onclick="closeModal('newJobModal');setTimeout(()=>{try{editNewopen('${idEsc}')}catch(e){}},120)" style="background:#92400e;color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:inherit">이 업무로 이동</button>`);
-        return `<div style="background:#fff;border:1px solid ${isNewCtx?'#BFDBFE':'#fde68a'};border-radius:7px;padding:7px 10px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        const cardBorder = isAsCtx ? '#FECACA' : (isNewCtx ? '#BFDBFE' : '#fde68a');
+        return `<div style="background:#fff;border:1px solid ${cardBorder};border-radius:7px;padding:7px 10px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:8px">
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;color:var(--gray-900)">
               <span style="background:${catColor(cat)};color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:99px;margin-right:4px">${escFn(j.type || cat)}</span>
@@ -11420,15 +11441,22 @@ ${text.slice(0, 4000)}`;
           </div>
           ${actionBtns}
         </div>`;
-      }).join('') + (matches.length > 5 ? `<div style="font-size:10.5px;color:${isNewCtx?'#1E40AF':'#92400e'};text-align:center;padding-top:4px">외 ${matches.length - 5}건...</div>` : '');
+      }).join('') + (matches.length > 5 ? `<div style="font-size:10.5px;color:${isAsCtx?'#B91C1C':(isNewCtx?'#1E40AF':'#92400e')};text-align:center;padding-top:4px">외 ${matches.length - 5}건...</div>` : '');
     }
-    // 신규 컨텍스트 — 배너 톤도 파란색 계열로
+    // 컨텍스트별 — 배너 톤 조정
     if (isNewCtx) {
       banner.style.background = '#EFF6FF';
       banner.style.borderColor = '#BFDBFE';
       banner.querySelectorAll('[style*="color:#92400e"]').forEach(el => {
         el.style.color = '#1E40AF';
         if (el.style.background.indexOf('#92400e') !== -1) el.style.background = '#1E40AF';
+      });
+    } else if (isAsCtx) {
+      banner.style.background = '#FEF2F2';
+      banner.style.borderColor = '#FECACA';
+      banner.querySelectorAll('[style*="color:#92400e"]').forEach(el => {
+        el.style.color = '#B91C1C';
+        if (el.style.background.indexOf('#92400e') !== -1) el.style.background = '#B91C1C';
       });
     } else {
       banner.style.background = '#fffbeb';
@@ -14579,12 +14607,14 @@ ${text.slice(0, 4000)}`;
         </div>
 
         ${(() => {
-          /* 📋 요청사항 · 처리 기록 (그룹) + VAN 서류 — 신규 업무 전용 */
+          /* 📋 요청사항 · 처리 기록 (그룹) — 신규 + AS 공용
+             📑 VAN 서류 진행 — 신규 전용 */
           const cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
-          if (cat !== 'new') return '';
+          if (cat !== 'new' && cat !== 'as') return '';
+          const vandocsBlock = (cat === 'new') ? `<div id="jobVandocsContainerEdit-${j.id}"></div>` : '';
           return `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:14px">
             <div id="jobThreadContainerEdit-${j.id}"></div>
-            <div id="jobVandocsContainerEdit-${j.id}"></div>
+            ${vandocsBlock}
           </div>`;
         })()}
       </div>
@@ -14750,16 +14780,35 @@ ${text.slice(0, 4000)}`;
       ` : ''}
     `;
 
-    // 🔁 신규 카테고리만 스레드/VAN서류 렌더
+    // 🔁 스레드 — 신규/AS 공용 / VAN서류 — 신규 전용
     try {
       const cat2 = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
-      if (cat2 === 'new') {
+      if (cat2 === 'new' || cat2 === 'as') {
         if (typeof window._renderThreadGroups === 'function') {
-          window._renderThreadGroups('jobThreadContainerEdit-' + j.id, j.thread || [], { editable:true, jobId:j.id, draftMode:false });
+          // AS — 기존 asRequest 텍스트가 있고 스레드가 비었다면 첫 ROOT 로 자동 시드
+          let initialThread = j.thread || [];
+          if (cat2 === 'as' && (!initialThread || initialThread.length === 0) && (j.asRequest || j.notes)) {
+            const seedText = (j.asRequest || j.notes || '').trim();
+            if (seedText) {
+              const seedTs = (j.asReceivedAt || '').slice(0,16).replace('T',' ')
+                          || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,16).replace('T',' ') : '');
+              const seedAuthor = j.engineer || j.assignee || '담당자';
+              const seedRoot = { ts: seedTs, author: seedAuthor, status: '요청접수', text: seedText,
+                                 threadId: 'TR-seed-' + (j.id||'') , parentId: null };
+              initialThread = [seedRoot];
+              // 영구 저장
+              try {
+                const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+                const ix = jobs.findIndex(x => x.id === j.id);
+                if (ix >= 0) { jobs[ix].thread = initialThread.slice(); if (typeof saveJobs === 'function') saveJobs(jobs); }
+              } catch(_){}
+            }
+          }
+          window._renderThreadGroups('jobThreadContainerEdit-' + j.id, initialThread, { editable:true, jobId:j.id, draftMode:false });
         }
-        if (typeof window._renderJobVandocs === 'function') {
-          window._renderJobVandocs('jobVandocsContainerEdit-' + j.id, j.vandocs || {}, { editable:true, jobId:j.id, draftMode:false });
-        }
+      }
+      if (cat2 === 'new' && typeof window._renderJobVandocs === 'function') {
+        window._renderJobVandocs('jobVandocsContainerEdit-' + j.id, j.vandocs || {}, { editable:true, jobId:j.id, draftMode:false });
       }
     } catch(e){ console.warn('[editNewopen] thread/vandocs render 실패', e); }
 
