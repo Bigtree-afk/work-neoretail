@@ -11490,6 +11490,15 @@ ${text.slice(0, 4000)}`;
   }
   window.toggleUnregisteredStore = toggleUnregisteredStore;
 
+  /* ════════════════════════════════════════════════════════════════════════
+   * saveNewJob — 작업 등록 (newJobModal [작업 등록]/[완료] 클릭)
+   *   ⚠ 안정화 규약 (docs/AS_ARCHITECTURE.md 참조)
+   *   1. AS 등록은 '매장당 단일 job' — 동일 매장 AS 발견 시 별도 job 생성 X,
+   *      기존 thread 에 새 ROOT append (완료된 AS 도 재사용; isDone 필터 금지)
+   *   2. _asInlineEditJobId 가 설정되어 있으면 모달만 닫음 (이미 live 저장됨)
+   *   3. AS 머지 발생 시 pushJobsToCloud() 즉시 호출 — debounce 갭 차단
+   *   4. AS job 의 type 은 'AS 처리' 로 정규화 (분류기와 일관)
+   * ════════════════════════════════════════════════════════════════════════ */
   function saveNewJob() {
     // AS 인라인 편집 모드 — 모든 thread 편집이 이미 live 저장되었으므로 모달만 닫음
     if (window._asInlineEditJobId) {
@@ -14492,6 +14501,15 @@ ${text.slice(0, 4000)}`;
     return (j && Array.isArray(j.thread)) ? j.thread : [];
   }
 
+  /* ════════════════════════════════════════════════════════════════════════
+   * _setThreadFor — AS/신규 thread 영구 저장
+   *   ⚠ 안정화 규약 (docs/AS_ARCHITECTURE.md 참조)
+   *   1. 편집 모드 (!draftMode && jobId) → saveJobs 직후 pushJobsToCloud 즉시 호출
+   *      이유: 1.5s debounce 갭에서 stale cloud 가 thread 를 덮어쓰는 사고 차단
+   *   2. job.completed 는 '모든 ROOT 가 완료 child 를 가질 때만' true
+   *      이유: 한 ROOT 완료가 job 전체 completed 화면 다음 요청 ROOT 추가가 분리됨
+   *   3. arr 는 saveJobs 호출 전 반드시 _threadMigrate 정규화
+   * ════════════════════════════════════════════════════════════════════════ */
   function _setThreadFor(jobId, draftMode, arr) {
     if (draftMode) { window._jobThreadDraft = arr.slice(); return; }
     if (!jobId) return;
