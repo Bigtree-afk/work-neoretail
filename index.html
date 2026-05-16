@@ -11348,40 +11348,115 @@ ${text.slice(0, 4000)}`;
     const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
     const target = normFn(storeName);
     const isDone = (typeof window._isJobDone === 'function') ? window._isJobDone : () => false;
-    const matches = jobs.filter(j => {
+    const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
+    const ctx = window._currentJobContext || '';
+    const isNewCtx = (ctx === 'new');
+    let matches = jobs.filter(j => {
       if (isDone(j)) return false; // 진행 중만
       const s = (j.store || j.storeName || '').trim();
       if (!s) return false;
       return normFn(s) === target;
     });
+    // 신규 컨텍스트 — 신규 카테고리 업무만 노출
+    if (isNewCtx) {
+      matches = matches.filter(j => classifyFn(j) === 'new');
+    }
     if (matches.length === 0) {
       banner.style.display = 'none';
       return;
     }
     document.getElementById('jobSimCount').textContent = matches.length;
+
+    // 컨텍스트별 헤더/문구 조정
+    const headerLbl = banner.querySelector('div[style*="font-size:12.5px"]');
+    const subLbl = banner.querySelector('div[style*="line-height:1.5"]');
+    if (isNewCtx) {
+      if (headerLbl) headerLbl.innerHTML = `🆕 이 매장의 진행 중 <b>신규</b> 업무 <span id="jobSimCount" style="background:#92400e;color:#fff;font-size:10px;padding:1px 7px;border-radius:99px;margin-left:3px">${matches.length}</span>`;
+      if (subLbl) subLbl.innerHTML = '기존 업무에 <b>요청접수를 추가</b>하거나 <b>진행 상태를 업데이트</b>할 수 있습니다. 신규 등록을 계속하려면 이 안내를 무시하고 아래에서 등록하세요.';
+      // 신규 컨텍스트는 자동 펼침
+      const lst = document.getElementById('jobSimList');
+      if (lst) lst.style.display = 'flex';
+      const btn = document.getElementById('jobSimToggle');
+      if (btn) btn.innerHTML = '접기 ▲';
+    } else {
+      if (headerLbl) headerLbl.innerHTML = `⚠️ 이 매장의 진행 중 업무 <span id="jobSimCount" style="background:#92400e;color:#fff;font-size:10px;padding:1px 7px;border-radius:99px;margin-left:3px">${matches.length}</span>`;
+      if (subLbl) subLbl.textContent = '새 업무 등록 전 같은 매장의 진행 중 업무를 확인하세요. 중복 등록 시 기존 업무에 기록을 추가하는 것이 효율적입니다.';
+    }
+
     const list = document.getElementById('jobSimList');
     if (list) {
       const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
       const catColor = c => ({ new:'#10B981', as:'#F59E0B', van:'#2563EB', supplies:'#8B5CF6', churn:'#EF4444' }[c] || '#6B7280');
       list.innerHTML = matches.slice(0, 5).map(j => {
-        const cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : 'as';
+        const cat = classifyFn(j);
         const date = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
         const who = j.engineer || j.assignee || '';
-        return `<div style="background:#fff;border:1px solid #fde68a;border-radius:7px;padding:7px 10px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        // 진행 중 ROOT 수 (신규일 때만 의미 있음)
+        const thread = Array.isArray(j.thread) ? j.thread : [];
+        const rootCnt = thread.filter(e => e.parentId == null).length;
+        const rootInfo = (isNewCtx && rootCnt) ? `<span style="background:#DBEAFE;color:#1E40AF;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:4px">요청 ${rootCnt}건</span>` : '';
+        // 액션 버튼 — 신규 컨텍스트면 "+ 요청접수 추가"와 "이 업무 열기" 두 개
+        const idEsc = escFn(j.id || '');
+        const actionBtns = !j.id ? '' : (isNewCtx
+          ? `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
+               <button type="button" onclick="_jumpToJobThread('${idEsc}', true)" style="background:#1E40AF;color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap">＋ 요청접수 추가</button>
+               <button type="button" onclick="_jumpToJobThread('${idEsc}', false)" style="background:#fff;color:#1E40AF;border:1px solid #1E40AF;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">이 업무 열기</button>
+             </div>`
+          : `<button type="button" onclick="closeModal('newJobModal');setTimeout(()=>{try{editNewopen('${idEsc}')}catch(e){}},120)" style="background:#92400e;color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:inherit">이 업무로 이동</button>`);
+        return `<div style="background:#fff;border:1px solid ${isNewCtx?'#BFDBFE':'#fde68a'};border-radius:7px;padding:7px 10px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:8px">
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;color:var(--gray-900)">
               <span style="background:${catColor(cat)};color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:99px;margin-right:4px">${escFn(j.type || cat)}</span>
-              ${escFn(j.title || j.type || '업무')}
+              ${escFn(j.title || j.type || '업무')}${rootInfo}
             </div>
             <div style="font-size:10.5px;color:var(--gray-500);margin-top:2px">${date ? '📅 '+date+' · ' : ''}${who}</div>
           </div>
-          ${j.id ? `<button type="button" onclick="closeModal('newJobModal');setTimeout(()=>{try{editNewopen('${escFn(j.id)}')}catch(e){}},120)" style="background:#92400e;color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:inherit">이 업무로 이동</button>` : ''}
+          ${actionBtns}
         </div>`;
-      }).join('') + (matches.length > 5 ? `<div style="font-size:10.5px;color:#92400e;text-align:center;padding-top:4px">외 ${matches.length - 5}건...</div>` : '');
+      }).join('') + (matches.length > 5 ? `<div style="font-size:10.5px;color:${isNewCtx?'#1E40AF':'#92400e'};text-align:center;padding-top:4px">외 ${matches.length - 5}건...</div>` : '');
+    }
+    // 신규 컨텍스트 — 배너 톤도 파란색 계열로
+    if (isNewCtx) {
+      banner.style.background = '#EFF6FF';
+      banner.style.borderColor = '#BFDBFE';
+      banner.querySelectorAll('[style*="color:#92400e"]').forEach(el => {
+        el.style.color = '#1E40AF';
+        if (el.style.background.indexOf('#92400e') !== -1) el.style.background = '#1E40AF';
+      });
+    } else {
+      banner.style.background = '#fffbeb';
+      banner.style.borderColor = '#fde68a';
     }
     banner.style.display = 'block';
   }
   window._refreshJobSimilarBanner = _refreshJobSimilarBanner;
+
+  // 신규 진행 중 업무의 스레드로 점프 — newJobModal 닫고 editNewopen 열어 새 요청 접수 폼 자동 펼침
+  window._jumpToJobThread = function(jobId, openNewRoot) {
+    if (!jobId) return;
+    try { closeModal('newJobModal'); } catch(e){}
+    setTimeout(() => {
+      try { editNewopen(jobId); } catch(e){}
+      if (openNewRoot) {
+        setTimeout(() => {
+          try {
+            const containerId = 'jobThreadContainerEdit-' + jobId;
+            const openKey = '_threadOpen_' + jobId;
+            window[openKey] = window[openKey] || {};
+            window[openKey]['__newroot__'] = true;
+            if (typeof window._renderThreadGroups === 'function') {
+              const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+              const jx = jobs.find(x => x.id === jobId);
+              window._renderThreadGroups(containerId, (jx && jx.thread) || [], { editable:true, jobId:jobId, draftMode:false });
+            }
+            // 스레드 영역으로 스크롤
+            const el = document.getElementById(containerId);
+            if (el && el.scrollIntoView) el.scrollIntoView({ behavior:'smooth', block:'start' });
+          } catch(e){ console.warn('[jumpToThread] 펼침 실패', e); }
+        }, 220);
+      }
+    }, 140);
+  };
 
   window._toggleSimBanner = function() {
     const list = document.getElementById('jobSimList');
