@@ -2604,13 +2604,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <option value="AS/장비회수">📦 AS/장비회수</option>
           </select>
           <!-- 신규 세부 카테고리 (신규 진입 시 표시) -->
-          <select id="jobNewSubcat" style="display:none;margin-top:6px">
-            <option value="">신규 세부 카테고리 선택...</option>
+          <select id="jobNewSubcat" style="display:none;margin-top:6px" onchange="applyJobTypeMode()">
             <option value="신규/오픈">🏪 신규/오픈</option>
             <option value="신규/프로그램교체">🔄 신규/프로그램교체</option>
             <option value="신규/VAN변경">🔁 신규/VAN변경</option>
-            <option value="단말개통">📱 단말개통 (신규측)</option>
-            <option value="VAN/신규등록">📑 VAN/신규등록</option>
           </select>
           <!-- VAN 세부 카테고리 -->
           <select id="jobVanSubcat" style="display:none;margin-top:6px">
@@ -11185,7 +11182,12 @@ ${text.slice(0, 4000)}`;
       : [];
     const equipTotal = equipment.reduce((s, e) => s + (e.subtotal || 0), 0);
 
-    const jobType = (document.getElementById('jobType') || {}).value || '신규';
+    // 작업 유형 — 신규 컨텍스트는 jobNewSubcat (단일 셀렉트), 그 외는 메인 jobType
+    let jobType = (document.getElementById('jobType') || {}).value || '신규';
+    const newSubEl = document.getElementById('jobNewSubcat');
+    if (newSubEl && newSubEl.style.display !== 'none' && newSubEl.value) {
+      jobType = newSubEl.value;  // '신규/오픈' | '신규/프로그램교체' | '신규/VAN변경'
+    }
     const isConsult = (jobType === '상담');
     const isAs = /AS/i.test(jobType);
 
@@ -11204,9 +11206,12 @@ ${text.slice(0, 4000)}`;
       asInfo = { receivedAt, dueDate, dueTime, request, targets };
     }
 
+    // 신규 카테고리 — 분류기가 'new' 로 라우팅되도록 lineCategory 명시
+    const isNewSub = /^신규\//.test(jobType);
     const job = {
       id: 'JOB-' + Date.now().toString(36).toUpperCase(),
       type:      jobType,
+      lineCategory: isNewSub ? 'open_store' : undefined,
       storeName,
       store: storeName, // alias
       storeId: storeMatch ? storeMatch.id : '',
@@ -13330,8 +13335,10 @@ ${text.slice(0, 4000)}`;
     document.body.classList.toggle('consult-mode', t === '상담');
     const isAs = /AS/i.test(t);
     document.body.classList.toggle('as-mode', isAs);
-    // 신규 모드 — 요청사항 스레드 표시 대상
-    const isNew = /^신규/.test(t) || t === '신규가맹' || t === 'POS 교체' || t === 'SW 변경' || t === '당사매장 인수';
+    // 신규 모드 — 메인 jobType 이 신규 계열이거나, 신규 컨텍스트로 진입한 경우 (subcat 표시 중)
+    const newSub = document.getElementById('jobNewSubcat');
+    const newSubVisible = newSub && newSub.style.display !== 'none';
+    const isNew = /^신규/.test(t) || t === '신규가맹' || t === 'POS 교체' || t === 'SW 변경' || t === '당사매장 인수' || newSubVisible || (window._currentJobContext === 'new');
     document.body.classList.toggle('new-mode', isNew);
     try { if (typeof _renderJobThread === 'function') _renderJobThread(); } catch(e){}
     // AS 세부 카테고리 셀렉트 — AS 처리 선택 시만 표시
@@ -13368,6 +13375,8 @@ ${text.slice(0, 4000)}`;
     const newSub = document.getElementById('jobNewSubcat');
     const vanSub = document.getElementById('jobVanSubcat');
     if (!sel) return;
+    // 메인 jobType 셀렉트 복원 (이전에 hide 됐을 수 있음)
+    sel.style.display = '';
     // 일단 모든 서브 카테고리 셀렉트 숨김
     [asSub, newSub, vanSub].forEach(el => { if (el) { el.style.display = 'none'; el.value = ''; } });
     // jobType 셀렉트 옵션 활성/비활성
@@ -13390,16 +13399,16 @@ ${text.slice(0, 4000)}`;
       if (badge) { badge.style.display = ''; badge.textContent = '🔧 AS 메뉴 진입 — AS 카테고리만 등록'; }
       applyJobTypeMode();
     } else if (ctx === 'new') {
-      // 신규 관련만 활성: 신규, 신규가맹, POS 교체, VAN사 변경, SW 변경, 당사매장 인수
-      const newTypes = ['신규','신규가맹','VAN사 변경','SW 변경','당사매장 인수','POS 교체'];
-      Array.from(sel.options).forEach(o => {
-        const isNew = newTypes.includes(o.value);
-        o.disabled = !isNew;
-        o.hidden = !isNew;
-      });
-      sel.value = '신규';
-      if (newSub) newSub.style.display = '';
-      if (badge) { badge.style.display = ''; badge.textContent = '🆕 신규 메뉴 진입 — 신규 카테고리만 등록'; }
+      // 신규 메뉴 — 메인 jobType 셀렉트는 숨기고, jobNewSubcat 하나로 통합
+      // 세부 옵션: 신규/오픈, 신규/프로그램교체, 신규/VAN변경
+      sel.style.display = 'none';
+      sel.value = '신규'; // 내부 호환 (saveNewJob 에서 subcat 우선)
+      if (newSub) {
+        newSub.style.display = '';
+        newSub.style.marginTop = '0';
+        if (!newSub.value) newSub.value = '신규/오픈';
+      }
+      if (badge) { badge.style.display = ''; badge.textContent = '🆕 신규 메뉴 진입 — 세부 카테고리 선택'; }
       applyJobTypeMode();
     } else if (ctx === 'van') {
       // VAN: 신규가맹 사용
