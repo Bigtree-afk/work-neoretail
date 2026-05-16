@@ -399,6 +399,8 @@
   body.as-mode .js-non-as { display: none !important; }
   .js-as-only { display: none !important; }
   body.as-mode .js-as-only { display: block !important; }
+  .js-new-only { display: none !important; }
+  body.new-mode .js-new-only { display: block !important; }
   /* 상담 등록 전용 필드 (상담일 등) */
   .js-consult-only { display: none !important; }
   body.consult-mode .js-consult-only { display: flex !important; }
@@ -2757,6 +2759,39 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <div>
               <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:600">연락처</div>
               <input type="tel" id="jobContactPhone" placeholder="010-0000-0000" autocomplete="off" style="width:100%">
+            </div>
+          </div>
+        </div>
+
+        <!-- 신규 전용 — 요청사항 / 처리 기록 스레드 -->
+        <div class="form-group js-new-only" style="margin:0;grid-column:1/-1">
+          <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:12px 14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+              <div style="font-weight:700;color:#1E40AF;font-size:13.5px">📋 요청사항 · 처리 기록</div>
+              <div style="font-size:10.5px;color:#1E40AF;opacity:0.8">시간/작성자 자동 기록 · 상태 토글로 진행관리</div>
+            </div>
+            <!-- 누적 스레드 -->
+            <div id="jobThreadList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;max-height:280px;overflow-y:auto"></div>
+            <div id="jobThreadEmpty" style="text-align:center;padding:14px;color:#64748B;font-size:11.5px;background:#fff;border:1px dashed #CBD5E1;border-radius:8px">기록이 없습니다 — 아래 입력칸에 요청사항을 작성해 추가하세요</div>
+            <!-- 입력 폼 -->
+            <div style="margin-top:8px;background:#fff;border:1px solid #BFDBFE;border-radius:8px;padding:9px 10px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
+                <span style="font-size:11px;color:var(--gray-600);font-weight:700">상태:</span>
+                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
+                  <input type="radio" name="jobThreadStatus" value="접수" checked style="margin:0"> 📥 접수
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
+                  <input type="radio" name="jobThreadStatus" value="진행" style="margin:0"> 🔄 진행
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
+                  <input type="radio" name="jobThreadStatus" value="완료" style="margin:0"> ✅ 완료
+                </label>
+                <span style="margin-left:auto;font-size:10.5px;color:var(--gray-500)">작성자: <b id="jobThreadAuthor">-</b></span>
+              </div>
+              <div style="display:flex;gap:6px">
+                <textarea id="jobThreadInput" placeholder="요청사항 / 처리 내용을 입력하세요..." style="flex:1;min-height:44px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
+                <button type="button" class="btn btn-primary btn-sm" onclick="_addJobThreadEntry()" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">＋ 기록 추가</button>
+              </div>
             </div>
           </div>
         </div>
@@ -11066,12 +11101,26 @@ ${text.slice(0, 4000)}`;
       }
       if (notice) notice.style.display = 'block';
       if (inp) {
+        inp.value = '';            // 미등록 모드 진입 시 입력값 초기화
         inp.placeholder = '미등록 가맹점명 직접 입력...';
         inp.removeAttribute('oninput');
         inp.removeAttribute('onfocus');
+        try { inp.focus(); } catch(e){}
       }
       const panel = document.getElementById('jobStoreResults');
       if (panel) panel.style.display = 'none';
+      // 이전에 선택했던 매장의 잔여 정보 모두 정리 (사업자/대표/주소/동일매장 미리보기)
+      try { _resetStorePickInfo(); } catch(e){}
+      const bizEl = document.getElementById('jobStorePickedBiz');
+      const ceoEl = document.getElementById('jobStorePickedCeo');
+      if (bizEl) bizEl.textContent = '-';
+      if (ceoEl) ceoEl.textContent = '';
+      const addrEl = document.getElementById('jobAddressInput');
+      if (addrEl) addrEl.value = '';
+      const simBanner = document.getElementById('jobSimilarBanner');
+      if (simBanner) simBanner.style.display = 'none';
+      const simList = document.getElementById('jobSimList');
+      if (simList) simList.innerHTML = '';
     } else {
       if (btn) {
         btn.textContent = '+ 미등록 가맹점';
@@ -11184,6 +11233,9 @@ ${text.slice(0, 4000)}`;
         : ((document.getElementById('jobNotes') || {}).value?.trim() || ''),
       equipment,
       equipTotal,
+      // 신규 업무 — 요청사항/처리 기록 스레드 (1단계: 신규에만 적용)
+      thread: (Array.isArray(window._jobThreadDraft) && window._jobThreadDraft.length > 0)
+              ? window._jobThreadDraft.slice() : [],
       status:    isConsult ? '상담중' : (isAs ? '접수' : '진행중'),
       createdAt: Date.now()
     };
@@ -13278,6 +13330,10 @@ ${text.slice(0, 4000)}`;
     document.body.classList.toggle('consult-mode', t === '상담');
     const isAs = /AS/i.test(t);
     document.body.classList.toggle('as-mode', isAs);
+    // 신규 모드 — 요청사항 스레드 표시 대상
+    const isNew = /^신규/.test(t) || t === '신규가맹' || t === 'POS 교체' || t === 'SW 변경' || t === '당사매장 인수';
+    document.body.classList.toggle('new-mode', isNew);
+    try { if (typeof _renderJobThread === 'function') _renderJobThread(); } catch(e){}
     // AS 세부 카테고리 셀렉트 — AS 처리 선택 시만 표시
     const asSub = document.getElementById('jobAsSubcat');
     if (asSub) asSub.style.display = isAs ? '' : 'none';
@@ -13407,12 +13463,168 @@ ${text.slice(0, 4000)}`;
     // AS 투입 장비 임시 목록 초기화 + 렌더
     window._asEquipDraft = [];
     try { _renderAsEquipList(); } catch(e){}
+    // 신규 — 요청사항 스레드 임시 목록 초기화 + 렌더
+    window._jobThreadDraft = [];
+    window._jobThreadJobId = null;
+    const thrInp = document.getElementById('jobThreadInput');
+    if (thrInp) thrInp.value = '';
+    const thrAuth = document.getElementById('jobThreadAuthor');
+    if (thrAuth) {
+      try {
+        const eng = (document.getElementById('jobEngineer')||{}).value || '';
+        const who = eng || ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자');
+        thrAuth.textContent = who || '담당자';
+      } catch(e){ thrAuth.textContent = '담당자'; }
+    }
+    // 기본 상태는 접수
+    const rec = document.querySelector('input[name="jobThreadStatus"][value="접수"]');
+    if (rec) rec.checked = true;
+    try { _renderJobThread(); } catch(e){}
     // 장비 카운터 (당구공) — buildBallSelectors 가 다시 그리지만 데이터 카운터는 별도
     try { if (typeof _resetEquipCounters === 'function') _resetEquipCounters(); } catch(e){}
     // 등록 직후 다시 열 때 잔여 selected store id 도 초기화
     try { window._currentJobPickedStoreId = null; } catch(e){}
   }
   window._resetJobForm = _resetJobForm;
+
+  /* ─── 요청사항/처리 기록 스레드 (신규 업무 전용 — 1단계) ─── */
+  window._jobThreadDraft = window._jobThreadDraft || [];
+  window._jobThreadJobId = window._jobThreadJobId || null;
+
+  function _threadStatusMeta(s) {
+    if (s === '완료') return { color:'#065F46', bg:'#D1FAE5', border:'#A7F3D0', icon:'✅' };
+    if (s === '진행') return { color:'#92400E', bg:'#FEF3C7', border:'#FCD34D', icon:'🔄' };
+    return { color:'#1E40AF', bg:'#DBEAFE', border:'#BFDBFE', icon:'📥' };  // 접수
+  }
+
+  function _renderJobThread() {
+    const list = document.getElementById('jobThreadList');
+    const empty = document.getElementById('jobThreadEmpty');
+    if (!list) return;
+    const arr = window._jobThreadDraft || [];
+    if (arr.length === 0) {
+      list.innerHTML = '';
+      if (empty) empty.style.display = '';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+    list.innerHTML = arr.map((e, idx) => {
+      const meta = _threadStatusMeta(e.status);
+      return `<div style="background:#fff;border:1px solid ${meta.border};border-left:4px solid ${meta.color};border-radius:8px;padding:9px 11px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="background:${meta.bg};color:${meta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${meta.icon} ${escFn(e.status||'접수')}</span>
+            <span style="font-size:11px;color:var(--gray-600);font-weight:700">${escFn(e.author||'담당자')}</span>
+            <span style="font-size:10.5px;color:var(--gray-400)">${escFn(e.ts||'')}</span>
+          </div>
+          <button type="button" onclick="_removeJobThreadEntry(${idx})" title="삭제" style="background:transparent;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 4px">✕</button>
+        </div>
+        <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${escFn(e.text||'')}</div>
+      </div>`;
+    }).join('');
+  }
+  window._renderJobThread = _renderJobThread;
+
+  window._addJobThreadEntry = function() {
+    const inp = document.getElementById('jobThreadInput');
+    const text = (inp && inp.value || '').trim();
+    if (!text) { try { showToast('내용을 입력하세요'); } catch(e){} return; }
+    const status = (document.querySelector('input[name="jobThreadStatus"]:checked')||{}).value || '접수';
+    const eng = (document.getElementById('jobEngineer')||{}).value || '';
+    const who = eng || ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
+    const ts = (typeof _kstDateTimeStr === 'function')
+      ? _kstDateTimeStr()
+      : new Date().toISOString().slice(0,16).replace('T',' ');
+    const entry = { ts, author: who, status, text };
+    window._jobThreadDraft = window._jobThreadDraft || [];
+    window._jobThreadDraft.push(entry);
+    _renderJobThread();
+    if (inp) inp.value = '';
+    // 편집 중인 기존 업무라면 즉시 저장 (편집 모드)
+    if (window._jobThreadJobId) {
+      try {
+        const arr = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+        const idx = arr.findIndex(j => j.id === window._jobThreadJobId);
+        if (idx >= 0) {
+          arr[idx].thread = window._jobThreadDraft.slice();
+          // 마지막 상태를 업무 status 와 동기화
+          if (status === '완료') {
+            arr[idx].completed = true;
+            arr[idx].doneAt = ts;
+            arr[idx].status = '완료';
+          } else if (status === '진행') {
+            arr[idx].status = '진행중';
+          }
+          if (typeof saveJobs === 'function') saveJobs(arr);
+          try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
+          try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
+        }
+      } catch(e) { console.warn('[thread] live-save 실패', e); }
+    }
+    try { showToast('✅ 기록이 추가되었습니다'); } catch(e){}
+  };
+
+  /* editNewopen 상세 모달용 — 기존 업무에 스레드 기록 추가 */
+  window.addJobThreadAt = function(jobId) {
+    const inp = document.getElementById('jobThreadEditInput-' + jobId);
+    const text = (inp && inp.value || '').trim();
+    if (!text) { try { showToast('내용을 입력하세요'); } catch(e){} return; }
+    const status = (document.querySelector('input[name="jobThreadEditStatus"]:checked')||{}).value || '접수';
+    const who = ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
+    const ts = (typeof _kstDateTimeStr === 'function')
+      ? _kstDateTimeStr()
+      : new Date().toISOString().slice(0,16).replace('T',' ');
+    const entry = { ts, author: who, status, text };
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const i = jobs.findIndex(x => x.id === jobId);
+    if (i < 0) return;
+    jobs[i].thread = (jobs[i].thread || []).concat([entry]);
+    // 상태 동기화
+    if (status === '완료') {
+      jobs[i].completed = true;
+      jobs[i].doneAt = ts;
+      jobs[i].completedAt = jobs[i].completedAt || new Date().toISOString();
+      jobs[i].status = '완료';
+    } else if (status === '진행') {
+      jobs[i].status = '진행중';
+      jobs[i].completed = false;
+    }
+    if (typeof saveJobs === 'function') saveJobs(jobs);
+    try { showToast('✅ 기록이 추가되었습니다'); } catch(e){}
+    try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
+    try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
+    try { editNewopen(jobId); } catch(e){}  // 모달 재렌더
+  };
+  window.removeJobThreadAt = function(jobId, idx) {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const i = jobs.findIndex(x => x.id === jobId);
+    if (i < 0) return;
+    const arr = jobs[i].thread || [];
+    if (idx < 0 || idx >= arr.length) return;
+    arr.splice(idx, 1);
+    jobs[i].thread = arr;
+    if (typeof saveJobs === 'function') saveJobs(jobs);
+    try { editNewopen(jobId); } catch(e){}
+  };
+
+  window._removeJobThreadEntry = function(idx) {
+    const arr = window._jobThreadDraft || [];
+    if (idx < 0 || idx >= arr.length) return;
+    if (!confirm('이 기록을 삭제할까요?')) return;
+    arr.splice(idx, 1);
+    _renderJobThread();
+    if (window._jobThreadJobId) {
+      try {
+        const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+        const i = jobs.findIndex(j => j.id === window._jobThreadJobId);
+        if (i >= 0) {
+          jobs[i].thread = arr.slice();
+          if (typeof saveJobs === 'function') saveJobs(jobs);
+        }
+      } catch(e){}
+    }
+  };
 
   /* ── 상담 등록 / 조회 / 전환 ──
      상담은 newJobModal 을 그대로 활용 — type='상담' 만 preset, 장비/일정/담당자 모두 동일 입력
@@ -13994,6 +14206,61 @@ ${text.slice(0, 4000)}`;
             </div>`;
           })()}
         </div>
+
+        ${(() => {
+          /* 📋 요청사항 · 처리 기록 스레드 — 신규 업무 전용 (1단계) */
+          const cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
+          if (cat !== 'new') return '';
+          const arr = Array.isArray(j.thread) ? j.thread : [];
+          const meta = (s) => {
+            if (s === '완료') return { color:'#065F46', bg:'#D1FAE5', border:'#A7F3D0', icon:'✅' };
+            if (s === '진행') return { color:'#92400E', bg:'#FEF3C7', border:'#FCD34D', icon:'🔄' };
+            return { color:'#1E40AF', bg:'#DBEAFE', border:'#BFDBFE', icon:'📥' };
+          };
+          const items = arr.map((e, idx) => {
+            const m = meta(e.status);
+            return `<div style="background:#fff;border:1px solid ${m.border};border-left:4px solid ${m.color};border-radius:8px;padding:9px 11px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                  <span style="background:${m.bg};color:${m.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${m.icon} ${esc(e.status||'접수')}</span>
+                  <span style="font-size:11px;color:var(--gray-600);font-weight:700">${esc(e.author||'담당자')}</span>
+                  <span style="font-size:10.5px;color:var(--gray-400)">${esc(e.ts||'')}</span>
+                </div>
+                <button type="button" onclick="if(confirm('이 기록을 삭제할까요?'))removeJobThreadAt('${j.id}',${idx})" title="삭제" style="background:transparent;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 4px">✕</button>
+              </div>
+              <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${esc(e.text||'')}</div>
+            </div>`;
+          }).join('');
+          return `<div style="grid-column:1/-1;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:12px 14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+              <div style="font-weight:700;color:#1E40AF;font-size:13.5px">📋 요청사항 · 처리 기록 <span style="font-size:11px;font-weight:600;opacity:0.8">(${arr.length}건)</span></div>
+              <div style="font-size:10.5px;color:#1E40AF;opacity:0.8">시간/작성자 자동 · 상태 토글로 진행관리</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;max-height:320px;overflow-y:auto">
+              ${arr.length === 0
+                ? '<div style="text-align:center;padding:14px;color:#64748B;font-size:11.5px;background:#fff;border:1px dashed #CBD5E1;border-radius:8px">기록이 없습니다 — 아래 입력칸에 요청사항을 작성해 추가하세요</div>'
+                : items}
+            </div>
+            <div style="background:#fff;border:1px solid #BFDBFE;border-radius:8px;padding:9px 10px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
+                <span style="font-size:11px;color:var(--gray-600);font-weight:700">상태:</span>
+                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
+                  <input type="radio" name="jobThreadEditStatus" value="접수" checked style="margin:0"> 📥 접수
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
+                  <input type="radio" name="jobThreadEditStatus" value="진행" style="margin:0"> 🔄 진행
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:600">
+                  <input type="radio" name="jobThreadEditStatus" value="완료" style="margin:0"> ✅ 완료
+                </label>
+              </div>
+              <div style="display:flex;gap:6px">
+                <textarea id="jobThreadEditInput-${j.id}" placeholder="요청사항 / 처리 내용을 입력하세요..." style="flex:1;min-height:44px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
+                <button type="button" class="btn btn-primary btn-sm" onclick="addJobThreadAt('${j.id}')" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">＋ 기록 추가</button>
+              </div>
+            </div>
+          </div>`;
+        })()}
       </div>
 
       ${(() => {
