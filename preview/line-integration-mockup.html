@@ -124,349 +124,82 @@
   </div>
 
   <!-- ② 공통 컴포넌트 -->
-  <h2 id="cmn">② 공통 컴포넌트 — LINE 발송 패널 (상세 메시지)</h2>
+  <h2 id="cmn">② 공통 컴포넌트 — LINE 발송 패널 (간결 메시지)</h2>
   <p class="lead">
-    LINE 으로 받는 사람이 사이트에 들어오지 않고도 <b>업무 전체 맥락</b> 을 파악할 수 있도록 상세 메시지를 자동 생성.<br>
-    매장 정보 / 일정 / 담당자 / 진행 이력 요약을 함께 포함.
+    <b>메시지 포맷 (1줄 원칙)</b> :
+    <code style="background:#FFFBEB;padding:2px 6px;border-radius:4px;border:1px solid #FCD34D">매장명 : 처리일 ; 요청내용 (≤30자)</code>
+    <br>
+    상세 내용은 사이트에서 확인. LINE 은 <b>알림 + 사진 공유</b> 용도. 사진은 PC 에서 선택, 모바일에서 촬영/선택 가능 — 여러 장 첨부.
   </p>
 
-  <!-- 재고조사 요청접수 (상세) -->
+  <!-- 발송 패널 — 단일 (공통 UX) -->
   <div class="card">
-    <h3>📦 재고조사 — 요청접수 발송 (상세)</h3>
+    <h3>📡 발송 패널 — 모든 카테고리/상태 공통 UI</h3>
     <div class="panel req">
-      <div class="row"><span class="lbl">📥 요청 내용</span></div>
-      <textarea placeholder="고객 요청 사항">매장 전체 재고조사 의뢰. 영업 시간 외 진행 가능, 일요일 휴무. 거래처 정산 정확도 필요.</textarea>
-      <div class="row" style="margin-top:8px">
-        <span class="line-toggle"><input type="checkbox" checked> 📡 LINE 발송</span>
-        <span style="font-size:11px;color:var(--gray-500);margin-left:auto">→ <b>재고조사 알림</b> 그룹 · C12abc...d34</span>
+      <div class="row">
+        <span class="lbl">요청 내용 (30자 이내)</span>
+        <span style="font-size:10.5px;color:var(--gray-500);margin-left:auto"><b id="cc">22</b>/30</span>
       </div>
-      <div class="line-area">📦 <b>재고조사 [요청접수]</b>
+      <textarea maxlength="30" style="min-height:36px">1번 POS 영수증 출력 안됨</textarea>
 
-🏪 <b>정이가마트</b> (정이유통(주))
-   사업자 625-85-01902 · 대표 정주영
-   주소 서울 동작구 사당동 123-45
-   전화 02-1234-5678 / 거래처 박과장 010-1111-2222
+      <div class="row" style="margin-top:8px">
+        <span class="lbl">📷 사진 첨부</span>
+        <span style="font-size:10.5px;color:var(--gray-500)">PC: 파일 선택 · 모바일: 촬영/선택 · 여러 장 가능</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+        <div style="width:56px;height:56px;border:1px solid var(--gray-300);border-radius:6px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--gray-500);position:relative">IMG 1<span style="position:absolute;top:-4px;right:-4px;background:#EF4444;color:#fff;width:14px;height:14px;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;cursor:pointer">×</span></div>
+        <div style="width:56px;height:56px;border:1px solid var(--gray-300);border-radius:6px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--gray-500);position:relative">IMG 2<span style="position:absolute;top:-4px;right:-4px;background:#EF4444;color:#fff;width:14px;height:14px;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;cursor:pointer">×</span></div>
+        <div style="width:56px;height:56px;border:1.5px dashed var(--gray-400);border-radius:6px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:18px;color:var(--gray-500);cursor:pointer">＋<span style="font-size:9px">추가</span></div>
+      </div>
 
-📥 <b>요청 내용</b>
-   매장 전체 재고조사 의뢰. 영업 시간 외 진행 가능,
-   일요일 휴무. 거래처 정산 정확도 필요.
+      <div class="row" style="margin-top:6px">
+        <span class="line-toggle"><input type="checkbox" checked> 📡 LINE 발송</span>
+        <span style="font-size:11px;color:var(--gray-500);margin-left:auto">→ 그룹 자동 매핑 (카테고리별)</span>
+      </div>
 
-📅 <b>일정</b>
-   상담일 2026-05-17 / 조사예정 2026-05-25 (토)
+      <div class="line-area">정이가마트 : 2026-05-18 ; 1번 POS 영수증 출력 안됨
+📷 사진 2장</div>
 
-👥 <b>참여 예정</b> 4명 — 이동호 외 3명
-💰 <b>예상</b> 수수료 350,000원 · 평수 약 350평
-
-🆔 ST-mq8x12 · 📡 등록자 이동호
-─ 2026-05-17 14:30</div>
       <div class="actions">
         <button class="btn btn-outline btn-sm">취소</button>
         <button class="btn btn-line btn-sm">📡 등록 + 발송</button>
       </div>
     </div>
-    <div class="note">받는 사람은 <b>매장/일정/인원/예상 금액</b> 까지 한눈에 파악 가능. 거래처 담당까지 포함 → 현장 연락 즉시 가능.</div>
-  </div>
-
-  <!-- 재고조사 진행 (상세) -->
-  <div class="card">
-    <h3>📦 재고조사 — 진행 발송 (이전 진행 요약 자동 포함)</h3>
-    <div class="panel">
-      <div class="row"><span class="lbl">🚗 진행 기록</span></div>
-      <textarea>창고 영역 완료 (3시간 소요), 매장 영역 진행 중. 인원 4명 모두 정상.</textarea>
-      <div class="row" style="margin-top:8px">
-        <span class="line-toggle"><input type="checkbox" checked> 📡 LINE 발송</span>
-        <span class="line-toggle"><input type="checkbox" checked> 📜 이전 진행 요약 포함</span>
-      </div>
-      <div class="line-area">📦 <b>재고조사 [진행 #2]</b>
-
-🏪 <b>정이가마트</b>
-🆔 ST-mq8x12
-
-🚗 <b>진행 #2 — 2026-05-25 13:00</b>
-   창고 영역 완료 (3시간 소요),
-   매장 영역 진행 중. 인원 4명 모두 정상.
-
-📜 <b>이력 요약</b>
-   ① 📥 요청접수 — 매장 전체 재고조사 의뢰... (5/17 14:30)
-   ② 🚗 진행 #1 — 현장 도착, 인원 4명 합류, 창고 시작 (5/25 09:00)
-   ③ 🚗 <b>이번</b>: 창고 완료, 매장 진행 중 (5/25 13:00)
-
-📅 조사예정 5/25 (토)
-👤 작성자 이동호
-─ 2026-05-25 13:00</div>
-      <div class="actions">
-        <button class="btn btn-outline btn-sm">취소</button>
-        <button class="btn btn-line btn-sm">📡 등록 + 발송</button>
-      </div>
-    </div>
-    <div class="note">이전 진행 요약 포함 옵션 (기본 ON) — 중간 합류한 사람이 메시지 하나로 처음부터 따라갈 수 있게.</div>
-  </div>
-
-  <!-- 재고조사 완료 (상세) -->
-  <div class="card">
-    <h3>📦 재고조사 — 완료 발송 (정산 정보 자동 포함)</h3>
-    <div class="panel done">
-      <div class="row"><span class="lbl">✅ 완료 내용</span></div>
-      <textarea>전체 조사 완료. 시스템 재고 대비 +1.2% 차이 (정상 범위). 상세 보고서 첨부 예정.</textarea>
-      <div class="row" style="margin-top:8px">
-        <span class="line-toggle"><input type="checkbox" checked> 📡 LINE 발송</span>
-        <span class="line-toggle"><input type="checkbox" checked> 💰 정산 정보 포함</span>
-        <span class="line-toggle"><input type="checkbox" checked> 👥 참여 인원 포함</span>
-      </div>
-      <div class="line-area">📦 <b>재고조사 [완료]</b>
-
-🏪 <b>정이가마트</b>
-🆔 ST-mq8x12
-
-✅ <b>완료 — 2026-05-25 17:30</b>
-   전체 조사 완료. 시스템 재고 대비 +1.2% 차이 (정상 범위).
-   상세 보고서 첨부 예정.
-
-💰 <b>금액 정산</b>
-   예상재고액 12,000,000원 → 실재고액 <b>12,450,000원</b>
-   수수료 350,000원 / 인건비 320,000원 / 비용 0원
-   수익 <b>30,000원</b>
-   수금 방식: 계산서 발행 / 미수금 350,000원
-
-👥 <b>참여 인원 (4명)</b>
-   · 이동호 (담당) — 80,000원
-   · 김기사 — 80,000원
-   · 박조사 — 80,000원
-   · 정조사 — 80,000원
-
-📜 <b>이력</b>
-   요청접수 5/17 14:30 → 진행 #1 5/25 09:00 → 진행 #2 5/25 13:00 → 완료 5/25 17:30
-   총 소요: 8시간 30분 / 진행 단계 2회
-
-👤 작성자 이동호
-─ 2026-05-25 17:30</div>
-      <div class="actions">
-        <button class="btn btn-outline btn-sm">취소</button>
-        <button class="btn btn-line btn-sm">📡 완료 + 발송</button>
-      </div>
-    </div>
-    <div class="note">완료 시 자동 포함: <b>예상 vs 실재고 비교</b> / <b>수수료·인건비·비용·수익</b> / <b>참여 인원 + 개별 수당</b> / <b>전체 이력 타임라인</b>.</div>
-  </div>
-
-  <!-- AS 요청접수 (상세) -->
-  <div class="card">
-    <h3>🔧 AS — 요청접수 발송 (긴급도/대상 자동 포함)</h3>
-    <div class="panel req">
-      <div class="row"><span class="lbl">📥 요청 내용</span></div>
-      <textarea>1번 POS 영수증 출력 안됨. 오전 영업 시작 전 처리 필요.</textarea>
-      <div class="row" style="margin-top:8px">
-        <span class="line-toggle"><input type="checkbox" checked> 📡 LINE 발송</span>
-        <span class="line-toggle" style="background:#FEE2E2;color:#991B1B;border-color:#FCA5A5"><input type="checkbox" checked> 🚨 긴급</span>
-      </div>
-      <div class="line-area">🔧 <b>AS [요청접수] 🚨 긴급</b>
-
-🏪 <b>정이가마트</b> (정이유통(주))
-   주소 서울 동작구 사당동 123-45
-   거래처 박과장 010-1111-2222
-
-📥 <b>요청 내용</b>
-   1번 POS 영수증 출력 안됨.
-   오전 영업 시작 전 처리 필요.
-
-🎯 <b>대상</b> POS (1번 단말)
-📅 <b>접수</b> 2026-05-18 08:15
-⏰ <b>희망 처리</b> 오전 영업 전 (~09:30)
-
-📊 <b>이 매장 AS 이력</b>
-   진행 중 2건 / 최근 30일 완료 5건
-   직전 AS: 5/12 — 영수증 프린터 헤드 교체 (완료)
-
-🆔 JOB-MP9X12 / 요청 #3
-👤 접수자 이동호
-─ 2026-05-18 08:15</div>
-      <div class="actions">
-        <button class="btn btn-outline btn-sm">취소</button>
-        <button class="btn btn-line btn-sm">📡 등록 + 발송</button>
-      </div>
-    </div>
-    <div class="note">AS 는 <b>긴급도 / 대상(POS·VAN·키오스크) / 매장 AS 이력</b> 자동 포함 — 출동 담당자가 사전 파악 가능.</div>
-  </div>
-
-  <!-- AS 진행 (상세) -->
-  <div class="card">
-    <h3>🔧 AS — 진행 발송 (장비 투입/조치 자동 포함)</h3>
-    <div class="panel">
-      <div class="row"><span class="lbl">🚗 진행 기록</span></div>
-      <textarea>현장 도착, 영수증 프린터 케이블 손상 확인. 신품 케이블로 교체.</textarea>
-      <div class="row" style="margin-top:8px">
-        <span class="line-toggle"><input type="checkbox" checked> 📡 LINE 발송</span>
-        <span class="line-toggle"><input type="checkbox" checked> 📦 투입 장비 포함</span>
-      </div>
-      <div class="line-area">🔧 <b>AS [진행]</b>
-
-🏪 <b>정이가마트</b>
-🆔 JOB-MP9X12 / 요청 #3 (1번 POS 영수증 미출력)
-
-🚗 <b>진행 — 2026-05-18 09:10</b>
-   현장 도착, 영수증 프린터 케이블 손상 확인.
-   신품 케이블로 교체.
-
-📦 <b>투입 장비</b>
-   · POS 영수증 프린터 케이블 ×1 (신품, 8,000원)
-
-👤 처리자 김기사
-⏰ 진행 시간 09:10 ~ 09:25 (15분)
-─ 2026-05-18 09:25</div>
-      <div class="actions">
-        <button class="btn btn-outline btn-sm">취소</button>
-        <button class="btn btn-line btn-sm">📡 등록 + 발송</button>
-      </div>
-    </div>
-    <div class="note">투입 장비는 <b>child.equipment[]</b> 에서 자동 추출 (현장 입력 → 메시지 자동 포함).</div>
-  </div>
-
-  <!-- AS 완료 (상세) -->
-  <div class="card">
-    <h3>🔧 AS — 완료 발송</h3>
-    <div class="panel done">
-      <div class="row"><span class="lbl">✅ 완료 내용</span></div>
-      <textarea>영수증 정상 출력 확인. 사장님 확인 완료.</textarea>
-      <div class="row" style="margin-top:8px">
-        <span class="line-toggle"><input type="checkbox" checked> 📡 LINE 발송</span>
-      </div>
-      <div class="line-area">🔧 <b>AS [완료] ✅</b>
-
-🏪 <b>정이가마트</b>
-🆔 JOB-MP9X12 / 요청 #3
-
-✅ <b>완료 — 2026-05-18 09:30</b>
-   영수증 정상 출력 확인. 사장님 확인 완료.
-
-📜 <b>처리 흐름</b>
-   ① 📥 접수 08:15 — 1번 POS 영수증 미출력 (긴급)
-   ② 🚗 진행 09:10 — 케이블 손상 확인 → 신품 교체
-   ③ ✅ <b>완료</b> 09:30 — 정상 작동 확인
-   ⏱ 총 소요 1시간 15분
-
-📦 <b>투입 장비</b>
-   · POS 영수증 프린터 케이블 ×1 (8,000원)
-
-👤 처리 김기사 / 접수 이동호
-─ 2026-05-18 09:30</div>
-      <div class="actions">
-        <button class="btn btn-outline btn-sm">취소</button>
-        <button class="btn btn-line btn-sm">📡 완료 + 발송</button>
-      </div>
+    <div class="note">
+      <b>메시지 포맷:</b> <code>매장명 : 처리일 ; 요청내용(≤30자)</code> + 사진 N장.<br>
+      처리일 = 메시지 등록 시 상태에 해당하는 일자 (요청접수=접수일 / 진행=진행일 / 완료=완료일).<br>
+      상세 업무 맥락 (일정·장비·정산·이력) 은 <b>사이트에서 확인</b> — LINE 은 알림 + 현장 사진 공유 용도.
     </div>
   </div>
 
-  <!-- 신규 요청접수 -->
+  <!-- 카테고리/상태별 메시지 예시 (1줄씩) -->
   <div class="card">
-    <h3>🆕 신규 — 요청접수 발송 (일정/장비 자동 포함)</h3>
-    <div class="panel req">
-      <div class="row"><span class="lbl">📥 요청 내용</span></div>
-      <textarea>POS 2대 + VAN 신규등록 + 카드사 가맹 8사 일괄. 가오픈 5/27, 정식 오픈 6/1.</textarea>
-      <div class="row" style="margin-top:8px">
-        <span class="line-toggle"><input type="checkbox" checked> 📡 LINE 발송</span>
-        <span class="line-toggle"><input type="checkbox" checked> 📦 장비 명세 포함</span>
-      </div>
-      <div class="line-area">🆕 <b>신규 [요청접수]</b>
-
-🏪 <b>다봄(주)</b>
-   사업자 381-88-03511 · 대표 김다봄
-   주소 서울 강남구 역삼동 567-89
-   거래처 최실장 010-3333-4444
-
-📥 <b>요청 내용</b>
-   POS 2대 + VAN 신규등록 + 카드사 가맹 8사 일괄.
-   가오픈 5/27, 정식 오픈 6/1.
-
-📅 <b>주요 일정</b>
-   설치예정일 2026-05-25 (토)
-   가오픈 2026-05-27 (월) — D-9
-   정식 오픈 2026-06-01 (일) — D-14
-
-📦 <b>설치 예정 장비 (4건)</b>
-   · POS 단말기 ×2 (BizPOS-15)
-   · 영수증 프린터 ×2
-   · 카드 단말기 ×2 (KOCES)
-   · 캐시드로어 ×1
-
-📡 <b>VAN/간편결제 등록 예정</b>
-   KOCES + 카카오페이
-
-🆔 JOB-MQ12AB
-👤 접수자 이동호
-─ 2026-05-17 10:00</div>
-      <div class="actions">
-        <button class="btn btn-outline btn-sm">취소</button>
-        <button class="btn btn-line btn-sm">📡 등록 + 발송</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 신규 완료 -->
-  <div class="card">
-    <h3>🆕 신규 — 완료 발송 (가맹 활성화 정보)</h3>
-    <div class="panel done">
-      <div class="row"><span class="lbl">✅ 완료 내용</span></div>
-      <textarea>POS 2대 설치 완료, 정상 작동 확인. 카드사 8사 가맹 활성화.</textarea>
-      <div class="row" style="margin-top:8px">
-        <span class="line-toggle"><input type="checkbox" checked> 📡 LINE 발송</span>
-      </div>
-      <div class="line-area">🆕 <b>신규 [완료] ✅</b>
-
-🏪 <b>다봄(주)</b>
-🆔 JOB-MQ12AB
-
-✅ <b>완료 — 2026-05-25 15:00</b>
-   POS 2대 설치 완료, 정상 작동 확인.
-   카드사 8사 가맹 활성화.
-
-📦 <b>설치된 장비 (4건)</b>
-   · POS 단말기 ×2 (BizPOS-15, S/N: BP-A001 / BP-A002)
-   · 카드 단말기 ×2 (KOCES, TID: K8500123456 / K8500123457)
-
-📡 <b>등록된 VAN/간편결제</b>
-   · KOCES (TID:K8500123456, Serial:SN-A12345)
-   · 카카오페이 (TID:KP987654321)
-
-📅 <b>다음 일정</b>
-   가오픈 5/27 (월) — D-2
-   정식 오픈 6/1 (일) — D-7
-
-👤 설치 김기사 / 접수 이동호
-─ 2026-05-25 15:00</div>
-      <div class="actions">
-        <button class="btn btn-outline btn-sm">취소</button>
-        <button class="btn btn-line btn-sm">📡 완료 + 발송</button>
-      </div>
-    </div>
-    <div class="note">완료 시 <b>설치된 실제 장비 + 시리얼</b> / <b>등록된 TID</b> / <b>다음 일정 D-N</b> 자동 포함.</div>
-  </div>
-
-  <!-- VAN -->
-  <div class="card">
-    <h3>📑 VAN — 요청접수 / 완료 발송</h3>
-    <div class="panel req">
-      <div class="line-area">📑 <b>VAN/신규등록 [요청접수]</b>
-
-🏪 <b>다봄(주)</b> (381-88-03511)
-   거래처 최실장 010-3333-4444
-
-📥 <b>업무 내용</b>
-   카드사 가맹 + VAN 복수 + 간편결제
-
-📅 업무일 2026-05-17
-
-💳 <b>카드사 가맹</b>
-   신청 5/17 / 완료 예정 5/20 (8사 일괄)
-
-📡 <b>VAN 등록 예정</b>
-   · KOCES TID:K8500123456 / SN:SN-A12345
-   · KIS TID:N1234567890
-
-📱 <b>간편결제 등록 예정</b>
-   · 카카오페이 TID:KP987654321
-
-🆔 JOB-MQ34CD
-👤 이동호
-─ 2026-05-17 10:30</div>
+    <h3>📋 카테고리 × 상태 — 메시지 예시 (모두 1줄 포맷)</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="background:#F9FAFB;border-bottom:2px solid var(--gray-200)">
+          <th style="text-align:left;padding:7px 8px;width:90px">카테고리</th>
+          <th style="text-align:left;padding:7px 8px;width:80px">상태</th>
+          <th style="text-align:left;padding:7px 8px">메시지 본문</th>
+          <th style="text-align:center;padding:7px 8px;width:60px">사진</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">📦 재고조사</td><td><span class="pill req">요청접수</span></td><td style="padding:7px 8px;font-family:monospace;font-size:11.5px">정이가마트 : 2026-05-17 ; 매장 전체 재고조사 의뢰</td><td style="text-align:center">📷 1</td></tr>
+        <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">📦 재고조사</td><td><span class="pill prog">진행</span></td><td style="padding:7px 8px;font-family:monospace;font-size:11.5px">정이가마트 : 2026-05-25 ; 창고 영역 완료, 매장 진행중</td><td style="text-align:center">📷 3</td></tr>
+        <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">📦 재고조사</td><td><span class="pill done">완료</span></td><td style="padding:7px 8px;font-family:monospace;font-size:11.5px">정이가마트 : 2026-05-25 ; 전체 완료, +1.2% 차이</td><td style="text-align:center">📷 2</td></tr>
+        <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">🔧 AS</td><td><span class="pill req">요청접수</span></td><td style="padding:7px 8px;font-family:monospace;font-size:11.5px">정이가마트 : 2026-05-18 ; 1번 POS 영수증 출력 안됨</td><td style="text-align:center">📷 2</td></tr>
+        <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">🔧 AS</td><td><span class="pill prog">진행</span></td><td style="padding:7px 8px;font-family:monospace;font-size:11.5px">정이가마트 : 2026-05-18 ; 케이블 손상, 신품 교체</td><td style="text-align:center">📷 1</td></tr>
+        <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">🔧 AS</td><td><span class="pill done">완료</span></td><td style="padding:7px 8px;font-family:monospace;font-size:11.5px">정이가마트 : 2026-05-18 ; 영수증 정상 출력 확인</td><td style="text-align:center">📷 1</td></tr>
+        <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">🆕 신규</td><td><span class="pill req">요청접수</span></td><td style="padding:7px 8px;font-family:monospace;font-size:11.5px">다봄(주) : 2026-05-17 ; POS 2대 + VAN + 카드사 8사</td><td style="text-align:center">—</td></tr>
+        <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">🆕 신규</td><td><span class="pill done">완료</span></td><td style="padding:7px 8px;font-family:monospace;font-size:11.5px">다봄(주) : 2026-05-25 ; POS 2대 설치, 가맹 활성화</td><td style="text-align:center">📷 4</td></tr>
+        <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">📑 VAN</td><td><span class="pill req">요청접수</span></td><td style="padding:7px 8px;font-family:monospace;font-size:11.5px">다봄(주) : 2026-05-17 ; 카드사 가맹+VAN+간편결제</td><td style="text-align:center">—</td></tr>
+        <tr><td style="padding:7px 8px">📑 VAN</td><td><span class="pill done">완료</span></td><td style="padding:7px 8px;font-family:monospace;font-size:11.5px">다봄(주) : 2026-05-20 ; 8사 가맹 완료, TID 등록</td><td style="text-align:center">📷 2</td></tr>
+      </tbody>
+    </table>
+    <div class="note">
+      모든 카테고리 동일 포맷. 요청내용 자리는 사용자가 직접 입력 (자동 생성 제안 — 수정 가능).<br>
+      처리일 자동 = 등록 시점의 KST 날짜. 사진은 첨부 시 마지막 줄에 <code>📷 N장</code> 만 표시.
     </div>
   </div>
 
