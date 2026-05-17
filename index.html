@@ -1951,6 +1951,22 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div id="stocktakeHubList"></div>
       </div>
 
+      <!-- 공통 기간 필터 — list 외 5개 pane 에서 사용 -->
+      <div id="stocktakeDateFilter" style="display:none;background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:10px 14px;margin-bottom:12px;flex-wrap:wrap;align-items:center;gap:8px">
+        <span style="font-size:11.5px;color:var(--gray-600);font-weight:700">📅 기간 필터</span>
+        <input type="date" id="stDateFilterFrom" style="padding:6px 8px;border:1px solid var(--gray-300);border-radius:6px;font-size:12px">
+        <span style="color:var(--gray-400)">~</span>
+        <input type="date" id="stDateFilterTo" style="padding:6px 8px;border:1px solid var(--gray-300);border-radius:6px;font-size:12px">
+        <button class="btn btn-outline btn-sm" style="padding:5px 10px;font-size:11px" onclick="window._stocktakeApplyDateFilter()">적용</button>
+        <span style="border-left:1px solid var(--gray-200);height:18px;margin:0 4px"></span>
+        <button class="btn btn-outline btn-sm" style="padding:4px 9px;font-size:11px" onclick="window._stocktakeQuickRange('this-month')">이번 달</button>
+        <button class="btn btn-outline btn-sm" style="padding:4px 9px;font-size:11px" onclick="window._stocktakeQuickRange('last-month')">지난 달</button>
+        <button class="btn btn-outline btn-sm" style="padding:4px 9px;font-size:11px" onclick="window._stocktakeQuickRange('last-3m')">최근 3개월</button>
+        <button class="btn btn-outline btn-sm" style="padding:4px 9px;font-size:11px" onclick="window._stocktakeQuickRange('this-year')">올해</button>
+        <button class="btn btn-outline btn-sm" style="padding:4px 9px;font-size:11px" onclick="window._stocktakeQuickRange('all')">전체</button>
+        <span id="stDateFilterLabel" style="margin-left:auto;font-size:11px;color:var(--gray-500);font-weight:600"></span>
+      </div>
+
       <!-- Pane: 매장별 집계 -->
       <div class="st-pane" id="stPane-byStore" style="display:none">
         <div style="font-size:11.5px;color:var(--gray-500);margin-bottom:10px">매장별 누적 — 건수 / 수수료 / 인건비 / 비용 / 수익 / 수금 / 미수금. 미수금 큰 순 정렬.</div>
@@ -5411,10 +5427,74 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   };
 
   /* ─────────────────────────────────
-     재고조사 서브탭 — 6 paneswitch
+     재고조사 서브탭 — 6 pane switch + 공통 기간 필터
      ───────────────────────────────── */
   window._stocktakeCurrentPane = 'list';
   window._stocktakePeriodGroup = 'month';
+  window._stocktakeDateFilter = { from:'', to:'' };
+
+  // 기간 필터 적용된 records 반환 (scheduleDate 우선, 없으면 consultDate / doneDate)
+  window._stocktakeFilteredRecs = function() {
+    const all = window.getStocktakes() || [];
+    const f = window._stocktakeDateFilter || {};
+    const from = f.from || '';
+    const to   = f.to   || '';
+    if (!from && !to) return all;
+    return all.filter(r => {
+      const d = r.scheduleDate || r.consultDate || r.doneDate || '';
+      if (!d) return false;
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+  };
+
+  window._stocktakeApplyDateFilter = function() {
+    const from = (document.getElementById('stDateFilterFrom')||{}).value || '';
+    const to   = (document.getElementById('stDateFilterTo')||{}).value   || '';
+    window._stocktakeDateFilter = { from, to };
+    _stocktakeUpdateDateFilterLabel();
+    // 현재 활성 pane 재렌더
+    window._stocktakeSwitchPane(window._stocktakeCurrentPane);
+  };
+
+  function _stocktakeUpdateDateFilterLabel() {
+    const el = document.getElementById('stDateFilterLabel');
+    if (!el) return;
+    const f = window._stocktakeDateFilter || {};
+    if (!f.from && !f.to) { el.textContent = '전체 기간'; el.style.color='var(--gray-500)'; }
+    else { el.textContent = `${f.from||'시작'} ~ ${f.to||'끝'}`; el.style.color='#1d4ed8'; }
+  }
+
+  window._stocktakeQuickRange = function(key) {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const pad = (n)=>String(n).padStart(2,'0');
+    const ymd = (d)=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    let from='', to='';
+    if (key === 'this-month') {
+      from = ymd(new Date(y, m, 1));
+      to   = ymd(new Date(y, m+1, 0));
+    } else if (key === 'last-month') {
+      from = ymd(new Date(y, m-1, 1));
+      to   = ymd(new Date(y, m, 0));
+    } else if (key === 'last-3m') {
+      from = ymd(new Date(y, m-2, 1));
+      to   = ymd(new Date(y, m+1, 0));
+    } else if (key === 'this-year') {
+      from = `${y}-01-01`; to = `${y}-12-31`;
+    } else if (key === 'all') {
+      from = ''; to = '';
+    }
+    const fEl = document.getElementById('stDateFilterFrom');
+    const tEl = document.getElementById('stDateFilterTo');
+    if (fEl) fEl.value = from;
+    if (tEl) tEl.value = to;
+    window._stocktakeDateFilter = { from, to };
+    _stocktakeUpdateDateFilterLabel();
+    window._stocktakeSwitchPane(window._stocktakeCurrentPane);
+  };
+
   function _stocktakeUpdateDate() {
     const el = document.getElementById('stocktakeTodayDate');
     if (!el) return;
@@ -5435,6 +5515,15 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       p.style.display = show ? '' : 'none';
       p.classList.toggle('active', show);
     });
+    // 기간 필터 — list 외 5개 pane 에서만 노출
+    const filterEl = document.getElementById('stocktakeDateFilter');
+    if (filterEl) {
+      filterEl.style.display = (pane === 'list') ? 'none' : 'flex';
+      _stocktakeUpdateDateFilterLabel();
+      const f = window._stocktakeDateFilter || {};
+      const fEl = document.getElementById('stDateFilterFrom'); if (fEl) fEl.value = f.from || '';
+      const tEl = document.getElementById('stDateFilterTo');   if (tEl) tEl.value = f.to   || '';
+    }
     // pane 별 렌더
     if (pane === 'list')       window.renderStocktakeHub();
     if (pane === 'byStore')    window._stocktakeRenderByStore();
@@ -5455,7 +5544,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   window._stocktakeRenderByStore = function() {
     const el = document.getElementById('stByStoreBody');
     if (!el) return;
-    const recs = window.getStocktakes() || [];
+    const recs = window._stocktakeFilteredRecs();
     const won = window._stWon, esc = window._stEsc;
     const map = new Map();
     recs.forEach(r => {
@@ -5507,7 +5596,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     const el = document.getElementById('stByPeriodBody');
     if (!el) return;
     const mode = window._stocktakePeriodGroup || 'month';
-    const recs = window.getStocktakes() || [];
+    const recs = window._stocktakeFilteredRecs();
     const won = window._stWon;
     const keyOf = (r) => {
       const d = r.scheduleDate || r.consultDate || r.doneDate || '';
@@ -5557,7 +5646,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   window._stocktakeRenderReceivable = function() {
     const el = document.getElementById('stReceivableBody');
     if (!el) return;
-    const recs = (window.getStocktakes() || []).filter(r => Math.max(0,(Number(r.fee)||0)-(Number(r.collected)||0)) > 0);
+    const recs = window._stocktakeFilteredRecs().filter(r => Math.max(0,(Number(r.fee)||0)-(Number(r.collected)||0)) > 0);
     const won = window._stWon, esc = window._stEsc;
     if (recs.length === 0) { el.innerHTML = '<div style="padding:24px;text-align:center;color:#15803d;background:#DCFCE7;border-radius:8px;font-weight:700">🎉 모든 수수료가 수금 완료되었습니다</div>'; return; }
     recs.sort((a,b) => {
@@ -5617,7 +5706,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   window._stocktakeRenderLabor = function() {
     const el = document.getElementById('stLaborBody');
     if (!el) return;
-    const recs = window.getStocktakes() || [];
+    const recs = window._stocktakeFilteredRecs();
     const won = window._stWon, esc = window._stEsc;
     const map = new Map();
     recs.forEach(r => {
@@ -5655,7 +5744,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   window._stocktakeRenderExpense = function() {
     const el = document.getElementById('stExpenseBody');
     if (!el) return;
-    const recs = window.getStocktakes() || [];
+    const recs = window._stocktakeFilteredRecs();
     const won = window._stWon, esc = window._stEsc;
     const byCat = new Map();
     const byStore = new Map();
