@@ -3026,6 +3026,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <label>비고 / 특이사항</label>
         <textarea id="jobNotes" placeholder="VAN사 변경 사항, 고객 요청, 현장 특이사항 등..." style="min-height:52px"></textarea>
       </div>
+
+      <!-- 📷📎 첨부 (이미지+파일) -->
+      <div class="form-group" style="margin-top:14px;margin-bottom:0">
+        <label>📷📎 첨부 (매장 사진·계약서·장비 명세 등)</label>
+        <div id="newJobUploader"></div>
+      </div>
     </div>
     <div class="modal-footer" style="justify-content:space-between">
       <div style="font-size:11px;color:var(--gray-400)" id="job-equip-summary">장비 미선택</div>
@@ -6710,6 +6716,17 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       try { const r = document.getElementById('asReceivedAt'); if (r) r.value = ''; } catch(e){}
       try { if (typeof applyJobTypeMode === 'function') applyJobTypeMode(); } catch(e){}
       try { _resetStorePickInfo(); } catch(e){}
+      // 📷📎 첨부 uploader mount (새 작업 등록 폼)
+      try {
+        const box = document.getElementById('newJobUploader');
+        if (box && window.NS_UPLOAD) {
+          window._newJobUploaderCtl = window.NS_UPLOAD.mount(box, {
+            initial: [],
+            category: 'newjob',
+            max: 50,
+          });
+        }
+      } catch(e) { console.warn('newJob uploader mount failed', e); }
     }
     if (id === 'adminModal') {
       try { renderBackupStatus(); } catch(e){}
@@ -6749,6 +6766,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       } catch(e){}
       try { _resetJobForm(); } catch(e){}
       try { applyJobFormContext(null); } catch(e){}
+      // newJob uploader ctl 정리
+      try { if (window._newJobUploaderCtl && window._newJobUploaderCtl.destroy) window._newJobUploaderCtl.destroy(); } catch(_){}
+      window._newJobUploaderCtl = null;
     }
   }
   window.closeModal = closeModal;
@@ -13768,6 +13788,13 @@ ${text.slice(0, 4000)}`;
         return { vans:{}, easy:{status:'접수',tid:''}, kakao:{status:'접수',tid:''} };
       })(),
       status:    isConsult ? '상담중' : (isAs ? '접수' : '진행중'),
+      // 📷📎 첨부 (newJobUploader)
+      attachments: (function(){
+        try {
+          if (window._newJobUploaderCtl) return window._newJobUploaderCtl.get() || [];
+        } catch(_){}
+        return [];
+      })(),
       createdAt: Date.now()
     };
 
@@ -13808,6 +13835,13 @@ ${text.slice(0, 4000)}`;
           threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
           parentId: null,
         };
+        // 신규 폼 uploader 의 첨부를 새 ROOT 에 부여 (AS 머지 케이스)
+        try {
+          if (window._newJobUploaderCtl) {
+            const atts = window._newJobUploaderCtl.get() || [];
+            if (atts.length) newRoot.attachments = atts;
+          }
+        } catch(_){}
         const existingThread = Array.isArray(existing.thread) ? existing.thread.slice() : [];
         // 신규 등록 폼에서 사용자가 직접 추가한 ROOT/child 가 있다면 함께 머지
         const draftExtras = Array.isArray(window._jobThreadDraft) ? window._jobThreadDraft.slice() : [];
