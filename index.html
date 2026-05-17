@@ -18425,6 +18425,8 @@ ${text.slice(0, 4000)}`;
               }).join('')}
             </div>`;
           })()}
+          <div style="margin-top:10px;font-size:11px;color:var(--gray-500);margin-bottom:4px">📷📎 첨부 (작업 전체)</div>
+          <div id="jobAttUploader-${j.id}"></div>
         </div>
 
         ${(() => {
@@ -18669,6 +18671,29 @@ ${text.slice(0, 4000)}`;
           }
         } catch(e) { console.warn('[editNewopen] vandocs readonly render', e); }
       }
+      // 📷📎 job 레벨 첨부 uploader — 모든 카테고리 공통
+      try {
+        const upBox = document.getElementById('jobAttUploader-' + j.id);
+        if (upBox && window.NS_UPLOAD) {
+          window._jobUploaderCtls = window._jobUploaderCtls || {};
+          window._jobUploaderCtls[j.id] = window.NS_UPLOAD.mount(upBox, {
+            initial: Array.isArray(j.attachments) ? j.attachments : [],
+            category: cat2 || 'job',
+            jobId: j.id,
+            max: 50,
+            onChange: (arr) => {
+              try {
+                const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+                const idx = jobs.findIndex(x => x.id === j.id);
+                if (idx < 0) return;
+                jobs[idx].attachments = arr.slice();
+                if (typeof saveJobs === 'function') saveJobs(jobs);
+                try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(_){}
+              } catch(err) { console.warn('attachments save failed', err); }
+            },
+          });
+        }
+      } catch(e) { console.warn('job uploader mount failed', e); }
     } catch(e){ console.warn('[editNewopen] thread/vandocs render 실패', e); }
 
     modal.classList.add('show');
