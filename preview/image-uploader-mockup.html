@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>이미지 업로더 — 공통 컴포넌트 목업</title>
+<title>업로더 (이미지+파일) — 공통 컴포넌트 목업</title>
 <style>
   :root {
     --primary:#2563EB; --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
@@ -75,6 +75,43 @@
   .photo.add.camera { background:#fff }
   .photo.add.camera .icon { font-size:22px; line-height:1 }
 
+  /* 파일 카드 (이미지가 아닌 일반 파일) */
+  .file-card {
+    position:relative; min-width:170px; max-width:220px; height:80px;
+    background:#fff; border:1px solid var(--gray-300); border-radius:8px;
+    display:flex; align-items:center; gap:9px; padding:8px 10px;
+    cursor:pointer; font-size:11px
+  }
+  .file-card .ficon {
+    width:44px; height:44px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:800; color:#fff; flex-shrink:0
+  }
+  .file-card .ficon.pdf  { background:#DC2626 }
+  .file-card .ficon.hwp  { background:#1D4ED8 }
+  .file-card .ficon.xls  { background:#15803D }
+  .file-card .ficon.doc  { background:#2563EB }
+  .file-card .ficon.ppt  { background:#EA580C }
+  .file-card .ficon.zip  { background:#6D28D9 }
+  .file-card .ficon.etc  { background:#6B7280 }
+  .file-card .fmeta { flex:1; min-width:0 }
+  .file-card .fname { font-weight:700; color:var(--gray-800); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px }
+  .file-card .fsize { font-size:10.5px; color:var(--gray-500); margin-top:2px }
+  .file-card .del {
+    position:absolute; top:-6px; right:-6px; background:#EF4444; color:#fff;
+    width:20px; height:20px; border-radius:50%; font-size:11px; line-height:20px;
+    text-align:center; cursor:pointer; font-weight:800; border:2px solid #fff
+  }
+  .file-card.uploading { border-color:#F59E0B; background:#FFFBEB }
+  .file-card.uploading .progress {
+    position:absolute; left:0; bottom:0; right:0; height:3px; background:#FCD34D
+  }
+  .file-card.uploading .progress > b { display:block; height:100%; background:#F59E0B }
+  .file-card.error { border-color:#FCA5A5; background:#FEF2F2 }
+  .file-card .dlbtn {
+    background:#EFF6FF; color:#1d4ed8; border:1px solid #BFDBFE;
+    padding:3px 7px; border-radius:5px; font-size:10.5px; font-weight:700; cursor:pointer
+  }
+
   /* 라이트박스 */
   .lightbox {
     position:fixed; inset:0; background:rgba(0,0,0,.85); display:flex; align-items:center; justify-content:center;
@@ -119,20 +156,23 @@
 <body>
 <div class="wrap">
 
-<h1>📷 이미지 업로더 — 공통 컴포넌트 목업</h1>
+<h1>📷📎 업로더 (이미지+파일) — 공통 컴포넌트 목업</h1>
 <p class="lead">
-  모든 업무 페이지 (재고조사·AS·신규·VAN·소모품·메모) 에서 동일한 <code>_renderImageUploader()</code> 컴포넌트 1개 재사용.
-  R2 업로드 / HEIC 자동 변환 / 라이트박스 / 진행률 / 재시도 포함.
+  모든 업무 페이지 (재고조사·AS·신규·VAN·소모품·메모) 에서 동일한 <code>_renderUploader()</code> 컴포넌트 1개 재사용.<br>
+  <b>통합 처리</b>: 이미지(JPG/PNG/HEIC/WebP/GIF) + 문서(PDF/HWP/DOCX/XLSX/PPTX/ZIP) — 자동 분기.
+  R2 업로드 / HEIC 자동 변환 / 라이트박스 (PDF 미리보기 포함, 모바일 지원) / 진행률 / 재시도.
 </p>
 
 <div class="toc">
-  📍 <a href="#states">① 6가지 상태</a>
-  <a href="#pc">② PC 사용</a>
-  <a href="#mobile">③ 모바일 사용</a>
-  <a href="#flow">④ 업로드 흐름</a>
-  <a href="#lightbox">⑤ 라이트박스</a>
-  <a href="#errors">⑥ 에러 처리</a>
-  <a href="#api">⑦ API 명세</a>
+  📍 <a href="#states">① 이미지 카드 상태</a>
+  <a href="#files">②  파일 카드 (PDF/HWP/XLS…)</a>
+  <a href="#mixed">③ 혼합 첨부 예시</a>
+  <a href="#pc">④ PC 사용</a>
+  <a href="#mobile">⑤ 모바일 사용</a>
+  <a href="#flow">⑥ 업로드 흐름</a>
+  <a href="#lightbox">⑦ 라이트박스 (이미지+PDF)</a>
+  <a href="#errors">⑧ 에러 처리</a>
+  <a href="#api">⑨ API 명세</a>
 </div>
 
 <!-- ① 6가지 상태 -->
@@ -185,8 +225,138 @@
   </div>
 </div>
 
-<!-- ② PC 사용 -->
-<h2 id="pc">② PC 사용 — 파일 선택 다이얼로그</h2>
+<!-- ② 파일 카드 -->
+<h2 id="files">② 파일 카드 — 이미지가 아닌 파일 (PDF/HWP/XLS/DOCX/PPTX/ZIP)</h2>
+<div class="card">
+  <div class="uploader">
+    <div class="uploader-head">
+      <span class="lbl">📎 파일 첨부</span>
+      <span class="cnt">6개</span>
+      <span class="quota">총 18.4MB / 50MB·파일</span>
+    </div>
+    <div class="photo-grid">
+      <div class="file-card">
+        <div class="ficon pdf">PDF</div>
+        <div class="fmeta">
+          <div class="fname">가맹계약서_다봄.pdf</div>
+          <div class="fsize">2.4MB · 미리보기 가능</div>
+        </div>
+        <div class="del">×</div>
+      </div>
+      <div class="file-card">
+        <div class="ficon hwp">HWP</div>
+        <div class="fmeta">
+          <div class="fname">재고조사 결과서.hwp</div>
+          <div class="fsize">350KB</div>
+        </div>
+        <div class="del">×</div>
+      </div>
+      <div class="file-card">
+        <div class="ficon xls">XLS</div>
+        <div class="fmeta">
+          <div class="fname">단말기 시리얼.xlsx</div>
+          <div class="fsize">82KB</div>
+        </div>
+        <div class="del">×</div>
+      </div>
+      <div class="file-card">
+        <div class="ficon doc">DOC</div>
+        <div class="fmeta">
+          <div class="fname">설치 제안서.docx</div>
+          <div class="fsize">1.1MB</div>
+        </div>
+        <div class="del">×</div>
+      </div>
+      <div class="file-card">
+        <div class="ficon ppt">PPT</div>
+        <div class="fmeta">
+          <div class="fname">교육자료.pptx</div>
+          <div class="fsize">4.3MB</div>
+        </div>
+        <div class="del">×</div>
+      </div>
+      <div class="file-card">
+        <div class="ficon zip">ZIP</div>
+        <div class="fmeta">
+          <div class="fname">로그_2026-05.zip</div>
+          <div class="fsize">10.2MB</div>
+        </div>
+        <div class="del">×</div>
+      </div>
+    </div>
+    <div style="margin-top:10px">
+      <h3 style="margin:10px 0 6px">업로드 중 / 에러</h3>
+      <div class="photo-grid">
+        <div class="file-card uploading">
+          <div class="ficon pdf">PDF</div>
+          <div class="fmeta">
+            <div class="fname">대용량_계약서.pdf</div>
+            <div class="fsize">업로드 중 62%</div>
+          </div>
+          <div class="progress"><b style="width:62%"></b></div>
+        </div>
+        <div class="file-card error">
+          <div class="ficon etc">!</div>
+          <div class="fmeta">
+            <div class="fname" style="color:#991B1B">실패한_파일.pdf</div>
+            <div class="fsize" style="color:#DC2626">네트워크 오류 · ↻ 재시도</div>
+          </div>
+          <div class="del">×</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <b>파일 카드</b>: 썸네일 대신 확장자 색상 아이콘 + 파일명 + 크기.<br>
+      클릭 시 → PDF는 라이트박스에서 미리보기 / 그 외는 다운로드.<br>
+      이미지와 <b>같은 [＋ 추가]</b> 버튼으로 통합 (OS 파일 선택 시 모든 타입 노출).
+    </div>
+  </div>
+</div>
+
+<!-- ③ 혼합 첨부 -->
+<h2 id="mixed">③ 혼합 첨부 — 한 작업에 이미지+파일 같이</h2>
+<div class="card">
+  <div class="uploader">
+    <div class="uploader-head">
+      <span class="lbl">📷📎 첨부</span>
+      <span class="cnt">사진 3 · 파일 2</span>
+      <span class="quota">총 6.8MB</span>
+    </div>
+    <div class="photo-grid">
+      <div class="photo done"><span class="label">현장</span><span class="del">×</span></div>
+      <div class="photo done"><span class="label">계약</span><span class="del">×</span></div>
+      <div class="photo done"><span class="label">단말</span><span class="del">×</span></div>
+      <div class="file-card">
+        <div class="ficon pdf">PDF</div>
+        <div class="fmeta">
+          <div class="fname">가맹계약서.pdf</div>
+          <div class="fsize">2.4MB</div>
+        </div>
+        <div class="del">×</div>
+      </div>
+      <div class="file-card">
+        <div class="ficon xls">XLS</div>
+        <div class="fmeta">
+          <div class="fname">시리얼.xlsx</div>
+          <div class="fsize">82KB</div>
+        </div>
+        <div class="del">×</div>
+      </div>
+      <div class="photo add">
+        <span class="plus">＋</span>
+        <span>추가</span>
+        <span class="hint">이미지+파일</span>
+      </div>
+    </div>
+  </div>
+  <div class="note">
+    한 번에 여러 종류 선택 가능. 자동으로 이미지/파일 분기 처리 — 이미지는 압축·HEIC 변환, 파일은 원본 그대로 업로드.<br>
+    LINE 발송 시: 사진은 Image Message · 파일은 텍스트 본문에 <code>📎 파일명 + R2 링크</code> 추가.
+  </div>
+</div>
+
+<!-- ④ PC 사용 -->
+<h2 id="pc">④ PC 사용 — 파일 선택 다이얼로그</h2>
 <div class="col2">
   <div class="card">
     <h3>업로드 전 (빈 상태)</h3>
@@ -228,8 +398,8 @@
   </div>
 </div>
 
-<!-- ③ 모바일 사용 -->
-<h2 id="mobile">③ 모바일 사용 — OS 시트 자동 표시</h2>
+<!-- ⑤ 모바일 사용 -->
+<h2 id="mobile">⑤ 모바일 사용 — OS 시트 자동 표시</h2>
 <div class="col2">
   <div class="mobile">
     <div class="notch"></div>
@@ -277,23 +447,41 @@
   </div>
 </div>
 
-<!-- ④ 업로드 흐름 -->
-<h2 id="flow">④ 업로드 흐름 (1장 기준)</h2>
+<!-- ⑥ 업로드 흐름 -->
+<h2 id="flow">⑥ 업로드 흐름 — 이미지 / 파일 자동 분기</h2>
 <div class="card">
+  <h3>이미지 흐름</h3>
   <div class="flow">
     <span class="step active">파일 선택</span>
     <span class="arr">→</span>
-    <span class="step active">HEIC?</span>
+    <span class="step active">type 검사 (image/*)</span>
     <span class="arr">→</span>
-    <span class="step active">리사이즈 (≤1600px)</span>
+    <span class="step active">HEIC→JPG</span>
     <span class="arr">→</span>
-    <span class="step active">JPEG 압축 (q=0.85)</span>
+    <span class="step active">리사이즈 1600px</span>
     <span class="arr">→</span>
-    <span class="step active">/api/upload-image POST</span>
+    <span class="step active">JPEG q=0.85</span>
+    <span class="arr">→</span>
+    <span class="step active">/api/upload</span>
     <span class="arr">→</span>
     <span class="step active">R2 PUT</span>
     <span class="arr">→</span>
-    <span class="step active">job.images[] 추가</span>
+    <span class="step active">job.attachments[] 추가</span>
+  </div>
+
+  <h3 style="margin-top:14px">파일 흐름 (이미지 아닌 경우)</h3>
+  <div class="flow">
+    <span class="step active">파일 선택</span>
+    <span class="arr">→</span>
+    <span class="step active">확장자 화이트리스트</span>
+    <span class="arr">→</span>
+    <span class="step active">크기 검사 (≤50MB)</span>
+    <span class="arr">→</span>
+    <span class="step active">/api/upload (원본 그대로)</span>
+    <span class="arr">→</span>
+    <span class="step active">R2 PUT</span>
+    <span class="arr">→</span>
+    <span class="step active">job.attachments[] 추가</span>
   </div>
 
   <h3 style="margin-top:14px">단계별 처리</h3>
@@ -302,45 +490,103 @@
       <tr style="background:#F9FAFB;border-bottom:2px solid var(--gray-200)">
         <th style="text-align:left;padding:7px 8px;width:140px">단계</th>
         <th style="text-align:left;padding:7px 8px;width:80px">위치</th>
+        <th style="text-align:left;padding:7px 8px;width:90px">대상</th>
         <th style="text-align:left;padding:7px 8px">처리</th>
       </tr>
     </thead>
     <tbody>
-      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">파일 선택</td><td>클라이언트</td><td>input change 이벤트 → File[] 추출</td></tr>
-      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">HEIC 변환</td><td>클라이언트</td><td>file.type==='image/heic' → heic2any() → Blob (image/jpeg)</td></tr>
-      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">리사이즈</td><td>클라이언트</td><td>canvas: max(width,height) > 1600 이면 비율 유지 축소</td></tr>
-      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">압축</td><td>클라이언트</td><td>canvas.toBlob('image/jpeg', 0.85) → 200~400KB</td></tr>
-      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">업로드</td><td>네트워크</td><td>FormData POST → /api/upload-image (XHR 로 progress 추적)</td></tr>
-      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">R2 PUT</td><td>서버 (Worker)</td><td>키 = ns-images/{yyyy}/{MM}/{uuid}.jpg → R2 bucket</td></tr>
-      <tr><td style="padding:7px 8px">job 기록</td><td>클라이언트</td><td>{key,url,w,h,size,uploadedAt,by} → thread item.images[]</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">파일 선택</td><td>클라이언트</td><td>전체</td><td>input change → File[] 추출</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">분기 검사</td><td>클라이언트</td><td>전체</td><td>file.type 으로 image / file 분기</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">HEIC 변환</td><td>클라이언트</td><td>이미지</td><td>type=='image/heic' → heic2any() → image/jpeg</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">리사이즈+압축</td><td>클라이언트</td><td>이미지</td><td>canvas max 1600px → toBlob('image/jpeg', 0.85)</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">화이트리스트</td><td>클라이언트</td><td>파일</td><td>pdf/hwp/hwpx/docx/xlsx/pptx/zip 만 허용 (exe/bat 등 차단)</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">크기 검사</td><td>클라이언트</td><td>파일</td><td>≤50MB (LINE 호환 한도)</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">업로드</td><td>네트워크</td><td>전체</td><td>FormData POST → /api/upload (XHR progress)</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">R2 PUT</td><td>서버</td><td>이미지</td><td>키: ns-images/{yyyy}/{MM}/{uuid}.jpg</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">R2 PUT</td><td>서버</td><td>파일</td><td>키: ns-files/{yyyy}/{MM}/{uuid}.{ext} · 원본 파일명 메타 보존</td></tr>
+      <tr><td style="padding:7px 8px">job 기록</td><td>클라이언트</td><td>전체</td><td>{kind:'image'|'file', key, url, name, size, ...} → attachments[]</td></tr>
     </tbody>
   </table>
   <div class="note">
-    HEIC 외에도 <b>PNG/WebP/GIF</b> 도 동일하게 JPEG 로 변환 → R2 에는 항상 jpg 만 저장 (LINE 호환).<br>
-    원본 보존이 필요하면 추후 옵션 추가 가능.
+    R2 prefix 분리: <code>ns-images/...</code> vs <code>ns-files/...</code> — 휴지통/통계도 분리 관리.<br>
+    이미지는 항상 JPG 변환 (PNG/WebP/GIF 도) — LINE Image Message 호환 + 용량 절감.
   </div>
 </div>
 
-<!-- ⑤ 라이트박스 -->
-<h2 id="lightbox">⑤ 라이트박스 (사진 클릭 시)</h2>
-<div class="card" style="background:#1F2937;color:#fff;padding:0;overflow:hidden;height:380px;position:relative">
+<!-- ⑦ 라이트박스 -->
+<h2 id="lightbox">⑦ 라이트박스 — 이미지 + PDF 미리보기 (모바일 지원)</h2>
+
+<h3 style="margin:6px 0 8px;font-size:13px;color:var(--gray-700)">A. 이미지 뷰</h3>
+<div class="card" style="background:#1F2937;color:#fff;padding:0;overflow:hidden;height:340px;position:relative">
   <button class="lightbox-close">×</button>
   <button class="lightbox-nav prev">‹</button>
   <button class="lightbox-nav next">›</button>
   <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
-    <div style="width:380px;height:260px;background:linear-gradient(135deg,#3B82F6,#1E3A8A);border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px">원본 이미지 (1600×1200)</div>
+    <div style="width:380px;height:240px;background:linear-gradient(135deg,#3B82F6,#1E3A8A);border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px">원본 이미지 (1600×1200)</div>
   </div>
   <div class="lightbox-info">
-    📷 사진 2 / 4 · 정이가마트 진행 #2 · 2026-05-25 13:01 · 김기사 · 245KB
+    📷 사진 2 / 5 · 정이가마트 진행 #2 · 2026-05-25 13:01 · 김기사 · 245KB
   </div>
 </div>
-<div class="note" style="margin-top:6px">
-  ← → 키 또는 좌/우 버튼으로 이동 · ESC 또는 × 로 닫기 · 모바일은 스와이프 지원<br>
-  하단 정보: <b>위치/작성자/시간/크기</b> 표시 → 사진 누가 언제 올렸는지 즉시 확인
+
+<h3 style="margin:18px 0 8px;font-size:13px;color:var(--gray-700)">B. PDF 미리보기 (모바일도 같은 화면)</h3>
+<div class="card" style="background:#1F2937;color:#fff;padding:0;overflow:hidden;height:420px;position:relative">
+  <button class="lightbox-close">×</button>
+  <button class="lightbox-nav prev">‹</button>
+  <button class="lightbox-nav next">›</button>
+  <!-- PDF 툴바 -->
+  <div style="position:absolute;top:0;left:0;right:0;background:rgba(0,0,0,.6);padding:8px 14px;display:flex;align-items:center;gap:10px;font-size:11.5px;color:#fff;z-index:5;backdrop-filter:blur(6px)">
+    <span style="font-weight:800">📄 가맹계약서_다봄.pdf</span>
+    <span style="opacity:.7">·  3 / 12 페이지</span>
+    <span style="margin-left:auto;display:flex;gap:6px">
+      <button style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:4px 9px;border-radius:5px;font-size:11px;cursor:pointer">⊖</button>
+      <button style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:4px 9px;border-radius:5px;font-size:11px;cursor:pointer">100%</button>
+      <button style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:4px 9px;border-radius:5px;font-size:11px;cursor:pointer">⊕</button>
+      <button style="background:#2563EB;border:none;color:#fff;padding:4px 9px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:700">⬇ 다운로드</button>
+    </span>
+  </div>
+  <!-- PDF 페이지 모형 -->
+  <div style="position:absolute;inset:48px 0 50px 0;display:flex;align-items:center;justify-content:center;overflow:auto">
+    <div style="width:340px;height:430px;background:#fff;border-radius:4px;box-shadow:0 8px 30px rgba(0,0,0,.6);padding:30px 26px;color:#1F2937;font-size:10px;line-height:1.5;text-align:left">
+      <div style="text-align:center;font-weight:800;font-size:13px;margin-bottom:14px">가맹점 계약서</div>
+      <div style="border-top:1px solid #ccc;border-bottom:1px solid #ccc;padding:6px 0;margin-bottom:10px">
+        <div>가맹점명: 다봄(주)</div>
+        <div>사업자: 381-88-03511</div>
+        <div>대표: 김다봄</div>
+      </div>
+      <div style="margin-bottom:8px;color:#666">제1조 (목적) 본 계약은 가맹점 등록 및 운영에 관한 ...</div>
+      <div style="margin-bottom:8px;color:#666">제2조 (대상 카드사) 8개 카드사 (BC/신한/삼성/현대 ...</div>
+      <div style="margin-bottom:8px;color:#666">제3조 (수수료) 가맹 수수료는 별도 명시한 ...</div>
+      <div style="text-align:right;margin-top:30px;font-size:9px;color:#999">— 3 / 12 —</div>
+    </div>
+  </div>
+  <div class="lightbox-info">
+    📎 파일 1 / 2 · 다봄(주) 요청접수 · 2026-05-17 10:30 · 이동호 · 2.4MB
+  </div>
 </div>
 
-<!-- ⑥ 에러 -->
-<h2 id="errors">⑥ 에러 / 안내 메시지</h2>
+<h3 style="margin:18px 0 8px;font-size:13px;color:var(--gray-700)">C. 미리보기 불가 파일 (HWP/XLS/DOCX 등)</h3>
+<div class="card" style="background:#1F2937;color:#fff;padding:0;overflow:hidden;height:280px;position:relative">
+  <button class="lightbox-close">×</button>
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px">
+    <div style="width:90px;height:110px;background:#15803D;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">XLS</div>
+    <div style="font-size:14px;font-weight:700">단말기 시리얼.xlsx</div>
+    <div style="font-size:11.5px;opacity:.7">82KB · 브라우저에서 미리보기 불가</div>
+    <button style="background:#2563EB;border:none;color:#fff;padding:9px 22px;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer">⬇ 다운로드해서 열기</button>
+  </div>
+  <div class="lightbox-info">
+    📎 파일 2 / 2 · 다봄(주) 진행 · 2026-05-19 16:00 · 이동호
+  </div>
+</div>
+
+<div class="note" style="margin-top:6px">
+  <b>이미지</b> + <b>PDF</b> 는 라이트박스 안에서 직접 보기 (브라우저 내장 PDF 뷰어 / pdf.js 활용 — 모바일도 동일).<br>
+  <b>HWP/XLSX/DOCX/PPTX/ZIP</b> 등은 브라우저가 못 여는 포맷 → 다운로드 버튼만 표시.<br>
+  ← → 키 / 스와이프로 같은 작업의 첨부 사이 이동 (사진↔PDF 혼합 가능). ESC 또는 × 로 닫기.
+</div>
+
+<!-- ⑧ 에러 -->
+<h2 id="errors">⑧ 에러 / 안내 메시지</h2>
 <div class="card">
   <div class="toast info">📤 사진 업로드 중... 2/3</div>
   <div class="toast success">✅ 사진 3장 업로드 완료</div>
@@ -367,51 +613,115 @@
   </table>
 </div>
 
-<!-- ⑦ API -->
-<h2 id="api">⑦ API 명세 — /api/upload-image</h2>
+<!-- ⑨ API -->
+<h2 id="api">⑨ API 명세 — /api/upload (이미지+파일 통합)</h2>
 <div class="card">
   <h3>요청</h3>
-  <pre style="background:#1F2937;color:#E5E7EB;padding:12px;border-radius:6px;font-size:11.5px;overflow-x:auto;margin:0">POST /api/upload-image
+  <pre style="background:#1F2937;color:#E5E7EB;padding:12px;border-radius:6px;font-size:11.5px;overflow-x:auto;margin:0">POST /api/upload
 Content-Type: multipart/form-data
 Cookie: ns_session=...  (로그인 검증)
 
 FormData {
-  file: Blob (image/jpeg, ≤ 10MB)
-  jobId: 'JOB-MP9X12'        (선택)
-  category: 'as'             (재고/as/신규/van/소모품/메모)
-  threadId: 'th-xxx'         (선택)
+  file: Blob              (image/* 또는 application/pdf 등)
+  kind: 'image' | 'file'  (클라이언트 분기 결과)
+  name: 'original.pdf'    (원본 파일명 — 파일일 때만)
+  jobId: 'JOB-MP9X12'     (선택)
+  category: 'as'          (재고/as/신규/van/소모품/메모)
+  threadId: 'th-xxx'      (선택)
 }</pre>
 
-  <h3 style="margin-top:14px">응답 (성공)</h3>
+  <h3 style="margin-top:14px">응답 (이미지)</h3>
   <pre style="background:#1F2937;color:#E5E7EB;padding:12px;border-radius:6px;font-size:11.5px;overflow-x:auto;margin:0">200 OK
 {
   "ok": true,
+  "kind": "image",
   "key": "ns-images/2026/05/abc123def456.jpg",
   "url": "https://pub-xxxx.r2.dev/ns-images/2026/05/abc123def456.jpg",
-  "size": 245380,
-  "w": 1600,
-  "h": 1200,
+  "size": 245380, "w": 1600, "h": 1200,
   "uploadedAt": "2026-05-25T13:01:23+09:00",
   "uploadedBy": "kimgisa"
 }</pre>
 
+  <h3 style="margin-top:14px">응답 (파일)</h3>
+  <pre style="background:#1F2937;color:#E5E7EB;padding:12px;border-radius:6px;font-size:11.5px;overflow-x:auto;margin:0">200 OK
+{
+  "ok": true,
+  "kind": "file",
+  "key": "ns-files/2026/05/xyz789abc.pdf",
+  "url": "https://pub-xxxx.r2.dev/ns-files/2026/05/xyz789abc.pdf",
+  "name": "가맹계약서_다봄.pdf",    ← 다운로드 시 사용
+  "ext": "pdf",
+  "mime": "application/pdf",
+  "size": 2456321,
+  "previewable": true,                 ← PDF=true, HWP/XLS=false
+  "uploadedAt": "2026-05-17T10:30:00+09:00",
+  "uploadedBy": "leedongho"
+}</pre>
+
+  <h3 style="margin-top:14px">화이트리스트 & 한도</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:#F9FAFB;border-bottom:2px solid var(--gray-200)">
+      <th style="text-align:left;padding:7px 8px;width:90px">kind</th>
+      <th style="text-align:left;padding:7px 8px">허용 타입</th>
+      <th style="text-align:left;padding:7px 8px;width:110px">최대 크기</th>
+      <th style="text-align:left;padding:7px 8px;width:100px">미리보기</th>
+    </tr></thead>
+    <tbody>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">image</td><td>jpg, png, heic, webp, gif → 자동 jpg 변환</td><td>10MB (압축 후)</td><td>✓ 라이트박스</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">file (pdf)</td><td>application/pdf</td><td>50MB</td><td>✓ 라이트박스 (pdf.js)</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">file (문서)</td><td>hwp, hwpx, docx, xlsx, pptx</td><td>50MB</td><td>다운로드만</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">file (압축)</td><td>zip</td><td>50MB</td><td>다운로드만</td></tr>
+      <tr><td style="padding:7px 8px;color:#DC2626">차단</td><td colspan="3" style="color:#DC2626">exe, bat, ps1, sh, js, cmd, com, scr, msi, dll</td></tr>
+    </tbody>
+  </table>
+
   <h3 style="margin-top:14px">응답 (실패)</h3>
-  <pre style="background:#1F2937;color:#E5E7EB;padding:12px;border-radius:6px;font-size:11.5px;overflow-x:auto;margin:0">400 Bad Request   { ok:false, error:"unsupported_type" }
-401 Unauthorized  { ok:false, error:"login_required" }
-413 Payload Too Large  { ok:false, error:"too_large", maxMB:10 }
-500 Internal Error  { ok:false, error:"r2_put_failed", detail:"..." }</pre>
+  <pre style="background:#1F2937;color:#E5E7EB;padding:12px;border-radius:6px;font-size:11.5px;overflow-x:auto;margin:0">400 Bad Request    { ok:false, error:"unsupported_type", ext:"exe" }
+401 Unauthorized   { ok:false, error:"login_required" }
+413 Payload Too Large  { ok:false, error:"too_large", maxMB:50 }
+500 Internal Error { ok:false, error:"r2_put_failed", detail:"..." }</pre>
 
-  <h3 style="margin-top:14px">삭제 — /api/delete-image</h3>
-  <pre style="background:#1F2937;color:#E5E7EB;padding:12px;border-radius:6px;font-size:11.5px;overflow-x:auto;margin:0">POST /api/delete-image
-{ "key": "ns-images/2026/05/abc123def456.jpg" }
+  <h3 style="margin-top:14px">삭제 — /api/delete-attachment</h3>
+  <pre style="background:#1F2937;color:#E5E7EB;padding:12px;border-radius:6px;font-size:11.5px;overflow-x:auto;margin:0">POST /api/delete-attachment
+{ "key": "ns-files/2026/05/xyz789abc.pdf" }
 
-→ 실제 R2 삭제 X. 휴지통 prefix 로 이동:
-  ns-images/_trash/2026/05/abc123def456.jpg
-  (30일 후 cron 으로 영구 삭제)</pre>
+→ 휴지통 prefix 이동 (kind 별):
+  ns-images/_trash/...  또는  ns-files/_trash/...
+  (30일 후 cron 영구 삭제)</pre>
 
   <div class="note">
-    삭제는 <b>휴지통 30일</b> — 실수 복구 가능. 관리자 페이지에서 휴지통 조회/복원/즉시삭제 UI 추가 예정.
+    엔드포인트 1개 (<code>/api/upload</code>) 로 통합 — kind 에 따라 서버에서 R2 prefix 만 다르게 결정.<br>
+    삭제도 1개 (<code>/api/delete-attachment</code>) 로 통합 · 휴지통 30일 보존.
   </div>
+</div>
+
+<h2 id="data">⑩ 데이터 모델 — job/thread 의 첨부 배열</h2>
+<div class="card">
+  <pre style="background:#1F2937;color:#E5E7EB;padding:12px;border-radius:6px;font-size:11.5px;overflow-x:auto;margin:0">// thread item 안에 attachments[] (이미지 + 파일 통합)
+{
+  id: 'th-mq8x12-a',
+  status: '진행',
+  text: '창고 영역 완료, 매장 진행중',
+  date: '2026-05-25',
+  author: '김기사',
+  attachments: [
+    {
+      kind: 'image',
+      key: 'ns-images/2026/05/abc.jpg',
+      url: 'https://pub-xxxx.r2.dev/ns-images/2026/05/abc.jpg',
+      w: 1600, h: 1200, size: 245380
+    },
+    {
+      kind: 'file',
+      key: 'ns-files/2026/05/xyz.pdf',
+      url: 'https://pub-xxxx.r2.dev/ns-files/2026/05/xyz.pdf',
+      name: '가맹계약서_다봄.pdf',
+      ext: 'pdf', mime: 'application/pdf',
+      previewable: true, size: 2456321
+    }
+  ],
+  lineSent: { ts:'...', messageId:'...', success:true }
+}</pre>
 </div>
 
 <h2>✅ 다음 단계</h2>
