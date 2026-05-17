@@ -2,6 +2,9 @@ name = "work-neoretail"
 pages_build_output_dir = "."
 compatibility_date = "2026-04-22"
 
+[vars]
+PUBLIC_R2_BASE = "https://pub-c102a6c282f54e61a6aa74b74e17c235.r2.dev"
+
 [[kv_namespaces]]
 binding = "STORES_KV"
 id = "81fa2de1ce5147429aabd063c2e3dc67"
