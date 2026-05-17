@@ -184,13 +184,15 @@ LINE Messaging API 의 Image Message:
 
 ---
 
-## 9. 결정 필요 항목
+## 9. 결정 사항 (확정 2026-05-17)
 
-1. **저장소**: R2 확정? 또는 IndexedDB 로컬 우선 (오프라인 우선) 후 R2 동기화?
-2. **도메인**: `img.neosolution.co.kr` 신규 vs 기존 r2.dev URL 재사용?
-3. **HEIC 변환**: 서버에서 처리 (Worker + libheif) vs 클라이언트 거부 (사용자가 jpg 로 다시 저장)?
-4. **권한 단순화**: 일단 "로그인하면 누구나 업로드/삭제 가능" 으로 시작 vs 처음부터 작성자 제약?
-5. **공개 여부**: 모든 이미지가 URL 만 알면 접근 가능 (LINE 발송 필요) vs 사이트 인증 후만 접근 (LINE 발송 시 임시 토큰)?
+| 항목 | 결정 |
+|---|---|
+| **저장소** | ✅ Cloudflare R2 |
+| **도메인** | ✅ 기존 r2.dev URL 재사용 (custom domain 불필요) |
+| **HEIC 변환** | ✅ 클라이언트 JPEG 변환 (heic2any.js) — iPhone 사용자 투명 처리 |
+| **권한** | ✅ 로그인 사용자 = 업로드/삭제 자유 (30일 휴지통 cron 으로 복구) |
+| **URL 공개** | ✅ UUID 키 기반 public URL (LINE Image Message 직접 사용) |
 
 ---
 
