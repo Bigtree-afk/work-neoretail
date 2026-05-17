@@ -11130,6 +11130,115 @@ ${text.slice(0, 4000)}`;
   }
 
   /* ══════════════════════════════════════════════
+     사이트 전역 LIVE SYNC — 새로고침 없이 데이터 변경 자동 반영
+     ─────────────────────────────────────────────
+     원칙:
+     1) 탭이 포커스/가시 상태가 되면 즉시 cloud 동기화
+     2) 탭이 가시 상태이면 INTERVAL(기본 20초) 마다 백그라운드 동기화
+     3) 동일 브라우저의 다른 탭이 데이터 변경하면 storage 이벤트로 즉시 반영
+     4) 데이터 변경 감지되면 'ns:data-changed' 이벤트 발행
+     5) 활성 화면별 renderer 가 이벤트 듣고 자체 재렌더 (스크롤/입력 상태 보존)
+
+     화면 추가 시 규칙:
+       - 그 화면이 ns_jobs / ns_stores / ns_users 등을 보여준다면
+       - document.addEventListener('ns:data-changed', () => 자기_renderer()) 등록
+       - 활성 여부는 screen.active 클래스 / 모달 표시 여부로 가드
+  ══════════════════════════════════════════════ */
+  window.NS_LIVE = (function(){
+    const INTERVAL_MS = 20 * 1000;   // 20초 — 가시 상태일 때 백그라운드 polling
+    const MIN_GAP_MS  = 4 * 1000;    // 4초 — 연속 sync 방지 throttle
+    let _lastSync = 0;
+    let _intervalTimer = null;
+    let _busy = false;
+
+    // 데이터 hash — 변경 감지용 (jobs/stores 단순 길이 + updatedAt)
+    function _snapshotHash() {
+      try {
+        const jobs = JSON.parse(localStorage.getItem('ns_jobs')||'[]');
+        const stores = JSON.parse(localStorage.getItem('ns_stores')||'[]');
+        // 가벼운 시그니처 — 길이 + 마지막 id + 첫 id (충돌 가능성 낮음)
+        return `${jobs.length}/${stores.length}/${jobs[0]?.id||''}/${jobs[jobs.length-1]?.id||''}`;
+      } catch { return ''; }
+    }
+
+    async function sync(opts) {
+      opts = opts || {};
+      if (_busy) return;
+      const now = Date.now();
+      if (!opts.force && (now - _lastSync) < MIN_GAP_MS) return;
+      _lastSync = now;
+      _busy = true;
+      const before = _snapshotHash();
+      try {
+        if (typeof window.syncJobsFromCloud === 'function') await window.syncJobsFromCloud();
+        if (typeof window.syncFromCloud === 'function')      await window.syncFromCloud({ silent:true });
+      } catch(e) { /* 네트워크 실패 무시 */ }
+      _busy = false;
+      const after = _snapshotHash();
+      if (before !== after) {
+        try { document.dispatchEvent(new CustomEvent('ns:data-changed', { detail:{ before, after } })); } catch(e){}
+      }
+    }
+
+    function start() {
+      stop();
+      if (document.visibilityState === 'visible') {
+        _intervalTimer = setInterval(() => sync(), INTERVAL_MS);
+      }
+    }
+    function stop() {
+      if (_intervalTimer) { clearInterval(_intervalTimer); _intervalTimer = null; }
+    }
+
+    // 이벤트 와이어링
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') { sync({ force:true }); start(); }
+      else stop();
+    });
+    window.addEventListener('focus', () => sync({ force:true }));
+    // 동일 브라우저 다른 탭의 변경
+    window.addEventListener('storage', (e) => {
+      if (!e || !e.key) return;
+      if (/^ns_(jobs|stores|users|comments)$/.test(e.key)) {
+        try { document.dispatchEvent(new CustomEvent('ns:data-changed', { detail:{ src:'storage', key:e.key } })); } catch(_){}
+      }
+    });
+    // 시작
+    document.addEventListener('DOMContentLoaded', () => setTimeout(start, 1500));
+
+    return { sync, start, stop };
+  })();
+
+  /* 전역 리렌더 — 'ns:data-changed' 발생 시 활성 화면 자동 갱신.
+     화면별 renderer 가 호출되며, 모달/입력 상태는 renderer 가 자체적으로 보존해야 함.
+     특정 화면이 갱신 중에 끊기는 게 싫다면 그 renderer 의 호출을 빼면 됨. */
+  document.addEventListener('ns:data-changed', () => {
+    try {
+      // 대시보드는 늘 갱신 (가벼움)
+      if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs();
+    } catch(e){}
+    // 현재 활성 화면별 갱신
+    try {
+      const active = document.querySelector('.screen.active');
+      const sid = active ? active.id : '';
+      if (sid === 'screen-newhub'      && typeof window.renderNewHub === 'function')      window.renderNewHub();
+      if (sid === 'screen-ashub'       && typeof window.renderAsHub === 'function')       window.renderAsHub();
+      if (sid === 'screen-vanhub'      && typeof window.renderVanHub === 'function')      window.renderVanHub();
+      if (sid === 'screen-supplieshub' && typeof window.renderSuppliesHub === 'function') window.renderSuppliesHub();
+      if (sid === 'screen-asmgmt'      && typeof hydrateAsMgmt === 'function')            hydrateAsMgmt();
+    } catch(e){}
+    // 점포 상세 모달이 열려 있으면 해당 매장만 재렌더
+    try {
+      const sdm = document.getElementById('storeDetailModal');
+      if (sdm && sdm.style.display !== 'none' && sdm.classList.contains('active')) {
+        const tr = window._currentStoreDetailRow;
+        const sid = tr && tr.dataset && tr.dataset.storeId;
+        if (sid && typeof window._reopenStoreDetail === 'function') window._reopenStoreDetail(sid, { keepTab:true });
+      }
+    } catch(e){}
+  });
+
+  /* ══════════════════════════════════════════════
      자동 백업 시스템
        - localStorage `ns_backups`: 최근 14개 롤링 스냅샷
        - 페이지 로드 시 마지막 백업 24시간 초과면 자동 1회

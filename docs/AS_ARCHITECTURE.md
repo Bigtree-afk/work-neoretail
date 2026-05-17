@@ -214,7 +214,47 @@ window.replaceAuthorName('Live Wire', '이동호')
 | `_whoNow` | ~14541 | 작성자 (항상 _currentAuthName) |
 | `_currentAuthName` | ~16730 | 로그인 사용자 이름 (ns_users 우선) |
 
-## 9. 알려진 제약
+## 9. 사이트 전역 LIVE SYNC 규칙
+
+새로고침 없이 데이터 변경이 자동 반영되도록 모든 화면이 따라야 하는 규칙입니다.
+
+### 자동 동기화 트리거 (이미 적용됨)
+- 탭 가시화/포커스 — 즉시 cloud sync
+- 가시 상태에서 20초 마다 백그라운드 polling (throttle 4초)
+- 동일 브라우저 다른 탭의 변경 — storage 이벤트로 즉시
+- 변경 감지 시 `ns:data-changed` 이벤트 발행
+
+### 신규 화면 추가 시 규칙
+화면이 ns_jobs / ns_stores / ns_users / ns_comments 를 보여준다면 다음 패턴을 따릅니다:
+
+```js
+// 1) renderXxx() 함수를 window 에 노출
+window.renderXxx = function() { /* DOM 갱신 */ };
+
+// 2) 글로벌 hook 에 자동 호출되도록 ID 규칙 또는 직접 등록
+//    (이미 등록된 hubs: screen-newhub / ashub / vanhub / supplieshub / asmgmt)
+//    그 외 화면은 ns:data-changed 직접 등록:
+document.addEventListener('ns:data-changed', () => {
+  if (document.getElementById('screen-xxx')?.classList.contains('active')) {
+    window.renderXxx();
+  }
+});
+```
+
+### renderXxx 가 반드시 지켜야 할 사항
+- **입력 상태 보존** — 사용자가 입력 중인 form 값/스크롤 위치/스크롤 보존
+- **모달 충돌 피하기** — 편집 모달 열려 있으면 해당 영역은 갱신 생략
+- **idempotent** — 여러 번 호출해도 안전
+- **빠르게 — 100ms 이내** (느리면 polling 자체가 막힘)
+
+### 명시적 수동 sync
+```js
+window.NS_LIVE.sync({ force: true })   // 즉시 동기화 강제
+window.NS_LIVE.stop()                  // polling 중단
+window.NS_LIVE.start()                 // polling 재시작
+```
+
+## 10. 알려진 제약
 
 - AS 마이그레이션은 자동 1회만 실행. 새 중복이 다시 생기면 `migrateAsJobsToAggregate({force:true})` 로 재정리
 - 미등록 매장(unregistered) 의 AS 는 매장 정규화 키로 그룹핑되므로 같은 매장명이어도 매장 등록 후엔 별도 키로 분리될 수 있음
