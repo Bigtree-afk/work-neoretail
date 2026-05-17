@@ -5371,7 +5371,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <div style="flex:1;min-width:200px">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
                 <span style="background:${color};color:#fff;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">${esc(r.status||'상담')}</span>
-                <span style="font-weight:700;font-size:14px;color:var(--gray-800)">${esc(r.storeName||'(매장 미지정)')}</span>
+                <span onclick="window._stocktakeOpenSmart('${esc(r.id)}')" title="${r.status==='마감'?'조회 (완료처리됨)':'클릭해서 수정'}" style="font-weight:700;font-size:14px;color:var(--primary);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">${esc(r.storeName||'(매장 미지정)')}</span>
               </div>
               <div style="font-size:11.5px;color:var(--gray-600);line-height:1.7">
                 ${r.consultDate?`상담 ${esc(r.consultDate)} · `:''}${r.scheduleDate?`예정 ${esc(r.scheduleDate)} · `:''}${r.doneDate?`완료 ${esc(r.doneDate)}`:''}
@@ -5401,8 +5401,18 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     }).join('');
   };
 
+  /* ── 매장명 클릭 분기: 완료(마감) 면 조회, 아니면 수정 ── */
+  window._stocktakeOpenSmart = function(id) {
+    const arr = window.getStocktakes() || [];
+    const rec = arr.find(r => r.id === id);
+    if (!rec) { if (typeof showToast === 'function') showToast('기록을 찾을 수 없습니다'); return; }
+    const isDone = (rec.status === '마감');
+    window._stocktakeOpenEditor(id, isDone);
+  };
+
   /* ── Editor 로직 ── */
-  window._stocktakeOpenEditor = function(id) {
+  window._stocktakeOpenEditor = function(id, readonly) {
+    readonly = !!readonly;
     let rec;
     if (id) {
       const arr = window.getStocktakes();
@@ -5412,7 +5422,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       rec = { id:'', storeId:'', storeName:'', status:'상담', consultDate:'', scheduleDate:'', doneDate:'', area:'', expectedAmount:'', actualAmount:'', headcount:'', workers:[], totalLabor:0, collected:'', fee:'', memo:'' };
       document.getElementById('stocktakeEditorTitle').textContent = '재고조사 등록';
     } else {
-      document.getElementById('stocktakeEditorTitle').textContent = '재고조사 수정';
+      document.getElementById('stocktakeEditorTitle').textContent = readonly ? '📋 재고조사 조회 (완료처리됨)' : '재고조사 수정';
     }
 
     document.getElementById('stEditorId').value = rec.id || '';
@@ -5457,8 +5467,46 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     (rec.workers || []).forEach(w => window._stocktakeAddWorkerRow(w));
     window._stocktakeRecalcTotals();
 
+    // readonly 모드 — 모든 입력 비활성, 저장 버튼 숨김
+    _stocktakeApplyReadonly(readonly);
+
     showModal('stocktakeEditorModal');
   };
+
+  function _stocktakeApplyReadonly(readonly) {
+    const modal = document.getElementById('stocktakeEditorModal');
+    if (!modal) return;
+    // 모든 input/textarea/select 비활성
+    modal.querySelectorAll('input, textarea, select, button').forEach(el => {
+      // 닫기 버튼은 항상 활성
+      const isClose = (el.classList && el.classList.contains('modal-close')) || el.textContent === '닫기' || el.textContent === '✕';
+      if (isClose) return;
+      el.disabled = readonly;
+    });
+    // 저장 버튼 / 일괄 입력 / 행 추가 / 미등록 토글 / 매장 검색 입력 — readonly 시 모두 막힘
+    // readonly 해제 시 다시 활성
+    if (!readonly) {
+      modal.querySelectorAll('input, textarea, select, button').forEach(el => { el.disabled = false; });
+    }
+    // 저장 버튼 표시/숨김
+    const saveBtn = modal.querySelector('.modal-footer .btn-primary');
+    if (saveBtn) saveBtn.style.display = readonly ? 'none' : '';
+    // 워커 행 삭제 버튼 / 일괄 적용 / 추가 등은 위의 disabled 로 막힘
+    // 안내 배지
+    let banner = modal.querySelector('.st-readonly-banner');
+    if (readonly) {
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.className = 'st-readonly-banner';
+        banner.style.cssText = 'background:#DCFCE7;border:1px solid #BBF7D0;color:#15803d;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px';
+        banner.innerHTML = '🔒 완료처리된 기록 — 조회 전용 (수정 불가). 마감 해제 후 수정 가능.';
+        const body = modal.querySelector('.modal-body');
+        if (body) body.insertBefore(banner, body.firstChild);
+      }
+    } else if (banner) {
+      banner.remove();
+    }
+  }
 
   // 매장 검색 / 선택 / 미등록 토글
   window._stocktakeUnregMode = false;
