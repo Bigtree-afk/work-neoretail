@@ -739,6 +739,12 @@
   .tl-date { font-size: 12px; color: var(--gray-400); }
   .tl-desc { font-size: 12.5px; color: var(--gray-600); margin-top: 4px; }
 
+  /* 재고조사 readonly 모드 — 폼 본문 클릭/포커스 차단 (배너/저장 영역 제외) */
+  .st-readonly-mode .modal-body > *:not(.st-readonly-banner) { pointer-events: none; user-select: none; opacity: 0.85; }
+  .st-readonly-mode .modal-body input,
+  .st-readonly-mode .modal-body textarea,
+  .st-readonly-mode .modal-body select { background: #F3F4F6 !important; cursor: not-allowed !important; }
+
   /* ── NEO UTILITY CLASSES ── */
   .neo-eyebrow { font-size: 9.5px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--neo-ink-3); }
   .neo-num { font-family: 'Archivo Black', sans-serif; }
@@ -5391,7 +5397,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             </div>
             <div style="display:flex;gap:5px;flex-wrap:wrap">
               <button class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:11.5px" onclick="window._stocktakeShowWorkers('${esc(r.id)}')">명단보기</button>
-              <button class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:11.5px" onclick="window._stocktakeOpenEditor('${esc(r.id)}')">수정</button>
+              ${r.status==='마감'
+                ? `<button class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:11.5px;border-color:#F59E0B;color:#92400E;font-weight:700" onclick="window._stocktakeRevert('${esc(r.id)}')" title="완료처리 해제 후 수정 모드로 진입">🔓 되돌리기</button>`
+                : `<button class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:11.5px" onclick="window._stocktakeOpenEditor('${esc(r.id)}')">수정</button>`}
               ${r.status!=='마감'?`<button class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:11.5px;border-color:#16A34A;color:#16A34A" onclick="window._stocktakeMarkDone('${esc(r.id)}')">완료처리</button>`:''}
               <button class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:11.5px;border-color:#DC2626;color:#DC2626" onclick="window._stocktakeDelete('${esc(r.id)}')">삭제</button>
             </div>
@@ -5408,6 +5416,24 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     if (!rec) { if (typeof showToast === 'function') showToast('기록을 찾을 수 없습니다'); return; }
     const isDone = (rec.status === '마감');
     window._stocktakeOpenEditor(id, isDone);
+  };
+
+  /* ── 되돌리기: 마감 → 정산 으로 상태 변경 + 수정 모드 진입 ── */
+  window._stocktakeRevert = function(id) {
+    const arr = window.getStocktakes() || [];
+    const idx = arr.findIndex(r => r.id === id);
+    if (idx < 0) { if (typeof showToast === 'function') showToast('기록을 찾을 수 없습니다'); return; }
+    const rec = arr[idx];
+    if (rec.status !== '마감') { window._stocktakeOpenEditor(id); return; }
+    if (!confirm(`완료처리를 해제하고 수정 모드로 진입합니다.\n\n· ${rec.storeName||'-'}\n· 상태: 마감 → 정산\n\n계속하시겠습니까?`)) return;
+    rec.status = '정산';
+    rec._revertedAt = Date.now();
+    arr[idx] = rec;
+    window.saveStocktakes(arr);
+    if (typeof showToast === 'function') showToast('🔓 되돌리기 완료 — 수정 가능 상태');
+    window.renderStocktakeHub();
+    // 즉시 수정 모드로 진입
+    window._stocktakeOpenEditor(id, false);
   };
 
   /* ── Editor 로직 ── */
@@ -5476,30 +5502,29 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   function _stocktakeApplyReadonly(readonly) {
     const modal = document.getElementById('stocktakeEditorModal');
     if (!modal) return;
-    // 모든 input/textarea/select 비활성
-    modal.querySelectorAll('input, textarea, select, button').forEach(el => {
-      // 닫기 버튼은 항상 활성
-      const isClose = (el.classList && el.classList.contains('modal-close')) || el.textContent === '닫기' || el.textContent === '✕';
-      if (isClose) return;
-      el.disabled = readonly;
+    modal.classList.toggle('st-readonly-mode', !!readonly);
+    // 모든 input/textarea/select/button 비활성 + readonly 속성 (text 입력의 깜빡임 방지)
+    modal.querySelectorAll('.modal-body input, .modal-body textarea, .modal-body select, .modal-body button').forEach(el => {
+      el.disabled = !!readonly;
+      // text/date/number 류는 readonly 도 함께 (브라우저별 차이 보강)
+      if (el.tagName === 'INPUT' && /^(text|date|number)$/i.test(el.type||'')) {
+        if (readonly) el.setAttribute('readonly','readonly'); else el.removeAttribute('readonly');
+      }
     });
-    // 저장 버튼 / 일괄 입력 / 행 추가 / 미등록 토글 / 매장 검색 입력 — readonly 시 모두 막힘
-    // readonly 해제 시 다시 활성
-    if (!readonly) {
-      modal.querySelectorAll('input, textarea, select, button').forEach(el => { el.disabled = false; });
-    }
-    // 저장 버튼 표시/숨김
+    // footer 저장 버튼 — 숨김
     const saveBtn = modal.querySelector('.modal-footer .btn-primary');
     if (saveBtn) saveBtn.style.display = readonly ? 'none' : '';
-    // 워커 행 삭제 버튼 / 일괄 적용 / 추가 등은 위의 disabled 로 막힘
-    // 안내 배지
+    // footer 취소/닫기 버튼은 항상 활성
+    modal.querySelectorAll('.modal-footer button.btn-outline').forEach(b => { b.disabled = false; });
+    modal.querySelectorAll('.modal-close').forEach(b => { b.disabled = false; });
+    // 안내 배너
     let banner = modal.querySelector('.st-readonly-banner');
     if (readonly) {
       if (!banner) {
         banner = document.createElement('div');
         banner.className = 'st-readonly-banner';
-        banner.style.cssText = 'background:#DCFCE7;border:1px solid #BBF7D0;color:#15803d;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px';
-        banner.innerHTML = '🔒 완료처리된 기록 — 조회 전용 (수정 불가). 마감 해제 후 수정 가능.';
+        banner.style.cssText = 'background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;padding:9px 12px;border-radius:8px;font-size:12.5px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;line-height:1.5';
+        banner.innerHTML = '🔒 완료처리된 기록입니다 — 수정 불가 (조회 전용).<br><span style="font-weight:500;font-size:11px">수정하려면 리스트의 <b>🔓 되돌리기</b> 버튼으로 상태를 해제하세요.</span>';
         const body = modal.querySelector('.modal-body');
         if (body) body.insertBefore(banner, body.firstChild);
       }
