@@ -4010,18 +4010,30 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
         <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">평수(평)</label><input type="number" id="stEditorArea" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
         <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">인원수</label><input type="number" id="stEditorHeadcount" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
-        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">예상재고액(원)</label><input type="number" id="stEditorExpected" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
-        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">실재고액(원)</label><input type="number" id="stEditorActual" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
+        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">예상재고액(원)</label><input type="text" inputmode="numeric" id="stEditorExpected" data-money="1" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px;text-align:right"></div>
+        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">실재고액(원)</label><input type="text" inputmode="numeric" id="stEditorActual" data-money="1" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px;text-align:right"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">수수료(원)</label><input type="number" id="stEditorFee" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px" oninput="window._stocktakeRecalcMargin()"></div>
-        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">수금액(원)</label><input type="number" id="stEditorCollected" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
+        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">수수료(원)</label><input type="text" inputmode="numeric" id="stEditorFee" data-money="1" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px;text-align:right" oninput="window._stocktakeRecalcMargin()"></div>
+        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">수금액(원)</label><input type="text" inputmode="numeric" id="stEditorCollected" data-money="1" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px;text-align:right"></div>
       </div>
       <div style="margin-bottom:10px">
         <label style="font-size:11.5px;color:var(--gray-600);font-weight:600">메모</label>
         <textarea id="stEditorMemo" rows="2" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px;resize:vertical"></textarea>
       </div>
 
+      <!-- 수금 방식 -->
+      <div style="margin-bottom:10px">
+        <label style="font-size:11.5px;color:var(--gray-600);font-weight:600;display:block;margin-bottom:4px">💰 수금 방식</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <label style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:600">
+            <input type="radio" name="stPaymentMethod" value="현금" checked>💵 현금
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:600">
+            <input type="radio" name="stPaymentMethod" value="계산서">🧾 계산서 발행
+          </label>
+        </div>
+      </div>
       <div style="border-top:1px solid var(--gray-200);margin:14px 0 8px;padding-top:10px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap">
           <div style="font-weight:700;font-size:13px;color:var(--gray-800)">👥 재고조사 참여 인원 / 수당</div>
@@ -4031,10 +4043,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <button class="btn btn-outline btn-sm" onclick="window._stocktakeAddMultipleWorkers()">+ 추가</button>
           </div>
         </div>
+        <!-- 수당 일괄 입력 -->
+        <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;color:#1E40AF">💵 수당 일괄 입력</span>
+          <input type="text" id="stBulkPayAmount" inputmode="numeric" placeholder="금액 (예: 80,000)" data-money="1" style="width:140px;padding:5px 8px;border:1px solid #BFDBFE;border-radius:6px;font-size:12px;text-align:right">
+          <button class="btn btn-outline btn-sm" onclick="window._stocktakeApplyBulkPay()" style="font-size:11px;padding:4px 10px">선택 행에 적용</button>
+          <button class="btn btn-outline btn-sm" onclick="window._stocktakeToggleAllRows(true)" style="font-size:11px;padding:4px 10px">전체 선택</button>
+          <button class="btn btn-outline btn-sm" onclick="window._stocktakeToggleAllRows(false)" style="font-size:11px;padding:4px 10px">선택 해제</button>
+        </div>
         <div style="overflow-x:auto">
           <table id="stEditorWorkers" style="width:100%;border-collapse:collapse;font-size:12px">
             <thead>
               <tr style="background:#F9FAFB">
+                <th style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--gray-200);font-size:11px;width:30px"><input type="checkbox" onchange="window._stocktakeToggleAllRows(this.checked)"></th>
                 <th style="padding:5px 4px;text-align:left;border-bottom:1px solid var(--gray-200);font-size:11px">이름</th>
                 <th style="padding:5px 4px;text-align:left;border-bottom:1px solid var(--gray-200);font-size:11px">은행</th>
                 <th style="padding:5px 4px;text-align:left;border-bottom:1px solid var(--gray-200);font-size:11px">계좌</th>
@@ -4046,8 +4067,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             </thead>
             <tbody id="stEditorWorkersBody"></tbody>
             <tfoot>
-              <tr><td colspan="4" style="text-align:right;padding:6px 4px;font-size:12px;font-weight:600;color:var(--gray-700)">인건비 합계</td><td id="stEditorTotalLabor" style="text-align:right;padding:6px 4px;font-weight:700;color:#DC2626">0원</td><td colspan="2"></td></tr>
-              <tr><td colspan="4" style="text-align:right;padding:6px 4px;font-size:12px;font-weight:600;color:var(--gray-700)">예상 수익 (수수료 - 인건비)</td><td id="stEditorMargin" style="text-align:right;padding:6px 4px;font-weight:700">0원</td><td colspan="2"></td></tr>
+              <tr><td colspan="5" style="text-align:right;padding:6px 4px;font-size:12px;font-weight:600;color:var(--gray-700)">인건비 합계</td><td id="stEditorTotalLabor" style="text-align:right;padding:6px 4px;font-weight:700;color:#DC2626">0원</td><td colspan="2"></td></tr>
+              <tr><td colspan="5" style="text-align:right;padding:6px 4px;font-size:12px;font-weight:600;color:var(--gray-700)">예상 수익 (수수료 - 인건비)</td><td id="stEditorMargin" style="text-align:right;padding:6px 4px;font-weight:700">0원</td><td colspan="2"></td></tr>
             </tfoot>
           </table>
         </div>
@@ -5411,11 +5432,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     document.getElementById('stEditorDoneDate').value = rec.doneDate || '';
     document.getElementById('stEditorArea').value = rec.area || '';
     document.getElementById('stEditorHeadcount').value = rec.headcount || '';
-    document.getElementById('stEditorExpected').value = rec.expectedAmount || '';
-    document.getElementById('stEditorActual').value = rec.actualAmount || '';
-    document.getElementById('stEditorFee').value = rec.fee || '';
-    document.getElementById('stEditorCollected').value = rec.collected || '';
+    window._stSetMoneyInput(document.getElementById('stEditorExpected'), rec.expectedAmount);
+    window._stSetMoneyInput(document.getElementById('stEditorActual'),   rec.actualAmount);
+    window._stSetMoneyInput(document.getElementById('stEditorFee'),       rec.fee);
+    window._stSetMoneyInput(document.getElementById('stEditorCollected'), rec.collected);
     document.getElementById('stEditorMemo').value = rec.memo || '';
+    // 수금 방식
+    const pmRadios = document.querySelectorAll('input[name="stPaymentMethod"]');
+    pmRadios.forEach(r => { r.checked = (r.value === (rec.paymentMethod || '현금')); });
+    // 일괄 입력 칸 초기화
+    const bulk = document.getElementById('stBulkPayAmount'); if (bulk) bulk.value = '';
 
     // 미등록 가맹점 모드 reset
     window._stocktakeUnregMode = false;
@@ -5528,12 +5554,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     const tbody = document.getElementById('stEditorWorkersBody');
     const tr = document.createElement('tr');
     tr.className = 'st-worker-row';
+    const payDisplay = payTotal ? payTotal.toLocaleString('ko-KR') : '';
     tr.innerHTML = `
+      <td style="padding:3px 3px;text-align:center"><input class="stw-sel" type="checkbox"></td>
       <td style="padding:3px 3px"><input class="stw-name" type="text" value="${window._stEsc(w.name||'')}" list="stWorkerNamesList" style="width:100%;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px"></td>
       <td style="padding:3px 3px"><input class="stw-bank" type="text" value="${window._stEsc(w.bank||'')}" style="width:100%;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px"></td>
       <td style="padding:3px 3px"><input class="stw-account" type="text" value="${window._stEsc(w.account||'')}" style="width:100%;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px"></td>
       <td style="padding:3px 3px"><input class="stw-holder" type="text" value="${window._stEsc(w.holder||'')}" style="width:100%;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px"></td>
-      <td style="padding:3px 3px"><input class="stw-pay" type="number" min="0" step="1000" value="${payTotal || ''}" placeholder="수당" style="width:120px;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;text-align:right"></td>
+      <td style="padding:3px 3px"><input class="stw-pay" type="text" inputmode="numeric" data-money="1" value="${payDisplay}" placeholder="수당" style="width:120px;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;text-align:right"></td>
       <td style="padding:3px 3px;text-align:center"><input class="stw-paid" type="checkbox" ${w.paid?'checked':''}></td>
       <td style="padding:3px 3px;text-align:center"><button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:11px;border-color:#DC2626;color:#DC2626" onclick="this.closest('tr').remove();window._stocktakeRecalcTotals()">✕</button></td>
     `;
@@ -5559,8 +5587,60 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     $name.addEventListener('blur', autoFill);
     $name.addEventListener('change', autoFill);
     $name.addEventListener('blur', () => { if (!$hold.value) $hold.value = $name.value || ''; });
-    $pay.addEventListener('input', window._stocktakeRecalcTotals);
+    // 수당 입력 — 1,000 단위 포맷 + 합계 재계산
+    $pay.addEventListener('input', () => {
+      window._stFormatMoneyInput($pay);
+      window._stocktakeRecalcTotals();
+    });
   };
+
+  /* ── 1,000 단위 포맷 헬퍼 ── */
+  window._stReadMoney = function(el) {
+    if (!el) return 0;
+    return Number(String(el.value||'').replace(/[^\d]/g,'')) || 0;
+  };
+  window._stFormatMoneyInput = function(el) {
+    if (!el) return;
+    const raw = String(el.value||'').replace(/[^\d]/g,'');
+    el.value = raw ? Number(raw).toLocaleString('ko-KR') : '';
+  };
+  window._stSetMoneyInput = function(el, n) {
+    if (!el) return;
+    n = Number(n) || 0;
+    el.value = n ? n.toLocaleString('ko-KR') : '';
+  };
+
+  /* 수당 일괄 입력 — 체크된 행에만 적용 */
+  window._stocktakeApplyBulkPay = function() {
+    const bulk = document.getElementById('stBulkPayAmount');
+    const amount = window._stReadMoney(bulk);
+    if (!amount) { if (typeof showToast === 'function') showToast('금액을 입력하세요'); return; }
+    const rows = document.querySelectorAll('#stEditorWorkersBody tr.st-worker-row');
+    let cnt = 0;
+    rows.forEach(tr => {
+      const sel = tr.querySelector('.stw-sel');
+      if (!sel || !sel.checked) return;
+      const pay = tr.querySelector('.stw-pay');
+      if (pay) window._stSetMoneyInput(pay, amount);
+      cnt++;
+    });
+    window._stocktakeRecalcTotals();
+    if (typeof showToast === 'function') showToast(`✅ ${cnt}명에게 ${amount.toLocaleString('ko-KR')}원 적용`);
+  };
+
+  /* 전체 선택 / 해제 */
+  window._stocktakeToggleAllRows = function(checked) {
+    document.querySelectorAll('#stEditorWorkersBody tr.st-worker-row .stw-sel').forEach(cb => { cb.checked = !!checked; });
+  };
+
+  /* 모달 내 data-money 요소에 자동 포맷 바인딩 (DOMContentLoaded 후 1회) */
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      document.querySelectorAll('#stocktakeEditorModal [data-money="1"]').forEach(el => {
+        el.addEventListener('input', () => window._stFormatMoneyInput(el));
+      });
+    }, 500);
+  });
 
   window._stocktakeRefreshNamesDatalist = function() {
     let dl = document.getElementById('stWorkerNamesList');
@@ -5591,8 +5671,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   window._stocktakeRecalcTotals = function() {
     let total = 0;
     document.querySelectorAll('#stEditorWorkersBody tr.st-worker-row').forEach(tr => {
-      const p = Number(tr.querySelector('.stw-pay').value) || 0;
-      total += p;
+      total += window._stReadMoney(tr.querySelector('.stw-pay'));
     });
     document.getElementById('stEditorTotalLabor').textContent = total.toLocaleString('ko-KR') + '원';
     window._stocktakeRecalcMargin(total);
@@ -5602,11 +5681,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     if (totalLabor == null) {
       totalLabor = 0;
       document.querySelectorAll('#stEditorWorkersBody tr.st-worker-row').forEach(tr => {
-        const p = Number(tr.querySelector('.stw-pay').value) || 0;
-        totalLabor += p;
+        totalLabor += window._stReadMoney(tr.querySelector('.stw-pay'));
       });
     }
-    const fee = Number(document.getElementById('stEditorFee').value) || 0;
+    const fee = window._stReadMoney(document.getElementById('stEditorFee'));
     const margin = fee - totalLabor;
     const mEl = document.getElementById('stEditorMargin');
     if (mEl) {
@@ -5649,7 +5727,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     document.querySelectorAll('#stEditorWorkersBody tr.st-worker-row').forEach(tr => {
       const name = String(tr.querySelector('.stw-name').value||'').trim();
       if (!name) return; // 빈 이름은 스킵
-      const payTotal = Number(tr.querySelector('.stw-pay').value) || 0;
+      const payTotal = window._stReadMoney(tr.querySelector('.stw-pay'));
       const paid = !!tr.querySelector('.stw-paid').checked;
       let holder = String(tr.querySelector('.stw-holder').value||'').trim();
       if (!holder) holder = name;
@@ -5664,8 +5742,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       });
     });
     const totalLabor = workers.reduce((a,w)=>a+(Number(w.payTotal)||0),0);
-    const fee = Number(document.getElementById('stEditorFee').value) || 0;
+    const fee = window._stReadMoney(document.getElementById('stEditorFee'));
     const margin = fee - totalLabor;
+    const paymentMethod = (document.querySelector('input[name="stPaymentMethod"]:checked')?.value) || '현금';
 
     const rec = {
       id: id || ('ST-' + Date.now().toString(36)),
@@ -5677,14 +5756,15 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       scheduleDate: document.getElementById('stEditorScheduleDate').value || '',
       doneDate: document.getElementById('stEditorDoneDate').value || '',
       area: Number(document.getElementById('stEditorArea').value) || 0,
-      expectedAmount: Number(document.getElementById('stEditorExpected').value) || 0,
-      actualAmount: Number(document.getElementById('stEditorActual').value) || 0,
+      expectedAmount: window._stReadMoney(document.getElementById('stEditorExpected')),
+      actualAmount:   window._stReadMoney(document.getElementById('stEditorActual')),
       headcount: Number(document.getElementById('stEditorHeadcount').value) || workers.length,
       workers,
       totalLabor,
-      collected: Number(document.getElementById('stEditorCollected').value) || 0,
+      collected: window._stReadMoney(document.getElementById('stEditorCollected')),
       fee,
       margin,
+      paymentMethod,
       memo: String(document.getElementById('stEditorMemo').value||''),
       createdAt: Date.now(),
     };
