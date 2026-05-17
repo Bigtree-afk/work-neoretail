@@ -3947,33 +3947,71 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     </div>
     <div class="modal-body">
       <input type="hidden" id="stEditorId">
+      <!-- 매장 — 표준 매장 검색 + 미등록 가맹점 -->
+      <div style="margin-bottom:12px;position:relative">
+        <label style="font-size:11.5px;color:var(--gray-600);font-weight:600;display:flex;justify-content:space-between;align-items:center">
+          <span>🏪 매장 선택</span>
+          <button type="button" onclick="toggleStocktakeUnregStore()" id="stUnregBtn" style="background:none;border:1px solid var(--gray-300);color:var(--gray-500);font-size:10px;padding:2px 8px;border-radius:6px;cursor:pointer;font-weight:600">+ 미등록 가맹점</button>
+        </label>
+        <div style="display:flex;gap:4px;margin-bottom:5px;flex-wrap:wrap">
+          <label style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:#fff;border:1px solid var(--gray-200);border-radius:14px;cursor:pointer;font-size:11px;font-weight:600">
+            <input type="radio" name="stStoreScope" value="name_biz" checked onchange="runStocktakeStoreSearch()" style="margin:0">상호·사업자
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:#fff;border:1px solid var(--gray-200);border-radius:14px;cursor:pointer;font-size:11px;font-weight:600">
+            <input type="radio" name="stStoreScope" value="ceo" onchange="runStocktakeStoreSearch()" style="margin:0">대표자
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:#fff;border:1px solid var(--gray-200);border-radius:14px;cursor:pointer;font-size:11px;font-weight:600">
+            <input type="radio" name="stStoreScope" value="addr" onchange="runStocktakeStoreSearch()" style="margin:0">주소
+          </label>
+        </div>
+        <div style="position:relative">
+          <input type="text" id="stEditorStoreInput" placeholder="검색어를 입력하세요..." autocomplete="off" oninput="runStocktakeStoreSearch();_resetStocktakeStorePickInfo()" onfocus="runStocktakeStoreSearch()" onblur="setTimeout(()=>{const p=document.getElementById('stStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px;width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px">
+          <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--gray-400);pointer-events:none">🔍</span>
+        </div>
+        <input type="hidden" id="stEditorStoreId">
+        <div id="stStorePickedInfo" style="display:none;margin-top:6px;padding:6px 10px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;font-size:11px;color:#065F46">
+          <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap">
+            <span><b>✓ 선택됨</b> · 사업자 <code style="background:#fff;padding:1px 6px;border-radius:3px;font-family:monospace" id="stStorePickedBiz">-</code></span>
+            <span id="stStorePickedCeo" style="color:#065F46"></span>
+          </div>
+        </div>
+        <div id="stStoreResults" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;margin-top:4px"></div>
+        <!-- 미등록 가맹점 입력 -->
+        <div id="stUnregForm" style="display:none;margin-top:6px;padding:10px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px">
+          <div style="font-size:11px;color:#92400E;font-weight:700;margin-bottom:6px">⚠ 미등록 가맹점 모드</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div><div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">점포명</div><input type="text" id="stUnregName" placeholder="가맹점 상호"></div>
+            <div><div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">사업자번호</div><input type="text" id="stUnregBiz" placeholder="123-45-67890"></div>
+            <div><div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">대표자</div><input type="text" id="stUnregCeo" placeholder="대표자 성함"></div>
+            <div><div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">연락처</div><input type="text" id="stUnregTel" placeholder="010-0000-0000"></div>
+            <div style="grid-column:1/-1"><div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">주소</div><input type="text" id="stUnregAddr" placeholder="가맹점 주소"></div>
+          </div>
+        </div>
+      </div>
+      <!-- 상태 -->
+      <div style="margin-bottom:10px">
+        <label style="font-size:11.5px;color:var(--gray-600);font-weight:600">상태</label>
+        <select id="stEditorStatus" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px">
+          <option value="상담">상담</option>
+          <option value="일정확정">일정확정</option>
+          <option value="조사완료">조사완료</option>
+          <option value="정산">정산</option>
+          <option value="마감">마감</option>
+        </select>
+      </div>
+      <!-- 일정 — 상담일 + 조사예정일 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div>
-          <label style="font-size:11.5px;color:var(--gray-600);font-weight:600">매장</label>
-          <input list="stEditorStoreList" id="stEditorStoreInput" placeholder="매장 검색" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px">
-          <datalist id="stEditorStoreList"></datalist>
-        </div>
-        <div>
-          <label style="font-size:11.5px;color:var(--gray-600);font-weight:600">상태</label>
-          <select id="stEditorStatus" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px">
-            <option value="상담">상담</option>
-            <option value="일정확정">일정확정</option>
-            <option value="조사완료">조사완료</option>
-            <option value="정산">정산</option>
-            <option value="마감">마감</option>
-          </select>
-        </div>
+        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">📞 상담일</label><input type="date" id="stEditorConsultDate" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
+        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">📅 조사예정일</label><input type="date" id="stEditorScheduleDate" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
+        <!-- 완료일 호환 hidden -->
+        <input type="hidden" id="stEditorDoneDate">
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">상담일</label><input type="date" id="stEditorConsultDate" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
-        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">예정일</label><input type="date" id="stEditorScheduleDate" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
-        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">완료일</label><input type="date" id="stEditorDoneDate" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
-      </div>
+      <!-- 금액 — 평수 / 인원수 / 예상재고액 / 실재고액 -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
         <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">평수(평)</label><input type="number" id="stEditorArea" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
         <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">인원수</label><input type="number" id="stEditorHeadcount" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
-        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">예상금액(원)</label><input type="number" id="stEditorExpected" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
-        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">실재고금액(원)</label><input type="number" id="stEditorActual" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
+        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">예상재고액(원)</label><input type="number" id="stEditorExpected" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
+        <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">실재고액(원)</label><input type="number" id="stEditorActual" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">수수료(원)</label><input type="number" id="stEditorFee" min="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px" oninput="window._stocktakeRecalcMargin()"></div>
@@ -3985,9 +4023,13 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       </div>
 
       <div style="border-top:1px solid var(--gray-200);margin:14px 0 8px;padding-top:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div style="font-weight:700;font-size:13px;color:var(--gray-800)">👥 인건비 명단</div>
-          <button class="btn btn-outline btn-sm" onclick="window._stocktakeAddWorkerRow()">+ 명단 추가</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap">
+          <div style="font-weight:700;font-size:13px;color:var(--gray-800)">👥 재고조사 참여 인원 / 수당</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="stEditorAddCount" min="1" value="1" style="width:60px;padding:5px 6px;border:1px solid var(--gray-300);border-radius:6px;font-size:12px;text-align:right" title="추가할 인원 수">
+            <span style="font-size:11px;color:var(--gray-500)">명</span>
+            <button class="btn btn-outline btn-sm" onclick="window._stocktakeAddMultipleWorkers()">+ 추가</button>
+          </div>
         </div>
         <div style="overflow-x:auto">
           <table id="stEditorWorkers" style="width:100%;border-collapse:collapse;font-size:12px">
@@ -3997,17 +4039,15 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
                 <th style="padding:5px 4px;text-align:left;border-bottom:1px solid var(--gray-200);font-size:11px">은행</th>
                 <th style="padding:5px 4px;text-align:left;border-bottom:1px solid var(--gray-200);font-size:11px">계좌</th>
                 <th style="padding:5px 4px;text-align:left;border-bottom:1px solid var(--gray-200);font-size:11px">예금주</th>
-                <th style="padding:5px 4px;text-align:right;border-bottom:1px solid var(--gray-200);font-size:11px">시간</th>
-                <th style="padding:5px 4px;text-align:right;border-bottom:1px solid var(--gray-200);font-size:11px">시급</th>
-                <th style="padding:5px 4px;text-align:right;border-bottom:1px solid var(--gray-200);font-size:11px">합계</th>
+                <th style="padding:5px 4px;text-align:right;border-bottom:1px solid var(--gray-200);font-size:11px">수당(원)</th>
                 <th style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--gray-200);font-size:11px">입금</th>
                 <th style="padding:5px 4px;border-bottom:1px solid var(--gray-200)"></th>
               </tr>
             </thead>
             <tbody id="stEditorWorkersBody"></tbody>
             <tfoot>
-              <tr><td colspan="6" style="text-align:right;padding:6px 4px;font-size:12px;font-weight:600;color:var(--gray-700)">인건비 합계</td><td id="stEditorTotalLabor" style="text-align:right;padding:6px 4px;font-weight:700;color:#DC2626">0원</td><td colspan="2"></td></tr>
-              <tr><td colspan="6" style="text-align:right;padding:6px 4px;font-size:12px;font-weight:600;color:var(--gray-700)">예상 수익 (수수료 - 인건비)</td><td id="stEditorMargin" style="text-align:right;padding:6px 4px;font-weight:700">0원</td><td colspan="2"></td></tr>
+              <tr><td colspan="4" style="text-align:right;padding:6px 4px;font-size:12px;font-weight:600;color:var(--gray-700)">인건비 합계</td><td id="stEditorTotalLabor" style="text-align:right;padding:6px 4px;font-weight:700;color:#DC2626">0원</td><td colspan="2"></td></tr>
+              <tr><td colspan="4" style="text-align:right;padding:6px 4px;font-size:12px;font-weight:600;color:var(--gray-700)">예상 수익 (수수료 - 인건비)</td><td id="stEditorMargin" style="text-align:right;padding:6px 4px;font-weight:700">0원</td><td colspan="2"></td></tr>
             </tfoot>
           </table>
         </div>
@@ -5342,13 +5382,6 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   /* ── Editor 로직 ── */
   window._stocktakeOpenEditor = function(id) {
-    // 매장 datalist 채우기
-    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
-    const dl = document.getElementById('stEditorStoreList');
-    if (dl) {
-      dl.innerHTML = stores.map(s => `<option value="${window._stEsc(s.name||s.storeName||'')}" data-id="${window._stEsc(s.id||'')}"></option>`).join('');
-    }
-
     let rec;
     if (id) {
       const arr = window.getStocktakes();
@@ -5363,6 +5396,15 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
     document.getElementById('stEditorId').value = rec.id || '';
     document.getElementById('stEditorStoreInput').value = rec.storeName || '';
+    document.getElementById('stEditorStoreId').value = rec.storeId || '';
+    // 매장 선택 정보 사전 채움
+    try {
+      if (rec.storeId) {
+        const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+        const s = stores.find(x => x.id === rec.storeId);
+        if (s) _stocktakePickStore(s);
+      }
+    } catch(e){}
     document.getElementById('stEditorStatus').value = rec.status || '상담';
     document.getElementById('stEditorConsultDate').value = rec.consultDate || '';
     document.getElementById('stEditorScheduleDate').value = rec.scheduleDate || '';
@@ -5375,6 +5417,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     document.getElementById('stEditorCollected').value = rec.collected || '';
     document.getElementById('stEditorMemo').value = rec.memo || '';
 
+    // 미등록 가맹점 모드 reset
+    window._stocktakeUnregMode = false;
+    const unregForm = document.getElementById('stUnregForm');
+    if (unregForm) unregForm.style.display = 'none';
+    const unregBtn = document.getElementById('stUnregBtn');
+    if (unregBtn) { unregBtn.style.background='none'; unregBtn.style.color='var(--gray-500)'; unregBtn.textContent='+ 미등록 가맹점'; }
+    ['stUnregName','stUnregBiz','stUnregCeo','stUnregTel','stUnregAddr'].forEach(idd => { const el=document.getElementById(idd); if(el)el.value=''; });
+
     // 워커 행 렌더
     const tbody = document.getElementById('stEditorWorkersBody');
     tbody.innerHTML = '';
@@ -5384,8 +5434,97 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     showModal('stocktakeEditorModal');
   };
 
+  // 매장 검색 / 선택 / 미등록 토글
+  window._stocktakeUnregMode = false;
+  window._stocktakePickedStore = null;
+  window._resetStocktakeStorePickInfo = function() {
+    window._stocktakePickedStore = null;
+    const el = document.getElementById('stStorePickedInfo');
+    if (el) el.style.display = 'none';
+    const sid = document.getElementById('stEditorStoreId');
+    if (sid) sid.value = '';
+  };
+  window.runStocktakeStoreSearch = function() {
+    if (window._stocktakeUnregMode) return;
+    const q = (document.getElementById('stEditorStoreInput')?.value || '').trim();
+    const scope = (document.querySelector('input[name="stStoreScope"]:checked')?.value) || 'name_biz';
+    const results = document.getElementById('stStoreResults');
+    if (!results) return;
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+    const matchFn = (typeof _matchStore === 'function') ? _matchStore : null;
+    let matched = stores;
+    if (q.length >= 1) {
+      const qNorm = normFn(q);
+      if (matchFn) matched = stores.filter(s => matchFn(s, qNorm, scope));
+      else matched = stores.filter(s => normFn(s.name||'').includes(qNorm) || normFn(s.biz||'').includes(qNorm));
+    }
+    matched = matched.slice(0, 30);
+    if (matched.length === 0) {
+      results.style.display = 'block';
+      results.innerHTML = '<div style="padding:14px;text-align:center;color:var(--gray-400);font-size:11px">매칭 매장 없음</div>';
+      return;
+    }
+    results.innerHTML = matched.map(s => `<div onmousedown="event.preventDefault();_stocktakePickStoreById('${(s.id||'').replace(/'/g,'')}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--gray-100);font-size:12px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">
+      <div style="font-weight:700">${(s.name||'').replace(/[<>&]/g,'')}</div>
+      <div style="font-size:10.5px;color:var(--gray-500)">${(s.biz||'-')} · ${(s.ceo||'-')} · ${(s.addr||'-').slice(0,40)}</div>
+    </div>`).join('');
+    results.style.display = 'block';
+  };
+  function _stocktakePickStore(s) {
+    if (!s) return;
+    window._stocktakePickedStore = s;
+    const input = document.getElementById('stEditorStoreInput');
+    if (input) input.value = s.name || '';
+    const sid = document.getElementById('stEditorStoreId');
+    if (sid) sid.value = s.id || '';
+    const info = document.getElementById('stStorePickedInfo');
+    const biz = document.getElementById('stStorePickedBiz');
+    const ceo = document.getElementById('stStorePickedCeo');
+    if (info) info.style.display = '';
+    if (biz) biz.textContent = s.biz || '-';
+    if (ceo) ceo.textContent = s.ceo ? `대표: ${s.ceo}` : '';
+    const results = document.getElementById('stStoreResults');
+    if (results) results.style.display = 'none';
+  }
+  window._stocktakePickStoreById = function(storeId) {
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const s = stores.find(x => x.id === storeId);
+    if (s) _stocktakePickStore(s);
+  };
+  window.toggleStocktakeUnregStore = function() {
+    window._stocktakeUnregMode = !window._stocktakeUnregMode;
+    const f = document.getElementById('stUnregForm');
+    const btn = document.getElementById('stUnregBtn');
+    const pick = document.getElementById('stStorePickedInfo');
+    const search = document.getElementById('stEditorStoreInput');
+    if (window._stocktakeUnregMode) {
+      f.style.display = '';
+      btn.style.background = '#92400E'; btn.style.color = '#fff'; btn.textContent = '× 미등록 모드';
+      window._stocktakePickedStore = null;
+      if (pick) pick.style.display = 'none';
+      if (search) search.value = '';
+      const sid = document.getElementById('stEditorStoreId');
+      if (sid) sid.value = '';
+    } else {
+      f.style.display = 'none';
+      btn.style.background = 'none'; btn.style.color = 'var(--gray-500)'; btn.textContent = '+ 미등록 가맹점';
+    }
+  };
+
+  // 참여 숫자만큼 행을 한 번에 추가
+  window._stocktakeAddMultipleWorkers = function() {
+    const n = Math.max(1, parseInt(document.getElementById('stEditorAddCount')?.value || '1', 10));
+    for (let i = 0; i < n; i++) window._stocktakeAddWorkerRow();
+  };
+
   window._stocktakeAddWorkerRow = function(w) {
-    w = w || { name:'', bank:'', account:'', holder:'', hours:'', payRate:'', payTotal:0, paid:false };
+    // payTotal 만 사용 (시간×시급 제거). legacy: 옛 데이터의 hours*payRate 이 있으면 payTotal 로 변환
+    let payTotal = Number(w?.payTotal) || 0;
+    if (!payTotal && w && (w.hours || w.payRate)) {
+      payTotal = Math.round((Number(w.hours)||0) * (Number(w.payRate)||0));
+    }
+    w = w || {};
     const tbody = document.getElementById('stEditorWorkersBody');
     const tr = document.createElement('tr');
     tr.className = 'st-worker-row';
@@ -5394,29 +5533,23 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <td style="padding:3px 3px"><input class="stw-bank" type="text" value="${window._stEsc(w.bank||'')}" style="width:100%;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px"></td>
       <td style="padding:3px 3px"><input class="stw-account" type="text" value="${window._stEsc(w.account||'')}" style="width:100%;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px"></td>
       <td style="padding:3px 3px"><input class="stw-holder" type="text" value="${window._stEsc(w.holder||'')}" style="width:100%;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px"></td>
-      <td style="padding:3px 3px"><input class="stw-hours" type="number" min="0" step="0.5" value="${w.hours||''}" style="width:70px;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;text-align:right"></td>
-      <td style="padding:3px 3px"><input class="stw-rate" type="number" min="0" step="100" value="${w.payRate||''}" style="width:90px;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;text-align:right"></td>
-      <td class="stw-total" style="padding:5px 4px;text-align:right;font-weight:600;font-size:12px">${(Number(w.payTotal)||0).toLocaleString('ko-KR')}</td>
+      <td style="padding:3px 3px"><input class="stw-pay" type="number" min="0" step="1000" value="${payTotal || ''}" placeholder="수당" style="width:120px;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;text-align:right"></td>
       <td style="padding:3px 3px;text-align:center"><input class="stw-paid" type="checkbox" ${w.paid?'checked':''}></td>
       <td style="padding:3px 3px;text-align:center"><button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:11px;border-color:#DC2626;color:#DC2626" onclick="this.closest('tr').remove();window._stocktakeRecalcTotals()">✕</button></td>
     `;
     tbody.appendChild(tr);
 
-    // 이름 자동완성 datalist 갱신
     window._stocktakeRefreshNamesDatalist();
 
     const $name = tr.querySelector('.stw-name');
     const $bank = tr.querySelector('.stw-bank');
     const $acct = tr.querySelector('.stw-account');
     const $hold = tr.querySelector('.stw-holder');
-    const $hours = tr.querySelector('.stw-hours');
-    const $rate = tr.querySelector('.stw-rate');
+    const $pay  = tr.querySelector('.stw-pay');
 
-    // 이름 blur/change 시 계좌 자동 채움
     function autoFill() {
       const nm = String($name.value||'').trim().toLowerCase();
       if (!nm) return;
-      // 과거 명단에서 검색
       const past = window._stocktakeFindWorkerByName(nm);
       if (!past) return;
       if (!$bank.value) $bank.value = past.bank || '';
@@ -5425,12 +5558,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     }
     $name.addEventListener('blur', autoFill);
     $name.addEventListener('change', autoFill);
-
-    // 예금주 비어있으면 이름으로 기본값
     $name.addEventListener('blur', () => { if (!$hold.value) $hold.value = $name.value || ''; });
-
-    $hours.addEventListener('input', window._stocktakeRecalcTotals);
-    $rate.addEventListener('input', window._stocktakeRecalcTotals);
+    $pay.addEventListener('input', window._stocktakeRecalcTotals);
   };
 
   window._stocktakeRefreshNamesDatalist = function() {
@@ -5462,11 +5591,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   window._stocktakeRecalcTotals = function() {
     let total = 0;
     document.querySelectorAll('#stEditorWorkersBody tr.st-worker-row').forEach(tr => {
-      const h = Number(tr.querySelector('.stw-hours').value) || 0;
-      const r = Number(tr.querySelector('.stw-rate').value) || 0;
-      const sub = Math.round(h * r);
-      tr.querySelector('.stw-total').textContent = sub.toLocaleString('ko-KR');
-      total += sub;
+      const p = Number(tr.querySelector('.stw-pay').value) || 0;
+      total += p;
     });
     document.getElementById('stEditorTotalLabor').textContent = total.toLocaleString('ko-KR') + '원';
     window._stocktakeRecalcMargin(total);
@@ -5476,9 +5602,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     if (totalLabor == null) {
       totalLabor = 0;
       document.querySelectorAll('#stEditorWorkersBody tr.st-worker-row').forEach(tr => {
-        const h = Number(tr.querySelector('.stw-hours').value) || 0;
-        const r = Number(tr.querySelector('.stw-rate').value) || 0;
-        totalLabor += Math.round(h * r);
+        const p = Number(tr.querySelector('.stw-pay').value) || 0;
+        totalLabor += p;
       });
     }
     const fee = Number(document.getElementById('stEditorFee').value) || 0;
@@ -5492,23 +5617,39 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   window._stocktakeSaveEditor = function() {
     const id = document.getElementById('stEditorId').value;
-    const storeName = String(document.getElementById('stEditorStoreInput').value || '').trim();
-    if (!storeName) { if (typeof showToast === 'function') showToast('매장을 선택하세요'); return; }
-
-    // 매장 ID 찾기
+    let storeName = '';
     let storeId = '';
-    try {
-      const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
-      const matched = stores.find(s => (s.name||s.storeName||'') === storeName);
-      if (matched) storeId = matched.id || '';
-    } catch(e){}
+    let unregMeta = null;
+    if (window._stocktakeUnregMode) {
+      storeName = String(document.getElementById('stUnregName')?.value || '').trim();
+      if (!storeName) { if (typeof showToast === 'function') showToast('미등록 가맹점 점포명을 입력하세요'); return; }
+      unregMeta = {
+        name: storeName,
+        biz: String(document.getElementById('stUnregBiz')?.value||'').trim(),
+        ceo: String(document.getElementById('stUnregCeo')?.value||'').trim(),
+        tel: String(document.getElementById('stUnregTel')?.value||'').trim(),
+        addr: String(document.getElementById('stUnregAddr')?.value||'').trim(),
+      };
+    } else {
+      const picked = window._stocktakePickedStore;
+      if (picked && picked.id) { storeName = picked.name || ''; storeId = picked.id; }
+      else {
+        // fallback: 입력 텍스트 값 + 이름 매칭
+        storeName = String(document.getElementById('stEditorStoreInput').value || '').trim();
+        if (!storeName) { if (typeof showToast === 'function') showToast('매장을 선택하세요'); return; }
+        try {
+          const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+          const matched = stores.find(s => (s.name||s.storeName||'') === storeName);
+          if (matched) storeId = matched.id || '';
+        } catch(e){}
+      }
+    }
 
     const workers = [];
     document.querySelectorAll('#stEditorWorkersBody tr.st-worker-row').forEach(tr => {
       const name = String(tr.querySelector('.stw-name').value||'').trim();
       if (!name) return; // 빈 이름은 스킵
-      const hours = Number(tr.querySelector('.stw-hours').value) || 0;
-      const payRate = Number(tr.querySelector('.stw-rate').value) || 0;
+      const payTotal = Number(tr.querySelector('.stw-pay').value) || 0;
       const paid = !!tr.querySelector('.stw-paid').checked;
       let holder = String(tr.querySelector('.stw-holder').value||'').trim();
       if (!holder) holder = name;
@@ -5517,9 +5658,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         bank: String(tr.querySelector('.stw-bank').value||'').trim(),
         account: String(tr.querySelector('.stw-account').value||'').trim(),
         holder,
-        hours,
-        payRate,
-        payTotal: Math.round(hours * payRate),
+        payTotal,
         paid,
         paidAt: paid ? (new Date().toISOString().slice(0,10)) : '',
       });
@@ -5532,6 +5671,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       id: id || ('ST-' + Date.now().toString(36)),
       storeId,
       storeName,
+      unregStore: unregMeta || undefined,
       status: document.getElementById('stEditorStatus').value || '상담',
       consultDate: document.getElementById('stEditorConsultDate').value || '',
       scheduleDate: document.getElementById('stEditorScheduleDate').value || '',
