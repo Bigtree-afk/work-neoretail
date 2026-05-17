@@ -12192,12 +12192,26 @@ ${text.slice(0, 4000)}`;
     // base = cloud 메타에 local 메타 overlay (local 이 최신일 가능성)
     const merged = Object.assign({}, cloudJob, localJob);
     // ── thread: threadId 우선, 없으면 ts+text 키로 union
+    //   같은 threadId 라도 attachments 는 양쪽 union (PC 간 첨부 동기화)
     const seen = new Map();
     const noKey = [];
+    const mergeAttList = (a1, a2) => {
+      const m = new Map();
+      (Array.isArray(a1)?a1:[]).concat(Array.isArray(a2)?a2:[]).forEach(x => {
+        if (x && x.key && !m.has(x.key)) m.set(x.key, x);
+      });
+      return [...m.values()];
+    };
     const addEntry = (e) => {
       if (!e) return;
       if (e.threadId) {
-        if (!seen.has(e.threadId)) seen.set(e.threadId, e);
+        const existing = seen.get(e.threadId);
+        if (!existing) seen.set(e.threadId, e);
+        else {
+          // 같은 ROOT/child — attachments 만 union, 본문은 첫 진입(cloud) 유지
+          const newAtts = mergeAttList(existing.attachments, e.attachments);
+          if (newAtts.length) existing.attachments = newAtts;
+        }
       } else {
         const k = (e.ts||'') + '|' + (e.text||'');
         if (!noKey.find(x => ((x.ts||'')+'|'+(x.text||'')) === k)) noKey.push(e);
@@ -12217,6 +12231,21 @@ ${text.slice(0, 4000)}`;
     // ── vandocs: local 의 non-empty 우선
     if (localJob.vandocs || cloudJob.vandocs) {
       merged.vandocs = Object.assign({}, cloudJob.vandocs||{}, localJob.vandocs||{});
+    }
+    // ── job 레벨 attachments: key 기준 union (PC 간 첨부 동기화)
+    //   Object.assign 의 blanket override 때문에 한쪽이 빈 배열이면 사라지는 문제 차단.
+    //   다른 PC 에서 올린 첨부도 보이도록, key 별 union 으로 머지.
+    {
+      const cA = Array.isArray(cloudJob.attachments) ? cloudJob.attachments : [];
+      const lA = Array.isArray(localJob.attachments) ? localJob.attachments : [];
+      if (cA.length || lA.length) {
+        const seenAtt = new Map();
+        cA.concat(lA).forEach(a => {
+          if (!a || !a.key) return;
+          if (!seenAtt.has(a.key)) seenAtt.set(a.key, a);
+        });
+        merged.attachments = [...seenAtt.values()];
+      }
     }
     // ── 완료 플래그: 어느 한쪽이라도 완료면 완료
     merged.completed = !!(localJob.completed || cloudJob.completed);
