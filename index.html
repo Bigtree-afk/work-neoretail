@@ -7285,19 +7285,36 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     } catch(e) { /* 네트워크 실패 무시 — 로컬 기본값 사용 */ }
   }
   // 로컬 → 클라우드 푸시 (인증 없음 — 누구나 저장 가능)
+  // 빠른 djb2 해시 — KV 한도 절감 (content-skip 용)
+  window._fastHash = window._fastHash || function(s) {
+    let h = 5381; const len = s.length;
+    for (let i = 0; i < len; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  };
   async function pushCatalogToCloud(items, opts) {
+    const body = JSON.stringify({ items });
+    // content-skip
+    const h = window._fastHash(body);
+    if (!opts?.force && h && window._lastCatalogPushHash === h) {
+      return { ok:true, skipped:true };
+    }
     try {
       const res = await fetch('/api/catalog', {
         method:'POST',
         headers:{ 'content-type':'application/json' },
-        body: JSON.stringify({ items }),
+        body,
       });
       if (!res.ok) {
-        const txt = await res.text();
-        if (opts && opts.toast && typeof showToast === 'function') showToast(`⚠ 클라우드 푸시 실패 (${res.status}): ${txt.slice(0,80)}`);
-        return { ok:false, status:res.status };
+        let txt = ''; try { txt = await res.text(); } catch(_){}
+        const limitHit = /KV put.*limit exceeded/i.test(txt);
+        if (limitHit && !window._kvLimitToastShown) {
+          window._kvLimitToastShown = true;
+          try { if (typeof showToast === 'function') showToast('⚠ 클라우드 동기화 한도 초과 — 한국 시간 익일 09:00 자동 해제 (로컬 저장은 정상)'); } catch(_){}
+        } else if (opts && opts.toast && typeof showToast === 'function') showToast(`⚠ 클라우드 푸시 실패 (${res.status}): ${txt.slice(0,80)}`);
+        return { ok:false, status:res.status, limitHit };
       }
       const data = await res.json();
+      if (h) window._lastCatalogPushHash = h;
       if (opts && opts.toast && typeof showToast === 'function') showToast(`☁ 카탈로그 동기화 완료 (${data.count}건)`);
       return { ok:true, ...data };
     } catch(e) {
@@ -12151,19 +12168,31 @@ ${text.slice(0, 4000)}`;
       return { ok:true, skipped:true };
     }
     const stores = (function(){ try { return JSON.parse(localStorage.getItem('ns_stores')||'[]'); } catch { return []; } })();
+    const body = JSON.stringify({ stores, source:'client' });
+    // content-skip
+    const h = window._fastHash(body);
+    if (!opts.force && window._lastStoresPushHash === h) {
+      _storesDirty = false;
+      return { ok:true, skipped:true, count: stores.length };
+    }
     try {
       const res = await fetch('/api/sync', {
         method:'POST',
         headers:{ 'content-type':'application/json' },
-        body: JSON.stringify({ stores, source:'client' }),
+        body,
       });
       if (!res.ok) {
-        const txt = await res.text();
-        if (opts.toast && typeof showToast === 'function') showToast(`⚠ 점포 클라우드 푸시 실패 (${res.status}): ${txt.slice(0,80)}`);
-        return { ok:false, status:res.status };
+        let txt = ''; try { txt = await res.text(); } catch(_){}
+        const limitHit = /KV put.*limit exceeded/i.test(txt);
+        if (limitHit && !window._kvLimitToastShown) {
+          window._kvLimitToastShown = true;
+          try { if (typeof showToast === 'function') showToast('⚠ 클라우드 동기화 한도 초과 — 한국 시간 익일 09:00 자동 해제 (로컬 저장은 정상)'); } catch(_){}
+        } else if (opts.toast && typeof showToast === 'function') showToast(`⚠ 점포 클라우드 푸시 실패 (${res.status}): ${txt.slice(0,80)}`);
+        return { ok:false, status:res.status, limitHit };
       }
       const data = await res.json();
-      _storesDirty = false;   // push 성공시 dirty 클리어
+      _storesDirty = false;
+      window._lastStoresPushHash = h;
       if (opts.toast && typeof showToast === 'function') showToast(`☁ 점포 클라우드 동기화 완료 (${data.count}건)`);
       return { ok:true, ...data };
     } catch(e) {
@@ -12288,22 +12317,41 @@ ${text.slice(0, 4000)}`;
   let _pushJobsTimer = null;
   function schedulePushJobsToCloud() {
     if (_pushJobsTimer) clearTimeout(_pushJobsTimer);
-    _pushJobsTimer = setTimeout(() => { pushJobsToCloud(); }, 1500); // 1.5초 디바운스
+    // KV 일일 쓰기 한도 보호 — 디바운스 5초 (연속 편집을 한번에 묶음)
+    _pushJobsTimer = setTimeout(() => { pushJobsToCloud(); }, 5000);
   }
   async function pushJobsToCloud(opts) {
     const jobs = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
+    const body = JSON.stringify({ jobs });
+    // ── content-skip: 직전에 push 한 내용과 동일하면 네트워크 호출 자체를 생략 (KV 쓰기 절감)
+    const h = window._fastHash(body);
+    if (!opts || !opts.force) {
+      if (window._lastJobsPushHash === h) {
+        return { ok:true, skipped:true, count: jobs.length };
+      }
+    }
     try {
       const res = await fetch('/api/jobs', {
         method:'POST',
         headers:{ 'content-type':'application/json' },
-        body: JSON.stringify({ jobs }),
+        body,
       });
       if (!res.ok) {
-        const txt = await res.text();
-        if (opts && opts.toast && typeof showToast === 'function') showToast(`⚠ 작업 클라우드 푸시 실패 (${res.status}): ${txt.slice(0,80)}`);
-        return { ok:false, status:res.status };
+        let detail = ''; try { detail = await res.text(); } catch(_){}
+        const limitHit = /KV put.*limit exceeded/i.test(detail);
+        if (limitHit) {
+          // KV 일일 쓰기 한도 — 사용자에게 1회만 친절 안내
+          if (!window._kvLimitToastShown) {
+            window._kvLimitToastShown = true;
+            try { if (typeof showToast === 'function') showToast('⚠ 클라우드 동기화 한도 초과 — 한국 시간 익일 09:00 자동 해제 (로컬 저장은 정상)'); } catch(_){}
+          }
+        } else if (opts && opts.toast && typeof showToast === 'function') {
+          showToast(`⚠ 작업 클라우드 푸시 실패 (${res.status}): ${detail.slice(0,80)}`);
+        }
+        return { ok:false, status:res.status, limitHit };
       }
       const data = await res.json();
+      window._lastJobsPushHash = h;
       if (opts && opts.toast && typeof showToast === 'function') showToast(`☁ 작업 클라우드 동기화 완료 (${data.count}건)`);
       return { ok:true, ...data };
     } catch(e) {
