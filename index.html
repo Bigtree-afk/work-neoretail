@@ -3219,6 +3219,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <label>📝 메모 / 특이사항 (선택)</label>
         <textarea id="vanJobMemo" rows="3" placeholder="가맹 진행 메모, 카드사 별 특이사항, VAN 단말 위치 등..."></textarea>
       </div>
+
+      <!-- 📷📎 첨부 -->
+      <div class="form-group">
+        <label>📷📎 첨부 (계약서·TID 화면 등)</label>
+        <div id="vanJobUploader"></div>
+      </div>
     </div>
     <div class="modal-footer" style="justify-content:flex-end;gap:8px">
       <button class="btn btn-outline" onclick="closeModal('vanJobModal')">취소</button>
@@ -16569,6 +16575,15 @@ ${text.slice(0, 4000)}`;
     // 업무일 기본값: 오늘
     const d = document.getElementById('vanJobDate');
     if (d && !d.value) d.value = new Date().toISOString().slice(0,10);
+    // 📷📎 uploader mount
+    try {
+      const box = document.getElementById('vanJobUploader');
+      if (box && window.NS_UPLOAD) {
+        window._vanJobUploaderCtl = window.NS_UPLOAD.mount(box, {
+          initial: [], category: 'van', max: 30,
+        });
+      }
+    } catch(e){ console.warn('vanJob uploader mount failed', e); }
   };
 
   function _resetVanJobForm() {
@@ -16789,13 +16804,26 @@ ${text.slice(0, 4000)}`;
       assignee: engineer,
       vanRegistration: { cardAcquire, vans, pay },
       memo,
-      thread: [{
-        threadId: rootId,
-        parentId: null,
-        ts, author: me || engineer || '담당자',
-        status: '요청접수',
-        text: summary,
-      }],
+      attachments: (function(){
+        try { if (window._vanJobUploaderCtl) return window._vanJobUploaderCtl.get() || []; } catch(_){}
+        return [];
+      })(),
+      thread: [(function(){
+        const root = {
+          threadId: rootId,
+          parentId: null,
+          ts, author: me || engineer || '담당자',
+          status: '요청접수',
+          text: summary,
+        };
+        try {
+          if (window._vanJobUploaderCtl) {
+            const atts = window._vanJobUploaderCtl.get() || [];
+            if (atts.length) root.attachments = atts;
+          }
+        } catch(_){}
+        return root;
+      })()],
       memos: memo ? [{ at: ts, by: me || engineer || '담당자', text: memo }] : [],
       completed: false,
       createdAt: now,
