@@ -18717,7 +18717,8 @@ ${text.slice(0, 4000)}`;
                 if (idx < 0) return;
                 jobs[idx].attachments = arr.slice();
                 if (typeof saveJobs === 'function') saveJobs(jobs);
-                try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(_){}
+                // KV 일일 쓰기 한도 보호 — debounce 사용 (즉시 push 하지 않음)
+                try { if (typeof schedulePushJobsToCloud === 'function') schedulePushJobsToCloud(); } catch(_){}
               } catch(err) { console.warn('attachments save failed', err); }
             },
           });
