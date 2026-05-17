@@ -17030,8 +17030,22 @@ ${text.slice(0, 4000)}`;
           window._renderThreadGroups('jobThreadContainerEdit-' + j.id, initialThread, { editable:true, jobId:j.id, draftMode:false, maxRoots: _maxRoots });
         }
       }
-      if (cat2 === 'new' && typeof window._renderJobVandocs === 'function') {
-        window._renderJobVandocs('jobVandocsContainerEdit-' + j.id, j.vandocs || {}, { editable:true, jobId:j.id, draftMode:false });
+      if (cat2 === 'new') {
+        // 신규 편집 모달의 VAN 섹션 — store.vanProfile/payProfile read-only 표시
+        // job.vandocs 스냅샷이 비어있어도 매장에 등록된 현재 값을 가져와 표시
+        try {
+          let bizForRender = '';
+          if (j.storeId) {
+            const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+            const s = stores.find(x => x.id === j.storeId);
+            bizForRender = s ? (s.biz || s.bizno || s.businessNumber || '') : '';
+          }
+          if (typeof window._renderStoreVanInfoReadonly === 'function') {
+            window._renderStoreVanInfoReadonly('jobVandocsContainerEdit-' + j.id, j.storeName || j.store || '', bizForRender);
+          } else if (typeof window._renderJobVandocs === 'function') {
+            window._renderJobVandocs('jobVandocsContainerEdit-' + j.id, j.vandocs || {}, { editable:true, jobId:j.id, draftMode:false });
+          }
+        } catch(e) { console.warn('[editNewopen] vandocs readonly render', e); }
       }
     } catch(e){ console.warn('[editNewopen] thread/vandocs render 실패', e); }
 
