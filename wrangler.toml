@@ -5,3 +5,12 @@ compatibility_date = "2026-04-22"
 [[kv_namespaces]]
 binding = "STORES_KV"
 id = "81fa2de1ce5147429aabd063c2e3dc67"
+
+# 첨부 (이미지+파일) 저장소
+#   업로드 후 prefix 분리:
+#     images/{yyyy}/{MM}/{uuid}.jpg
+#     files/{yyyy}/{MM}/{uuid}.{ext}
+#     _trash/images/...  _trash/files/...   (30일 보존 후 cron 영구삭제)
+[[r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "ns-attachments"
