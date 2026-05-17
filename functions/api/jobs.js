@@ -15,26 +15,29 @@ export async function onRequestGet({ env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  if (!env.STORES_KV) return text('KV not bound', 500);
-  // 인증 제거 — 내부 사용자 모두 직접 클라우드 저장
-  // (앱 자체는 화이트리스트로 로그인 게이트 → 외부에서 URL 만 알아도 직접 호출은 가능하나
-  //  내부 운영 도구라 단순화 우선)
+  try {
+    if (!env.STORES_KV) return json({ error: 'KV not bound', envKeys: Object.keys(env) }, 500);
 
-  let body;
-  try { body = await request.json(); }
-  catch { return text('invalid json', 400); }
+    let body;
+    try { body = await request.json(); }
+    catch (e) { return json({ error: 'invalid_json', detail: String(e) }, 400); }
 
-  const jobs = Array.isArray(body?.jobs) ? body.jobs : [];
-  if (jobs.length > 10000) return text('too many jobs', 413);
+    const jobs = Array.isArray(body?.jobs) ? body.jobs : [];
+    if (jobs.length > 10000) return json({ error: 'too_many', count: jobs.length }, 413);
 
-  // 최소한의 정상화 (필수 필드만)
-  const cleaned = jobs.filter(j => j && typeof j === 'object' && j.id);
-  // 5MB 상한 안전장치
-  const serialized = JSON.stringify({ jobs: cleaned, updatedAt: new Date().toISOString() });
-  if (serialized.length > 5_000_000) return text('payload too large', 413);
+    const cleaned = jobs.filter(j => j && typeof j === 'object' && j.id);
+    const serialized = JSON.stringify({ jobs: cleaned, updatedAt: new Date().toISOString() });
+    if (serialized.length > 25_000_000) return json({ error: 'payload too large', size: serialized.length }, 413);
 
-  await env.STORES_KV.put('jobs', serialized);
-  return json({ ok: true, count: cleaned.length }, 200);
+    try {
+      await env.STORES_KV.put('jobs', serialized);
+    } catch (e) {
+      return json({ error: 'kv_put_failed', detail: String(e), stack: e?.stack || '', size: serialized.length }, 500);
+    }
+    return json({ ok: true, count: cleaned.length }, 200);
+  } catch (e) {
+    return json({ error: 'handler_exception', detail: String(e), stack: e?.stack || '' }, 500);
+  }
 }
 
 function json(obj, status = 200) {
