@@ -739,6 +739,20 @@
   .tl-date { font-size: 12px; color: var(--gray-400); }
   .tl-desc { font-size: 12.5px; color: var(--gray-600); margin-top: 4px; }
 
+  /* 재고조사 서브탭 */
+  .st-subtab { background:transparent; border:0; padding:8px 14px; font-size:12.5px; font-weight:700; color:var(--gray-500); cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; font-family:inherit; }
+  .st-subtab:hover { color:var(--gray-700); background:var(--gray-50); }
+  .st-subtab.active { color:var(--primary); border-bottom-color:var(--primary); }
+  .st-period-btn { padding:4px 10px; background:#fff; border:1px solid var(--gray-200); border-radius:14px; font-size:11px; font-weight:600; color:var(--gray-600); cursor:pointer; font-family:inherit; }
+  .st-period-btn.active { background:#DBEAFE; border-color:#1d4ed8; color:#1d4ed8; }
+  .st-agg-table { width:100%; border-collapse:collapse; font-size:12px; background:#fff; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden }
+  .st-agg-table th { background:#F3F4F6; padding:8px 10px; text-align:right; font-size:11px; font-weight:700; color:var(--gray-700); border-bottom:1px solid var(--gray-200) }
+  .st-agg-table th:first-child, .st-agg-table td:first-child { text-align:left }
+  .st-agg-table td { padding:8px 10px; text-align:right; font-size:12px; border-bottom:1px solid var(--gray-100) }
+  .st-agg-table tr:last-child td { border-bottom:0 }
+  .st-agg-table tr:hover td { background:#F9FAFB }
+  .st-agg-table tfoot td { background:#F9FAFB; font-weight:800; border-top:2px solid var(--gray-300); border-bottom:0 }
+
   /* 재고조사 readonly 모드 — 폼 본문 클릭/포커스 차단 (배너/저장 영역 제외) */
   .st-readonly-mode .modal-body > *:not(.st-readonly-banner) { pointer-events: none; user-select: none; opacity: 0.85; }
   .st-readonly-mode .modal-body input,
@@ -1903,21 +1917,68 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <!-- SCREEN: STOCKTAKEHUB (📦 재고조사)       -->
     <!-- ═══════════════════════════════════════ -->
     <div class="screen" id="screen-stocktakehub">
-      <div class="filter-row" style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
-        <div style="font-size:15px;font-weight:700;color:var(--gray-800)">📦 재고조사</div>
-        <div id="stocktakeHubFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-left:8px">
-          <div class="filter-chip active" data-st="all" onclick="window._stocktakeHubSetFilter(this,'all')">전체</div>
-          <div class="filter-chip" data-st="상담" onclick="window._stocktakeHubSetFilter(this,'상담')">상담</div>
-          <div class="filter-chip" data-st="일정확정" onclick="window._stocktakeHubSetFilter(this,'일정확정')">일정확정</div>
-          <div class="filter-chip" data-st="조사완료" onclick="window._stocktakeHubSetFilter(this,'조사완료')">조사완료</div>
-          <div class="filter-chip" data-st="정산" onclick="window._stocktakeHubSetFilter(this,'정산')">정산</div>
-          <div class="filter-chip" data-st="마감" onclick="window._stocktakeHubSetFilter(this,'마감')">마감</div>
-          <div class="filter-chip" data-st="미수금" onclick="window._stocktakeHubSetFilter(this,'미수금')" style="border-color:#F59E0B;color:#B45309">💰 미수금</div>
-        </div>
-        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="window._stocktakeOpenEditor()">+ 재고조사 등록</button>
+      <!-- 서브 탭 바 — 재고조사 / 매장별 / 기간별 / 정산수금 / 인건비 / 비용 -->
+      <div class="st-subtabs" id="stocktakeSubtabs" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;border-bottom:2px solid var(--gray-200);padding-bottom:0">
+        <button class="st-subtab active" data-pane="list" onclick="window._stocktakeSwitchPane('list')">📦 재고조사</button>
+        <button class="st-subtab" data-pane="byStore" onclick="window._stocktakeSwitchPane('byStore')">🏪 매장별 집계</button>
+        <button class="st-subtab" data-pane="byPeriod" onclick="window._stocktakeSwitchPane('byPeriod')">📅 기간별</button>
+        <button class="st-subtab" data-pane="receivable" onclick="window._stocktakeSwitchPane('receivable')">💰 정산/수금</button>
+        <button class="st-subtab" data-pane="labor" onclick="window._stocktakeSwitchPane('labor')">👥 인건비 정산</button>
+        <button class="st-subtab" data-pane="expense" onclick="window._stocktakeSwitchPane('expense')">💸 비용 분석</button>
       </div>
-      <div id="stocktakeHubSummary" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
-      <div id="stocktakeHubList"></div>
+
+      <!-- Pane: 재고조사 (레코드 리스트) -->
+      <div class="st-pane active" id="stPane-list">
+        <div class="filter-row" style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+          <div id="stocktakeHubFilters" style="display:flex;gap:6px;flex-wrap:wrap">
+            <div class="filter-chip active" data-st="all" onclick="window._stocktakeHubSetFilter(this,'all')">전체</div>
+            <div class="filter-chip" data-st="상담" onclick="window._stocktakeHubSetFilter(this,'상담')">상담</div>
+            <div class="filter-chip" data-st="일정확정" onclick="window._stocktakeHubSetFilter(this,'일정확정')">일정확정</div>
+            <div class="filter-chip" data-st="조사완료" onclick="window._stocktakeHubSetFilter(this,'조사완료')">조사완료</div>
+            <div class="filter-chip" data-st="정산" onclick="window._stocktakeHubSetFilter(this,'정산')">정산</div>
+            <div class="filter-chip" data-st="마감" onclick="window._stocktakeHubSetFilter(this,'마감')">마감</div>
+            <div class="filter-chip" data-st="미수금" onclick="window._stocktakeHubSetFilter(this,'미수금')" style="border-color:#F59E0B;color:#B45309">💰 미수금</div>
+          </div>
+          <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="window._stocktakeOpenEditor()">+ 재고조사 등록</button>
+        </div>
+        <div id="stocktakeHubSummary" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
+        <div id="stocktakeHubList"></div>
+      </div>
+
+      <!-- Pane: 매장별 집계 -->
+      <div class="st-pane" id="stPane-byStore" style="display:none">
+        <div style="font-size:11.5px;color:var(--gray-500);margin-bottom:10px">매장별 누적 — 건수 / 수수료 / 인건비 / 비용 / 수익 / 수금 / 미수금. 미수금 큰 순 정렬.</div>
+        <div id="stByStoreBody"></div>
+      </div>
+
+      <!-- Pane: 기간별 -->
+      <div class="st-pane" id="stPane-byPeriod" style="display:none">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+          <span style="font-size:11.5px;color:var(--gray-600);font-weight:700">기준</span>
+          <button class="st-period-btn active" data-period="month" onclick="window._stocktakePeriodMode(this,'month')">월별</button>
+          <button class="st-period-btn" data-period="week" onclick="window._stocktakePeriodMode(this,'week')">주별</button>
+          <button class="st-period-btn" data-period="day" onclick="window._stocktakePeriodMode(this,'day')">일별</button>
+        </div>
+        <div id="stByPeriodBody"></div>
+      </div>
+
+      <!-- Pane: 정산/수금 관리 (미수금 목록 + 입금 처리) -->
+      <div class="st-pane" id="stPane-receivable" style="display:none">
+        <div style="font-size:11.5px;color:var(--gray-500);margin-bottom:10px">수금 처리 — 미수금이 있는 record 만 노출. [+수금] 으로 부분/전액 입금 기록.</div>
+        <div id="stReceivableBody"></div>
+      </div>
+
+      <!-- Pane: 인건비 정산 -->
+      <div class="st-pane" id="stPane-labor" style="display:none">
+        <div style="font-size:11.5px;color:var(--gray-500);margin-bottom:10px">사람별 누적 — 작업 건수 / 총 수당 / 미입금. 입금 미입금 분리.</div>
+        <div id="stLaborBody"></div>
+      </div>
+
+      <!-- Pane: 비용 분석 -->
+      <div class="st-pane" id="stPane-expense" style="display:none">
+        <div style="font-size:11.5px;color:var(--gray-500);margin-bottom:10px">비용 분류별 누적 — 식사 / 교통비 / 기타. 매장별 / 기간별 분해.</div>
+        <div id="stExpenseBody"></div>
+      </div>
     </div>
 
     <!-- ═══════════════════════════════════════ -->
@@ -5341,6 +5402,285 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       el.classList.add('active');
     } catch(e){}
     window.renderStocktakeHub();
+  };
+
+  /* ─────────────────────────────────
+     재고조사 서브탭 — 6 paneswitch
+     ───────────────────────────────── */
+  window._stocktakeCurrentPane = 'list';
+  window._stocktakePeriodGroup = 'month';
+  window._stocktakeSwitchPane = function(pane) {
+    window._stocktakeCurrentPane = pane;
+    document.querySelectorAll('#stocktakeSubtabs .st-subtab').forEach(b => b.classList.toggle('active', b.dataset.pane === pane));
+    document.querySelectorAll('#screen-stocktakehub .st-pane').forEach(p => {
+      const id = p.id || '';
+      const show = (id === 'stPane-' + pane);
+      p.style.display = show ? '' : 'none';
+      p.classList.toggle('active', show);
+    });
+    // pane 별 렌더
+    if (pane === 'list')       window.renderStocktakeHub();
+    if (pane === 'byStore')    window._stocktakeRenderByStore();
+    if (pane === 'byPeriod')   window._stocktakeRenderByPeriod();
+    if (pane === 'receivable') window._stocktakeRenderReceivable();
+    if (pane === 'labor')      window._stocktakeRenderLabor();
+    if (pane === 'expense')    window._stocktakeRenderExpense();
+  };
+  window._stocktakePeriodMode = function(btn, mode) {
+    window._stocktakePeriodGroup = mode;
+    document.querySelectorAll('#stPane-byPeriod .st-period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === mode));
+    window._stocktakeRenderByPeriod();
+  };
+
+  // 공통 — won 헬퍼는 _stWon, esc 는 _stEsc
+
+  /* 매장별 집계 */
+  window._stocktakeRenderByStore = function() {
+    const el = document.getElementById('stByStoreBody');
+    if (!el) return;
+    const recs = window.getStocktakes() || [];
+    const won = window._stWon, esc = window._stEsc;
+    const map = new Map();
+    recs.forEach(r => {
+      const key = r.storeId || ('name:' + (r.storeName||''));
+      if (!map.has(key)) map.set(key, { storeId: r.storeId, storeName: r.storeName||'(매장 미지정)', cnt:0, fee:0, labor:0, expense:0, margin:0, collected:0, receivable:0 });
+      const g = map.get(key);
+      const fee = Number(r.fee)||0;
+      const labor = Number(r.totalLabor)||0;
+      const expense = Number(r.totalExpense)||0;
+      const collected = Number(r.collected)||0;
+      g.cnt++;
+      g.fee += fee;
+      g.labor += labor;
+      g.expense += expense;
+      g.margin += (fee - labor - expense);
+      g.collected += collected;
+      g.receivable += Math.max(0, fee - collected);
+    });
+    const rows = Array.from(map.values()).sort((a,b) => b.receivable - a.receivable || b.fee - a.fee);
+    if (rows.length === 0) { el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400)">집계할 데이터가 없습니다</div>'; return; }
+    const totalRow = rows.reduce((a,r)=>({cnt:a.cnt+r.cnt,fee:a.fee+r.fee,labor:a.labor+r.labor,expense:a.expense+r.expense,margin:a.margin+r.margin,collected:a.collected+r.collected,receivable:a.receivable+r.receivable}),{cnt:0,fee:0,labor:0,expense:0,margin:0,collected:0,receivable:0});
+    el.innerHTML = `<table class="st-agg-table">
+      <thead><tr><th>매장</th><th>건수</th><th>수수료</th><th>인건비</th><th>비용</th><th>수익</th><th>수금</th><th>미수금</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td>${esc(r.storeName)}</td>
+        <td>${r.cnt}건</td>
+        <td>${won(r.fee)}</td>
+        <td style="color:#DC2626">${won(r.labor)}</td>
+        <td style="color:#B45309">${won(r.expense)}</td>
+        <td style="color:${r.margin>=0?'#16A34A':'#DC2626'};font-weight:700">${won(r.margin)}</td>
+        <td>${won(r.collected)}</td>
+        <td style="color:${r.receivable>0?'#B45309':'#15803d'};font-weight:700">${won(r.receivable)}</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr>
+        <td>합계 (${rows.length}매장)</td>
+        <td>${totalRow.cnt}건</td>
+        <td>${won(totalRow.fee)}</td>
+        <td>${won(totalRow.labor)}</td>
+        <td>${won(totalRow.expense)}</td>
+        <td>${won(totalRow.margin)}</td>
+        <td>${won(totalRow.collected)}</td>
+        <td>${won(totalRow.receivable)}</td>
+      </tr></tfoot>
+    </table>`;
+  };
+
+  /* 기간별 (월/주/일) */
+  window._stocktakeRenderByPeriod = function() {
+    const el = document.getElementById('stByPeriodBody');
+    if (!el) return;
+    const mode = window._stocktakePeriodGroup || 'month';
+    const recs = window.getStocktakes() || [];
+    const won = window._stWon;
+    const keyOf = (r) => {
+      const d = r.scheduleDate || r.consultDate || r.doneDate || '';
+      if (!d) return '미정';
+      if (mode === 'month') return d.slice(0,7);
+      if (mode === 'day')   return d.slice(0,10);
+      if (mode === 'week') {
+        const dt = new Date(d + 'T00:00:00'); if (isNaN(dt)) return d.slice(0,10);
+        const tmp = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
+        tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay()||7));
+        const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(),0,1));
+        const weekNo = Math.ceil((((tmp - yearStart) / 86400000) + 1)/7);
+        return tmp.getUTCFullYear() + '-W' + String(weekNo).padStart(2,'0');
+      }
+      return d;
+    };
+    const map = new Map();
+    recs.forEach(r => {
+      const k = keyOf(r);
+      if (!map.has(k)) map.set(k, { key:k, cnt:0, fee:0, labor:0, expense:0, margin:0, collected:0, receivable:0 });
+      const g = map.get(k);
+      const fee = Number(r.fee)||0, labor = Number(r.totalLabor)||0, expense = Number(r.totalExpense)||0, collected = Number(r.collected)||0;
+      g.cnt++; g.fee += fee; g.labor += labor; g.expense += expense;
+      g.margin += (fee - labor - expense); g.collected += collected;
+      g.receivable += Math.max(0, fee - collected);
+    });
+    const rows = Array.from(map.values()).sort((a,b) => b.key.localeCompare(a.key));
+    if (rows.length === 0) { el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400)">집계할 데이터가 없습니다</div>'; return; }
+    const totalRow = rows.reduce((a,r)=>({cnt:a.cnt+r.cnt,fee:a.fee+r.fee,labor:a.labor+r.labor,expense:a.expense+r.expense,margin:a.margin+r.margin,collected:a.collected+r.collected,receivable:a.receivable+r.receivable}),{cnt:0,fee:0,labor:0,expense:0,margin:0,collected:0,receivable:0});
+    el.innerHTML = `<table class="st-agg-table">
+      <thead><tr><th>${mode==='month'?'월':mode==='week'?'주':'일'}</th><th>건수</th><th>수수료</th><th>인건비</th><th>비용</th><th>수익</th><th>수금</th><th>미수금</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td>${r.key}</td>
+        <td>${r.cnt}건</td>
+        <td>${won(r.fee)}</td>
+        <td style="color:#DC2626">${won(r.labor)}</td>
+        <td style="color:#B45309">${won(r.expense)}</td>
+        <td style="color:${r.margin>=0?'#16A34A':'#DC2626'};font-weight:700">${won(r.margin)}</td>
+        <td>${won(r.collected)}</td>
+        <td style="color:${r.receivable>0?'#B45309':'#15803d'};font-weight:700">${won(r.receivable)}</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr><td>합계</td><td>${totalRow.cnt}건</td><td>${won(totalRow.fee)}</td><td>${won(totalRow.labor)}</td><td>${won(totalRow.expense)}</td><td>${won(totalRow.margin)}</td><td>${won(totalRow.collected)}</td><td>${won(totalRow.receivable)}</td></tr></tfoot>
+    </table>`;
+  };
+
+  /* 정산/수금 — 미수금 record 만 + [+ 수금] 액션 */
+  window._stocktakeRenderReceivable = function() {
+    const el = document.getElementById('stReceivableBody');
+    if (!el) return;
+    const recs = (window.getStocktakes() || []).filter(r => Math.max(0,(Number(r.fee)||0)-(Number(r.collected)||0)) > 0);
+    const won = window._stWon, esc = window._stEsc;
+    if (recs.length === 0) { el.innerHTML = '<div style="padding:24px;text-align:center;color:#15803d;background:#DCFCE7;border-radius:8px;font-weight:700">🎉 모든 수수료가 수금 완료되었습니다</div>'; return; }
+    recs.sort((a,b) => {
+      const recA = (Number(a.fee)||0)-(Number(a.collected)||0);
+      const recB = (Number(b.fee)||0)-(Number(b.collected)||0);
+      return recB - recA;
+    });
+    const totalRecv = recs.reduce((a,r)=>a+Math.max(0,(Number(r.fee)||0)-(Number(r.collected)||0)),0);
+    el.innerHTML = `<div style="margin-bottom:10px;padding:10px 14px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;color:#92400E;font-size:12.5px;font-weight:700">💰 미수금 총 ${won(totalRecv)} · ${recs.length}건</div>` +
+      `<table class="st-agg-table">
+        <thead><tr><th>매장</th><th>상태</th><th>예정일</th><th>수수료</th><th>수금</th><th>미수금</th><th>수금방식</th><th style="text-align:center">액션</th></tr></thead>
+        <tbody>${recs.map(r => {
+          const fee = Number(r.fee)||0, collected = Number(r.collected)||0, recv = Math.max(0, fee-collected);
+          return `<tr>
+            <td><span onclick="window._stocktakeOpenSmart('${esc(r.id)}')" style="color:var(--primary);cursor:pointer;text-decoration:underline;text-decoration-style:dotted">${esc(r.storeName||'-')}</span></td>
+            <td><span style="background:${window._stStatusColor(r.status)};color:#fff;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:700">${esc(r.status||'-')}</span></td>
+            <td>${esc(r.scheduleDate||r.consultDate||'-')}</td>
+            <td>${won(fee)}</td>
+            <td>${won(collected)}</td>
+            <td style="color:#B45309;font-weight:700">${won(recv)}</td>
+            <td>${esc(r.paymentMethod||'-')}</td>
+            <td style="text-align:center"><button class="btn btn-outline btn-sm" style="padding:3px 10px;font-size:11px;border-color:#16A34A;color:#15803d" onclick="window._stocktakeAddPayment('${esc(r.id)}')">+ 수금</button></td>
+          </tr>`;
+        }).join('')}</tbody>
+        <tfoot><tr><td colspan="5">합계</td><td>${won(totalRecv)}</td><td colspan="2"></td></tr></tfoot>
+      </table>`;
+  };
+
+  // + 수금 — prompt 로 금액 입력 → 누적 수금에 더하고 saveStocktakes + 재렌더
+  window._stocktakeAddPayment = function(id) {
+    const arr = window.getStocktakes() || [];
+    const idx = arr.findIndex(r => r.id === id);
+    if (idx < 0) return;
+    const rec = arr[idx];
+    const fee = Number(rec.fee)||0;
+    const collected = Number(rec.collected)||0;
+    const left = Math.max(0, fee - collected);
+    const input = prompt(`[${rec.storeName||'-'}]\n수수료 ${fee.toLocaleString('ko-KR')}원\n기존 수금 ${collected.toLocaleString('ko-KR')}원\n미수금 ${left.toLocaleString('ko-KR')}원\n\n수금 금액을 입력하세요 (전액이면 그대로 ${left.toLocaleString('ko-KR')}):`, String(left));
+    if (input == null) return;
+    const amt = Number(String(input).replace(/[^\d]/g,'')) || 0;
+    if (amt <= 0) return;
+    rec.collected = collected + amt;
+    rec.payments = rec.payments || [];
+    rec.payments.push({ at: new Date().toISOString(), amount: amt });
+    // 자동 마감 제안 (모두 수금)
+    if (rec.collected >= fee && rec.status !== '마감') {
+      if (confirm('전액 수금되었습니다. 상태를 [마감] 으로 변경할까요?')) rec.status = '마감';
+    }
+    arr[idx] = rec;
+    window.saveStocktakes(arr);
+    if (typeof showToast === 'function') showToast(`✅ ${amt.toLocaleString('ko-KR')}원 수금 기록`);
+    window._stocktakeRenderReceivable();
+    window.renderStocktakeHub();
+  };
+
+  /* 인건비 정산 — 사람별 누적 */
+  window._stocktakeRenderLabor = function() {
+    const el = document.getElementById('stLaborBody');
+    if (!el) return;
+    const recs = window.getStocktakes() || [];
+    const won = window._stWon, esc = window._stEsc;
+    const map = new Map();
+    recs.forEach(r => {
+      (r.workers || []).forEach(w => {
+        const key = (w.name||'').trim();
+        if (!key) return;
+        if (!map.has(key)) map.set(key, { name:key, cnt:0, totalPay:0, paid:0, unpaid:0, bank:w.bank||'', account:w.account||'' });
+        const g = map.get(key);
+        const p = Number(w.payTotal)||0;
+        g.cnt++; g.totalPay += p;
+        if (w.paid) g.paid += p; else g.unpaid += p;
+        if (!g.bank && w.bank) g.bank = w.bank;
+        if (!g.account && w.account) g.account = w.account;
+      });
+    });
+    const rows = Array.from(map.values()).sort((a,b) => b.unpaid - a.unpaid || b.totalPay - a.totalPay);
+    if (rows.length === 0) { el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400)">집계할 인건비 데이터가 없습니다</div>'; return; }
+    const totalRow = rows.reduce((a,r)=>({cnt:a.cnt+r.cnt,totalPay:a.totalPay+r.totalPay,paid:a.paid+r.paid,unpaid:a.unpaid+r.unpaid}),{cnt:0,totalPay:0,paid:0,unpaid:0});
+    el.innerHTML = `<table class="st-agg-table">
+      <thead><tr><th>이름</th><th>참여 건수</th><th>총 수당</th><th>입금</th><th>미입금</th><th>은행</th><th>계좌</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td>${esc(r.name)}</td>
+        <td>${r.cnt}건</td>
+        <td>${won(r.totalPay)}</td>
+        <td style="color:#15803d">${won(r.paid)}</td>
+        <td style="color:${r.unpaid>0?'#DC2626':'#15803d'};font-weight:700">${won(r.unpaid)}</td>
+        <td>${esc(r.bank||'-')}</td>
+        <td style="font-family:monospace">${esc(r.account||'-')}</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr><td>합계 (${rows.length}명)</td><td>${totalRow.cnt}건</td><td>${won(totalRow.totalPay)}</td><td>${won(totalRow.paid)}</td><td>${won(totalRow.unpaid)}</td><td colspan="2"></td></tr></tfoot>
+    </table>`;
+  };
+
+  /* 비용 분석 — 분류별 / 기간별 */
+  window._stocktakeRenderExpense = function() {
+    const el = document.getElementById('stExpenseBody');
+    if (!el) return;
+    const recs = window.getStocktakes() || [];
+    const won = window._stWon, esc = window._stEsc;
+    const byCat = new Map();
+    const byStore = new Map();
+    let grand = 0;
+    recs.forEach(r => {
+      (r.expenses || []).forEach(e => {
+        const amt = Number(e.amount)||0;
+        if (!amt) return;
+        grand += amt;
+        const c = e.category || '기타';
+        byCat.set(c, (byCat.get(c)||0) + amt);
+        const sk = r.storeName || '(매장 미지정)';
+        if (!byStore.has(sk)) byStore.set(sk, { name:sk, 식사:0, 교통비:0, 기타:0, total:0 });
+        const g = byStore.get(sk);
+        g[c] = (g[c]||0) + amt;
+        g.total += amt;
+      });
+    });
+    if (grand === 0) { el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400)">비용 데이터가 없습니다. 등록 폼의 💸 비용 항목에서 추가하세요.</div>'; return; }
+    // 분류별 칩
+    const catChips = ['식사','교통비','기타'].map(c => {
+      const v = byCat.get(c)||0;
+      const pct = grand ? Math.round(v*100/grand) : 0;
+      const icon = c==='식사'?'🍱':c==='교통비'?'🚗':'📦';
+      return `<div style="flex:1;min-width:130px;padding:10px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:8px"><div style="font-size:11px;color:var(--gray-500);font-weight:700">${icon} ${c}</div><div style="font-size:16px;font-weight:800;color:#B45309">${won(v)}</div><div style="font-size:10.5px;color:var(--gray-500)">${pct}%</div></div>`;
+    }).join('');
+    // 매장별
+    const storeRows = Array.from(byStore.values()).sort((a,b) => b.total - a.total);
+    const totalRow = storeRows.reduce((a,r)=>({식사:a.식사+r.식사,교통비:a.교통비+r.교통비,기타:a.기타+r.기타,total:a.total+r.total}),{식사:0,교통비:0,기타:0,total:0});
+    el.innerHTML = `
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">${catChips}<div style="flex:1;min-width:130px;padding:10px 12px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px"><div style="font-size:11px;color:#92400E;font-weight:700">총 비용</div><div style="font-size:16px;font-weight:800;color:#92400E">${won(grand)}</div></div></div>
+      <table class="st-agg-table">
+        <thead><tr><th>매장</th><th>🍱 식사</th><th>🚗 교통비</th><th>📦 기타</th><th>합계</th></tr></thead>
+        <tbody>${storeRows.map(r => `<tr>
+          <td>${esc(r.name)}</td>
+          <td>${won(r.식사||0)}</td>
+          <td>${won(r.교통비||0)}</td>
+          <td>${won(r.기타||0)}</td>
+          <td style="font-weight:700;color:#B45309">${won(r.total)}</td>
+        </tr>`).join('')}</tbody>
+        <tfoot><tr><td>합계</td><td>${won(totalRow.식사)}</td><td>${won(totalRow.교통비)}</td><td>${won(totalRow.기타)}</td><td>${won(totalRow.total)}</td></tr></tfoot>
+      </table>`;
   };
 
   window.renderStocktakeHub = function() {
