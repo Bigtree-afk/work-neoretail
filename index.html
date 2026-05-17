@@ -16972,12 +16972,14 @@ ${text.slice(0, 4000)}`;
 
     // 새 ROOT 입력 폼 (토글)
     const newRootOpen = !!openMap['__newroot__'];
+    const newRootAttId = containerId + '__newroot_att';
     const newRootFormHtml = newRootOpen ? `
       <div style="background:#fff;border:1px solid #BFDBFE;border-top:none;padding:10px 12px">
         <div style="display:flex;gap:6px">
           <textarea id="${escFn(containerId)}__newroot" placeholder="새 요청 내용을 입력하세요..." style="flex:1;min-height:46px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
           <button type="button" class="btn btn-primary btn-sm" onclick="window._submitNewRoot('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode})" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">등록</button>
         </div>
+        <div id="${escFn(newRootAttId)}" style="margin-top:6px"></div>
       </div>` : '';
 
     let bodyHtml = '';
@@ -17015,6 +17017,7 @@ ${text.slice(0, 4000)}`;
           // 요청 본문
           detail += `<div style="background:#fff;border:1px solid ${rootMeta.border};border-left:4px solid ${rootMeta.color};border-radius:8px;padding:9px 11px;margin-top:6px">
             <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${escFn(r.text||'')}</div>
+            ${(Array.isArray(r.attachments)&&r.attachments.length&&typeof window._renderAttStrip==='function')?window._renderAttStrip(r.attachments,{limit:8,size:40}):''}
             ${editable ? `<div style="margin-top:6px;text-align:right"><button type="button" onclick="window._removeThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',true)" style="background:transparent;border:none;color:var(--gray-400);font-size:11px;cursor:pointer">요청 삭제</button></div>` : ''}
           </div>`;
 
@@ -17037,6 +17040,7 @@ ${text.slice(0, 4000)}`;
                 ${editable ? `<button type="button" onclick="if(confirm('이 기록을 삭제할까요?'))window._removeThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(c.threadId)}',false)" title="삭제" style="background:transparent;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 4px">✕</button>` : ''}
               </div>
               <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${escFn(c.text||'')}</div>
+              ${(Array.isArray(c.attachments)&&c.attachments.length&&typeof window._renderAttStrip==='function')?window._renderAttStrip(c.attachments,{limit:8,size:40}):''}
               ${eqSummary}
             </div>`;
           });
@@ -17071,6 +17075,7 @@ ${text.slice(0, 4000)}`;
                 <textarea id="${escFn(formId)}_text" placeholder="처리 내용을 입력하세요..." style="flex:1;min-height:42px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
                 <button type="button" class="btn btn-primary btn-sm" onclick="window._submitChild('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}','${escFn(formId)}')" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">＋ 기록 추가</button>
               </div>
+              <div id="${escFn(formId)}_att" style="margin-top:6px"></div>
             </div>`;
           }
         }
@@ -17081,6 +17086,48 @@ ${text.slice(0, 4000)}`;
     }
 
     root.innerHTML = headerHtml + newRootFormHtml + bodyHtml;
+
+    // ─── 첨부 업로더 mount (새 ROOT + 각 child 추가 폼) ───
+    try {
+      window._threadFormUploaderCtl = window._threadFormUploaderCtl || {};
+      window._threadFormAttachments = window._threadFormAttachments || {};
+      if (newRootOpen && window.NS_UPLOAD) {
+        const box = document.getElementById(newRootAttId);
+        if (box) {
+          const key = '__newroot__' + (jobId || 'draft');
+          const initial = window._threadFormAttachments[key] || [];
+          window._threadFormUploaderCtl[key] = window.NS_UPLOAD.mount(box, {
+            initial,
+            category: 'as',
+            jobId: jobId || '',
+            max: 30,
+            onChange: (arr) => { window._threadFormAttachments[key] = arr; },
+          });
+        }
+      }
+      if (editable && window.NS_UPLOAD) {
+        limitedRoots.forEach(r => {
+          const kids = childrenByRoot.get(r.threadId) || [];
+          const userExpanded = openMap[r.threadId];
+          const isCompletedR = (rootGroupStatus.get(r.threadId) === '완료');
+          const expandedR = (userExpanded === undefined) ? !isCompletedR : !!userExpanded;
+          if (!expandedR || isCompletedR) return;
+          const formId = containerId + '__add_' + r.threadId;
+          const box = document.getElementById(formId + '_att');
+          if (!box) return;
+          const key = formId;
+          const initial = window._threadFormAttachments[key] || [];
+          window._threadFormUploaderCtl[key] = window.NS_UPLOAD.mount(box, {
+            initial,
+            category: 'as',
+            jobId: jobId || '',
+            threadId: r.threadId,
+            max: 30,
+            onChange: (arr) => { window._threadFormAttachments[key] = arr; },
+          });
+        });
+      }
+    } catch(e) { console.warn('thread uploader mount failed', e); }
   };
 
   // 5건 제한 ↔ 전체보기 토글
@@ -17247,7 +17294,19 @@ ${text.slice(0, 4000)}`;
     if (!text) { try { showToast('내용을 입력하세요'); } catch(e){} return; }
     const ts = _kstNow();
     const who = _whoNow();
+    // 첨부 회수
+    const attKey = '__newroot__' + (jobId || 'draft');
+    window._threadFormAttachments = window._threadFormAttachments || {};
+    window._threadFormUploaderCtl = window._threadFormUploaderCtl || {};
+    let attachments = [];
+    try {
+      attachments = window._threadFormUploaderCtl[attKey] ? window._threadFormUploaderCtl[attKey].get() : (window._threadFormAttachments[attKey] || []);
+    } catch(_){}
     const entry = { ts, author: who, status: '요청접수', text, threadId: _newThreadId(), parentId: null };
+    if (Array.isArray(attachments) && attachments.length) entry.attachments = attachments;
+    // 첨부 draft 초기화
+    delete window._threadFormAttachments[attKey];
+    delete window._threadFormUploaderCtl[attKey];
 
     // Fix A: AS draftMode → 즉시 live job 생성 또는 기존 AS 에 append
     if (draftMode && window._currentJobContext === 'as') {
@@ -17397,13 +17456,24 @@ ${text.slice(0, 4000)}`;
     // 폼별 투입 장비 임시 목록 회수
     window._threadChildEquipDraft = window._threadChildEquipDraft || {};
     const eqList = (window._threadChildEquipDraft[formId] || []).slice();
-    if (!text && eqList.length === 0) { try { showToast('내용을 입력하거나 장비를 추가하세요'); } catch(e){} return; }
+    // 첨부 회수
+    window._threadFormUploaderCtl = window._threadFormUploaderCtl || {};
+    window._threadFormAttachments = window._threadFormAttachments || {};
+    let attachments = [];
+    try {
+      attachments = window._threadFormUploaderCtl[formId] ? window._threadFormUploaderCtl[formId].get() : (window._threadFormAttachments[formId] || []);
+    } catch(_){}
+    if (!text && eqList.length === 0 && (!attachments || !attachments.length)) { try { showToast('내용·장비·첨부 중 하나는 필요합니다'); } catch(e){} return; }
     const st = (document.querySelector(`input[name="${formId}_st"]:checked`)||{}).value || '진행';
     const ts = _kstNow();
     const who = _whoNow();
-    const entry = { ts, author: who, status: st, text: text || '(투입 장비만 등록)',
+    const entry = { ts, author: who, status: st, text: text || (attachments.length?'(첨부만 등록)':'(투입 장비만 등록)'),
                     threadId: _newThreadId(), parentId: rootId };
     if (eqList.length > 0) entry.equipment = eqList;
+    if (Array.isArray(attachments) && attachments.length) entry.attachments = attachments;
+    // 첨부 draft 초기화
+    delete window._threadFormAttachments[formId];
+    delete window._threadFormUploaderCtl[formId];
 
     // Fix A (child): AS draft 모드 — 가능한 경우 즉시 live job 으로 라우팅
     let _liveRoute = false;
