@@ -56,23 +56,25 @@
   .card-acquire { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .card-acquire .field { display:flex; flex-direction:column; gap:4px; }
 
-  /* VAN 등록 그리드 */
-  .van-list { display:flex; flex-direction:column; gap:8px; }
-  .van-row { display:grid; grid-template-columns:90px 1fr 1fr auto; gap:8px; align-items:end; padding:8px 10px; background:#fff; border:1px solid var(--gray-200); border-radius:8px; }
-  .van-row.disabled { opacity:.4; background:var(--gray-50); }
-  .van-check { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; }
-  .van-check input[type=checkbox] { width:16px; height:16px; cursor:pointer; }
-  .van-row .label { font-size:10px; color:var(--gray-500); font-weight:600; margin-bottom:3px; }
-  .van-row input { padding:6px 8px; font-size:12px; }
-  .van-row .serial-col { transition:opacity .2s; }
-  .van-row .serial-col.hidden { opacity:.3; pointer-events:none; }
-  .van-row .serial-col.hidden input { background:var(--gray-100); }
+  /* VAN 선택 칩 행 */
+  .van-pickrow { display:flex; flex-wrap:wrap; gap:14px; margin-bottom:12px; padding:8px 10px; background:#fff; border:1px solid var(--gray-200); border-radius:8px; }
+  .van-pick { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:var(--gray-700); cursor:pointer; user-select:none; }
+  .van-pick input[type=checkbox] { width:16px; height:16px; cursor:pointer; accent-color:#1d4ed8; }
 
-  /* 간편결제 */
-  .pay-list { display:flex; flex-direction:column; gap:8px; }
-  .pay-row { display:grid; grid-template-columns:120px 1fr; gap:10px; align-items:center; padding:8px 10px; background:#fff; border:1px solid var(--gray-200); border-radius:8px; }
-  .pay-row.disabled { opacity:.4; }
-  .pay-row .label { font-size:12px; font-weight:700; display:flex; align-items:center; gap:6px; }
+  /* VAN detail 행 — 선택한 것만 노출 */
+  .van-detail-list { display:flex; flex-direction:column; gap:8px; }
+  .van-detail { display:grid; grid-template-columns:80px 1fr; gap:10px; align-items:end; padding:8px 10px; background:#fff; border:1px solid #BFDBFE; border-radius:8px; }
+  .van-detail-name { font-size:13px; font-weight:700; color:#1d4ed8; padding-bottom:6px; }
+  .van-detail-fields { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .van-detail-fields.one { grid-template-columns:1fr; }
+  .van-detail .label { font-size:10px; color:var(--gray-500); font-weight:600; margin-bottom:3px; }
+  .van-detail input { padding:6px 8px; font-size:12px; }
+
+  /* 간편결제 — 한 줄에 2개 */
+  .pay-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .pay-cell { padding:8px 10px; background:#fff; border:1px solid var(--gray-200); border-radius:8px; }
+  .pay-cell .label { font-size:11px; color:var(--gray-600); margin-bottom:5px; }
+  .pay-cell input[type=text] { padding:6px 8px; font-size:12px; }
 
   /* 푸터 */
   .modal-foot { padding:14px 18px; border-top:1px solid var(--gray-200); background:#F8FAFC; display:flex; justify-content:flex-end; gap:8px; }
@@ -107,7 +109,8 @@
 
       <div class="info-box">
         진행 상황 (방문/신청/접수/완료) 은 등록 후 <b>스레드의 "+ 새 요청 접수"</b> 로 누적 기록합니다.
-        주요 일정 (설치/오픈) 은 VAN 업무에는 없고, 실제 업무를 진행한 날짜를 <b>업무일</b> 로 기록합니다.
+        주요 일정 (설치/오픈) 은 VAN 업무에는 없고, 실제 업무를 진행한 날짜를 <b>업무일</b> 로 기록합니다.<br>
+        <b style="color:#1d4ed8">📌 VAN/간편결제 TID·Serial 은 매장 정보에 저장</b> — 이후 신규 등록 / 매장 상세 / 다른 VAN 업무에서 자동 조회·재사용됩니다.
       </div>
 
       <!-- VAN 카테고리 -->
@@ -125,14 +128,43 @@
 
       <!-- 매장 -->
       <div class="form-group">
-        <label>🏪 매장 선택</label>
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          <span>🏪 매장 선택</span>
+          <button type="button" id="unregBtn" style="background:none;border:1px solid var(--gray-300);color:var(--gray-500);font-size:10px;padding:2px 8px;border-radius:6px;cursor:pointer;font-weight:600">+ 미등록 가맹점</button>
+        </label>
         <div class="store-search">
           <input type="text" placeholder="상호·사업자번호·대표자·주소 검색...">
           <span class="icon">🔍</span>
         </div>
-        <div class="store-picked">
+        <div class="store-picked" id="storePicked">
           <span><b>✓ 선택됨</b> · (주)정이유통 정이가마트 · 사업자 <code>625-85-01902</code></span>
           <span style="color:#065F46">대표: 정주영</span>
+        </div>
+        <!-- 미등록 가맹점 입력 영역 (기본 숨김) -->
+        <div id="unregForm" style="display:none;margin-top:6px;padding:10px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px">
+          <div style="font-size:11px;color:#92400E;font-weight:700;margin-bottom:6px">⚠ 미등록 가맹점 모드 — 정식 등록 전 임시 입력. 나중에 "가맹점 연결" 로 정식 매핑 가능.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div>
+              <div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">점포명</div>
+              <input type="text" placeholder="가맹점 상호">
+            </div>
+            <div>
+              <div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">사업자번호</div>
+              <input type="text" placeholder="123-45-67890">
+            </div>
+            <div>
+              <div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">대표자</div>
+              <input type="text" placeholder="대표자 성함">
+            </div>
+            <div>
+              <div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">연락처</div>
+              <input type="text" placeholder="010-0000-0000">
+            </div>
+            <div style="grid-column:1/-1">
+              <div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">주소</div>
+              <input type="text" placeholder="가맹점 주소">
+            </div>
+          </div>
         </div>
       </div>
 
@@ -173,96 +205,76 @@
 
       <!-- 2. VAN사 복수 등록 -->
       <div class="section">
-        <div class="section-title">📡 VAN사 등록 (복수 선택 가능) <span class="badge">KOCES 만 Serial 필요</span></div>
-        <div class="van-list">
+        <div class="section-title">📡 VAN사 등록 (복수 가능)</div>
 
-          <!-- KOCES — TID + Serial -->
-          <div class="van-row">
-            <div class="van-check">
-              <input type="checkbox" id="van-koces" checked>
-              <label for="van-koces" style="margin:0;cursor:pointer">KOCES</label>
-            </div>
-            <div>
-              <div class="label">TID</div>
-              <input type="text" placeholder="13자리" value="K8500123456">
-            </div>
-            <div class="serial-col">
-              <div class="label">Serial</div>
-              <input type="text" placeholder="단말 시리얼" value="SN-A12345">
-            </div>
-            <button class="btn btn-outline" style="padding:6px 10px;font-size:11px">메모</button>
-          </div>
-
-          <!-- KIS — TID only -->
-          <div class="van-row">
-            <div class="van-check">
-              <input type="checkbox" id="van-kis" checked>
-              <label for="van-kis" style="margin:0;cursor:pointer">KIS</label>
-            </div>
-            <div>
-              <div class="label">TID</div>
-              <input type="text" placeholder="13자리" value="N1234567890">
-            </div>
-            <div class="serial-col hidden">
-              <div class="label">Serial</div>
-              <input type="text" placeholder="—" disabled>
-            </div>
-            <button class="btn btn-outline" style="padding:6px 10px;font-size:11px">메모</button>
-          </div>
-
-          <!-- NICE — TID only -->
-          <div class="van-row">
-            <div class="van-check">
-              <input type="checkbox" id="van-nice">
-              <label for="van-nice" style="margin:0;cursor:pointer">NICE</label>
-            </div>
-            <div>
-              <div class="label">TID</div>
-              <input type="text" placeholder="13자리">
-            </div>
-            <div class="serial-col hidden">
-              <div class="label">Serial</div>
-              <input type="text" placeholder="—" disabled>
-            </div>
-            <button class="btn btn-outline" style="padding:6px 10px;font-size:11px" disabled>메모</button>
-          </div>
-
-          <!-- KSNET — TID only -->
-          <div class="van-row">
-            <div class="van-check">
-              <input type="checkbox" id="van-ksnet">
-              <label for="van-ksnet" style="margin:0;cursor:pointer">KSNET</label>
-            </div>
-            <div>
-              <div class="label">TID</div>
-              <input type="text" placeholder="13자리">
-            </div>
-            <div class="serial-col hidden">
-              <div class="label">Serial</div>
-              <input type="text" placeholder="—" disabled>
-            </div>
-            <button class="btn btn-outline" style="padding:6px 10px;font-size:11px" disabled>메모</button>
-          </div>
-
+        <!-- 1단계 — VAN사 선택 칩 -->
+        <div class="van-pickrow">
+          <label class="van-pick"><input type="checkbox" data-van="KOCES" checked> KOCES</label>
+          <label class="van-pick"><input type="checkbox" data-van="NICE"> NICE</label>
+          <label class="van-pick"><input type="checkbox" data-van="KIS" checked> KIS</label>
+          <label class="van-pick"><input type="checkbox" data-van="KSNET"> KSNET</label>
         </div>
-        <div class="hint" style="margin-top:8px">체크박스로 활성/비활성. KOCES 만 Serial 입력 칸 활성. 나머지 VAN 사는 TID 만 받음.</div>
+
+        <!-- 2단계 — 선택된 VAN 사만 detail 행 표시 -->
+        <div class="van-detail-list" id="vanDetailList">
+          <!-- KOCES row -->
+          <div class="van-detail" data-van="KOCES">
+            <div class="van-detail-name">KOCES</div>
+            <div class="van-detail-fields">
+              <div>
+                <div class="label">TID</div>
+                <input type="text" placeholder="13자리" value="K8500123456">
+              </div>
+              <div>
+                <div class="label">Serial</div>
+                <input type="text" placeholder="단말 시리얼" value="SN-A12345">
+              </div>
+            </div>
+          </div>
+          <!-- KIS row -->
+          <div class="van-detail" data-van="KIS">
+            <div class="van-detail-name">KIS</div>
+            <div class="van-detail-fields one">
+              <div>
+                <div class="label">TID</div>
+                <input type="text" placeholder="13자리" value="N1234567890">
+              </div>
+            </div>
+          </div>
+          <!-- NICE/KSNET rows hidden by default — JS toggles -->
+          <div class="van-detail" data-van="NICE" style="display:none">
+            <div class="van-detail-name">NICE</div>
+            <div class="van-detail-fields one">
+              <div>
+                <div class="label">TID</div>
+                <input type="text" placeholder="13자리">
+              </div>
+            </div>
+          </div>
+          <div class="van-detail" data-van="KSNET" style="display:none">
+            <div class="van-detail-name">KSNET</div>
+            <div class="van-detail-fields one">
+              <div>
+                <div class="label">TID</div>
+                <input type="text" placeholder="13자리">
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- 3. 간편결제 -->
+      <!-- 3. 간편결제 — 한 줄에 둘 -->
       <div class="section">
-        <div class="section-title">📱 간편결제 / 카카오페이 <span class="badge">TID만</span></div>
-        <div class="pay-list">
-
-          <div class="pay-row">
-            <div class="label"><input type="checkbox" id="pay-simple" checked> <label for="pay-simple" style="margin:0;cursor:pointer">간편결제</label></div>
+        <div class="section-title">📱 간편결제 / 카카오페이</div>
+        <div class="pay-grid">
+          <div class="pay-cell">
+            <div class="label" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="pay-simple" checked> <label for="pay-simple" style="margin:0;cursor:pointer;font-weight:700">간편결제 TID</label></div>
             <input type="text" placeholder="TID" value="ZP-987654321">
           </div>
-
-          <div class="pay-row">
-            <div class="label"><input type="checkbox" id="pay-kakao"> <label for="pay-kakao" style="margin:0;cursor:pointer">카카오페이</label></div>
-            <input type="text" placeholder="TID">
+          <div class="pay-cell">
+            <div class="label" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="pay-kakao"> <label for="pay-kakao" style="margin:0;cursor:pointer;font-weight:700">카카오페이 TID</label></div>
+            <input type="text" placeholder="TID" disabled>
           </div>
-
         </div>
       </div>
 
@@ -308,27 +320,42 @@
 </div>
 
 <script>
-// 인터랙션 — 카테고리 칩, VAN 체크박스에 따른 활성/Serial 표시 토글
+// 카테고리 칩
 document.querySelectorAll('.van-cat-chip').forEach(c => {
   c.onclick = () => {
     document.querySelectorAll('.van-cat-chip').forEach(x => x.classList.remove('active'));
     c.classList.add('active');
   };
 });
-document.querySelectorAll('.van-row input[type=checkbox]').forEach(cb => {
+// VAN 선택 체크박스 → detail 행 노출 토글
+document.querySelectorAll('.van-pick input[type=checkbox]').forEach(cb => {
   cb.onchange = () => {
-    const row = cb.closest('.van-row');
-    row.classList.toggle('disabled', !cb.checked);
-    row.querySelectorAll('input[type=text]').forEach(inp => inp.disabled = !cb.checked);
+    const v = cb.dataset.van;
+    const row = document.querySelector(`.van-detail[data-van="${v}"]`);
+    if (row) row.style.display = cb.checked ? '' : 'none';
   };
 });
-document.querySelectorAll('.pay-row input[type=checkbox]').forEach(cb => {
+// 간편결제 체크박스 → input 활성/비활성
+document.querySelectorAll('.pay-cell input[type=checkbox]').forEach(cb => {
   cb.onchange = () => {
-    const row = cb.closest('.pay-row');
-    row.classList.toggle('disabled', !cb.checked);
-    row.querySelectorAll('input[type=text]').forEach(inp => inp.disabled = !cb.checked);
+    const cell = cb.closest('.pay-cell');
+    const inp = cell.querySelector('input[type=text]');
+    if (inp) inp.disabled = !cb.checked;
   };
 });
+// 미등록 가맹점 토글
+document.getElementById('unregBtn').onclick = () => {
+  const f = document.getElementById('unregForm');
+  const p = document.getElementById('storePicked');
+  const isOn = f.style.display !== 'none';
+  if (isOn) {
+    f.style.display = 'none';
+    p.style.display = '';
+  } else {
+    f.style.display = '';
+    p.style.display = 'none';
+  }
+};
 </script>
 
 </body>
