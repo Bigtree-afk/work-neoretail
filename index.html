@@ -2665,6 +2665,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
               <span id="jobStorePickedCeo" style="color:#065F46"></span>
             </div>
           </div>
+          <!-- 선택된 매장의 VAN/간편결제 프로필 (조회) -->
+          <div id="jobStoreVanProfile" style="display:none;margin-top:6px"></div>
           <div id="jobStoreResults" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;margin-top:4px"></div>
           <div id="unregNotice" style="display:none;margin-top:6px;padding:6px 10px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;font-size:11px;color:#92400E">
             ⚠ 미등록 가맹점 모드 — 점포명/주소를 직접 입력하고 나중에 등록되면 "가맹점 연결" 버튼으로 정식 매핑하세요.
@@ -12455,8 +12457,50 @@ ${text.slice(0, 4000)}`;
     try { _refreshJobSimilarBanner(name); } catch(e) { console.warn('[similar] ', e); }
     // AS 컨텍스트 + 기존 AS 업무 존재 → 인라인 편집 모드로 전환
     try { _applyAsInlineEditMode(name); } catch(e) { console.warn('[asInlineEdit] ', e); }
+    // VAN/간편결제 프로필 표시 — store DB 에서 조회
+    try { _renderJobStoreVanProfile(name, biz); } catch(e) { console.warn('[vanProfile] ', e); }
   }
   window.pickJobStore = pickJobStore;
+
+  // 신규 폼 — 선택된 매장의 VAN/간편결제 프로필 표시 (조회 전용)
+  function _renderJobStoreVanProfile(name, biz) {
+    const el = document.getElementById('jobStoreVanProfile');
+    if (!el) return;
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+    const nNorm = normFn(name);
+    const bNorm = String(biz||'').replace(/\D/g,'');
+    // 매장 매칭 — 사업자번호 우선, 매장명 fallback
+    let store = null;
+    if (bNorm && bNorm.length === 10) {
+      store = stores.find(s => String(s.biz||'').replace(/\D/g,'') === bNorm);
+    }
+    if (!store && name) {
+      store = stores.find(s => normFn(s.name||'') === nNorm);
+    }
+    if (!store) { el.style.display = 'none'; el.innerHTML=''; return; }
+    const vp = store.vanProfile || {};
+    const pp = store.payProfile || {};
+    const vBrands = ['KOCES','NICE','KIS','KSNET'].filter(b => vp[b] && vp[b].tid);
+    const pBrands = Object.keys(pp).filter(b => pp[b] && pp[b].tid);
+    if (vBrands.length === 0 && pBrands.length === 0) { el.style.display = 'none'; el.innerHTML=''; return; }
+    const escH = (s) => String(s||'').replace(/[<>&]/g,'');
+    const fmtTs = (t) => t ? new Date(t).toLocaleDateString('ko-KR') : '';
+    const vChips = vBrands.map(b => {
+      const e = vp[b];
+      return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#fff;border:1px solid #BFDBFE;border-radius:12px;font-size:10.5px"><b style="color:#1d4ed8">${b}</b> <span style="font-family:monospace;color:var(--gray-700)">TID:${escH(e.tid)}</span>${e.serial?` <span style="color:var(--gray-500)">·SN:${escH(e.serial)}</span>`:''}</span>`;
+    }).join(' ');
+    const pChips = pBrands.map(b => {
+      const e = pp[b];
+      return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#fff;border:1px solid #FCD34D;border-radius:12px;font-size:10.5px"><b style="color:#92400E">${escH(b)}</b> <span style="font-family:monospace;color:var(--gray-700)">TID:${escH(e.tid)}</span></span>`;
+    }).join(' ');
+    el.innerHTML = `<div style="padding:8px 10px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px">
+      <div style="font-size:11px;font-weight:700;color:#1e40af;margin-bottom:5px">📡 등록된 VAN / 간편결제 프로필 <span style="font-size:10px;color:var(--gray-500);font-weight:500">(이 매장에 이미 저장된 정보 — 신규 등록 시 참고)</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">${vChips}${pChips}</div>
+    </div>`;
+    el.style.display = '';
+  }
+  window._renderJobStoreVanProfile = _renderJobStoreVanProfile;
 
   // AS 컨텍스트에서 매장 선택 시 — 기존 진행중 AS 업무가 있으면 그 thread 를 인라인 편집
   function _applyAsInlineEditMode(storeName) {
@@ -14783,6 +14827,8 @@ ${text.slice(0, 4000)}`;
     if (ceoEl) ceoEl.textContent = '';
     const pickedInfo = document.getElementById('jobStorePickedInfo');
     if (pickedInfo) pickedInfo.style.display = 'none';
+    const vanProfileEl = document.getElementById('jobStoreVanProfile');
+    if (vanProfileEl) { vanProfileEl.style.display = 'none'; vanProfileEl.innerHTML = ''; }
     const unregNotice = document.getElementById('unregNotice');
     if (unregNotice) unregNotice.style.display = 'none';
     // 동일 매장 배너 숨김 (매장이 비었으니 표시할 게 없음)
