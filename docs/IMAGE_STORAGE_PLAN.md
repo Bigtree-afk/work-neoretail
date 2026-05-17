@@ -8,8 +8,10 @@
 - 클라이언트에서 `file.type` 검사 → image / file 분기:
   - **image** : HEIC→JPG / 리사이즈 1600px / JPEG q=0.85 / 10MB 한도
   - **file** : 원본 그대로 업로드 / 50MB 한도 / 화이트리스트
-- 라이트박스: **이미지 + PDF 미리보기 지원** (모바일도 동일).
-- 기타 문서 (HWP/XLSX/DOCX/PPTX/ZIP) 는 다운로드 버튼.
+- 라이트박스: **이미지 + PDF + Office (DOCX/XLSX/PPTX) 미리보기 지원** (모바일도 동일).
+  - Office 문서는 **MS Office Online Viewer** iframe 사용: `https://view.officeapps.live.com/op/embed.aspx?src={URL}`
+  - ⚠️ R2 URL 이 MS 서버에 일시 노출 — UUID 키 기반이라 추측 불가
+- HWP/HWPX/ZIP 은 다운로드 버튼만.
 - R2 prefix 분리: `ns-images/...` vs `ns-files/...`
 
 ## 1. 이미지가 붙는 위치 (메뉴별 정리)

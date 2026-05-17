@@ -255,7 +255,7 @@
         <div class="ficon xls">XLS</div>
         <div class="fmeta">
           <div class="fname">단말기 시리얼.xlsx</div>
-          <div class="fsize">82KB</div>
+          <div class="fsize">82KB · 미리보기 가능</div>
         </div>
         <div class="del">×</div>
       </div>
@@ -263,7 +263,7 @@
         <div class="ficon doc">DOC</div>
         <div class="fmeta">
           <div class="fname">설치 제안서.docx</div>
-          <div class="fsize">1.1MB</div>
+          <div class="fsize">1.1MB · 미리보기 가능</div>
         </div>
         <div class="del">×</div>
       </div>
@@ -271,7 +271,7 @@
         <div class="ficon ppt">PPT</div>
         <div class="fmeta">
           <div class="fname">교육자료.pptx</div>
-          <div class="fsize">4.3MB</div>
+          <div class="fsize">4.3MB · 미리보기 가능</div>
         </div>
         <div class="del">×</div>
       </div>
@@ -565,24 +565,78 @@
   </div>
 </div>
 
-<h3 style="margin:18px 0 8px;font-size:13px;color:var(--gray-700)">C. 미리보기 불가 파일 (HWP/XLS/DOCX 등)</h3>
-<div class="card" style="background:#1F2937;color:#fff;padding:0;overflow:hidden;height:280px;position:relative">
+<h3 style="margin:18px 0 8px;font-size:13px;color:var(--gray-700)">C. Office 문서 미리보기 (DOCX/XLSX/PPTX) — MS Office Online Viewer</h3>
+<div class="card" style="background:#1F2937;color:#fff;padding:0;overflow:hidden;height:440px;position:relative">
+  <button class="lightbox-close">×</button>
+  <button class="lightbox-nav prev">‹</button>
+  <button class="lightbox-nav next">›</button>
+  <!-- Office 툴바 -->
+  <div style="position:absolute;top:0;left:0;right:0;background:rgba(0,0,0,.6);padding:8px 14px;display:flex;align-items:center;gap:10px;font-size:11.5px;color:#fff;z-index:5;backdrop-filter:blur(6px)">
+    <span style="background:#15803D;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:800">XLSX</span>
+    <span style="font-weight:800">단말기 시리얼.xlsx</span>
+    <span style="opacity:.7">·  Microsoft 365 viewer</span>
+    <span style="margin-left:auto;display:flex;gap:6px">
+      <button style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:4px 9px;border-radius:5px;font-size:11px;cursor:pointer">🔗 새 창</button>
+      <button style="background:#2563EB;border:none;color:#fff;padding:4px 9px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:700">⬇ 다운로드</button>
+    </span>
+  </div>
+  <!-- Office Online 모형 (실제로는 iframe) -->
+  <div style="position:absolute;inset:48px 0 50px 0;background:#F3F4F6;display:flex;flex-direction:column">
+    <!-- 시트 탭 -->
+    <div style="background:#E5E7EB;padding:5px 10px;display:flex;gap:0;font-size:10.5px;border-bottom:1px solid #D1D5DB">
+      <span style="background:#fff;padding:4px 12px;border-radius:4px 4px 0 0;color:#1F2937;font-weight:700">Sheet1</span>
+      <span style="padding:4px 12px;color:#6B7280">시리얼번호</span>
+      <span style="padding:4px 12px;color:#6B7280">설치이력</span>
+    </div>
+    <!-- 표 모형 -->
+    <div style="flex:1;background:#fff;padding:10px;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse;font-size:10.5px;color:#1F2937">
+        <thead>
+          <tr style="background:#F3F4F6">
+            <th style="border:1px solid #D1D5DB;padding:4px 8px;width:30px"></th>
+            <th style="border:1px solid #D1D5DB;padding:4px 8px;text-align:left">A 모델</th>
+            <th style="border:1px solid #D1D5DB;padding:4px 8px;text-align:left">B 시리얼</th>
+            <th style="border:1px solid #D1D5DB;padding:4px 8px;text-align:left">C 매장</th>
+            <th style="border:1px solid #D1D5DB;padding:4px 8px;text-align:left">D 설치일</th>
+            <th style="border:1px solid #D1D5DB;padding:4px 8px;text-align:left">E 비고</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td style="border:1px solid #D1D5DB;padding:3px 6px;background:#F9FAFB;color:#6B7280;text-align:center">1</td><td style="border:1px solid #D1D5DB;padding:3px 6px">BizPOS-15</td><td style="border:1px solid #D1D5DB;padding:3px 6px;font-family:monospace">BP-A001</td><td style="border:1px solid #D1D5DB;padding:3px 6px">다봄(주)</td><td style="border:1px solid #D1D5DB;padding:3px 6px">2026-05-25</td><td style="border:1px solid #D1D5DB;padding:3px 6px">신규</td></tr>
+          <tr><td style="border:1px solid #D1D5DB;padding:3px 6px;background:#F9FAFB;color:#6B7280;text-align:center">2</td><td style="border:1px solid #D1D5DB;padding:3px 6px">BizPOS-15</td><td style="border:1px solid #D1D5DB;padding:3px 6px;font-family:monospace">BP-A002</td><td style="border:1px solid #D1D5DB;padding:3px 6px">다봄(주)</td><td style="border:1px solid #D1D5DB;padding:3px 6px">2026-05-25</td><td style="border:1px solid #D1D5DB;padding:3px 6px">신규</td></tr>
+          <tr><td style="border:1px solid #D1D5DB;padding:3px 6px;background:#F9FAFB;color:#6B7280;text-align:center">3</td><td style="border:1px solid #D1D5DB;padding:3px 6px">KOCES 단말</td><td style="border:1px solid #D1D5DB;padding:3px 6px;font-family:monospace">SN-A12345</td><td style="border:1px solid #D1D5DB;padding:3px 6px">다봄(주)</td><td style="border:1px solid #D1D5DB;padding:3px 6px">2026-05-25</td><td style="border:1px solid #D1D5DB;padding:3px 6px">신규</td></tr>
+          <tr><td style="border:1px solid #D1D5DB;padding:3px 6px;background:#F9FAFB;color:#6B7280;text-align:center">4</td><td style="border:1px solid #D1D5DB;padding:3px 6px">키오스크</td><td style="border:1px solid #D1D5DB;padding:3px 6px;font-family:monospace">KSK-B003</td><td style="border:1px solid #D1D5DB;padding:3px 6px">정이가마트</td><td style="border:1px solid #D1D5DB;padding:3px 6px">2026-05-12</td><td style="border:1px solid #D1D5DB;padding:3px 6px">AS 교체</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="lightbox-info">
+    📎 파일 2 / 3 · 다봄(주) 진행 · 2026-05-19 16:00 · 이동호 · 82KB
+  </div>
+</div>
+<div style="font-size:11px;color:var(--gray-500);margin:6px 0 0">
+  실제 임베드 URL: <code>https://view.officeapps.live.com/op/embed.aspx?src={ENCODED_R2_URL}</code> · iframe 1개로 docx/xlsx/pptx 모두 지원
+</div>
+
+<h3 style="margin:18px 0 8px;font-size:13px;color:var(--gray-700)">D. 미리보기 불가 (HWP/HWPX/ZIP)</h3>
+<div class="card" style="background:#1F2937;color:#fff;padding:0;overflow:hidden;height:260px;position:relative">
   <button class="lightbox-close">×</button>
   <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px">
-    <div style="width:90px;height:110px;background:#15803D;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">XLS</div>
-    <div style="font-size:14px;font-weight:700">단말기 시리얼.xlsx</div>
-    <div style="font-size:11.5px;opacity:.7">82KB · 브라우저에서 미리보기 불가</div>
+    <div style="width:90px;height:110px;background:#1D4ED8;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px">HWP</div>
+    <div style="font-size:14px;font-weight:700">재고조사 결과서.hwp</div>
+    <div style="font-size:11.5px;opacity:.7">350KB · 브라우저에서 미리보기 불가</div>
     <button style="background:#2563EB;border:none;color:#fff;padding:9px 22px;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer">⬇ 다운로드해서 열기</button>
   </div>
   <div class="lightbox-info">
-    📎 파일 2 / 2 · 다봄(주) 진행 · 2026-05-19 16:00 · 이동호
+    📎 파일 3 / 3 · 정이가마트 완료 · 2026-05-25 17:30 · 이동호
   </div>
 </div>
 
 <div class="note" style="margin-top:6px">
-  <b>이미지</b> + <b>PDF</b> 는 라이트박스 안에서 직접 보기 (브라우저 내장 PDF 뷰어 / pdf.js 활용 — 모바일도 동일).<br>
-  <b>HWP/XLSX/DOCX/PPTX/ZIP</b> 등은 브라우저가 못 여는 포맷 → 다운로드 버튼만 표시.<br>
-  ← → 키 / 스와이프로 같은 작업의 첨부 사이 이동 (사진↔PDF 혼합 가능). ESC 또는 × 로 닫기.
+  <b>미리보기 가능</b>: 이미지(JPG/PNG/GIF/WebP/HEIC변환) · PDF(pdf.js) · DOCX/XLSX/PPTX (MS Office Online Viewer)<br>
+  <b>다운로드만</b>: HWP/HWPX/ZIP<br>
+  ← → 키 / 스와이프로 같은 작업의 첨부 사이 이동 (사진↔PDF↔Office 혼합 가능). ESC 또는 × 로 닫기.<br>
+  <b>⚠️ Office Viewer 는 MS 서버를 거침</b> — R2 URL 이 MS 에 일시 노출됨. UUID 키라 추측 불가하지만 매우 민감한 문서는 다운로드만 권장.
 </div>
 
 <!-- ⑧ 에러 -->
@@ -668,8 +722,9 @@ FormData {
     </tr></thead>
     <tbody>
       <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">image</td><td>jpg, png, heic, webp, gif → 자동 jpg 변환</td><td>10MB (압축 후)</td><td>✓ 라이트박스</td></tr>
-      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">file (pdf)</td><td>application/pdf</td><td>50MB</td><td>✓ 라이트박스 (pdf.js)</td></tr>
-      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">file (문서)</td><td>hwp, hwpx, docx, xlsx, pptx</td><td>50MB</td><td>다운로드만</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">file (pdf)</td><td>application/pdf</td><td>50MB</td><td>✓ pdf.js</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">file (office)</td><td>docx, xlsx, pptx</td><td>50MB</td><td>✓ Office Online Viewer</td></tr>
+      <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">file (한글)</td><td>hwp, hwpx</td><td>50MB</td><td>다운로드만</td></tr>
       <tr style="border-bottom:1px solid var(--gray-100)"><td style="padding:7px 8px">file (압축)</td><td>zip</td><td>50MB</td><td>다운로드만</td></tr>
       <tr><td style="padding:7px 8px;color:#DC2626">차단</td><td colspan="3" style="color:#DC2626">exe, bat, ps1, sh, js, cmd, com, scr, msi, dll</td></tr>
     </tbody>
