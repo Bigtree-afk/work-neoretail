@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>업로더 통합 — 실제 업무 폼 배치 목업</title>
+<style>
+  :root { --primary:#2563EB; --gray-100:#F3F4F6; --gray-200:#E5E7EB; --gray-300:#D1D5DB; --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-600:#4B5563; --gray-700:#374151; --gray-800:#1F2937; --line:#06C755; --line-light:#06C7551A; --beige:#FEF7E6 }
+  * { box-sizing:border-box }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans KR',sans-serif; background:#F0F2F5; margin:0; padding:20px; color:var(--gray-800); font-size:13px; line-height:1.5 }
+  .wrap { max-width:1180px; margin:0 auto }
+  h1 { font-size:18px; margin:0 0 4px }
+  h2 { font-size:15px; margin:24px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--gray-200) }
+  h3 { font-size:13.5px; margin:0 0 10px; color:var(--gray-700) }
+  .lead { font-size:12.5px; color:var(--gray-500); margin-bottom:18px }
+  .toc { background:#EFF6FF; border:1px solid #BFDBFE; border-radius:10px; padding:12px 16px; margin-bottom:18px; font-size:12.5px }
+  .toc a { color:#1d4ed8; text-decoration:none; font-weight:700; display:inline-block; margin:2px 12px 2px 0 }
+
+  /* 폼/모달 모형 */
+  .modal { background:#fff; border:1px solid var(--gray-200); border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,.06); margin-bottom:22px; overflow:hidden }
+  .modal-head { background:var(--beige); border-bottom:1px solid #FCD34D; padding:11px 16px; font-size:13.5px; font-weight:800; color:var(--gray-800); display:flex; align-items:center; gap:8px }
+  .modal-body { padding:14px 18px }
+  .form-row { margin-bottom:9px; display:flex; gap:8px; align-items:center; flex-wrap:wrap }
+  .form-row .lbl { width:100px; font-size:11.5px; font-weight:700; color:var(--gray-700) }
+  .form-row input, .form-row select, .form-row textarea { padding:5px 9px; border:1px solid var(--gray-300); border-radius:6px; font-size:12px; font-family:inherit }
+  .form-row input[type=text], .form-row input[type=date] { flex:1 }
+  .form-row textarea { width:100%; min-height:48px; resize:vertical }
+  .form-section { background:#F9FAFB; border:1px solid var(--gray-200); border-radius:8px; padding:11px 13px; margin-bottom:10px }
+  .form-section > .sec-title { font-size:11.5px; font-weight:800; color:var(--gray-700); margin-bottom:8px; display:flex; gap:6px; align-items:center }
+  .pill { display:inline-block; padding:2px 8px; border-radius:11px; font-size:10.5px; font-weight:800 }
+  .pill.req  { background:#DBEAFE; color:#1e40af }
+  .pill.prog { background:#FEF3C7; color:#92400E }
+  .pill.done { background:#DCFCE7; color:#15803d }
+  .pill.cat  { background:#F3E8FF; color:#6B21A8 }
+  .pill.new  { background:#FEE2E2; color:#991B1B }
+
+  /* 업로더 모형 (실제와 동일 클래스) */
+  .ns-uploader { border:1px solid var(--gray-200); border-radius:8px; padding:10px; background:#fff; margin:6px 0 }
+  .ns-uploader-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:11.5px }
+  .ns-uploader-head .lbl { font-weight:800; color:#374151 }
+  .ns-uploader-head .cnt { color:#6B7280 }
+  .ns-uploader-head .quota { margin-left:auto; color:#6B7280; font-size:10.5px }
+  .ns-uploader-grid { display:flex; gap:8px; flex-wrap:wrap }
+  .ns-up-photo { width:64px; height:64px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5); position:relative; cursor:pointer; overflow:hidden }
+  .ns-up-photo.img1 { background:linear-gradient(135deg,#3B82F6,#1E3A8A) }
+  .ns-up-photo.img2 { background:linear-gradient(135deg,#10B981,#065F46) }
+  .ns-up-photo.img3 { background:linear-gradient(135deg,#F59E0B,#92400E) }
+  .ns-up-photo.img4 { background:linear-gradient(135deg,#EF4444,#7F1D1D) }
+  .ns-up-photo .x { position:absolute; top:-5px; right:-5px; background:#EF4444; color:#fff; width:17px; height:17px; border-radius:50%; font-size:10px; line-height:17px; text-align:center; font-weight:800; border:2px solid #fff }
+  .ns-up-add { width:64px; height:64px; border:2px dashed var(--gray-400); border-radius:7px; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:10px; color:var(--gray-500); cursor:pointer; gap:0 }
+  .ns-up-add .plus { font-size:18px; line-height:1 }
+  .ns-up-add .hint { font-size:9px; color:var(--gray-400) }
+  .ns-up-file { min-width:150px; max-width:200px; height:64px; background:#fff; border:1px solid var(--gray-300); border-radius:7px; display:flex; gap:8px; padding:6px 9px; align-items:center; font-size:10.5px; position:relative; cursor:pointer }
+  .ns-up-file .ficon { width:36px; height:36px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:#fff; flex-shrink:0 }
+  .ns-up-file .ficon.pdf { background:#DC2626 }
+  .ns-up-file .ficon.xls { background:#15803D }
+  .ns-up-file .ficon.hwp { background:#1D4ED8 }
+  .ns-up-file .fname { font-weight:700; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--gray-800) }
+  .ns-up-file .fsize { font-size:9.5px; color:var(--gray-500) }
+  .ns-up-file .x { position:absolute; top:-5px; right:-5px; background:#EF4444; color:#fff; width:17px; height:17px; border-radius:50%; font-size:10px; line-height:17px; text-align:center; font-weight:800; border:2px solid #fff }
+
+  /* 기존 데이터 표시용 — 작은 썸네일 strip */
+  .att-strip { display:flex; gap:5px; flex-wrap:wrap; margin-top:5px }
+  .att-strip .thumb { width:36px; height:36px; border-radius:5px; background:#E5E7EB; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:9px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5); flex-shrink:0 }
+  .att-strip .thumb.img1 { background:linear-gradient(135deg,#3B82F6,#1E3A8A) }
+  .att-strip .thumb.img2 { background:linear-gradient(135deg,#10B981,#065F46) }
+  .att-strip .thumb.img3 { background:linear-gradient(135deg,#F59E0B,#92400E) }
+  .att-strip .thumb.pdf { background:#DC2626 }
+  .att-strip .thumb.xls { background:#15803D }
+  .att-strip .more { width:36px; height:36px; border-radius:5px; background:#F3F4F6; border:1px dashed var(--gray-300); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--gray-500); font-weight:700 }
+
+  /* Thread item */
+  .thread-item { background:#fff; border:1px solid var(--gray-200); border-radius:8px; padding:9px 12px; margin-bottom:7px; position:relative }
+  .thread-item.req { border-left:4px solid #3B82F6 }
+  .thread-item.prog { border-left:4px solid #F59E0B }
+  .thread-item.done { border-left:4px solid #10B981 }
+  .thread-item .ti-head { display:flex; gap:6px; align-items:center; margin-bottom:3px; font-size:11px }
+  .thread-item .ti-body { font-size:12px; color:var(--gray-700) }
+  .thread-item .ti-foot { font-size:10.5px; color:var(--gray-500); margin-top:4px; display:flex; gap:6px; align-items:center; flex-wrap:wrap }
+
+  /* 액션 버튼 */
+  .actions { display:flex; gap:6px; justify-content:flex-end; margin-top:10px; padding-top:10px; border-top:1px solid var(--gray-200) }
+  .btn { padding:6px 13px; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; border:1.5px solid; font-family:inherit }
+  .btn-outline { background:#fff; border-color:var(--gray-300); color:var(--gray-700) }
+  .btn-primary { background:var(--primary); color:#fff; border-color:var(--primary) }
+  .btn-success { background:#16A34A; color:#fff; border-color:#16A34A }
+  .btn-warn { background:#F59E0B; color:#fff; border-color:#F59E0B }
+
+  .note { font-size:11px; color:var(--gray-500); margin-top:8px; padding:7px 10px; background:#F9FAFB; border-radius:6px; border-left:3px solid var(--gray-300) }
+  code { background:#FFFBEB; padding:1px 5px; border-radius:3px; border:1px solid #FCD34D; font-size:11px }
+
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:7px }
+  @media (max-width:760px){ .grid2 { grid-template-columns:1fr } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>📷📎 Uploader 통합 — 실제 업무 폼 배치 목업</h1>
+<p class="lead">
+  <code>NS_UPLOAD.mount(container, opts)</code> 가 각 폼/모달의 어디에 어떻게 들어가는지 시각 확인.<br>
+  공통 위치 원칙: <b>요청 내용 textarea 바로 아래 → 액션 버튼 위</b>.
+</p>
+
+<div class="toc">
+  📍 <a href="#stk">① 재고조사 등록 폼</a>
+  <a href="#stk-prog">② 재고조사 진행/완료</a>
+  <a href="#as-form">③ AS 폼 (요청/진행/완료)</a>
+  <a href="#new-form">④ 신규 등록 폼</a>
+  <a href="#van-form">⑤ VAN 폼</a>
+  <a href="#thread">⑥ Thread 내 표시</a>
+  <a href="#detail">⑦ 매장 상세 — 이력</a>
+</div>
+
+<!-- ① 재고조사 등록 -->
+<h2 id="stk">① 재고조사 — 새 등록 폼</h2>
+<div class="modal">
+  <div class="modal-head">📦 재고조사 등록 <span class="pill new">신규</span></div>
+  <div class="modal-body">
+
+    <div class="form-section">
+      <div class="sec-title">🏪 매장 정보</div>
+      <div class="form-row"><span class="lbl">매장명</span><input type="text" value="정이가마트 (정이유통(주))" readonly style="background:#F3F4F6"></div>
+      <div class="form-row"><span class="lbl">사업자/대표</span><span style="font-size:11.5px;color:var(--gray-600)">625-85-01902 · 정주영</span></div>
+    </div>
+
+    <div class="form-section">
+      <div class="sec-title">📅 일정</div>
+      <div class="grid2">
+        <div class="form-row"><span class="lbl">상담일</span><input type="date" value="2026-05-17"></div>
+        <div class="form-row"><span class="lbl">조사 예정일</span><input type="date" value="2026-05-25"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="sec-title">📥 요청 내용</div>
+      <textarea>매장 전체 재고조사 의뢰. 영업 시간 외 진행 가능, 일요일 휴무.</textarea>
+
+      <!-- ★ Uploader 배치 위치 ★ -->
+      <div style="margin-top:8px">
+        <div class="ns-uploader">
+          <div class="ns-uploader-head">
+            <span class="lbl">📷📎 첨부</span>
+            <span class="cnt">사진 1 · 파일 0</span>
+            <span class="quota">총 245KB · 최대 50개</span>
+          </div>
+          <div class="ns-uploader-grid">
+            <div class="ns-up-photo img1">현장<span class="x">×</span></div>
+            <div class="ns-up-add">
+              <span class="plus">＋</span>
+              <span>추가</span>
+              <span class="hint">사진+파일</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="sec-title">💰 예상</div>
+      <div class="grid2">
+        <div class="form-row"><span class="lbl">예상재고액</span><input type="text" value="12,000,000" style="text-align:right"></div>
+        <div class="form-row"><span class="lbl">예상 수수료</span><input type="text" value="350,000" style="text-align:right"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-outline">취소</button>
+      <button class="btn btn-primary">등록</button>
+      <button class="btn btn-success" style="background:#06C755;border-color:#06C755">📡 등록 + LINE 발송</button>
+    </div>
+
+    <div class="note">
+      <b>NS_UPLOAD.mount(container, {category:'stocktake', readonly:false, onChange:saveDraft})</b><br>
+      등록 시 attachments 배열을 <code>stocktake.attachments[]</code> 에 저장. LINE 발송 시 사진 N장으로 메시지에 자동 포함.
+    </div>
+  </div>
+</div>
+
+<!-- ② 재고조사 진행/완료 -->
+<h2 id="stk-prog">② 재고조사 — 진행 추가 / 완료 처리</h2>
+<div class="modal">
+  <div class="modal-head">📦 재고조사 — 정이가마트 (진행 중)</div>
+  <div class="modal-body">
+
+    <!-- 기존 진행 이력 -->
+    <div class="form-section">
+      <div class="sec-title">📜 진행 이력</div>
+      <div class="thread-item req">
+        <div class="ti-head"><span class="pill req">요청접수</span> <b>매장 전체 재고조사 의뢰</b></div>
+        <div class="att-strip">
+          <div class="thumb img1">현장</div>
+        </div>
+        <div class="ti-foot">5/17 14:30 · 이동호</div>
+      </div>
+      <div class="thread-item prog">
+        <div class="ti-head"><span class="pill prog">진행 #1</span> <b>현장 도착, 창고 시작</b></div>
+        <div class="att-strip">
+          <div class="thumb img2">창고</div>
+          <div class="thumb img3">인원</div>
+        </div>
+        <div class="ti-foot">5/25 09:00 · 김기사</div>
+      </div>
+    </div>
+
+    <!-- 진행 #2 추가 폼 -->
+    <div class="form-section" style="background:#FFFBEB;border-color:#FCD34D">
+      <div class="sec-title">🚗 진행 #2 추가</div>
+      <textarea>창고 영역 완료 (3시간 소요), 매장 영역 진행 중. 인원 4명 모두 정상.</textarea>
+
+      <!-- ★ Uploader 배치 ★ -->
+      <div style="margin-top:8px">
+        <div class="ns-uploader">
+          <div class="ns-uploader-head">
+            <span class="lbl">📷📎 첨부</span>
+            <span class="cnt">사진 3 · 파일 0</span>
+            <span class="quota">총 720KB</span>
+          </div>
+          <div class="ns-uploader-grid">
+            <div class="ns-up-photo img1">창고<span class="x">×</span></div>
+            <div class="ns-up-photo img2">매장1<span class="x">×</span></div>
+            <div class="ns-up-photo img3">매장2<span class="x">×</span></div>
+            <div class="ns-up-add">
+              <span class="plus">＋</span>
+              <span>추가</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-outline">취소</button>
+      <button class="btn btn-warn">🚗 진행 추가</button>
+      <button class="btn btn-success" style="background:#06C755;border-color:#06C755">📡 진행 추가 + LINE 발송</button>
+    </div>
+  </div>
+</div>
+
+<!-- ③ AS -->
+<h2 id="as-form">③ AS — 요청/진행/완료 (thread item 작성 영역)</h2>
+<div class="modal">
+  <div class="modal-head">🔧 AS 편집 — 정이가마트 (요청 3건 · 처리 8건)</div>
+  <div class="modal-body">
+
+    <!-- 기존 ROOT 들 -->
+    <div class="form-section">
+      <div class="sec-title">📜 기존 요청/처리</div>
+      <div class="thread-item req">
+        <div class="ti-head"><span class="pill req">요청 #1</span> <b>1번 POS 영수증 출력 안됨</b></div>
+        <div class="att-strip">
+          <div class="thumb img1">에러</div>
+          <div class="thumb img2">단말</div>
+        </div>
+        <div class="ti-foot">5/12 08:15 · 이동호</div>
+      </div>
+      <div style="padding-left:14px">
+        <div class="thread-item prog">
+          <div class="ti-head"><span class="pill prog">진행</span> 케이블 손상, 신품 교체</div>
+          <div class="att-strip">
+            <div class="thumb img3">케이블</div>
+          </div>
+          <div class="ti-foot">5/12 09:10 · 김기사</div>
+        </div>
+        <div class="thread-item done">
+          <div class="ti-head"><span class="pill done">완료</span> 정상 출력 확인</div>
+          <div class="att-strip">
+            <div class="thumb img1">정상</div>
+          </div>
+          <div class="ti-foot">5/12 09:30 · 김기사</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 새 요청 추가 폼 -->
+    <div class="form-section" style="background:#EFF6FF;border-color:#BFDBFE">
+      <div class="sec-title">📥 새 요청 추가</div>
+      <div class="form-row"><span class="lbl">대상</span>
+        <select><option>POS (1번)</option><option>POS (2번)</option><option>VAN</option><option>키오스크</option></select>
+        <label style="font-size:11px;display:flex;align-items:center;gap:4px;color:#991B1B;font-weight:700">
+          <input type="checkbox" checked> 🚨 긴급
+        </label>
+      </div>
+      <textarea>2번 POS 카드결제 오류 — 영수증은 출력되지만 결제 승인 안됨</textarea>
+
+      <!-- ★ Uploader ★ -->
+      <div style="margin-top:8px">
+        <div class="ns-uploader">
+          <div class="ns-uploader-head">
+            <span class="lbl">📷📎 첨부</span>
+            <span class="cnt">사진 2 · 파일 0</span>
+            <span class="quota">총 520KB</span>
+          </div>
+          <div class="ns-uploader-grid">
+            <div class="ns-up-photo img4">에러화면<span class="x">×</span></div>
+            <div class="ns-up-photo img1">단말배경<span class="x">×</span></div>
+            <div class="ns-up-add">
+              <span class="plus">＋</span>
+              <span>추가</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-outline">취소</button>
+      <button class="btn btn-primary">📥 요청 추가</button>
+      <button class="btn btn-success" style="background:#06C755;border-color:#06C755">📡 요청 추가 + LINE 발송</button>
+    </div>
+
+    <div class="note">
+      각 ROOT 옆 <b>[🚗 진행 추가] / [✅ 완료]</b> 버튼 → 동일 형태의 작성 영역 펼침 (제목만 다름).<br>
+      thread item 안에는 첨부 strip (썸네일 36px) 으로 미니 표시 → 클릭 시 라이트박스.
+    </div>
+  </div>
+</div>
+
+<!-- ④ 신규 -->
+<h2 id="new-form">④ 신규 등록 폼</h2>
+<div class="modal">
+  <div class="modal-head">🆕 신규 등록 — 다봄(주)</div>
+  <div class="modal-body">
+
+    <div class="form-section">
+      <div class="sec-title">📅 주요 일정</div>
+      <div class="grid2">
+        <div class="form-row"><span class="lbl">설치 예정</span><input type="date" value="2026-05-25"></div>
+        <div class="form-row"><span class="lbl">가오픈</span><input type="date" value="2026-05-27"></div>
+        <div class="form-row"><span class="lbl">정식 오픈</span><input type="date" value="2026-06-01"></div>
+        <div class="form-row"><span class="lbl">담당</span><input type="text" value="이동호"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="sec-title">📥 요청 내용 / 설치 장비</div>
+      <textarea>POS 2대 + VAN 신규등록 + 카드사 가맹 8사 일괄. 영수증 프린터 2대.</textarea>
+
+      <!-- ★ Uploader ★ -->
+      <div style="margin-top:8px">
+        <div class="ns-uploader">
+          <div class="ns-uploader-head">
+            <span class="lbl">📷📎 첨부</span>
+            <span class="cnt">사진 2 · 파일 2</span>
+            <span class="quota">총 3.5MB</span>
+          </div>
+          <div class="ns-uploader-grid">
+            <div class="ns-up-photo img1">매장외관<span class="x">×</span></div>
+            <div class="ns-up-photo img2">매장내부<span class="x">×</span></div>
+            <div class="ns-up-file">
+              <div class="ficon pdf">PDF</div>
+              <div>
+                <div class="fname">가맹계약서.pdf</div>
+                <div class="fsize">2.4MB · 미리보기</div>
+              </div>
+              <span class="x">×</span>
+            </div>
+            <div class="ns-up-file">
+              <div class="ficon xls">XLS</div>
+              <div>
+                <div class="fname">설치장비_명세.xlsx</div>
+                <div class="fsize">82KB · 미리보기</div>
+              </div>
+              <span class="x">×</span>
+            </div>
+            <div class="ns-up-add">
+              <span class="plus">＋</span>
+              <span>추가</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-outline">취소</button>
+      <button class="btn btn-primary">등록</button>
+      <button class="btn btn-success" style="background:#06C755;border-color:#06C755">📡 등록 + LINE 발송</button>
+    </div>
+
+    <div class="note">신규는 <b>계약서/장비명세서</b> 같은 파일 첨부 빈도 높음 — uploader 가 이미지·파일 통합이라 한 곳에서 모두 처리.</div>
+  </div>
+</div>
+
+<!-- ⑤ VAN -->
+<h2 id="van-form">⑤ VAN — 업무 등록 모달</h2>
+<div class="modal">
+  <div class="modal-head">📑 VAN 업무 — 다봄(주)</div>
+  <div class="modal-body">
+
+    <div class="form-section">
+      <div class="sec-title">💳 카드사 가맹 / VAN 등록</div>
+      <div class="form-row"><span class="lbl">카드사</span><span style="font-size:11.5px">신청 5/17 · 8사 일괄 (BC/신한/삼성/현대/롯데/하나/KB/우리)</span></div>
+      <div class="form-row"><span class="lbl">KOCES TID</span><input type="text" value="K8500123456"><span style="font-size:10.5px;color:var(--gray-500)">Serial:</span><input type="text" value="SN-A12345"></div>
+      <div class="form-row"><span class="lbl">카카오페이</span><input type="text" value="KP987654321"></div>
+    </div>
+
+    <div class="form-section">
+      <div class="sec-title">📥 업무 내용</div>
+      <textarea>카드사 8사 가맹 + KOCES VAN + 카카오페이 등록</textarea>
+
+      <!-- ★ Uploader ★ -->
+      <div style="margin-top:8px">
+        <div class="ns-uploader">
+          <div class="ns-uploader-head">
+            <span class="lbl">📷📎 첨부 (계약서/TID 화면)</span>
+            <span class="cnt">사진 1 · 파일 1</span>
+            <span class="quota">총 2.7MB</span>
+          </div>
+          <div class="ns-uploader-grid">
+            <div class="ns-up-photo img3">TID화면<span class="x">×</span></div>
+            <div class="ns-up-file">
+              <div class="ficon pdf">PDF</div>
+              <div>
+                <div class="fname">가맹계약서_8사.pdf</div>
+                <div class="fsize">2.6MB · 미리보기</div>
+              </div>
+              <span class="x">×</span>
+            </div>
+            <div class="ns-up-add">
+              <span class="plus">＋</span>
+              <span>추가</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-outline">취소</button>
+      <button class="btn btn-primary">등록</button>
+      <button class="btn btn-success" style="background:#06C755;border-color:#06C755">📡 등록 + LINE 발송</button>
+    </div>
+  </div>
+</div>
+
+<!-- ⑥ Thread 내 표시 (readonly) -->
+<h2 id="thread">⑥ Thread 내 표시 — readonly 미니 strip (모든 페이지 공통)</h2>
+<div class="modal">
+  <div class="modal-head">📋 표시 규칙 — 작성 ≠ 표시</div>
+  <div class="modal-body">
+    <h3 style="margin-bottom:6px">작성 영역 (위 ①~⑤)</h3>
+    <ul style="margin:0 0 12px 18px;font-size:12px">
+      <li>전체 업로더 (64px 카드 + ＋ 추가 버튼) — 편집 가능</li>
+      <li><code>NS_UPLOAD.mount(div, { readonly:false, onChange })</code></li>
+    </ul>
+
+    <h3 style="margin-bottom:6px">표시 영역 (thread item / 카드 리스트)</h3>
+    <ul style="margin:0 0 12px 18px;font-size:12px">
+      <li>작은 썸네일 strip (36px) — 클릭 시 라이트박스</li>
+      <li>너무 많으면 5개 + <b>+N</b> 표시 (전체는 라이트박스에서)</li>
+      <li>구현: <code>_renderAttStrip(attachments, limit=5)</code> 별도 헬퍼</li>
+    </ul>
+
+    <div class="thread-item done">
+      <div class="ti-head"><span class="pill done">완료</span> <b>전체 조사 완료, +1.2% 차이</b></div>
+      <div class="att-strip">
+        <div class="thumb img1">결과1</div>
+        <div class="thumb img2">결과2</div>
+        <div class="thumb pdf">PDF</div>
+        <div class="thumb xls">XLS</div>
+        <div class="thumb img3">현장</div>
+        <div class="more">+3</div>
+      </div>
+      <div class="ti-foot">5/25 17:30 · 이동호 · 첨부 8개</div>
+    </div>
+
+    <div class="note">strip 클릭 시 라이트박스 열림. 라이트박스 ← → 키로 같은 작업의 첨부 전체 순회.</div>
+  </div>
+</div>
+
+<!-- ⑦ 매장 상세 -->
+<h2 id="detail">⑦ 매장 상세 — 전체 첨부 갤러리 (선택)</h2>
+<div class="modal">
+  <div class="modal-head">🏪 정이가마트 — 첨부 갤러리</div>
+  <div class="modal-body">
+    <div style="font-size:11.5px;color:var(--gray-500);margin-bottom:8px">
+      이 매장에 누적된 모든 사진/파일 — 카테고리·시점별 묶음
+    </div>
+
+    <div class="form-section">
+      <div class="sec-title">🔧 AS (2026-05)</div>
+      <div class="att-strip">
+        <div class="thumb img1">에러</div>
+        <div class="thumb img2">단말</div>
+        <div class="thumb img3">케이블</div>
+        <div class="thumb img1">정상</div>
+        <div class="thumb img4">에러2</div>
+        <div class="more">+12</div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="sec-title">📦 재고조사 (2026-05)</div>
+      <div class="att-strip">
+        <div class="thumb img1">현장</div>
+        <div class="thumb img2">창고</div>
+        <div class="thumb img3">매장</div>
+        <div class="thumb pdf">결과서</div>
+        <div class="more">+4</div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="sec-title">🆕 신규 (2025-12)</div>
+      <div class="att-strip">
+        <div class="thumb img2">매장외관</div>
+        <div class="thumb img3">설치</div>
+        <div class="thumb pdf">계약서</div>
+        <div class="thumb xls">명세</div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>옵션 기능</b> — Phase 2 후 추가. 매장 상세에 [📷 첨부 갤러리] 탭 신설 → 카테고리별 누적 표시.<br>
+      필요 없으면 생략하고 thread item 내부 strip 만으로 운영 가능.
+    </div>
+  </div>
+</div>
+
+<h2>🚀 통합 작업 순서 (Phase 2)</h2>
+<div class="modal">
+  <div class="modal-body">
+    <ol style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.9">
+      <li><b>재고조사 등록 폼</b> — <code>_stocktakeOpenEditor()</code> 안에 uploader mount</li>
+      <li><b>재고조사 진행/완료 패널</b> — 진행 추가 폼 안에 mount, 저장 시 thread item.attachments[]</li>
+      <li><b>썸네일 strip 헬퍼</b> — <code>_renderAttStrip(attachments, opts)</code> (목록 카드 + thread item 공용)</li>
+      <li><b>AS 편집 모달</b> — ROOT/child 작성 영역 각각에 mount</li>
+      <li><b>신규 등록/편집 폼</b> — 요청 내용 textarea 아래</li>
+      <li><b>VAN 업무 모달</b> — 업무 내용 textarea 아래</li>
+      <li><b>저장 흐름</b> — onChange 콜백으로 ns_jobs / cloud KV 에 attachments 보존</li>
+      <li>(선택) <b>매장 상세 — 첨부 갤러리 탭</b></li>
+    </ol>
+    <div class="note" style="margin-top:10px">
+      각 단계마다 readonly 모드 (기존 데이터 표시) 와 편집 모드 (새 첨부 추가) 가 자연스럽게 전환되어야 함.
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>
