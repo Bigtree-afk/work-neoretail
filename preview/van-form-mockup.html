@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>VAN 업무 등록 — 폼 목업</title>
+<style>
+  :root {
+    --primary:#2563EB; --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
+    --gray-300:#D1D5DB; --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-600:#4B5563;
+    --gray-700:#374151; --gray-800:#1F2937; --gray-900:#111827;
+    --success:#16A34A; --warning:#F59E0B; --danger:#DC2626;
+  }
+  * { box-sizing: border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans KR',sans-serif; background:#F0F2F5; margin:0; padding:24px; color:var(--gray-800); font-size:13px; }
+  .wrap { max-width:760px; margin:0 auto; }
+  .modal-card { background:#fff; border:1px solid var(--gray-200); border-radius:14px; box-shadow:0 4px 24px rgba(0,0,0,.08); overflow:hidden; }
+  .modal-head { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid var(--gray-200); background:#F8FAFC; }
+  .modal-title { font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px; }
+  .modal-title .badge-van { background:#DBEAFE; color:#1d4ed8; font-size:11px; padding:3px 10px; border-radius:12px; font-weight:700; }
+  .close-btn { background:none; border:0; font-size:18px; color:var(--gray-500); cursor:pointer; }
+
+  .modal-body { padding:18px; }
+  .form-group { margin-bottom:14px; }
+  label { display:block; font-size:11.5px; font-weight:700; color:var(--gray-700); margin-bottom:5px; }
+  input[type="text"], input[type="date"], select, textarea {
+    width:100%; padding:8px 10px; border:1px solid var(--gray-300); border-radius:8px;
+    font-size:13px; font-family:inherit; background:#fff;
+  }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+  textarea { resize:vertical; min-height:60px; }
+  .hint { font-size:10.5px; color:var(--gray-500); margin-top:4px; line-height:1.5; }
+
+  /* VAN 카테고리 선택 — 5종 (가맹·신규·재신고·정산·계약·변경) */
+  .van-cats { display:flex; flex-wrap:wrap; gap:6px; }
+  .van-cat-chip {
+    padding:6px 12px; border:1.5px solid var(--gray-200); border-radius:18px;
+    background:#fff; font-size:12px; font-weight:600; color:var(--gray-700);
+    cursor:pointer; user-select:none;
+  }
+  .van-cat-chip:hover { border-color:var(--primary); color:var(--primary); }
+  .van-cat-chip.active { background:#DBEAFE; border-color:#1d4ed8; color:#1d4ed8; }
+
+  /* 매장 검색 (간략) */
+  .store-search { position:relative; }
+  .store-search input { padding-right:32px; }
+  .store-search .icon { position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--gray-400); pointer-events:none; }
+  .store-picked { display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; padding:6px 10px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:6px; font-size:11px; color:#065F46; }
+  .store-picked code { background:#fff; padding:1px 6px; border-radius:3px; font-family:monospace; }
+
+  /* 업무 항목 섹션 */
+  .section { background:var(--gray-50); border:1px solid var(--gray-200); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+  .section-title { font-size:12.5px; font-weight:700; color:var(--gray-800); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+  .section-title .badge { font-size:10px; padding:2px 7px; border-radius:10px; background:var(--gray-200); color:var(--gray-700); }
+
+  /* 카드사 가맹 */
+  .card-acquire { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .card-acquire .field { display:flex; flex-direction:column; gap:4px; }
+
+  /* VAN 등록 그리드 */
+  .van-list { display:flex; flex-direction:column; gap:8px; }
+  .van-row { display:grid; grid-template-columns:90px 1fr 1fr auto; gap:8px; align-items:end; padding:8px 10px; background:#fff; border:1px solid var(--gray-200); border-radius:8px; }
+  .van-row.disabled { opacity:.4; background:var(--gray-50); }
+  .van-check { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; }
+  .van-check input[type=checkbox] { width:16px; height:16px; cursor:pointer; }
+  .van-row .label { font-size:10px; color:var(--gray-500); font-weight:600; margin-bottom:3px; }
+  .van-row input { padding:6px 8px; font-size:12px; }
+  .van-row .serial-col { transition:opacity .2s; }
+  .van-row .serial-col.hidden { opacity:.3; pointer-events:none; }
+  .van-row .serial-col.hidden input { background:var(--gray-100); }
+
+  /* 간편결제 */
+  .pay-list { display:flex; flex-direction:column; gap:8px; }
+  .pay-row { display:grid; grid-template-columns:120px 1fr; gap:10px; align-items:center; padding:8px 10px; background:#fff; border:1px solid var(--gray-200); border-radius:8px; }
+  .pay-row.disabled { opacity:.4; }
+  .pay-row .label { font-size:12px; font-weight:700; display:flex; align-items:center; gap:6px; }
+
+  /* 푸터 */
+  .modal-foot { padding:14px 18px; border-top:1px solid var(--gray-200); background:#F8FAFC; display:flex; justify-content:flex-end; gap:8px; }
+  .btn { padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; border:1.5px solid transparent; }
+  .btn-outline { background:#fff; border-color:var(--gray-300); color:var(--gray-700); }
+  .btn-primary { background:var(--primary); color:#fff; }
+
+  /* 정보 박스 */
+  .info-box { padding:10px 12px; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:8px; font-size:11.5px; color:#1e40af; margin-bottom:14px; line-height:1.6; }
+  .info-box b { color:#1d4ed8; }
+
+  /* 매장 주요 일정 자리 — 안내 */
+  .schedule-note { padding:8px 12px; background:#FFFBEB; border:1px solid #FCD34D; border-radius:8px; font-size:11px; color:#92400E; line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h2 style="margin:0 0 16px 0;font-size:16px;color:var(--gray-800)">📑 VAN 업무 등록 — 목업</h2>
+  <p style="color:var(--gray-500);font-size:12px;margin:0 0 20px 0">신규 등록 폼 분리. 주요일정/투입장비 제외. 카드사 가맹 + 복수 VAN + 간편결제 통합.</p>
+
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">
+        <span>📑 VAN 업무 등록</span>
+        <span class="badge-van">VAN</span>
+      </div>
+      <button class="close-btn">✕</button>
+    </div>
+
+    <div class="modal-body">
+
+      <div class="info-box">
+        진행 상황 (방문/신청/접수/완료) 은 등록 후 <b>스레드의 "+ 새 요청 접수"</b> 로 누적 기록합니다.
+        주요 일정 (설치/오픈) 은 VAN 업무에는 없고, 실제 업무를 진행한 날짜를 <b>업무일</b> 로 기록합니다.
+      </div>
+
+      <!-- VAN 카테고리 -->
+      <div class="form-group">
+        <label>📂 VAN 업무 카테고리</label>
+        <div class="van-cats">
+          <div class="van-cat-chip active">🆕 신규등록</div>
+          <div class="van-cat-chip">🔁 재신고</div>
+          <div class="van-cat-chip">💰 정산</div>
+          <div class="van-cat-chip">📄 계약</div>
+          <div class="van-cat-chip">🔀 변경</div>
+        </div>
+        <div class="hint">신규등록 = 카드사 가맹 + 복수 VAN + 간편결제 통합 등록. 다른 카테고리는 해당 항목만 선택 입력.</div>
+      </div>
+
+      <!-- 매장 -->
+      <div class="form-group">
+        <label>🏪 매장 선택</label>
+        <div class="store-search">
+          <input type="text" placeholder="상호·사업자번호·대표자·주소 검색...">
+          <span class="icon">🔍</span>
+        </div>
+        <div class="store-picked">
+          <span><b>✓ 선택됨</b> · (주)정이유통 정이가마트 · 사업자 <code>625-85-01902</code></span>
+          <span style="color:#065F46">대표: 정주영</span>
+        </div>
+      </div>
+
+      <!-- 업무일 + 담당자 -->
+      <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label>📅 업무일 (실제 진행일)</label>
+          <input type="date" value="2026-05-17">
+          <div class="hint">신청/방문 등 실제 업무를 진행한 날.</div>
+        </div>
+        <div>
+          <label>👤 담당 엔지니어</label>
+          <select>
+            <option>이동호</option>
+            <option>김기사</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 1. 카드사 가맹 -->
+      <div class="section">
+        <div class="section-title">💳 카드사 가맹 <span class="badge">선택</span></div>
+        <div class="card-acquire">
+          <div class="field">
+            <label style="margin:0">가맹 신청일</label>
+            <input type="date">
+          </div>
+          <div class="field">
+            <label style="margin:0">가맹 완료일</label>
+            <input type="date">
+          </div>
+          <div class="field" style="grid-column:1/-1">
+            <label style="margin:0">비고 (가맹 대상 카드사/특이사항)</label>
+            <input type="text" placeholder="예: 8사 일괄, BC만, 비씨/삼성 추가...">
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. VAN사 복수 등록 -->
+      <div class="section">
+        <div class="section-title">📡 VAN사 등록 (복수 선택 가능) <span class="badge">KOCES 만 Serial 필요</span></div>
+        <div class="van-list">
+
+          <!-- KOCES — TID + Serial -->
+          <div class="van-row">
+            <div class="van-check">
+              <input type="checkbox" id="van-koces" checked>
+              <label for="van-koces" style="margin:0;cursor:pointer">KOCES</label>
+            </div>
+            <div>
+              <div class="label">TID</div>
+              <input type="text" placeholder="13자리" value="K8500123456">
+            </div>
+            <div class="serial-col">
+              <div class="label">Serial</div>
+              <input type="text" placeholder="단말 시리얼" value="SN-A12345">
+            </div>
+            <button class="btn btn-outline" style="padding:6px 10px;font-size:11px">메모</button>
+          </div>
+
+          <!-- KIS — TID only -->
+          <div class="van-row">
+            <div class="van-check">
+              <input type="checkbox" id="van-kis" checked>
+              <label for="van-kis" style="margin:0;cursor:pointer">KIS</label>
+            </div>
+            <div>
+              <div class="label">TID</div>
+              <input type="text" placeholder="13자리" value="N1234567890">
+            </div>
+            <div class="serial-col hidden">
+              <div class="label">Serial</div>
+              <input type="text" placeholder="—" disabled>
+            </div>
+            <button class="btn btn-outline" style="padding:6px 10px;font-size:11px">메모</button>
+          </div>
+
+          <!-- NICE — TID only -->
+          <div class="van-row">
+            <div class="van-check">
+              <input type="checkbox" id="van-nice">
+              <label for="van-nice" style="margin:0;cursor:pointer">NICE</label>
+            </div>
+            <div>
+              <div class="label">TID</div>
+              <input type="text" placeholder="13자리">
+            </div>
+            <div class="serial-col hidden">
+              <div class="label">Serial</div>
+              <input type="text" placeholder="—" disabled>
+            </div>
+            <button class="btn btn-outline" style="padding:6px 10px;font-size:11px" disabled>메모</button>
+          </div>
+
+          <!-- KSNET — TID only -->
+          <div class="van-row">
+            <div class="van-check">
+              <input type="checkbox" id="van-ksnet">
+              <label for="van-ksnet" style="margin:0;cursor:pointer">KSNET</label>
+            </div>
+            <div>
+              <div class="label">TID</div>
+              <input type="text" placeholder="13자리">
+            </div>
+            <div class="serial-col hidden">
+              <div class="label">Serial</div>
+              <input type="text" placeholder="—" disabled>
+            </div>
+            <button class="btn btn-outline" style="padding:6px 10px;font-size:11px" disabled>메모</button>
+          </div>
+
+        </div>
+        <div class="hint" style="margin-top:8px">체크박스로 활성/비활성. KOCES 만 Serial 입력 칸 활성. 나머지 VAN 사는 TID 만 받음.</div>
+      </div>
+
+      <!-- 3. 간편결제 -->
+      <div class="section">
+        <div class="section-title">📱 간편결제 / 카카오페이 <span class="badge">TID만</span></div>
+        <div class="pay-list">
+
+          <div class="pay-row">
+            <div class="label"><input type="checkbox" id="pay-simple" checked> <label for="pay-simple" style="margin:0;cursor:pointer">간편결제</label></div>
+            <input type="text" placeholder="TID" value="ZP-987654321">
+          </div>
+
+          <div class="pay-row">
+            <div class="label"><input type="checkbox" id="pay-kakao"> <label for="pay-kakao" style="margin:0;cursor:pointer">카카오페이</label></div>
+            <input type="text" placeholder="TID">
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 메모 / 특이사항 -->
+      <div class="form-group">
+        <label>📝 메모 / 특이사항 (선택)</label>
+        <textarea placeholder="가맹 진행 메모, 카드사 별 특이사항, VAN 단말 위치 등..."></textarea>
+      </div>
+
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn btn-outline">취소</button>
+      <button class="btn btn-primary">+ VAN 업무 등록</button>
+    </div>
+  </div>
+
+  <!-- 등록 후 스레드 흐름 안내 -->
+  <div style="margin-top:24px;background:#fff;border:1px solid var(--gray-200);border-radius:14px;padding:18px">
+    <div style="font-size:13px;font-weight:700;color:var(--gray-800);margin-bottom:10px">📋 등록 후 — 스레드 흐름 (참고)</div>
+    <div style="font-size:12px;color:var(--gray-700);line-height:1.7">
+      등록 시점에 첫 ROOT 가 자동 생성됨:<br>
+      <span style="color:var(--gray-500)">📥 요청접수 #1 · 2026-05-17 · 이동호</span><br>
+      <span style="background:#F3F4F6;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:11px">신규등록: 카드사 가맹(BC외 8사) + KOCES(TID:K850..., Serial:SN-A12345), KIS(TID:N123...) + 간편결제(TID:ZP987...)</span><br><br>
+      추가 진행은 <b>+ 새 요청 접수</b> 로 누적:<br>
+      <span style="color:var(--gray-500)">↳ 🚗 진행 · 2026-05-18 · 이동호 → 가맹 승인 대기 (BC카드 보완 요청)</span><br>
+      <span style="color:var(--gray-500)">↳ ✅ 완료 · 2026-05-20 · 이동호 → BC 가맹 완료, TID 발급</span>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;padding:14px 18px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:10px">
+    <div style="font-size:12.5px;font-weight:700;color:#92400E;margin-bottom:8px">⚠ 신규 등록 폼과 차이점</div>
+    <table style="width:100%;font-size:12px;color:#78350F;border-collapse:collapse">
+      <tr><td style="padding:4px 0;width:50%">📌 매장 주요 일정 (설치/가오픈/오픈)</td><td style="color:#15803d">❌ 제외 → 업무일 1개만</td></tr>
+      <tr><td style="padding:4px 0">📦 설치되어야 할 장비 / 투입 장비</td><td style="color:#15803d">❌ 완전 제외</td></tr>
+      <tr><td style="padding:4px 0">🏪 누적 설치 장비 테이블</td><td style="color:#15803d">❌ 완전 제외</td></tr>
+      <tr><td style="padding:4px 0">💳 카드사 가맹 일정</td><td style="color:#15803d">✅ VAN 전용 추가</td></tr>
+      <tr><td style="padding:4px 0">📡 복수 VAN 사 TID/Serial</td><td style="color:#15803d">✅ VAN 전용 추가</td></tr>
+      <tr><td style="padding:4px 0">📱 간편결제/카카오페이 TID</td><td style="color:#15803d">✅ VAN 전용 추가</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<script>
+// 인터랙션 — 카테고리 칩, VAN 체크박스에 따른 활성/Serial 표시 토글
+document.querySelectorAll('.van-cat-chip').forEach(c => {
+  c.onclick = () => {
+    document.querySelectorAll('.van-cat-chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+  };
+});
+document.querySelectorAll('.van-row input[type=checkbox]').forEach(cb => {
+  cb.onchange = () => {
+    const row = cb.closest('.van-row');
+    row.classList.toggle('disabled', !cb.checked);
+    row.querySelectorAll('input[type=text]').forEach(inp => inp.disabled = !cb.checked);
+  };
+});
+document.querySelectorAll('.pay-row input[type=checkbox]').forEach(cb => {
+  cb.onchange = () => {
+    const row = cb.closest('.pay-row');
+    row.classList.toggle('disabled', !cb.checked);
+    row.querySelectorAll('input[type=text]').forEach(inp => inp.disabled = !cb.checked);
+  };
+});
+</script>
+
+</body>
+</html>
