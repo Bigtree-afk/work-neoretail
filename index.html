@@ -17919,8 +17919,32 @@ ${text.slice(0, 4000)}`;
           const date = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
           const who = j.engineer || j.assignee || '';
           const memos = Array.isArray(j.memos) ? j.memos.length : 0;
-          titleHtml = sdvEsc(j.title || j.type || '업무');
-          metaHtml = `${date ? '📅 '+date+' · ' : ''}${who?who+' · ':''}${memos?'메모 '+memos+'건':''}`;
+          // 요청 내용 추출 — thread 의 최근 ROOT > asRequest > notes > description > lineParsed > memos[0]
+          let reqText = '';
+          if (Array.isArray(j.thread) && j.thread.length) {
+            const roots = j.thread.filter(e => e && e.parentId === null);
+            if (roots.length) {
+              const sorted = roots.slice().sort((a,b) => String(b.ts||'').localeCompare(String(a.ts||'')));
+              reqText = (sorted[0].text || '').trim();
+            }
+          }
+          if (!reqText) reqText = (j.asRequest || j.notes || j.description || j.lineParsed || (j.memos && j.memos[0] && j.memos[0].text) || '').trim();
+          // VAN 작업의 등록 요약 fallback (vanRegistration 가 있고 thread 없을 때)
+          if (!reqText && j.vanRegistration) {
+            const vr = j.vanRegistration;
+            const parts = [];
+            if (vr.vans && vr.vans.length) parts.push('📡 '+vr.vans.map(v=>v.brand).join(','));
+            if (vr.pay && vr.pay.length) parts.push('📱 '+vr.pay.map(p=>p.brand).join(','));
+            if (vr.cardAcquire && (vr.cardAcquire.applyDate || vr.cardAcquire.completeDate)) parts.push('💳 카드사가맹');
+            reqText = parts.join(' · ');
+          }
+          // 우선순위: 요청 내용 > title > type (type 은 이미 카테고리 태그에 표시되므로 마지막)
+          const typeFallback = (j.title || j.type || '업무').replace(/\s+/g,' ').slice(0, 120);
+          const displayText = reqText ? reqText.replace(/\s+/g,' ').slice(0, 120) : typeFallback;
+          titleHtml = sdvEsc(displayText);
+          const rootCount = Array.isArray(j.thread) ? j.thread.filter(e=>e&&e.parentId===null).length : 0;
+          const metaTypeLabel = (reqText && j.type && j.type !== reqText.slice(0,j.type.length)) ? `<span style="color:var(--gray-400);margin-right:6px">${sdvEsc(j.type)}</span>` : '';
+          metaHtml = `${metaTypeLabel}${date ? '📅 '+date+' · ' : ''}${who?who+' · ':''}${rootCount?'요청 '+rootCount+'건 · ':''}${memos?'메모 '+memos+'건':''}`;
           if (done) {
             whenBadge = `<div class="when done">완료</div>`;
           } else {
