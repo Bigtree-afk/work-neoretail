@@ -4204,6 +4204,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <textarea id="stEditorMemo" rows="2" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px;resize:vertical"></textarea>
       </div>
 
+      <!-- 📷📎 첨부 (이미지+파일 통합) -->
+      <div style="margin-bottom:10px">
+        <label style="font-size:11.5px;color:var(--gray-600);font-weight:600;display:block;margin-bottom:4px">📷📎 첨부 (현장 사진·계약서 등)</label>
+        <div id="stEditorUploader"></div>
+      </div>
+
       <!-- 수금 방식 -->
       <div style="margin-bottom:10px">
         <label style="font-size:11.5px;color:var(--gray-600);font-weight:600;display:block;margin-bottom:4px">💰 수금 방식</label>
@@ -5974,6 +5980,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
                 ${r.paymentMethod?`<span style="color:var(--gray-500);font-size:10.5px">· ${esc(r.paymentMethod)}</span>`:''}
               </div>
               ${r.memo?`<div style="margin-top:6px;font-size:11.5px;color:var(--gray-500);font-style:italic">📝 ${esc(r.memo)}</div>`:''}
+              ${(typeof window._renderAttStrip==='function'&&Array.isArray(r.attachments)&&r.attachments.length)?window._renderAttStrip(r.attachments,{limit:6,size:36}):''}
             </div>
             <div style="display:flex;gap:5px;flex-wrap:wrap">
               <button class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:11.5px" onclick="window._stocktakeShowWorkers('${esc(r.id)}')">명단보기</button>
@@ -6078,6 +6085,20 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       (rec.expenses || []).forEach(e => window._stocktakeAddExpense(e.category||'기타', e));
     }
     window._stocktakeRecalcTotals();
+
+    // 📷📎 첨부 uploader mount
+    try {
+      const upBox = document.getElementById('stEditorUploader');
+      if (upBox && window.NS_UPLOAD) {
+        window._stocktakeUploaderCtl = window.NS_UPLOAD.mount(upBox, {
+          initial: Array.isArray(rec.attachments) ? rec.attachments : [],
+          category: 'stocktake',
+          jobId: rec.id || '',
+          readonly: !!readonly,
+          max: 50,
+        });
+      }
+    } catch(e) { console.warn('uploader mount failed', e); }
 
     // readonly 모드 — 모든 입력 비활성, 저장 버튼 숨김
     _stocktakeApplyReadonly(readonly);
@@ -6472,6 +6493,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       margin,
       paymentMethod,
       memo: String(document.getElementById('stEditorMemo').value||''),
+      attachments: (function(){ try { return window._stocktakeUploaderCtl ? window._stocktakeUploaderCtl.get() : []; } catch(_) { return []; } })(),
       createdAt: Date.now(),
     };
 
@@ -12828,6 +12850,42 @@ ${text.slice(0, 4000)}`;
 
     return { open, close };
   })();
+
+  /* ════════════════════════════════════════════════════════════
+     _renderAttStrip — 첨부 미니 strip (목록/thread 공용 readonly 표시)
+     반환: HTML 문자열 (innerHTML 으로 삽입 후 클릭 핸들러는 데이터 attribute 로 위임)
+  ════════════════════════════════════════════════════════════ */
+  window._renderAttStrip = function(attachments, opts){
+    opts = opts || {};
+    const limit = opts.limit || 5;
+    const size  = opts.size  || 36;
+    const arr   = Array.isArray(attachments) ? attachments.filter(a => a && a.url) : [];
+    if (!arr.length) return '';
+    const ext2cls = { pdf:'pdf', hwp:'hwp', hwpx:'hwp', xlsx:'xls', xls:'xls', docx:'doc', doc:'doc', pptx:'ppt', ppt:'ppt', zip:'zip', txt:'etc', csv:'etc' };
+    const ext2color = { pdf:'#DC2626', hwp:'#1D4ED8', hwpx:'#1D4ED8', xlsx:'#15803D', xls:'#15803D', docx:'#2563EB', doc:'#2563EB', pptx:'#EA580C', ppt:'#EA580C', zip:'#6D28D9', txt:'#6B7280', csv:'#6B7280' };
+    const groupId = '_ns_strip_' + Math.random().toString(36).slice(2,8);
+    // 데이터 stash (라이트박스 호출용)
+    window['__ns_strip_data_' + groupId] = arr;
+    const visible = arr.slice(0, limit);
+    const more = Math.max(0, arr.length - limit);
+    const cells = visible.map((a, i) => {
+      const ext = (a.ext || '').toLowerCase();
+      if (a.kind === 'image') {
+        return `<div class="ns-strip-thumb img" style="width:${size}px;height:${size}px;border-radius:5px;background:#1F2937 url('${a.url}') center/cover no-repeat;cursor:pointer" onclick="window._openAttStripAt('${groupId}',${i})" title="${(a.uploadedBy||'')}"></div>`;
+      }
+      const cls = ext2cls[ext] || 'etc';
+      const color = ext2color[ext] || '#6B7280';
+      return `<div class="ns-strip-thumb file" style="width:${size}px;height:${size}px;border-radius:5px;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:${Math.max(8,size*0.27)}px;cursor:pointer" onclick="window._openAttStripAt('${groupId}',${i})" title="${(a.name||'')}">${(ext||'?').toUpperCase().slice(0,4)}</div>`;
+    }).join('');
+    const moreCell = more > 0 ? `<div class="ns-strip-more" style="width:${size}px;height:${size}px;border-radius:5px;background:#F3F4F6;border:1px dashed #D1D5DB;display:flex;align-items:center;justify-content:center;font-size:11px;color:#6B7280;font-weight:700;cursor:pointer" onclick="window._openAttStripAt('${groupId}',${limit})">+${more}</div>` : '';
+    return `<div class="ns-att-strip" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px">${cells}${moreCell}</div>`;
+  };
+  window._openAttStripAt = function(groupId, idx){
+    try {
+      const arr = window['__ns_strip_data_' + groupId];
+      if (Array.isArray(arr) && arr.length) window.NS_LIGHTBOX.open(arr, idx);
+    } catch(_) {}
+  };
 
   /* 전역 리렌더 — 'ns:data-changed' 발생 시 활성 화면 자동 갱신.
      화면별 renderer 가 호출되며, 모달/입력 상태는 renderer 가 자체적으로 보존해야 함.
