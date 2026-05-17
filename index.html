@@ -12259,10 +12259,24 @@ ${text.slice(0, 4000)}`;
         return (typeof window._threadMigrate === 'function')
                 ? window._threadMigrate(draft) : draft;
       })(),
-      // VAN 서류 진행
-      vandocs: (window._jobVandocsDraft && typeof window._jobVandocsDraft === 'object')
-              ? JSON.parse(JSON.stringify(window._jobVandocsDraft))
-              : { van:{status:'접수',tid:'',serial:''}, easy:{status:'접수',tid:''}, kakao:{status:'접수',tid:''} },
+      // VAN 서류 진행 — 신규 폼은 read-only 표시이므로 매장 프로필 스냅샷 저장
+      vandocs: (function(){
+        const s = storeMatch;
+        if (s) {
+          const vp = s.vanProfile || {};
+          const pp = s.payProfile || {};
+          const vans = {};
+          ['KOCES','NICE','KIS','KSNET'].forEach(b => {
+            if (vp[b] && vp[b].tid) vans[b] = { status:'접수', tid:vp[b].tid, serial:vp[b].serial||'' };
+          });
+          return {
+            vans,
+            easy:  (pp['간편결제']   && pp['간편결제'].tid)   ? { status:'접수', tid: pp['간편결제'].tid }   : { status:'접수', tid:'' },
+            kakao: (pp['카카오페이'] && pp['카카오페이'].tid) ? { status:'접수', tid: pp['카카오페이'].tid } : { status:'접수', tid:'' },
+          };
+        }
+        return { vans:{}, easy:{status:'접수',tid:''}, kakao:{status:'접수',tid:''} };
+      })(),
       status:    isConsult ? '상담중' : (isAs ? '접수' : '진행중'),
       createdAt: Date.now()
     };
@@ -12499,23 +12513,99 @@ ${text.slice(0, 4000)}`;
     try { _applyAsInlineEditMode(name); } catch(e) { console.warn('[asInlineEdit] ', e); }
     // VAN/간편결제 프로필 표시 — store DB 에서 조회
     try { _renderJobStoreVanProfile(name, biz); } catch(e) { console.warn('[vanProfile] ', e); }
-    // VAN 서류 진행 draft 에도 매장 프로필 prefill (값 있는 칸은 보존)
-    try {
-      const stores2 = (typeof getStores === 'function') ? (getStores() || []) : [];
-      const normFn2 = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s=>String(s||'').toLowerCase().replace(/\s+/g,''));
-      const bNorm2 = String(biz||'').replace(/\D/g,'');
-      let st = null;
-      if (bNorm2 && bNorm2.length === 10) st = stores2.find(s => String(s.biz||'').replace(/\D/g,'') === bNorm2);
-      if (!st && name) st = stores2.find(s => normFn2(s.name||'') === normFn2(name));
-      if (st && typeof window._vandocPrefillFromStore === 'function') {
-        window._jobVandocsDraft = window._vandocPrefillFromStore(window._jobVandocsDraft || {}, st);
-        if (typeof window._renderJobVandocs === 'function') {
-          window._renderJobVandocs('jobVandocsContainer', window._jobVandocsDraft, { editable:true, jobId:null, draftMode:true });
-        }
-      }
-    } catch(e) { console.warn('[vandocPrefill] ', e); }
+    // VAN 서류 진행 — 매장 정보로 read-only 표시 갱신
+    try { _renderStoreVanInfoReadonly('jobVandocsContainer', name, biz); } catch(e) { console.warn('[vandocReadonly] ', e); }
   }
   window.pickJobStore = pickJobStore;
+
+  // 신규 폼 — 매장의 VAN/간편결제 정보를 read-only 카드로 표시
+  // (편집 X — VAN 메뉴/매장 상세 모달에서만 편집. 신규 폼은 조회 전용)
+  function _findStoreByNameOrBiz(name, biz) {
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s=>String(s||'').toLowerCase().replace(/\s+/g,''));
+    const bNorm = String(biz||'').replace(/\D/g,'');
+    if (bNorm && bNorm.length === 10) {
+      const m = stores.find(s => String(s.biz||s.bizno||s.businessNumber||'').replace(/\D/g,'') === bNorm);
+      if (m) return m;
+    }
+    if (name) {
+      const nNorm = normFn(name);
+      const m = stores.find(s => normFn(s.name||'') === nNorm);
+      if (m) return m;
+    }
+    return null;
+  }
+
+  function _renderStoreVanInfoReadonly(containerId, name, biz) {
+    const root = document.getElementById(containerId);
+    if (!root) return;
+    const escH = (s) => String(s||'').replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
+    if (!name && !biz) {
+      root.innerHTML = `<div style="background:#F9FAFB;border:1px dashed var(--gray-300);border-radius:10px;padding:14px;text-align:center;color:var(--gray-400);font-size:12px">매장을 선택하면 등록된 VAN / 간편결제 / 카카오페이 정보가 표시됩니다.</div>`;
+      return;
+    }
+    const store = _findStoreByNameOrBiz(name, biz);
+    if (!store) {
+      root.innerHTML = `<div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:12px;font-size:11.5px;color:#92400E">⚠ 매장 정보를 찾을 수 없습니다 (미등록 가맹점 모드이거나 이름이 일치하지 않을 수 있음)</div>`;
+      return;
+    }
+    const vp = store.vanProfile || {};
+    const pp = store.payProfile || {};
+    const VAN_BRANDS = ['KOCES','NICE','KIS','KSNET'];
+    const vBrands = VAN_BRANDS.filter(b => vp[b] && vp[b].tid);
+    const pBrands = ['간편결제','카카오페이'].filter(b => pp[b] && pp[b].tid);
+    if (vBrands.length === 0 && pBrands.length === 0) {
+      root.innerHTML = `<div style="background:#F9FAFB;border:1px solid var(--gray-200);border-radius:10px;padding:12px 14px">
+        <div style="font-weight:700;color:var(--gray-700);font-size:12.5px;margin-bottom:4px">📑 VAN / 간편결제 / 카카오페이 정보</div>
+        <div style="font-size:11.5px;color:var(--gray-500)">이 매장에 등록된 VAN/간편결제 정보가 없습니다. VAN 메뉴에서 등록하세요.</div>
+      </div>`;
+      return;
+    }
+    const fmtTs = (t) => t ? new Date(t).toLocaleDateString('ko-KR') : '';
+    const vCards = vBrands.map(b => {
+      const e = vp[b];
+      const showSerial = (b === 'KOCES');
+      return `<div style="background:#fff;border:1px solid #BFDBFE;border-left:4px solid #1d4ed8;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+          <div style="font-weight:700;color:#1d4ed8;font-size:13px">💳 ${escH(b)}</div>
+          <div style="font-size:10px;color:var(--gray-400)">${fmtTs(e.updatedAt)}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:${showSerial?'1fr 1fr':'1fr'};gap:6px">
+          <div>
+            <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:2px">TID</div>
+            <div style="padding:6px 8px;background:#F8FAFC;border:1px solid var(--gray-200);border-radius:6px;font-family:monospace;font-size:12px;color:var(--gray-800)">${escH(e.tid||'-')}</div>
+          </div>
+          ${showSerial ? `<div>
+            <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:2px">Serial</div>
+            <div style="padding:6px 8px;background:#F8FAFC;border:1px solid var(--gray-200);border-radius:6px;font-family:monospace;font-size:12px;color:var(--gray-800)">${escH(e.serial||'-')}</div>
+          </div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+    const pCards = pBrands.map(b => {
+      const e = pp[b];
+      const icon = b === '간편결제' ? '📱' : '🟡';
+      return `<div style="background:#fff;border:1px solid #FCD34D;border-left:4px solid #92400E;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+          <div style="font-weight:700;color:#92400E;font-size:13px">${icon} ${escH(b)}</div>
+          <div style="font-size:10px;color:var(--gray-400)">${fmtTs(e.updatedAt)}</div>
+        </div>
+        <div>
+          <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:2px">TID</div>
+          <div style="padding:6px 8px;background:#F8FAFC;border:1px solid var(--gray-200);border-radius:6px;font-family:monospace;font-size:12px;color:var(--gray-800)">${escH(e.tid||'-')}</div>
+        </div>
+      </div>`;
+    }).join('');
+    root.innerHTML = `
+      <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:12px 14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+          <div style="font-weight:700;color:#1E40AF;font-size:13.5px">📑 VAN / 간편결제 / 카카오페이 정보</div>
+          <div style="font-size:10.5px;color:#1E40AF;opacity:0.8">조회 전용 — 편집은 VAN 메뉴/매장 상세에서</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">${vCards}${pCards}</div>
+      </div>`;
+  }
+  window._renderStoreVanInfoReadonly = _renderStoreVanInfoReadonly;
 
   // 신규 폼 — 선택된 매장의 VAN/간편결제 프로필 표시 (조회 전용)
   function _renderJobStoreVanProfile(name, biz) {
@@ -14915,7 +15005,8 @@ ${text.slice(0, 4000)}`;
     window._jobThreadJobId = null;
     window._jobVandocsDraft = { van:{status:'접수',tid:'',serial:''}, easy:{status:'접수',tid:''}, kakao:{status:'접수',tid:''} };
     try { if (typeof window._renderThreadGroups === 'function') window._renderThreadGroups('jobThreadContainer', window._jobThreadDraft, { editable:true, jobId:null, draftMode:true }); } catch(e){}
-    try { if (typeof window._renderJobVandocs === 'function') window._renderJobVandocs('jobVandocsContainer', window._jobVandocsDraft, { editable:true, jobId:null, draftMode:true }); } catch(e){}
+    // 신규 폼의 VAN 섹션은 read-only — 매장 선택 시 store.vanProfile/payProfile 표시
+    try { if (typeof _renderStoreVanInfoReadonly === 'function') _renderStoreVanInfoReadonly('jobVandocsContainer', '', ''); } catch(e){}
     // 장비 카운터 (당구공) — buildBallSelectors 가 다시 그리지만 데이터 카운터는 별도
     try { if (typeof _resetEquipCounters === 'function') _resetEquipCounters(); } catch(e){}
     // 등록 직후 다시 열 때 잔여 selected store id 도 초기화
