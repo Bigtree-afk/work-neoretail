@@ -1912,6 +1912,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <div class="filter-chip" data-st="조사완료" onclick="window._stocktakeHubSetFilter(this,'조사완료')">조사완료</div>
           <div class="filter-chip" data-st="정산" onclick="window._stocktakeHubSetFilter(this,'정산')">정산</div>
           <div class="filter-chip" data-st="마감" onclick="window._stocktakeHubSetFilter(this,'마감')">마감</div>
+          <div class="filter-chip" data-st="미수금" onclick="window._stocktakeHubSetFilter(this,'미수금')" style="border-color:#F59E0B;color:#B45309">💰 미수금</div>
         </div>
         <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="window._stocktakeOpenEditor()">+ 재고조사 등록</button>
       </div>
@@ -4040,6 +4041,34 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </label>
         </div>
       </div>
+      <!-- 비용 항목 — 식사 / 교통비 / 기타 -->
+      <div style="border-top:1px solid var(--gray-200);margin:14px 0 8px;padding-top:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap">
+          <div style="font-weight:700;font-size:13px;color:var(--gray-800)">💸 비용 항목</div>
+          <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 9px" onclick="window._stocktakeAddExpense('식사')">🍱 식사</button>
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 9px" onclick="window._stocktakeAddExpense('교통비')">🚗 교통비</button>
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 9px" onclick="window._stocktakeAddExpense('기타')">📦 기타</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table id="stEditorExpenses" style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#F9FAFB">
+                <th style="padding:5px 4px;text-align:left;border-bottom:1px solid var(--gray-200);font-size:11px;width:90px">분류</th>
+                <th style="padding:5px 4px;text-align:left;border-bottom:1px solid var(--gray-200);font-size:11px">내역</th>
+                <th style="padding:5px 4px;text-align:right;border-bottom:1px solid var(--gray-200);font-size:11px;width:120px">금액(원)</th>
+                <th style="padding:5px 4px;border-bottom:1px solid var(--gray-200);width:36px"></th>
+              </tr>
+            </thead>
+            <tbody id="stEditorExpensesBody"></tbody>
+            <tfoot>
+              <tr><td colspan="2" style="text-align:right;padding:6px 4px;font-size:12px;font-weight:600;color:var(--gray-700)">비용 합계</td><td id="stEditorTotalExpense" style="text-align:right;padding:6px 4px;font-weight:700;color:#B45309">0원</td><td></td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
       <div style="border-top:1px solid var(--gray-200);margin:14px 0 8px;padding-top:10px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap">
           <div style="font-weight:700;font-size:13px;color:var(--gray-800)">👥 재고조사 참여 인원 / 수당</div>
@@ -4074,7 +4103,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <tbody id="stEditorWorkersBody"></tbody>
             <tfoot>
               <tr><td colspan="5" style="text-align:right;padding:6px 4px;font-size:12px;font-weight:600;color:var(--gray-700)">인건비 합계</td><td id="stEditorTotalLabor" style="text-align:right;padding:6px 4px;font-weight:700;color:#DC2626">0원</td><td colspan="2"></td></tr>
-              <tr><td colspan="5" style="text-align:right;padding:6px 4px;font-size:12px;font-weight:600;color:var(--gray-700)">예상 수익 (수수료 - 인건비)</td><td id="stEditorMargin" style="text-align:right;padding:6px 4px;font-weight:700">0원</td><td colspan="2"></td></tr>
+              <tr><td colspan="5" style="text-align:right;padding:6px 4px;font-size:12px;font-weight:600;color:var(--gray-700)">예상 수익 (수수료 - 인건비 - 비용)</td><td id="stEditorMargin" style="text-align:right;padding:6px 4px;font-weight:700">0원</td><td colspan="2"></td></tr>
             </tfoot>
           </table>
         </div>
@@ -5324,32 +5353,46 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
     const recs = window.getStocktakes() || [];
     // 상태별 카운트
-    const cnts = { all: recs.length, '상담':0, '일정확정':0, '조사완료':0, '정산':0, '마감':0 };
-    recs.forEach(r => { if (cnts[r.status] !== undefined) cnts[r.status]++; });
+    const cnts = { all: recs.length, '상담':0, '일정확정':0, '조사완료':0, '정산':0, '마감':0, '미수금':0 };
+    recs.forEach(r => {
+      if (cnts[r.status] !== undefined) cnts[r.status]++;
+      const recv = Math.max(0, (Number(r.fee)||0) - (Number(r.collected)||0));
+      if (recv > 0) cnts['미수금']++;
+    });
     document.querySelectorAll('#stocktakeHubFilters .filter-chip').forEach(c => {
       const k = c.getAttribute('data-st');
-      const lbl = (k==='all'?'전체':k) + ` (${cnts[k]||0})`;
+      const lblBase = (k==='all'?'전체':k);
+      const lbl = lblBase + ` (${cnts[k]||0})`;
       c.textContent = lbl;
+      if (k === '미수금') c.textContent = '💰 미수금 (' + (cnts['미수금']||0) + ')';
     });
 
     // 요약 카드 (총합)
     const totalFee = recs.reduce((a,r)=>a+(Number(r.fee)||0),0);
     const totalLabor = recs.reduce((a,r)=>a+(Number(r.totalLabor)||0),0);
-    const totalMargin = totalFee - totalLabor;
+    const totalExpense = recs.reduce((a,r)=>a+(Number(r.totalExpense)||0),0);
+    const totalMargin = totalFee - totalLabor - totalExpense;
     const totalCollected = recs.reduce((a,r)=>a+(Number(r.collected)||0),0);
+    const totalReceivable = Math.max(0, totalFee - totalCollected);
     if (sumEl) {
       sumEl.innerHTML = `
-        <div class="card" style="padding:10px 14px;flex:1;min-width:140px"><div style="font-size:11px;color:var(--gray-500);font-weight:600">총 건수</div><div style="font-size:18px;font-weight:800;color:var(--gray-800)">${recs.length}건</div></div>
-        <div class="card" style="padding:10px 14px;flex:1;min-width:140px"><div style="font-size:11px;color:var(--gray-500);font-weight:600">총 수수료</div><div style="font-size:16px;font-weight:800;color:#3B82F6">${won(totalFee)}</div></div>
-        <div class="card" style="padding:10px 14px;flex:1;min-width:140px"><div style="font-size:11px;color:var(--gray-500);font-weight:600">총 인건비</div><div style="font-size:16px;font-weight:800;color:#DC2626">${won(totalLabor)}</div></div>
-        <div class="card" style="padding:10px 14px;flex:1;min-width:140px"><div style="font-size:11px;color:var(--gray-500);font-weight:600">총 수익</div><div style="font-size:16px;font-weight:800;color:${totalMargin>=0?'#16A34A':'#DC2626'}">${won(totalMargin)}</div></div>
-        <div class="card" style="padding:10px 14px;flex:1;min-width:140px"><div style="font-size:11px;color:var(--gray-500);font-weight:600">총 수금</div><div style="font-size:16px;font-weight:800;color:var(--gray-700)">${won(totalCollected)}</div></div>
+        <div class="card" style="padding:10px 14px;flex:1;min-width:130px"><div style="font-size:11px;color:var(--gray-500);font-weight:600">총 건수</div><div style="font-size:18px;font-weight:800;color:var(--gray-800)">${recs.length}건</div></div>
+        <div class="card" style="padding:10px 14px;flex:1;min-width:130px"><div style="font-size:11px;color:var(--gray-500);font-weight:600">총 수수료</div><div style="font-size:16px;font-weight:800;color:#3B82F6">${won(totalFee)}</div></div>
+        <div class="card" style="padding:10px 14px;flex:1;min-width:130px"><div style="font-size:11px;color:var(--gray-500);font-weight:600">총 인건비</div><div style="font-size:16px;font-weight:800;color:#DC2626">${won(totalLabor)}</div></div>
+        <div class="card" style="padding:10px 14px;flex:1;min-width:130px"><div style="font-size:11px;color:var(--gray-500);font-weight:600">총 비용</div><div style="font-size:16px;font-weight:800;color:#B45309">${won(totalExpense)}</div></div>
+        <div class="card" style="padding:10px 14px;flex:1;min-width:130px"><div style="font-size:11px;color:var(--gray-500);font-weight:600">총 수익</div><div style="font-size:16px;font-weight:800;color:${totalMargin>=0?'#16A34A':'#DC2626'}">${won(totalMargin)}</div></div>
+        <div class="card" style="padding:10px 14px;flex:1;min-width:130px"><div style="font-size:11px;color:var(--gray-500);font-weight:600">총 수금</div><div style="font-size:16px;font-weight:800;color:var(--gray-700)">${won(totalCollected)}</div></div>
+        <div class="card" style="padding:10px 14px;flex:1;min-width:130px;border-left:3px solid #F59E0B"><div style="font-size:11px;color:var(--gray-500);font-weight:600">💰 미수금</div><div style="font-size:16px;font-weight:800;color:#B45309">${won(totalReceivable)}</div></div>
       `;
     }
 
     // 필터링
     let displayed = recs.slice();
-    if (st.filter !== 'all') displayed = displayed.filter(r => r.status === st.filter);
+    if (st.filter === '미수금') {
+      displayed = displayed.filter(r => Math.max(0, (Number(r.fee)||0) - (Number(r.collected)||0)) > 0);
+    } else if (st.filter !== 'all') {
+      displayed = displayed.filter(r => r.status === st.filter);
+    }
     // 정렬: 예정일/완료일/상담일 desc, 그다음 createdAt desc
     displayed.sort((a,b) => {
       const ka = a.scheduleDate || a.consultDate || a.doneDate || '';
@@ -5367,7 +5410,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       const color = window._stStatusColor(r.status);
       const fee = Number(r.fee)||0;
       const labor = Number(r.totalLabor)||0;
-      const margin = fee - labor;
+      const expense = Number(r.totalExpense)||0;
+      const margin = fee - labor - expense;
+      const collected = Number(r.collected)||0;
+      const receivable = Math.max(0, fee - collected);
       const expected = Number(r.expectedAmount)||0;
       const actual = Number(r.actualAmount)||0;
       const headcount = Number(r.headcount)||(r.workers?r.workers.length:0);
@@ -5391,7 +5437,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
               <div style="font-size:11.5px;color:var(--gray-700);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap">
                 <span>수수료 <strong style="color:#3B82F6">${won(fee)}</strong></span>
                 <span>인건비 <strong style="color:#DC2626">${won(labor)}</strong></span>
+                ${expense?`<span>비용 <strong style="color:#B45309">${won(expense)}</strong></span>`:''}
                 <span>수익 <strong style="color:${margin>=0?'#16A34A':'#DC2626'}">${won(margin)}</strong></span>
+                ${receivable>0?`<span style="color:#B45309">미수 <strong>${won(receivable)}</strong></span>`:`<span style="color:#15803d">수금완료 ✓</span>`}
+                ${r.paymentMethod?`<span style="color:var(--gray-500);font-size:10.5px">· ${esc(r.paymentMethod)}</span>`:''}
               </div>
               ${r.memo?`<div style="margin-top:6px;font-size:11.5px;color:var(--gray-500);font-style:italic">📝 ${esc(r.memo)}</div>`:''}
             </div>
@@ -5491,6 +5540,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     const tbody = document.getElementById('stEditorWorkersBody');
     tbody.innerHTML = '';
     (rec.workers || []).forEach(w => window._stocktakeAddWorkerRow(w));
+    // 비용 항목 렌더
+    const expBody = document.getElementById('stEditorExpensesBody');
+    if (expBody) {
+      expBody.innerHTML = '';
+      (rec.expenses || []).forEach(e => window._stocktakeAddExpense(e.category||'기타', e));
+    }
     window._stocktakeRecalcTotals();
 
     // readonly 모드 — 모든 입력 비활성, 저장 버튼 숨김
@@ -5706,6 +5761,36 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     document.querySelectorAll('#stEditorWorkersBody tr.st-worker-row .stw-sel').forEach(cb => { cb.checked = !!checked; });
   };
 
+  /* ── 비용 항목 (식사 / 교통비 / 기타) ── */
+  window._stocktakeAddExpense = function(category, e) {
+    e = e || { category: category||'기타', note:'', amount:0 };
+    const tbody = document.getElementById('stEditorExpensesBody');
+    if (!tbody) return;
+    const tr = document.createElement('tr');
+    tr.className = 'st-expense-row';
+    const catOptions = ['식사','교통비','기타'];
+    const opts = catOptions.map(c => `<option value="${c}" ${e.category===c?'selected':''}>${c}</option>`).join('');
+    tr.innerHTML = `
+      <td style="padding:3px 3px"><select class="ste-cat" style="width:100%;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px">${opts}</select></td>
+      <td style="padding:3px 3px"><input class="ste-note" type="text" value="${window._stEsc(e.note||'')}" placeholder="내역 (예: 점심 4인분)" style="width:100%;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px"></td>
+      <td style="padding:3px 3px"><input class="ste-amt" type="text" inputmode="numeric" data-money="1" value="${e.amount?Number(e.amount).toLocaleString('ko-KR'):''}" placeholder="금액" style="width:100%;padding:5px 6px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;text-align:right"></td>
+      <td style="padding:3px 3px;text-align:center"><button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:11px;border-color:#DC2626;color:#DC2626" onclick="this.closest('tr').remove();window._stocktakeRecalcTotals()">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+    const $amt = tr.querySelector('.ste-amt');
+    $amt.addEventListener('input', () => { window._stFormatMoneyInput($amt); window._stocktakeRecalcTotals(); });
+  };
+
+  window._stocktakeRecalcExpenses = function() {
+    let total = 0;
+    document.querySelectorAll('#stEditorExpensesBody tr.st-expense-row').forEach(tr => {
+      total += window._stReadMoney(tr.querySelector('.ste-amt'));
+    });
+    const el = document.getElementById('stEditorTotalExpense');
+    if (el) el.textContent = total.toLocaleString('ko-KR') + '원';
+    return total;
+  };
+
   /* 모달 내 data-money 요소에 자동 포맷 바인딩 (DOMContentLoaded 후 1회) */
   document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
@@ -5747,18 +5832,20 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       total += window._stReadMoney(tr.querySelector('.stw-pay'));
     });
     document.getElementById('stEditorTotalLabor').textContent = total.toLocaleString('ko-KR') + '원';
-    window._stocktakeRecalcMargin(total);
+    const totalExp = window._stocktakeRecalcExpenses();
+    window._stocktakeRecalcMargin(total, totalExp);
   };
 
-  window._stocktakeRecalcMargin = function(totalLabor) {
+  window._stocktakeRecalcMargin = function(totalLabor, totalExpense) {
     if (totalLabor == null) {
       totalLabor = 0;
       document.querySelectorAll('#stEditorWorkersBody tr.st-worker-row').forEach(tr => {
         totalLabor += window._stReadMoney(tr.querySelector('.stw-pay'));
       });
     }
+    if (totalExpense == null) totalExpense = window._stocktakeRecalcExpenses();
     const fee = window._stReadMoney(document.getElementById('stEditorFee'));
-    const margin = fee - totalLabor;
+    const margin = fee - totalLabor - totalExpense;
     const mEl = document.getElementById('stEditorMargin');
     if (mEl) {
       mEl.textContent = margin.toLocaleString('ko-KR') + '원';
@@ -5815,8 +5902,21 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       });
     });
     const totalLabor = workers.reduce((a,w)=>a+(Number(w.payTotal)||0),0);
+    // 비용 수집
+    const expenses = [];
+    document.querySelectorAll('#stEditorExpensesBody tr.st-expense-row').forEach(tr => {
+      const amount = window._stReadMoney(tr.querySelector('.ste-amt'));
+      const note = String(tr.querySelector('.ste-note').value||'').trim();
+      if (!amount && !note) return;
+      expenses.push({
+        category: tr.querySelector('.ste-cat').value || '기타',
+        note,
+        amount,
+      });
+    });
+    const totalExpense = expenses.reduce((a,e)=>a+(Number(e.amount)||0),0);
     const fee = window._stReadMoney(document.getElementById('stEditorFee'));
-    const margin = fee - totalLabor;
+    const margin = fee - totalLabor - totalExpense;
     const paymentMethod = (document.querySelector('input[name="stPaymentMethod"]:checked')?.value) || '현금';
 
     const rec = {
@@ -5834,6 +5934,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       headcount: Number(document.getElementById('stEditorHeadcount').value) || workers.length,
       workers,
       totalLabor,
+      expenses,
+      totalExpense,
       collected: window._stReadMoney(document.getElementById('stEditorCollected')),
       fee,
       margin,
