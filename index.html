@@ -739,10 +739,13 @@
   .tl-date { font-size: 12px; color: var(--gray-400); }
   .tl-desc { font-size: 12.5px; color: var(--gray-600); margin-top: 4px; }
 
-  /* 재고조사 서브탭 */
-  .st-subtab { background:transparent; border:0; padding:8px 14px; font-size:12.5px; font-weight:700; color:var(--gray-500); cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; font-family:inherit; }
-  .st-subtab:hover { color:var(--gray-700); background:var(--gray-50); }
-  .st-subtab.active { color:var(--primary); border-bottom-color:var(--primary); }
+  /* 재고조사 서브탭 — 헤더 카드형 */
+  .st-subtabs-card { background:#FEF7E6; border:1px solid #FCD34D33; border-radius:12px; padding:6px 14px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+  .st-subtabs-row { display:flex; gap:2px; flex-wrap:wrap; align-items:center }
+  .st-subtabs-date { font-size:12px; color:var(--gray-500); font-weight:600; padding:0 6px }
+  .st-subtab { background:transparent; border:0; padding:9px 14px; font-size:13px; font-weight:700; color:var(--gray-600); cursor:pointer; border-radius:8px; font-family:inherit; transition:background .15s, color .15s }
+  .st-subtab:hover { color:var(--gray-800); background:rgba(255,255,255,0.6) }
+  .st-subtab.active { background:#fff; color:#B45309; box-shadow:0 1px 3px rgba(0,0,0,.08) }
   .st-period-btn { padding:4px 10px; background:#fff; border:1px solid var(--gray-200); border-radius:14px; font-size:11px; font-weight:600; color:var(--gray-600); cursor:pointer; font-family:inherit; }
   .st-period-btn.active { background:#DBEAFE; border-color:#1d4ed8; color:#1d4ed8; }
   .st-agg-table { width:100%; border-collapse:collapse; font-size:12px; background:#fff; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden }
@@ -1918,13 +1921,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <!-- ═══════════════════════════════════════ -->
     <div class="screen" id="screen-stocktakehub">
       <!-- 서브 탭 바 — 재고조사 / 매장별 / 기간별 / 정산수금 / 인건비 / 비용 -->
-      <div class="st-subtabs" id="stocktakeSubtabs" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;border-bottom:2px solid var(--gray-200);padding-bottom:0">
-        <button class="st-subtab active" data-pane="list" onclick="window._stocktakeSwitchPane('list')">📦 재고조사</button>
-        <button class="st-subtab" data-pane="byStore" onclick="window._stocktakeSwitchPane('byStore')">🏪 매장별 집계</button>
-        <button class="st-subtab" data-pane="byPeriod" onclick="window._stocktakeSwitchPane('byPeriod')">📅 기간별</button>
-        <button class="st-subtab" data-pane="receivable" onclick="window._stocktakeSwitchPane('receivable')">💰 정산/수금</button>
-        <button class="st-subtab" data-pane="labor" onclick="window._stocktakeSwitchPane('labor')">👥 인건비 정산</button>
-        <button class="st-subtab" data-pane="expense" onclick="window._stocktakeSwitchPane('expense')">💸 비용 분석</button>
+      <div class="st-subtabs-card" id="stocktakeSubtabs">
+        <div class="st-subtabs-row">
+          <button class="st-subtab active" data-pane="list" onclick="window._stocktakeSwitchPane('list')">📦 재고조사</button>
+          <button class="st-subtab" data-pane="byStore" onclick="window._stocktakeSwitchPane('byStore')">🏪 매장별 집계</button>
+          <button class="st-subtab" data-pane="byPeriod" onclick="window._stocktakeSwitchPane('byPeriod')">📅 기간별</button>
+          <button class="st-subtab" data-pane="receivable" onclick="window._stocktakeSwitchPane('receivable')">💰 정산/수금</button>
+          <button class="st-subtab" data-pane="labor" onclick="window._stocktakeSwitchPane('labor')">👥 인건비 정산</button>
+          <button class="st-subtab" data-pane="expense" onclick="window._stocktakeSwitchPane('expense')">💸 비용 분석</button>
+        </div>
+        <div class="st-subtabs-date" id="stocktakeTodayDate"></div>
       </div>
 
       <!-- Pane: 재고조사 (레코드 리스트) -->
@@ -5409,8 +5415,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
      ───────────────────────────────── */
   window._stocktakeCurrentPane = 'list';
   window._stocktakePeriodGroup = 'month';
+  function _stocktakeUpdateDate() {
+    const el = document.getElementById('stocktakeTodayDate');
+    if (!el) return;
+    try {
+      const d = new Date();
+      const dow = ['일','월','화','수','목','금','토'][d.getDay()];
+      el.textContent = `${d.getFullYear()}. ${String(d.getMonth()+1).padStart(2,'0')}. ${String(d.getDate()).padStart(2,'0')}. (${dow})`;
+    } catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', () => setTimeout(_stocktakeUpdateDate, 300));
   window._stocktakeSwitchPane = function(pane) {
     window._stocktakeCurrentPane = pane;
+    _stocktakeUpdateDate();
     document.querySelectorAll('#stocktakeSubtabs .st-subtab').forEach(b => b.classList.toggle('active', b.dataset.pane === pane));
     document.querySelectorAll('#screen-stocktakehub .st-pane').forEach(p => {
       const id = p.id || '';
