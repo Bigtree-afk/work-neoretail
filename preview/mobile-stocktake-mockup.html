@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>📦 재고조사 모바일 — 현장 사용자 UI 목업</title>
+<style>
+  :root {
+    --primary:#2563EB; --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
+    --gray-300:#D1D5DB; --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-600:#4B5563;
+    --gray-700:#374151; --gray-800:#1F2937; --line:#06C755; --line-light:#06C7551A;
+    --beige:#FEF7E6; --danger:#EF4444; --warn:#F59E0B; --success:#10B981;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans KR',sans-serif; background:#F0F2F5; margin:0; padding:18px; color:var(--gray-800); font-size:13px; line-height:1.5 }
+  h1 { font-size:17px; margin:0 0 6px }
+  h2 { font-size:14px; margin:24px 0 10px; padding-bottom:5px; border-bottom:2px solid var(--gray-200); color:var(--gray-700) }
+  .lead { font-size:12px; color:var(--gray-500); margin-bottom:14px }
+
+  .frames { display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:18px; align-items:start }
+  .device {
+    background:#1F2937; border-radius:34px; padding:8px;
+    box-shadow:0 12px 36px rgba(0,0,0,.18);
+    width:380px; max-width:100%; justify-self:center;
+  }
+  .notch { width:130px; height:24px; background:#1F2937; margin:-2px auto 0; border-radius:0 0 14px 14px; position:relative; z-index:5 }
+  .screen { background:#F0F2F5; border-radius:28px; overflow:hidden; height:712px; position:relative; display:flex; flex-direction:column }
+  .device-title { text-align:center; font-size:11px; color:var(--gray-500); margin-top:6px; font-weight:600 }
+
+  /* iOS Status Bar */
+  .statusbar { background:#fff; padding:5px 18px 0; display:flex; align-items:center; justify-content:space-between; font-size:11.5px; font-weight:700; color:var(--gray-800); height:24px }
+  .statusbar .icons { display:flex; gap:4px; font-size:10px }
+
+  /* App header */
+  .appbar { background:#fff; padding:12px 16px 10px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--gray-200) }
+  .appbar .back { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--gray-700); cursor:pointer }
+  .appbar .title { flex:1; font-weight:800; font-size:15px }
+  .appbar .badge { background:#06C7551A; color:#04A047; border-radius:11px; padding:2px 8px; font-size:10.5px; font-weight:800 }
+
+  /* Tabs */
+  .tabs { background:#fff; display:flex; padding:0 8px; border-bottom:1px solid var(--gray-200); overflow-x:auto; gap:0 }
+  .tab { padding:11px 10px; font-size:12px; font-weight:700; color:var(--gray-500); border-bottom:3px solid transparent; white-space:nowrap }
+  .tab.active { color:var(--primary); border-bottom-color:var(--primary) }
+
+  /* Body scroll */
+  .body { flex:1; overflow-y:auto; padding:12px 14px 90px; background:#F0F2F5 }
+
+  /* Cards */
+  .card { background:#fff; border-radius:12px; padding:13px 14px; margin-bottom:10px; box-shadow:0 1px 2px rgba(0,0,0,.04) }
+  .card.req { border-left:4px solid #3B82F6 }
+  .card.prog { border-left:4px solid #F59E0B }
+  .card.done { border-left:4px solid #10B981 }
+  .card .topline { display:flex; align-items:center; gap:6px; margin-bottom:6px }
+  .card .nm { font-weight:800; font-size:14px; flex:1 }
+  .pill { display:inline-block; padding:2px 8px; border-radius:11px; font-size:10px; font-weight:800 }
+  .pill.req { background:#DBEAFE; color:#1e40af }
+  .pill.prog { background:#FEF3C7; color:#92400E }
+  .pill.done { background:#DCFCE7; color:#15803d }
+  .pill.line { background:var(--line-light); color:#04A047 }
+  .card .meta { font-size:11px; color:var(--gray-500); margin-bottom:4px }
+  .card .summary { font-size:12.5px; color:var(--gray-700); margin-bottom:6px }
+  .card .actions-row { display:flex; gap:6px; margin-top:8px }
+  .btn-mini { flex:1; padding:8px 0; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; border:1.5px solid; text-align:center; background:#fff }
+  .btn-mini.prog { border-color:#F59E0B; color:#B45309 }
+  .btn-mini.done { border-color:#10B981; color:#15803d }
+  .btn-mini.line { background:var(--line); color:#fff; border-color:var(--line) }
+
+  /* Strip */
+  .strip { display:flex; gap:5px; flex-wrap:wrap; margin-top:6px }
+  .thumb { width:46px; height:46px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:9px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5); flex-shrink:0 }
+  .thumb.img1 { background:linear-gradient(135deg,#3B82F6,#1E3A8A) }
+  .thumb.img2 { background:linear-gradient(135deg,#10B981,#065F46) }
+  .thumb.img3 { background:linear-gradient(135deg,#F59E0B,#92400E) }
+  .thumb.pdf { background:#DC2626 }
+  .thumb.xls { background:#15803D }
+  .thumb.more { background:#F3F4F6; color:var(--gray-500); border:1px dashed var(--gray-300); text-shadow:none }
+
+  /* FAB / floating buttons */
+  .fab {
+    position:absolute; right:18px; bottom:24px;
+    background:var(--primary); color:#fff; width:58px; height:58px; border-radius:50%;
+    box-shadow:0 6px 18px rgba(37,99,235,.45); display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:300;
+  }
+  .fab.line { background:var(--line); right:84px; box-shadow:0 6px 18px rgba(6,199,85,.45) }
+  .fab-label { position:absolute; right:18px; bottom:88px; background:rgba(0,0,0,.7); color:#fff; padding:4px 11px; border-radius:14px; font-size:11px; font-weight:600 }
+
+  /* Bottom Sheet */
+  .sheet {
+    position:absolute; inset:0;
+    background:rgba(0,0,0,.5); z-index:8;
+    display:flex; align-items:flex-end;
+  }
+  .sheet-body {
+    background:#fff; width:100%;
+    border-radius:18px 18px 0 0; padding:14px 16px 26px;
+    box-shadow:0 -4px 16px rgba(0,0,0,.15);
+    max-height:88%; overflow-y:auto;
+  }
+  .sheet-handle { width:36px; height:4px; background:#D1D5DB; border-radius:3px; margin:0 auto 12px }
+  .sheet-title { font-weight:800; font-size:15px; margin-bottom:10px; display:flex; align-items:center; gap:8px }
+
+  /* Form */
+  .field { margin-bottom:10px }
+  .field-label { font-size:11px; font-weight:700; color:var(--gray-600); margin-bottom:4px; display:flex; align-items:center; gap:5px }
+  .field-input, .field-select, .field-textarea {
+    width:100%; padding:11px 12px; border:1.5px solid var(--gray-300); border-radius:9px;
+    font-size:14px; font-family:inherit; background:#fff;
+  }
+  .field-textarea { min-height:62px; resize:vertical }
+  .field-counter { font-size:10px; color:var(--gray-500); text-align:right; margin-top:2px }
+
+  /* Photo grid (large for thumb) */
+  .photo-grid-lg { display:grid; grid-template-columns:repeat(4,1fr); gap:7px }
+  .photo-lg { aspect-ratio:1; border-radius:9px; position:relative; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5) }
+  .photo-lg .x { position:absolute; top:-6px; right:-6px; background:#EF4444; color:#fff; width:22px; height:22px; border-radius:50%; font-size:13px; line-height:22px; text-align:center; font-weight:800; border:2px solid #fff }
+  .photo-lg.add {
+    background:#fff; border:2px dashed var(--gray-400); color:var(--gray-500); text-shadow:none;
+    display:flex; flex-direction:column; gap:1px; font-size:9px; font-weight:700;
+  }
+  .photo-lg.add .plus { font-size:24px; line-height:1 }
+  .photo-lg.add.camera { border-color:var(--primary); color:var(--primary); background:#EFF6FF }
+  .photo-lg.add.camera .icon { font-size:22px }
+
+  /* Big buttons */
+  .btn-big {
+    width:100%; padding:14px 0; border-radius:10px;
+    font-size:14.5px; font-weight:800; border:none; cursor:pointer; margin-bottom:8px;
+  }
+  .btn-big.primary { background:var(--primary); color:#fff }
+  .btn-big.line { background:var(--line); color:#fff }
+  .btn-big.warn { background:var(--warn); color:#fff }
+  .btn-big.success { background:var(--success); color:#fff }
+  .btn-big.ghost { background:#fff; color:var(--gray-700); border:1.5px solid var(--gray-300) }
+
+  /* LINE preview */
+  .line-preview {
+    background:#F3F4F6; border:1px dashed var(--line); border-radius:8px;
+    padding:9px 11px; font-family:'Noto Sans KR',monospace; font-size:12px; color:var(--gray-700);
+    margin:6px 0; line-height:1.5;
+  }
+  .line-preview .lbl { color:#04A047; font-weight:800; font-size:10.5px; display:block; margin-bottom:3px }
+
+  /* Tag */
+  .tag { display:inline-flex; align-items:center; gap:4px; background:#06C7551A; color:#04A047; border:1px solid #06C75533; border-radius:14px; padding:5px 11px; font-size:12px; font-weight:700; user-select:none; cursor:pointer }
+  .tag input { width:15px; height:15px; accent-color:var(--line); margin:0 }
+  .tag.warn { background:#FEE2E2; color:#991B1B; border-color:#FCA5A5 }
+
+  /* Section title */
+  .section-h { font-size:11.5px; font-weight:800; color:var(--gray-500); text-transform:uppercase; letter-spacing:.5px; margin:14px 0 8px; padding-left:2px }
+  .section-h:first-child { margin-top:0 }
+
+  /* Step indicator */
+  .stepper { display:flex; align-items:center; gap:0; margin:6px 0 14px }
+  .step { flex:1; text-align:center; font-size:10.5px; padding:6px 0; font-weight:700; color:var(--gray-500); position:relative }
+  .step.cur { color:var(--primary) }
+  .step.done { color:var(--success) }
+  .step .dot { display:block; width:24px; height:24px; border-radius:50%; background:var(--gray-300); color:#fff; line-height:24px; margin:0 auto 3px; font-size:11px; font-weight:800 }
+  .step.cur .dot { background:var(--primary) }
+  .step.done .dot { background:var(--success) }
+  .step:not(:last-child)::after { content:''; position:absolute; top:18px; left:60%; right:-40%; height:2px; background:var(--gray-300) }
+  .step.done:not(:last-child)::after { background:var(--success) }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position:absolute; left:0; right:0; bottom:0;
+    background:#fff; border-top:1px solid var(--gray-200);
+    display:flex; justify-content:space-around; padding:6px 0 10px;
+  }
+  .nav-item { flex:1; text-align:center; padding:6px 0; font-size:10.5px; font-weight:700; color:var(--gray-500); cursor:pointer; display:flex; flex-direction:column; gap:3px; align-items:center }
+  .nav-item .icn { font-size:21px; line-height:1 }
+  .nav-item.active { color:var(--primary) }
+
+  /* Toast */
+  .toast {
+    position:absolute; left:14px; right:14px; bottom:90px;
+    background:rgba(0,0,0,.85); color:#fff; padding:10px 14px;
+    border-radius:9px; font-size:12.5px; font-weight:600; z-index:9;
+    display:flex; align-items:center; gap:8px;
+  }
+
+  .annot { font-size:11px; color:var(--gray-500); padding:8px 11px; background:#FFFBEB; border-left:3px solid #FCD34D; border-radius:6px; margin:8px 0 }
+
+  code { background:#F3F4F6; padding:1px 5px; border-radius:3px; font-size:11.5px }
+</style>
+</head>
+<body>
+
+<h1>📱 재고조사 모바일 UI — 현장 작업자용 목업</h1>
+<p class="lead">
+  현장에서 한 손으로 빠르게 처리할 수 있게 설계.
+  매장 찾기 → 진행 추가 → 사진 촬영 → LINE 발송 흐름을 <b>탭 2~3번</b> 안에 끝낼 수 있게.<br>
+  <b>핵심</b>: 큰 터치 영역 (44px+), 카메라 즉시 진입, LINE 발송 디폴트 ON, 첨부 강조.
+</p>
+
+<div class="frames">
+
+<!-- ① 홈 / 작업 리스트 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>09:42</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div style="font-size:21px">📦</div>
+        <div class="title">재고조사</div>
+        <span class="badge">📡 5</span>
+      </div>
+      <div class="tabs">
+        <div class="tab active">진행 중 (3)</div>
+        <div class="tab">완료 (12)</div>
+        <div class="tab">전체</div>
+      </div>
+      <div class="body">
+        <div class="card prog">
+          <div class="topline">
+            <span class="pill prog">진행 중</span>
+            <span class="meta" style="margin:0">조사 5/18</span>
+          </div>
+          <div class="nm">정이가마트</div>
+          <div class="meta">350평 · 4명 · 예상 350,000원</div>
+          <div class="strip">
+            <div class="thumb img1">현장</div>
+            <div class="thumb img2">창고</div>
+            <div class="thumb img3">매장</div>
+            <span class="pill line">📡 2회</span>
+          </div>
+          <div class="actions-row">
+            <button class="btn-mini prog">🚗 진행 추가</button>
+            <button class="btn-mini done">✅ 완료</button>
+          </div>
+        </div>
+
+        <div class="card req">
+          <div class="topline">
+            <span class="pill req">요청접수</span>
+            <span class="meta" style="margin:0">5/19 예정</span>
+          </div>
+          <div class="nm">다봄(주)</div>
+          <div class="meta">220평 · 3명 · 예상 220,000원</div>
+          <div class="actions-row">
+            <button class="btn-mini prog">🚗 진행 시작</button>
+          </div>
+        </div>
+
+        <div class="card done">
+          <div class="topline">
+            <span class="pill done">완료</span>
+            <span class="meta" style="margin:0">5/15 완료</span>
+          </div>
+          <div class="nm">명동교자(1호점)</div>
+          <div class="meta">실재고 12,450,000원 · 수익 +30,000원</div>
+          <div class="strip">
+            <div class="thumb img1">결과1</div>
+            <div class="thumb img2">결과2</div>
+            <div class="thumb xls">XLS</div>
+            <span class="pill line">📡 3회</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="fab-label" style="bottom:155px">📷 빠른 진행 +</div>
+      <div class="fab line">📡</div>
+      <div class="fab">＋</div>
+
+      <div class="bottom-nav">
+        <div class="nav-item active"><div class="icn">📦</div>재고</div>
+        <div class="nav-item"><div class="icn">🔧</div>AS</div>
+        <div class="nav-item"><div class="icn">🆕</div>신규</div>
+        <div class="nav-item"><div class="icn">🏪</div>매장</div>
+        <div class="nav-item"><div class="icn">⚙️</div>설정</div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">① 홈 / 작업 리스트 — 상단 탭 + 카드 + 우하단 FAB</div>
+</div>
+
+<!-- ② 진행 추가 시트 — 카메라/사진/LINE 통합 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen" style="background:rgba(0,0,0,.4)">
+      <div class="statusbar"><span>09:43</span><span class="icons">📶 📡 🔋</span></div>
+      <!-- 위쪽 잔상 (어둡게) -->
+      <div style="background:#fff;height:90px;opacity:.4"></div>
+
+      <!-- Bottom sheet (펼침) -->
+      <div style="background:#fff;border-radius:18px 18px 0 0;flex:1;padding:14px 16px;overflow-y:auto">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">🚗 정이가마트 — 진행 추가</div>
+
+        <div class="stepper">
+          <div class="step done"><span class="dot">✓</span>요청</div>
+          <div class="step cur"><span class="dot">2</span>진행</div>
+          <div class="step"><span class="dot">3</span>완료</div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">📝 진행 내용 (≤30자)<span style="margin-left:auto;color:var(--gray-400)" class="field-counter">21/30</span></div>
+          <textarea class="field-textarea">창고 영역 완료, 매장 진행중</textarea>
+        </div>
+
+        <div class="field">
+          <div class="field-label">📷 사진</div>
+          <div class="photo-grid-lg">
+            <div class="photo-lg" style="background:linear-gradient(135deg,#3B82F6,#1E3A8A)">창고<span class="x">×</span></div>
+            <div class="photo-lg" style="background:linear-gradient(135deg,#10B981,#065F46)">매장<span class="x">×</span></div>
+            <div class="photo-lg add camera">
+              <span class="icon">📸</span>
+              <span>촬영</span>
+            </div>
+            <div class="photo-lg add">
+              <span class="plus">＋</span>
+              <span>앨범</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="tag"><input type="checkbox" checked>📡 LINE 발송</span>
+          <span style="margin-left:6px;font-size:10.5px;color:var(--gray-500)">→ 재고조사 알림방</span>
+        </div>
+
+        <div class="line-preview">
+          <span class="lbl">📡 미리보기</span>
+          정이가마트 : 2026-05-18 ; 창고 영역 완료, 매장 진행중 · 📷 2장
+        </div>
+
+        <button class="btn-big line">📡 진행 추가 + LINE 발송</button>
+        <button class="btn-big ghost">취소</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">② 진행 추가 바텀시트 — 카메라 즉시 진입 + LINE 미리보기</div>
+</div>
+
+<!-- ③ 빠른 발송 (FAB 📡 → 사진 + 한 줄) -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen" style="background:#F0F2F5">
+      <div class="statusbar"><span>09:45</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">📡 빠른 LINE 발송</div>
+      </div>
+      <div class="body">
+        <div class="annot">사진 찍고 한 줄만 적어 LINE 으로 즉시 공유 — 상세 등록은 사이트에서 별도 처리</div>
+
+        <div class="section-h">매장 선택</div>
+        <div class="card" style="padding:11px 13px">
+          <div style="display:flex;align-items:center;gap:9px">
+            <div style="width:38px;height:38px;background:#06C7551A;color:#04A047;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px">🏪</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:13.5px">정이가마트</div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">진행 중 · 조사 5/18</div>
+            </div>
+            <div style="font-size:18px;color:var(--gray-400)">›</div>
+          </div>
+        </div>
+
+        <div class="section-h">사진 (필수)</div>
+        <div class="photo-grid-lg" style="grid-template-columns:repeat(3,1fr)">
+          <div class="photo-lg" style="background:linear-gradient(135deg,#F59E0B,#92400E)">현장<span class="x">×</span></div>
+          <div class="photo-lg add camera">
+            <span class="icon">📸</span>
+            <span>촬영</span>
+          </div>
+          <div class="photo-lg add">
+            <span class="plus">＋</span>
+            <span>앨범</span>
+          </div>
+        </div>
+
+        <div class="section-h">한 줄 메시지 (≤30자)</div>
+        <div style="position:relative">
+          <textarea class="field-textarea" style="min-height:62px">현장 도착, 인원 4명 확인</textarea>
+          <div class="field-counter">15/30</div>
+        </div>
+
+        <div class="section-h">발송 채팅방</div>
+        <div style="display:flex;gap:6px;align-items:center;background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:8px">
+          <span style="font-size:20px">👥</span>
+          <span style="flex:1;font-weight:700;font-size:13px">📦 재고조사 알림방</span>
+          <span style="font-size:11px;color:var(--gray-500)">변경 ›</span>
+        </div>
+
+        <div class="line-preview">
+          <span class="lbl">📡 미리보기</span>
+          정이가마트 : 2026-05-18 ; 현장 도착, 인원 4명 확인 · 📷 1장
+        </div>
+
+        <button class="btn-big line" style="margin-top:8px">📡 LINE 발송</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">③ 빠른 발송 화면 — FAB 📡 탭 시 진입 (사진 + 한 줄 + 발송)</div>
+</div>
+
+<!-- ④ 완료 처리 (정산 + 사진 결과) -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>17:30</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">정이가마트 완료</div>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step done"><span class="dot">✓</span>요청</div>
+          <div class="step done"><span class="dot">✓</span>진행</div>
+          <div class="step cur"><span class="dot">3</span>완료</div>
+        </div>
+
+        <div class="section-h">정산</div>
+        <div style="background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:12.5px;color:var(--gray-600)">예상 재고액</span>
+            <span style="font-size:13px;font-weight:700;color:var(--gray-700)">12,000,000원</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:12.5px;color:var(--gray-600)">실 재고액</span>
+            <input type="text" value="12,450,000" inputmode="numeric" style="width:140px;padding:6px 9px;border:1.5px solid var(--primary);border-radius:7px;font-size:13px;text-align:right;font-weight:700">
+          </div>
+          <div style="height:1px;background:var(--gray-200);margin:10px 0"></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800">
+            <span style="color:var(--success)">수익</span>
+            <span style="color:var(--success)">+30,000원</span>
+          </div>
+        </div>
+
+        <div class="section-h">수금 방식</div>
+        <div style="display:flex;gap:7px;margin-bottom:8px">
+          <span class="tag" style="flex:1;justify-content:center;padding:10px;font-size:13px"><input type="radio" checked>💵 현금</span>
+          <span class="tag" style="flex:1;justify-content:center;padding:10px;font-size:13px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">🧾 계산서</span>
+        </div>
+
+        <div class="section-h">결과 사진</div>
+        <div class="photo-grid-lg" style="grid-template-columns:repeat(4,1fr)">
+          <div class="photo-lg" style="background:linear-gradient(135deg,#10B981,#065F46)">결과1<span class="x">×</span></div>
+          <div class="photo-lg" style="background:linear-gradient(135deg,#3B82F6,#1E3A8A)">결과2<span class="x">×</span></div>
+          <div class="photo-lg add camera"><span class="icon">📸</span><span>촬영</span></div>
+          <div class="photo-lg add"><span class="plus">＋</span><span>앨범</span></div>
+        </div>
+
+        <div style="margin-top:12px">
+          <span class="tag"><input type="checkbox" checked>📡 LINE 발송 (완료 알림)</span>
+        </div>
+
+        <div class="line-preview" style="margin-top:8px">
+          <span class="lbl">📡 미리보기</span>
+          정이가마트 : 2026-05-18 ; 완료, 실 12,450,000원 (+30,000) · 📷 2장
+        </div>
+
+        <button class="btn-big success">✅ 완료 처리 + LINE 발송</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">④ 완료 처리 — 큰 금액 입력 + 결과 사진 + 자동 정산</div>
+</div>
+
+<!-- ⑤ 작업 상세 (LINE 이력) -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>17:42</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">📡 LINE 이력</div>
+      </div>
+      <div class="body">
+
+        <div style="background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:10px">
+          <div style="font-weight:800;font-size:14px">정이가마트</div>
+          <div style="font-size:11px;color:var(--gray-500);margin-top:2px">총 5회 발송 · 마지막 17:30</div>
+        </div>
+
+        <div class="section-h">발송 이력</div>
+
+        ${[
+          ['done', '17:30', '완료, 실 12,450,000원 (+30,000) · 📷 2장', '완료'],
+          ['prog', '13:10', '창고 영역 완료, 매장 진행중 · 📷 2장', '진행'],
+          ['prog', '09:00', '현장 도착, 인원 4명 확인 · 📷 1장', '진행'],
+          ['done', '5/15 17:30', '재고조사 마감 처리 · 📷 1장', '마감'],
+          ['req', '5/12 14:30', '매장 전체 재고조사 의뢰 · 📷 1장', '요청접수'],
+        ].map(([cls,t,msg,st]) => `
+        <div class="card ${cls}" style="padding:11px 13px;margin-bottom:8px">
+          <div class="topline" style="margin-bottom:2px">
+            <span class="pill ${cls}">${st}</span>
+            <span class="meta" style="margin:0">${t}</span>
+            <span style="margin-left:auto;color:var(--success);font-size:14px">✓</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700);font-family:monospace">${msg}</div>
+        </div>`).join('')}
+
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑤ LINE 발송 이력 — 매장별 누적 (재발송도 여기서)</div>
+</div>
+
+</div>
+
+<h2>📐 디자인 원칙</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.8">
+    <li><b>한 손 사용</b> — 주요 액션 (저장/발송/촬영) 은 항상 화면 하단 영역에 배치</li>
+    <li><b>큰 터치 영역</b> — 모든 버튼 최소 44px 높이 (Apple HIG 기준)</li>
+    <li><b>카메라 즉시 진입</b> — [📸 촬영] 버튼은 OS 카메라 다이얼로그 통과 없이 바로 띄움</li>
+    <li><b>FAB 2개 디자인</b> — 일반 ＋ (작업 등록) + LINE 📡 (빠른 사진+한줄 발송)</li>
+    <li><b>스텝퍼</b> — 요청 → 진행 → 완료 시각 표시. 완료된 단계는 ✓ 로 회색 → 녹색</li>
+    <li><b>LINE 발송 디폴트 ON</b> — 현장 작업자는 매번 토글하지 않아도 자동 발송 (해제 가능)</li>
+    <li><b>미리보기 항상 노출</b> — LINE 으로 어떤 메시지가 갈지 발송 전 확인</li>
+    <li><b>30자 카운터</b> — 메시지 길이 실시간 표시 (≤30 권장)</li>
+    <li><b>30px 이상 폰트 + 13px 본문</b> — 야외에서도 보이도록</li>
+  </ul>
+</div>
+
+<h2>🔧 기술 노트</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.8">
+    <li><b>같은 index.html 사용</b> — 별도 모바일 앱 아님. CSS 미디어쿼리로 모바일 모드 분기</li>
+    <li><code>@media (max-width: 640px)</code> 에서 활성화: 큰 버튼, 바텀시트, FAB</li>
+    <li>카메라 인풋: <code>&lt;input type="file" accept="image/*" capture="environment"&gt;</code></li>
+    <li>iOS Safari Add to Home Screen 으로 앱처럼 사용 (PWA manifest 추가 가능)</li>
+    <li>오프라인 대비: 사진은 IndexedDB 임시 저장 → 온라인 복귀 시 R2 업로드</li>
+    <li>위치 정보 (선택): GPS 로 매장 자동 매칭 (배포 후 옵션)</li>
+  </ul>
+</div>
+
+<h2>🚀 다음 작업</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <ol style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.9">
+    <li><b>모바일 모드 분기 CSS</b> — <code>@media (max-width:640px)</code> 에서 위 디자인 적용</li>
+    <li><b>FAB 컴포넌트</b> — 우하단 떠있는 ＋ / 📡 버튼</li>
+    <li><b>바텀시트</b> — 진행 추가 / 빠른 발송 시 슬라이드업</li>
+    <li><b>빠른 발송 화면</b> — 사진 + 한 줄 + 채팅방 선택 → /api/line-send 호출</li>
+    <li><b>스텝퍼 컴포넌트</b> — 재고조사/AS thread 진행 상태 시각화</li>
+    <li><b>LINE 이력 화면</b> — stocktake.lineHistory[] 표시 + 재발송 버튼</li>
+    <li>(선택) <b>PWA</b> — manifest.json + service worker (오프라인 큐)</li>
+  </ol>
+</div>
+
+</body>
+</html>
