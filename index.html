@@ -16531,6 +16531,10 @@ ${text.slice(0, 4000)}`;
     const ackBadge = it.acknowledged
       ? `<span style="background:var(--gray-200);color:var(--gray-600);font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">✓ 확인됨${it.acknowledgedBy?` · ${esc(it.acknowledgedBy)}`:''}</span>`
       : `<span style="background:#7C3AED;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">NEW</span>`;
+    const fileCount = it.count || 0;
+    const dlBtn = fileCount > 0
+      ? `<button class="btn btn-primary btn-sm" style="font-size:11px;padding:4px 10px;background:#7C3AED;border-color:#7C3AED" onclick="event.stopPropagation();window._vdQuickDownload('${esc(it.id)}', this)" title="모든 파일 다운로드">📥 다운로드 (${fileCount})</button>`
+      : '';
     const ackBtn = it.acknowledged
       ? ''
       : `<button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 10px" onclick="event.stopPropagation();ackVandoc('${esc(it.id)}')">확인</button>`;
@@ -16541,11 +16545,36 @@ ${text.slice(0, 4000)}`;
       </div>
       <div style="font-size:11px;color:var(--gray-500);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <span>${esc(it.category||'')}</span>
-        <span>${esc(created)} · 파일 ${it.count||0}개${it.submitter?` · ${esc(it.submitter)}`:''}</span>
+        <span>${esc(created)} · 파일 ${fileCount}개${it.submitter?` · ${esc(it.submitter)}`:''}</span>
       </div>
-      <div style="display:flex;justify-content:flex-end;gap:6px">${ackBtn}</div>
+      <div style="display:flex;justify-content:flex-end;gap:6px">${dlBtn}${ackBtn}</div>
     </div>`;
   }
+
+  /* 빠른 다운로드 — 목록에서 row 의 다운로드 버튼 클릭 시
+     submission 메타 조회 → 모든 파일 일괄 다운로드 */
+  window._vdQuickDownload = async function(id, btnEl) {
+    const origLabel = btnEl ? btnEl.innerHTML : '';
+    try {
+      if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '⏳ 준비중...'; }
+      const res = await fetch('/api/vandocs?id=' + encodeURIComponent(id), { cache: 'no-store' });
+      if (!res.ok) { if (typeof showToast==='function') showToast('서류를 찾을 수 없습니다'); return; }
+      const data = await res.json();
+      _vdCurrent = data;
+      _vdCurrent.id = id;
+      if (!data.files || !data.files.length) {
+        if (typeof showToast==='function') showToast('다운로드할 파일이 없습니다');
+        return;
+      }
+      const idxs = data.files.map((_, i) => i);
+      await _downloadVdFiles(idxs);
+    } catch(e) {
+      console.warn('[_vdQuickDownload]', e);
+      if (typeof showToast==='function') showToast('다운로드 실패: ' + e.message);
+    } finally {
+      if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = origLabel; }
+    }
+  };
 
   async function loadVandocsList() {
     const area = document.getElementById('vandocsListArea');
@@ -16656,6 +16685,14 @@ ${text.slice(0, 4000)}`;
       });
       if (typeof showToast === 'function') showToast('✅ 확인 처리됨');
       try { loadVandocsList(); } catch(e){}
+      // VAN hub 인라인 패널이 열려있으면 함께 갱신
+      try {
+        const panel = document.getElementById('vanhubVandocsPanel');
+        if (panel && panel.style.display !== 'none' && typeof window._vanhubLoadDocs === 'function') {
+          window._vanhubLoadDocs();
+        }
+        if (typeof window._vanhubRefreshDocsBadge === 'function') window._vanhubRefreshDocsBadge();
+      } catch(_){}
       refreshDashVandocsAlert();
     } catch(e) {
       if (typeof showToast === 'function') showToast('확인 실패: ' + e.message);
