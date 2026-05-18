@@ -348,14 +348,17 @@
         <div class="annot">사진 찍고 한 줄만 적어 LINE 으로 즉시 공유 — 상세 등록은 사이트에서 별도 처리</div>
 
         <div class="section-h">매장 선택</div>
-        <div class="card" style="padding:11px 13px">
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px">
           <div style="display:flex;align-items:center;gap:9px">
-            <div style="width:38px;height:38px;background:#06C7551A;color:#04A047;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px">🏪</div>
+            <div style="width:42px;height:42px;background:#06C7551A;color:#04A047;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:21px">🏪</div>
             <div style="flex:1">
-              <div style="font-weight:800;font-size:13.5px">정이가마트</div>
-              <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">진행 중 · 조사 5/18</div>
+              <div style="font-weight:800;font-size:14px">정이가마트</div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px;display:flex;gap:6px;align-items:center">
+                <span class="pill prog" style="padding:1px 6px;font-size:9.5px">진행 중</span>
+                <span>625-85-01902</span>
+              </div>
             </div>
-            <div style="font-size:18px;color:var(--gray-400)">›</div>
+            <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:800">변경</button>
           </div>
         </div>
 
@@ -395,6 +398,201 @@
     </div>
   </div>
   <div class="device-title">③ 빠른 발송 화면 — FAB 📡 탭 시 진입 (사진 + 한 줄 + 발송)</div>
+</div>
+
+<!-- ⑥ 매장 선택 시트 — 검색 + 등록/미등록 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen" style="background:rgba(0,0,0,.4)">
+      <div class="statusbar"><span>09:45</span><span class="icons">📶 📡 🔋</span></div>
+      <!-- 어두운 잔상 -->
+      <div style="background:#fff;height:60px;opacity:.4"></div>
+
+      <!-- 시트 본체 -->
+      <div style="background:#fff;border-radius:18px 18px 0 0;flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:10px 16px 6px">
+          <div class="sheet-handle"></div>
+          <div class="sheet-title">🏪 매장 선택</div>
+        </div>
+
+        <!-- 검색바 -->
+        <div style="padding:0 14px 8px;position:relative">
+          <input type="text" placeholder="매장명 / 사업자번호 / 대표자 검색"
+                 style="width:100%;padding:11px 14px 11px 38px;border:1.5px solid var(--gray-300);border-radius:10px;font-size:13.5px;background:#fff">
+          <span style="position:absolute;left:24px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:15px">🔍</span>
+        </div>
+
+        <!-- 토글: 등록 매장 / 미등록 가맹점 -->
+        <div style="padding:0 14px 10px;display:flex;gap:6px">
+          <button style="flex:1;padding:8px 0;border:none;background:var(--primary);color:#fff;border-radius:8px;font-size:12px;font-weight:800">✓ 등록 매장</button>
+          <button style="flex:1;padding:8px 0;border:1.5px solid var(--gray-300);background:#fff;color:var(--gray-600);border-radius:8px;font-size:12px;font-weight:700">+ 미등록 가맹점</button>
+        </div>
+
+        <!-- 매장 리스트 -->
+        <div style="flex:1;overflow-y:auto;padding:0 14px 14px">
+          <div style="font-size:10.5px;font-weight:800;color:var(--gray-500);text-transform:uppercase;margin:4px 0 6px">최근 작업한 매장 (3)</div>
+
+          ${[
+            {nm:'정이가마트', biz:'625-85-01902', last:'재고조사 5/18 진행중', sel:true},
+            {nm:'다봄(주)', biz:'381-88-03511', last:'재고조사 5/19 예정'},
+            {nm:'명동교자(1호점)', biz:'104-87-12345', last:'재고조사 5/15 완료'},
+          ].map(s => `
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:${s.sel?'#EFF6FF':'#fff'};border:1.5px solid ${s.sel?'var(--primary)':'var(--gray-200)'};border-radius:10px;margin-bottom:6px">
+            <div style="width:38px;height:38px;background:${s.sel?'var(--primary)':'#F3F4F6'};color:${s.sel?'#fff':'var(--gray-500)'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px">🏪</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:13px">${s.nm}${s.sel?' <span style="color:var(--primary);font-size:11px">✓</span>':''}</div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">${s.biz} · ${s.last}</div>
+            </div>
+          </div>
+          `).join('')}
+
+          <div style="font-size:10.5px;font-weight:800;color:var(--gray-500);text-transform:uppercase;margin:14px 0 6px">전체 등록 매장</div>
+
+          ${[
+            {nm:'명동교자(이태원지점)', biz:'104-87-00001'},
+            {nm:'명동교자(신관 명동역점)', biz:'104-87-00002'},
+            {nm:'정미식품', biz:'113-22-01567'},
+          ].map(s => `
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;border-bottom:1px solid var(--gray-100)">
+            <div style="width:34px;height:34px;background:#F3F4F6;color:var(--gray-500);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px">🏪</div>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:12.5px">${s.nm}</div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">${s.biz}</div>
+            </div>
+          </div>
+          `).join('')}
+        </div>
+
+        <div style="padding:10px 14px 16px;border-top:1px solid var(--gray-200);background:#fff">
+          <button class="btn-big primary" style="margin:0">✓ 정이가마트 선택</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑥ 매장 선택 시트 — 검색 + 최근/전체 + 등록 토글</div>
+</div>
+
+<!-- ⑦ 미등록 가맹점 입력 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen" style="background:rgba(0,0,0,.4)">
+      <div class="statusbar"><span>09:46</span><span class="icons">📶 📡 🔋</span></div>
+      <div style="background:#fff;height:60px;opacity:.4"></div>
+
+      <div style="background:#fff;border-radius:18px 18px 0 0;flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:10px 16px 6px">
+          <div class="sheet-handle"></div>
+          <div class="sheet-title">+ 미등록 가맹점 등록</div>
+        </div>
+
+        <div style="padding:0 14px 10px;display:flex;gap:6px">
+          <button style="flex:1;padding:8px 0;border:1.5px solid var(--gray-300);background:#fff;color:var(--gray-600);border-radius:8px;font-size:12px;font-weight:700">✓ 등록 매장</button>
+          <button style="flex:1;padding:8px 0;border:none;background:var(--warn);color:#fff;border-radius:8px;font-size:12px;font-weight:800">+ 미등록 가맹점</button>
+        </div>
+
+        <div style="padding:0 14px;flex:1;overflow-y:auto">
+          <div class="annot" style="margin:0 0 10px">아직 신규 등록되지 않은 매장은 이 화면에서 임시 정보로 진행. 정식 등록은 사이트에서 별도 처리.</div>
+
+          <div class="field">
+            <div class="field-label">🏪 가맹점명 <span style="color:#DC2626">*</span></div>
+            <input class="field-input" placeholder="예: 서울김밥 강남점">
+          </div>
+          <div class="field">
+            <div class="field-label">📇 사업자번호</div>
+            <input class="field-input" placeholder="000-00-00000" inputmode="numeric">
+          </div>
+          <div class="field">
+            <div class="field-label">👤 대표자명</div>
+            <input class="field-input" placeholder="홍길동">
+          </div>
+          <div class="field">
+            <div class="field-label">📞 연락처</div>
+            <input class="field-input" placeholder="010-0000-0000" inputmode="tel">
+          </div>
+          <div class="field">
+            <div class="field-label">📍 주소</div>
+            <input class="field-input" placeholder="서울시 강남구...">
+          </div>
+
+          <div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:8px;padding:9px 11px;font-size:11px;color:#92400E;margin-bottom:10px">
+            ⚠️ 미등록 상태로 등록한 매장은 별도 표시됩니다. 정식 매장 등록 후 자동 매칭됩니다.
+          </div>
+        </div>
+
+        <div style="padding:10px 14px 16px;border-top:1px solid var(--gray-200);background:#fff">
+          <button class="btn-big warn" style="margin:0">+ 미등록 가맹점으로 진행</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑦ 미등록 가맹점 입력 시트 — 사업자 번호 검증 + 임시 정보</div>
+</div>
+
+<!-- ⑧ 선택된 매장 정보 (변경/세부정보) -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>09:47</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">매장 정보</div>
+      </div>
+      <div class="body">
+        <!-- 선택된 매장 카드 -->
+        <div style="background:#fff;border-radius:12px;padding:14px 15px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="width:46px;height:46px;background:#06C7551A;color:#04A047;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px">🏪</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:15px">정이가마트</div>
+              <div style="font-size:11px;color:var(--gray-500)">선택됨 · 등록 매장</div>
+            </div>
+            <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:7px 13px;font-size:11.5px;font-weight:800">변경</button>
+          </div>
+          <div style="display:grid;grid-template-columns:60px 1fr;gap:4px 12px;font-size:12px;padding-top:8px;border-top:1px solid var(--gray-100)">
+            <span style="color:var(--gray-500)">사업자</span><span style="font-weight:600">625-85-01902</span>
+            <span style="color:var(--gray-500)">대표</span><span style="font-weight:600">정주영</span>
+            <span style="color:var(--gray-500)">주소</span><span style="font-weight:600">서울 동작구 사당동 123-45</span>
+            <span style="color:var(--gray-500)">전화</span><span style="font-weight:600;color:var(--primary)">📞 02-1234-5678</span>
+          </div>
+        </div>
+
+        <!-- 매장의 작업 이력 -->
+        <div class="section-h">이 매장의 최근 작업</div>
+
+        <div class="card prog" style="margin-bottom:6px">
+          <div class="topline">
+            <span class="pill prog">진행 중</span>
+            <span class="meta" style="margin:0">📦 재고조사</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">조사예정 5/18 · 350평 · 4명</div>
+        </div>
+
+        <div class="card done" style="margin-bottom:6px">
+          <div class="topline">
+            <span class="pill done">완료</span>
+            <span class="meta" style="margin:0">🔧 AS · 5/12</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">영수증 프린터 케이블 교체</div>
+        </div>
+
+        <div class="card done">
+          <div class="topline">
+            <span class="pill done">완료</span>
+            <span class="meta" style="margin:0">📦 재고조사 · 4/15</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">실재고 11,800,000원 · 수익 +35,000</div>
+        </div>
+
+        <!-- 액션 -->
+        <button class="btn-big primary" style="margin-top:14px">＋ 새 재고조사 등록</button>
+        <button class="btn-big ghost">📡 빠른 LINE 발송</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑧ 선택된 매장 — 정보 확인 + 이력 + 액션</div>
 </div>
 
 <!-- ④ 완료 처리 (정산 + 사진 결과) -->

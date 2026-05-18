@@ -4326,6 +4326,54 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 </div>
 
 <!-- ═══════════════════════════════════════ -->
+<!-- LINE 발송 컴포저 (전 카테고리 공용)       -->
+<!-- ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="lineSendComposerModal">
+  <div class="modal" style="max-width:540px;width:96%;max-height:90vh;overflow:auto">
+    <div class="modal-header" style="background:linear-gradient(135deg,#06C755,#04A047);color:#fff">
+      <div style="font-size:15px;font-weight:800;display:flex;align-items:center;gap:7px">📡 LINE 메시지 발송</div>
+      <button class="modal-close" onclick="closeModal('lineSendComposerModal')" style="color:#fff">✕</button>
+    </div>
+    <div class="modal-body" style="padding:14px 18px">
+      <!-- 카테고리 -->
+      <div id="lsComposerCategoryBar" style="margin-bottom:10px;padding:7px 11px;background:#F3F4F6;border-radius:8px;font-size:11.5px;color:var(--gray-600);font-weight:600"></div>
+
+      <!-- 발송 채팅방 선택 -->
+      <div style="margin-bottom:10px">
+        <label style="font-size:11.5px;color:var(--gray-600);font-weight:700;display:block;margin-bottom:4px">📂 발송 채팅방</label>
+        <select id="lsComposerRoom" style="width:100%;padding:9px 11px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;background:#fff">
+          <option value="">— 로딩 중 —</option>
+        </select>
+        <div style="font-size:10px;color:var(--gray-500);margin-top:3px">변경 시 이번 발송에만 적용 (기본값은 관리자 설정)</div>
+      </div>
+
+      <!-- 메시지 본문 편집 -->
+      <div style="margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+          <label style="font-size:11.5px;color:var(--gray-600);font-weight:700">📝 메시지 본문</label>
+          <span id="lsComposerCharCount" style="font-size:10.5px;color:var(--gray-500);margin-left:auto">0자</span>
+        </div>
+        <textarea id="lsComposerText" rows="4" style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13.5px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+        <div style="font-size:10px;color:var(--gray-500);margin-top:3px">권장 포맷: <code style="background:#FFFBEB;padding:1px 5px;border-radius:3px;border:1px solid #FCD34D">매장명 : 처리일 ; 요청내용</code></div>
+      </div>
+
+      <!-- 첨부 미리보기 -->
+      <div id="lsComposerAttBox" style="margin-bottom:10px"></div>
+
+      <!-- LINE 미리보기 -->
+      <div style="margin-bottom:6px">
+        <label style="font-size:11.5px;color:var(--gray-600);font-weight:700;display:block;margin-bottom:4px">👁 LINE 도착 미리보기</label>
+        <div id="lsComposerPreview" style="background:#F3F4F6;border:1px dashed var(--line);border-radius:8px;padding:9px 12px;font-family:'Noto Sans KR',monospace;font-size:12.5px;color:var(--gray-700);line-height:1.6;white-space:pre-wrap"></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between;gap:8px">
+      <button class="btn btn-outline" onclick="window._lineSendComposerCancel()">취소 (발송 X)</button>
+      <button class="btn" id="lsComposerSendBtn" onclick="window._lineSendComposerSubmit()" style="background:var(--line);color:#fff;border-color:var(--line);font-weight:800">📡 LINE 발송</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
 <!-- STOCKTAKE WORKERS VIEWER MODAL          -->
 <!-- ═══════════════════════════════════════ -->
 <div class="modal-overlay" id="stocktakeWorkersModal">
@@ -6538,19 +6586,18 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       arr.push(rec);
     }
     window.saveStocktakes(arr);
-    // 📡 LINE 발송 처리 (체크박스 ON 시)
+    // 📡 LINE 발송 처리 (체크박스 ON 시) — 자동 발송 대신 편집 컴포저 열기
     const wantLineSend = !!document.getElementById('stEditorLineSend')?.checked;
     closeModal('stocktakeEditorModal');
     if (typeof showToast === 'function') showToast(id ? '재고조사 저장됨' : '재고조사 등록됨');
     window.renderStocktakeHub();
     if (wantLineSend) {
-      // 비동기 발송 (UI 블록 X)
-      window._stocktakeSendLine(rec).catch(e => console.warn('LINE send failed', e));
+      window._stocktakeOpenLineComposer(rec);
     }
   };
 
-  /* 재고조사 LINE 발송 — 1줄 포맷 + 첨부 이미지 동봉 */
-  window._stocktakeSendLine = async function(rec) {
+  /* 재고조사 LINE 발송 — 컴포저 모달 열기 (사용자가 본문/채팅방 확인 후 발송) */
+  window._stocktakeOpenLineComposer = function(rec) {
     if (!rec) return;
     const status = rec.status || '';
     // 처리일 자동: 상태별
@@ -6560,7 +6607,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     else processDate = rec.consultDate || (new Date()).toISOString().slice(0,10);
     if (!processDate) processDate = (new Date()).toISOString().slice(0,10);
 
-    // 요청 내용 추출 — memo 우선 / 없으면 상태별 기본 문구
+    // 본문 디폴트 — 사용자가 자유 편집 가능
     const memo30 = (rec.memo || '').replace(/\s+/g,' ').trim().slice(0, 30);
     let content;
     if (memo30) content = memo30;
@@ -6569,22 +6616,21 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     else if (status === '일정확정') content = '조사 일정 확정';
     else content = '재고조사 의뢰';
 
-    const text = `${rec.storeName} : ${processDate} ; ${content}`;
+    const defaultText = `${rec.storeName} : ${processDate} ; ${content}`;
+    const attachments = Array.isArray(rec.attachments) ? rec.attachments : [];
 
-    // 첨부 이미지 (R2 public URL 만)
-    const atts = Array.isArray(rec.attachments) ? rec.attachments : [];
-    const images = atts.filter(a => a.kind === 'image' && /^https:/.test(a.url||'')).map(a => ({ url: a.url, name: a.name }));
-    const files  = atts.filter(a => a.kind === 'file'  && /^https:/.test(a.url||'')).map(a => ({ url: a.url, name: a.name }));
+    if (typeof window._openLineSendComposer !== 'function') {
+      if (typeof showToast === 'function') showToast('⚠ LINE 컴포저 컴포넌트가 로드되지 않았습니다');
+      return;
+    }
 
-    try {
-      const r = await fetch('/api/line-send', {
-        method:'POST',
-        headers:{ 'content-type':'application/json' },
-        body: JSON.stringify({ text, category:'stocktake', images, files, jobId: rec.id }),
-      });
-      const d = await r.json().catch(()=>({}));
-      if (d.ok) {
-        if (typeof showToast === 'function') showToast(`📡 LINE 발송 완료 (${d.count||1}건)`);
+    window._openLineSendComposer({
+      category: 'stocktake',
+      categoryLabel: `📦 재고조사 — ${status || '등록'}`,
+      defaultText,
+      attachments,
+      jobId: rec.id,
+      onSent: (result) => {
         // 발송 이력 누적
         try {
           const arr = window.getStocktakes() || [];
@@ -6593,22 +6639,17 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             arr[i].lineHistory = Array.isArray(arr[i].lineHistory) ? arr[i].lineHistory : [];
             arr[i].lineHistory.push({
               ts: new Date().toISOString(),
-              text,
+              text: result.text,
+              to: result.to,
               status,
-              imageCount: images.length,
-              fileCount: files.length,
               ok: true,
             });
             window.saveStocktakes(arr);
             window.renderStocktakeHub();
           }
         } catch(_){}
-      } else {
-        if (typeof showToast === 'function') showToast(`⚠ LINE 발송 실패: ${d.error||r.status}${d.detail?(' / '+String(d.detail).slice(0,60)):''}`);
-      }
-    } catch(e) {
-      if (typeof showToast === 'function') showToast('⚠ LINE 발송 실패 (네트워크)');
-    }
+      },
+    });
   };
 
   window._stocktakeDelete = function(id) {
@@ -13076,6 +13117,179 @@ ${text.slice(0, 4000)}`;
 
     return { open, close };
   })();
+
+  /* ════════════════════════════════════════════════════════════
+     _openLineSendComposer — LINE 발송 전 사용자 편집 모달 (전 카테고리 공용)
+     ────────────────────────────────────────────────────────────
+     사용:
+       window._openLineSendComposer({
+         category: 'stocktake' | 'as' | 'newjob' | 'van' | 'supply' | 'memo',
+         categoryLabel: '📦 재고조사 — 진행 추가',
+         defaultText: '정이가마트 : 2026-05-18 ; 창고 영역 완료',
+         attachments: [{kind,url,name,...}, ...],
+         jobId: 'JOB-xxx',
+         onSent: (result) => { ... }   // 발송 성공 시 콜백
+       });
+       사용자가 채팅방 선택 + 메시지 본문 수정 후 [발송] 클릭 → /api/line-send
+  ════════════════════════════════════════════════════════════ */
+  window._openLineSendComposer = function(opts) {
+    opts = opts || {};
+    const modal = document.getElementById('lineSendComposerModal');
+    if (!modal) return;
+    const ta = document.getElementById('lsComposerText');
+    const roomSel = document.getElementById('lsComposerRoom');
+    const charCount = document.getElementById('lsComposerCharCount');
+    const catBar = document.getElementById('lsComposerCategoryBar');
+    const attBox = document.getElementById('lsComposerAttBox');
+    const previewEl = document.getElementById('lsComposerPreview');
+    const sendBtn = document.getElementById('lsComposerSendBtn');
+
+    const category = opts.category || 'memo';
+    const categoryLabel = opts.categoryLabel || ({stocktake:'📦 재고조사', as:'🔧 AS', newjob:'🆕 신규', van:'📑 VAN', supply:'🛒 소모품', memo:'📝 메모'})[category] || '메시지';
+    catBar.textContent = categoryLabel;
+
+    // 초기 텍스트
+    ta.value = opts.defaultText || '';
+    const attachments = Array.isArray(opts.attachments) ? opts.attachments.slice() : [];
+    const images = attachments.filter(a => a && a.kind === 'image' && /^https:/.test(a.url||''));
+    const files  = attachments.filter(a => a && a.kind === 'file'  && /^https:/.test(a.url||''));
+
+    // 첨부 미리보기
+    if (images.length || files.length) {
+      const imgStrip = images.length ? `
+        <div style="font-size:11px;color:var(--gray-600);font-weight:700;margin-bottom:4px">📷 이미지 ${images.length}장</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">
+          ${images.slice(0,4).map(i => `<div style="width:46px;height:46px;border-radius:5px;background:#1F2937 url('${i.url}') center/cover no-repeat;border:1px solid var(--gray-300)"></div>`).join('')}
+          ${images.length>4?`<div style="width:46px;height:46px;border-radius:5px;background:#F3F4F6;border:1px dashed var(--gray-300);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--gray-500);font-weight:700">+${images.length-4}</div>`:''}
+        </div>
+        ${images.length>4?'<div style="font-size:10px;color:var(--warn);margin-bottom:6px">⚠ LINE 한 번에 최대 4장만 발송 — 나머지는 별도 발송 필요</div>':''}
+      ` : '';
+      const fileStrip = files.length ? `
+        <div style="font-size:11px;color:var(--gray-600);font-weight:700;margin-bottom:4px">📎 파일 ${files.length}개 (텍스트에 링크로 동봉)</div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${files.map(f => `<div style="font-size:11px;color:var(--gray-700);padding:4px 8px;background:#F3F4F6;border-radius:5px;display:flex;align-items:center;gap:6px"><span style="font-weight:800">${(f.ext||'').toUpperCase().slice(0,4)}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(f.name||'')}</span></div>`).join('')}
+        </div>
+      ` : '';
+      attBox.innerHTML = `<div style="background:#F9FAFB;border:1px solid var(--gray-200);border-radius:8px;padding:8px 10px">${imgStrip}${fileStrip}</div>`;
+    } else {
+      attBox.innerHTML = '';
+    }
+
+    // 미리보기 업데이트 함수
+    function updatePreview() {
+      const text = ta.value;
+      charCount.textContent = text.length + '자';
+      charCount.style.color = text.length > 200 ? '#DC2626' : 'var(--gray-500)';
+      let preview = text;
+      if (files.length) {
+        preview += '\n\n📎 파일:';
+        files.forEach(f => { preview += `\n· ${f.name||''} ${f.url}`; });
+      }
+      if (images.length) preview += `\n\n+ 이미지 ${Math.min(images.length,4)}장`;
+      previewEl.textContent = preview || '(메시지 비어있음)';
+    }
+    ta.oninput = updatePreview;
+    updatePreview();
+
+    // 채팅방 옵션 로딩
+    roomSel.innerHTML = '<option value="">— 로딩 중 —</option>';
+    fetch('/api/line-rooms', { cache:'no-store' }).then(r => r.json()).then(d => {
+      const rooms = Array.isArray(d.rooms) ? d.rooms : [];
+      const catRooms = d.categoryRooms || {};
+      const defaultRoom = opts.defaultTo || catRooms[category] || '';
+      // 정렬: 매핑된 방 먼저, group → room → user
+      const sorted = [...rooms].sort((a,b) => {
+        if (a.mapped !== b.mapped) return a.mapped ? -1 : 1;
+        const oa = a.roomType==='group'?0 : a.roomType==='room'?1 : 2;
+        const ob = b.roomType==='group'?0 : b.roomType==='room'?1 : 2;
+        return oa - ob;
+      });
+      const opts2 = ['<option value="">— 채팅방 선택 —</option>'];
+      let foundDefault = false;
+      sorted.forEach(r => {
+        const icon = r.roomType==='user'?'👤':r.roomType==='group'?'👥':'💬';
+        const label = r.name || r.lastSender || (r.id||'').slice(0,16)+'…';
+        const mappedMark = r.mapped ? ' ✓' : '';
+        const catMark = (r.id === catRooms[category]) ? ' (기본)' : '';
+        const isSel = (r.id === defaultRoom);
+        if (isSel) foundDefault = true;
+        opts2.push(`<option value="${_strEsc(r.id)}" ${isSel?'selected':''}>${icon} ${_strEsc(label)}${mappedMark}${catMark}</option>`);
+      });
+      if (defaultRoom && !foundDefault) {
+        opts2.splice(1, 0, `<option value="${_strEsc(defaultRoom)}" selected>🔒 (기본값: ${_strEsc(defaultRoom.slice(0,16))}…)</option>`);
+      }
+      roomSel.innerHTML = opts2.join('');
+      if (!roomSel.value && roomSel.options.length > 1) {
+        // 디폴트 옵션이 없으면 첫 매핑 방 자동 선택
+        for (const opt of roomSel.options) {
+          if (opt.value) { roomSel.value = opt.value; break; }
+        }
+      }
+    }).catch(e => {
+      roomSel.innerHTML = '<option value="">— 채팅방 목록 로딩 실패 —</option>';
+      console.warn('line-rooms fetch failed', e);
+    });
+
+    // 상태 저장
+    window._lineSendComposerState = {
+      category, attachments, images, files,
+      jobId: opts.jobId || '',
+      onSent: typeof opts.onSent === 'function' ? opts.onSent : null,
+      onCancel: typeof opts.onCancel === 'function' ? opts.onCancel : null,
+    };
+    sendBtn.disabled = false;
+    sendBtn.textContent = '📡 LINE 발송';
+
+    showModal('lineSendComposerModal');
+    setTimeout(() => { try { ta.focus(); } catch(_){} }, 100);
+  };
+
+  window._lineSendComposerCancel = function() {
+    const st = window._lineSendComposerState || {};
+    closeModal('lineSendComposerModal');
+    if (typeof st.onCancel === 'function') { try { st.onCancel(); } catch(_){} }
+    window._lineSendComposerState = null;
+  };
+
+  window._lineSendComposerSubmit = async function() {
+    const st = window._lineSendComposerState || {};
+    const ta = document.getElementById('lsComposerText');
+    const roomSel = document.getElementById('lsComposerRoom');
+    const sendBtn = document.getElementById('lsComposerSendBtn');
+    const text = (ta?.value || '').trim();
+    const to = roomSel?.value || '';
+    if (!text) { if (typeof showToast==='function') showToast('⚠ 메시지를 입력하세요'); return; }
+    if (!to) { if (typeof showToast==='function') showToast('⚠ 발송 채팅방을 선택하세요'); return; }
+    sendBtn.disabled = true;
+    sendBtn.textContent = '📡 발송 중...';
+    try {
+      const r = await fetch('/api/line-send', {
+        method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({
+          text, category: st.category, to,
+          images: st.images || [], files: st.files || [],
+          jobId: st.jobId || '',
+        }),
+      });
+      const d = await r.json().catch(()=>({}));
+      if (d.ok) {
+        if (typeof showToast==='function') showToast(`📡 LINE 발송 완료 (${d.count||1}건)`);
+        if (typeof st.onSent === 'function') { try { st.onSent({ text, to, ok:true, count:d.count }); } catch(_){} }
+        closeModal('lineSendComposerModal');
+        window._lineSendComposerState = null;
+      } else {
+        if (typeof showToast==='function') showToast(`⚠ 발송 실패: ${d.error||r.status}${d.detail?(' / '+String(d.detail).slice(0,80)):''}`);
+        sendBtn.disabled = false;
+        sendBtn.textContent = '📡 재시도';
+      }
+    } catch(e) {
+      if (typeof showToast==='function') showToast('⚠ 발송 실패 (네트워크)');
+      sendBtn.disabled = false;
+      sendBtn.textContent = '📡 재시도';
+    }
+  };
+
+  function _strEsc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
   /* ════════════════════════════════════════════════════════════
      _renderAttStrip — 첨부 미니 strip (목록/thread 공용 readonly 표시)

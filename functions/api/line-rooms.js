@@ -63,7 +63,7 @@ export async function onRequestGet({ env }) {
   // 최근 메시지순 정렬 (매핑 안 된 게 위로)
   rooms.sort((a,b) => (b.lastTs||0) - (a.lastTs||0));
 
-  return json({ rooms }, 200);
+  return json({ rooms, categoryRooms: cfg.categoryRooms || {} }, 200);
 }
 
 export async function onRequestPut({ env, request }) {
