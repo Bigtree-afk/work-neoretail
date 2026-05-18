@@ -3153,8 +3153,13 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div id="newJobUploader"></div>
       </div>
     </div>
-    <div class="modal-footer" style="justify-content:space-between">
-      <div style="font-size:11px;color:var(--gray-400)" id="job-equip-summary">장비 미선택</div>
+    <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-size:11px;color:var(--gray-400)" id="job-equip-summary">장비 미선택</div>
+        <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:700;color:#06A647">
+          <input type="checkbox" id="newJobLineSend" style="accent-color:#06C755;margin:0"> 📡 등록 후 LINE 발송
+        </label>
+      </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-outline" onclick="closeModal('newJobModal')">취소</button>
         <button class="btn btn-primary" onclick="saveNewJob()">작업 등록</button>
@@ -3365,9 +3370,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div id="vanJobUploader"></div>
       </div>
     </div>
-    <div class="modal-footer" style="justify-content:flex-end;gap:8px">
-      <button class="btn btn-outline" onclick="closeModal('vanJobModal')">취소</button>
-      <button class="btn btn-primary" onclick="saveVanJob()">+ VAN 업무 등록</button>
+    <div class="modal-footer" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:700;color:#06A647">
+        <input type="checkbox" id="vanJobLineSend" style="accent-color:#06C755;margin:0"> 📡 등록 후 LINE 발송
+      </label>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="closeModal('vanJobModal')">취소</button>
+        <button class="btn btn-primary" onclick="saveVanJob()">+ VAN 업무 등록</button>
+      </div>
     </div>
   </div>
 </div>
@@ -7256,6 +7266,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         const footer = document.querySelector('#newJobModal .modal-footer .btn.btn-primary');
         if (footer) footer.textContent = '작업 등록';
       } catch(e){}
+      try { const chk = document.getElementById('newJobLineSend'); if (chk) chk.checked = false; } catch(e){}
       try { _resetJobForm(); } catch(e){}
       try { applyJobFormContext(null); } catch(e){}
       // newJob uploader ctl 정리
@@ -14915,6 +14926,10 @@ ${text.slice(0, 4000)}`;
       try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
     }
 
+    // 📡 LINE 발송 체크 상태 (모달 닫기 전에 읽어둠)
+    const wantLine = !!document.getElementById('newJobLineSend')?.checked;
+    const savedJob = mergedIntoExisting ? mergedIntoExisting : job;
+
     closeModal('newJobModal');
     if (mergedIntoExisting) {
       showToast(`✅ ${storeName} — 기존 AS 업무에 새 요청이 추가되었습니다`);
@@ -14927,6 +14942,18 @@ ${text.slice(0, 4000)}`;
     try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
     try { if (typeof hydrateConsult === 'function') hydrateConsult('active'); } catch(e){}
     try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(e){}
+
+    // 📡 LINE 발송 — 등록된 업무 전체 컨텍스트로 컴포저 열기
+    if (wantLine && savedJob && savedJob.id) {
+      try {
+        // 저장된 jobs 에서 다시 조회 (최신 상태)
+        const jobs2 = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+        const fresh = jobs2.find(j => j.id === savedJob.id) || savedJob;
+        if (typeof window._openLineForJob === 'function') {
+          window._openLineForJob(fresh);
+        }
+      } catch(e) { console.warn('[saveNewJob LINE send]', e); }
+    }
 
     // 입력 필드 초기화
     const storeEl = document.getElementById('jobStoreName');
@@ -17588,6 +17615,7 @@ ${text.slice(0, 4000)}`;
     ['payCheckSimple','payCheckKakao'].forEach(id => { const el=get(id); if(el){el.checked=false;} });
     if (get('payInputSimple')) get('payInputSimple').disabled = true;
     if (get('payInputKakao'))  get('payInputKakao').disabled = true;
+    const lineChk = get('vanJobLineSend'); if (lineChk) lineChk.checked = false;
   }
 
   function _vanFillEngineerOptions() {
@@ -17858,11 +17886,24 @@ ${text.slice(0, 4000)}`;
     }
     // 즉시 cloud push (debounce 우회)
     try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
+    // 📡 LINE 발송 체크 상태 (모달 닫기 전에 읽어둠)
+    const wantLine = !!document.getElementById('vanJobLineSend')?.checked;
+    const savedJobId = newJob.id;
     closeModal('vanJobModal');
     showToast && showToast(`✅ VAN 업무 등록 완료 — ${storeName}`);
     // 화면 갱신
     try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
     try { if (typeof window.renderVanHub === 'function') window.renderVanHub(); } catch(e){}
+    // 📡 LINE 발송 — 등록된 VAN 업무 전체 컨텍스트로 컴포저 열기
+    if (wantLine && savedJobId) {
+      try {
+        const jobs2 = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+        const fresh = jobs2.find(j => j.id === savedJobId) || newJob;
+        if (typeof window._openLineForJob === 'function') {
+          window._openLineForJob(fresh, { category: 'van' });
+        }
+      } catch(e) { console.warn('[saveVanJob LINE send]', e); }
+    }
   };
 
   /* ─── 요청사항/처리 기록 스레드 (그룹형 — ROOT '요청접수' + children '진행'/'완료') ─── */
