@@ -4539,7 +4539,20 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     </div>
     <div class="modal-footer" style="justify-content:space-between;gap:8px">
       <button class="btn btn-outline" onclick="window._lineSendComposerCancel()">취소 (발송 X)</button>
-      <button class="btn" id="lsComposerSendBtn" onclick="window._lineSendComposerSubmit()" style="background:var(--line);color:#fff;border-color:var(--line);font-weight:800">📡 LINE 발송</button>
+      <button class="btn" id="lsComposerSendBtn" onclick="window._lineSendComposerSubmit()" style="background:var(--line);color:#fff;border-color:var(--line);font-weight:800;display:inline-flex;align-items:center;gap:8px;padding:9px 18px">
+        <!-- 종이비행기 + LINE 로고 합성 아이콘 -->
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+          <!-- 종이비행기 본체 (흰색) -->
+          <path d="M2.5 12L21.5 3.5L17 21L11.5 14L2.5 12Z" fill="#fff" stroke="#fff" stroke-width="0.8" stroke-linejoin="round"/>
+          <path d="M11.5 14L21.5 3.5" stroke="#06A647" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+          <!-- LINE 로고 말풍선 (우측 하단 배지) -->
+          <g transform="translate(13.5 13.5)">
+            <rect x="-0.4" y="-0.4" width="10.8" height="10.8" rx="2.6" fill="#06C755" stroke="#fff" stroke-width="0.9"/>
+            <text x="5" y="7.4" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="5.4" font-weight="900" fill="#fff" letter-spacing="-0.2">LINE</text>
+          </g>
+        </svg>
+        <span class="ls-send-label">LINE 발송</span>
+      </button>
     </div>
   </div>
 </div>
@@ -13659,7 +13672,7 @@ ${text.slice(0, 4000)}`;
       onCancel: typeof opts.onCancel === 'function' ? opts.onCancel : null,
     };
     sendBtn.disabled = false;
-    sendBtn.textContent = '📡 LINE 발송';
+    { const lbl = sendBtn.querySelector('.ls-send-label'); if (lbl) lbl.textContent = 'LINE 발송'; else sendBtn.textContent = '📡 LINE 발송'; }
 
     showModal('lineSendComposerModal');
     setTimeout(() => { try { ta.focus(); } catch(_){} }, 100);
@@ -13682,7 +13695,7 @@ ${text.slice(0, 4000)}`;
     if (!text) { if (typeof showToast==='function') showToast('⚠ 메시지를 입력하세요'); return; }
     if (!to) { if (typeof showToast==='function') showToast('⚠ 발송 채팅방을 선택하세요'); return; }
     sendBtn.disabled = true;
-    sendBtn.textContent = '📡 발송 중...';
+    { const lbl = sendBtn.querySelector('.ls-send-label'); if (lbl) lbl.textContent = '발송 중...'; }
     try {
       const r = await fetch('/api/line-send', {
         method:'POST', headers:{'content-type':'application/json'},
@@ -13701,12 +13714,12 @@ ${text.slice(0, 4000)}`;
       } else {
         if (typeof showToast==='function') showToast(`⚠ 발송 실패: ${d.error||r.status}${d.detail?(' / '+String(d.detail).slice(0,80)):''}`);
         sendBtn.disabled = false;
-        sendBtn.textContent = '📡 재시도';
+        { const lbl = sendBtn.querySelector('.ls-send-label'); if (lbl) lbl.textContent = '재시도'; }
       }
     } catch(e) {
       if (typeof showToast==='function') showToast('⚠ 발송 실패 (네트워크)');
       sendBtn.disabled = false;
-      sendBtn.textContent = '📡 재시도';
+      { const lbl = sendBtn.querySelector('.ls-send-label'); if (lbl) lbl.textContent = '재시도'; }
     }
   };
 
