@@ -2024,6 +2024,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <button onclick="window._vanhubCopyVandocsUrl(this)" title="고객이 서류를 접수할 수 있는 페이지 주소" style="background:#7C3AED;color:#fff;border:none;border-radius:6px;padding:4px 11px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:inherit">
               🔗 접수 URL 복사
             </button>
+            <button onclick="window._vandocsDownloadAll(this)" title="현재 목록의 모든 서류 파일을 매장별 폴더로 일괄 다운로드" style="background:#10B981;color:#fff;border:none;border-radius:6px;padding:4px 11px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:inherit">
+              📥 일괄 다운로드
+            </button>
             <label style="font-size:11px;color:#5B21B6;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
               <input type="checkbox" id="vanhubVandocsShowAcked" onchange="window._vanhubLoadDocs()"> 확인된 항목도 보기
             </label>
@@ -16550,6 +16553,122 @@ ${text.slice(0, 4000)}`;
       <div style="display:flex;justify-content:flex-end;gap:6px">${dlBtn}${ackBtn}</div>
     </div>`;
   }
+
+  /* 일괄 다운로드 — 현재 목록에 보이는 모든 서류의 파일을 매장별 폴더로 일괄 다운로드
+     - 최신 브라우저 (Chrome/Edge): 부모 폴더 선택 → vandocs_YYYYMMDD/매장명_서류종류_날짜/file.ext
+     - fallback: 평탄 다운로드 (매장명_서류종류_파일명) */
+  window._vandocsDownloadAll = async function(btnEl) {
+    const showAcked = !!document.getElementById('vanhubVandocsShowAcked')?.checked;
+    const origLabel = btnEl ? btnEl.innerHTML : '';
+    try {
+      if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '⏳ 목록 조회중...'; }
+      const idxData = await fetchVandocsIndex(false);
+      const allItems = idxData.items || [];
+      const items = showAcked ? allItems : allItems.filter(it => !it.acknowledged);
+      if (!items.length) {
+        if (typeof showToast==='function') showToast('다운로드할 서류가 없습니다');
+        return;
+      }
+      const totalFiles = items.reduce((sum, it) => sum + (it.count || 0), 0);
+      if (!confirm(`${items.length}건의 서류 (총 ${totalFiles}개 파일) 을 다운로드합니다. 계속할까요?`)) return;
+
+      const safe = (s) => String(s||'').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 60);
+      const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      const rootName = `vandocs_${today}`;
+
+      // 최신 브라우저: 폴더 선택 후 매장별 하위폴더 생성
+      if (items.length > 1 && window.showDirectoryPicker) {
+        try {
+          if (typeof showToast==='function') showToast('📁 저장할 부모 폴더를 선택하세요');
+          const parentHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+          const rootHandle = await parentHandle.getDirectoryHandle(rootName, { create: true });
+          let okFiles = 0, okSubs = 0;
+          for (let s = 0; s < items.length; s++) {
+            const it = items[s];
+            if (btnEl) btnEl.innerHTML = `⏳ ${s+1}/${items.length}...`;
+            try {
+              // submission 메타 조회
+              const metaRes = await fetch('/api/vandocs?id=' + encodeURIComponent(it.id), { cache:'no-store' });
+              if (!metaRes.ok) continue;
+              const data = await metaRes.json();
+              const files = data.files || [];
+              if (!files.length) continue;
+              const datePrefix = (data.createdAt || '').slice(0,10).replace(/-/g,'');
+              const subName = `${safe(data.store)}_${safe(data.docType)}_${datePrefix}`;
+              const subHandle = await rootHandle.getDirectoryHandle(subName, { create: true });
+              const seen = {};
+              for (let i = 0; i < files.length; i++) {
+                const f = files[i];
+                try {
+                  const r = await fetch(`/api/vandocs?id=${encodeURIComponent(it.id)}&fileIdx=${i}&download=1`);
+                  if (!r.ok) continue;
+                  const blob = await r.blob();
+                  let leaf = f.name || `file_${i}`;
+                  const dot = leaf.lastIndexOf('.');
+                  const base = dot > 0 ? leaf.slice(0, dot) : leaf;
+                  const ext  = dot > 0 ? leaf.slice(dot) : '';
+                  if (seen[leaf] != null) leaf = `${base}_${++seen[leaf]}${ext}`;
+                  else seen[f.name || leaf] = 0;
+                  const fh = await subHandle.getFileHandle(leaf, { create: true });
+                  const w = await fh.createWritable();
+                  await w.write(blob);
+                  await w.close();
+                  okFiles++;
+                } catch(e) { /* 파일 단위 실패는 무시 */ }
+              }
+              okSubs++;
+            } catch(e) { /* 제출 단위 실패는 무시 */ }
+          }
+          if (typeof showToast==='function') showToast(`✅ ${okSubs}건 · ${okFiles}개 파일 → [${rootName}] 에 저장 완료`);
+          return;
+        } catch(e) {
+          if (e && e.name === 'AbortError') {
+            if (typeof showToast==='function') showToast('취소됨');
+            return;
+          }
+          // 그 외 오류 — 폴백 진행
+        }
+      }
+
+      // 폴백: 평탄 다운로드
+      if (typeof showToast==='function') showToast(`다운로드 시작 — ${items.length}건 / ${totalFiles}개 파일`);
+      let okFiles = 0;
+      for (let s = 0; s < items.length; s++) {
+        const it = items[s];
+        if (btnEl) btnEl.innerHTML = `⏳ ${s+1}/${items.length}...`;
+        try {
+          const metaRes = await fetch('/api/vandocs?id=' + encodeURIComponent(it.id), { cache:'no-store' });
+          if (!metaRes.ok) continue;
+          const data = await metaRes.json();
+          const files = data.files || [];
+          if (!files.length) continue;
+          const storePrefix = safe(data.store) + '_' + safe(data.docType);
+          for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            try {
+              const r = await fetch(`/api/vandocs?id=${encodeURIComponent(it.id)}&fileIdx=${i}&download=1`);
+              if (!r.ok) continue;
+              const blob = await r.blob();
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = `${storePrefix}_${f.name || 'file_'+i}`;
+              document.body.appendChild(a);
+              a.click();
+              setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+              okFiles++;
+              await new Promise(r => setTimeout(r, 250)); // 브라우저 다운로드 throttle
+            } catch(e){}
+          }
+        } catch(e){}
+      }
+      if (typeof showToast==='function') showToast(`✅ ${okFiles}개 파일 다운로드 완료`);
+    } catch(e) {
+      console.warn('[_vandocsDownloadAll]', e);
+      if (typeof showToast==='function') showToast('일괄 다운로드 실패: ' + e.message);
+    } finally {
+      if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = origLabel; }
+    }
+  };
 
   /* 빠른 다운로드 — 목록에서 row 의 다운로드 버튼 클릭 시
      submission 메타 조회 → 모든 파일 일괄 다운로드 */
