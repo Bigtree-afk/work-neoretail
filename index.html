@@ -2021,6 +2021,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
           <div style="font-weight:700;color:#5B21B6;font-size:13px">📑 접수된 VAN 서류 <span id="vanhubVandocsCountLbl" style="font-size:11px;color:var(--gray-500);font-weight:600"></span></div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <button onclick="window._vanhubCopyVandocsUrl(this)" title="고객이 서류를 접수할 수 있는 페이지 주소" style="background:#7C3AED;color:#fff;border:none;border-radius:6px;padding:4px 11px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:inherit">
+              🔗 접수 URL 복사
+            </button>
             <label style="font-size:11px;color:#5B21B6;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
               <input type="checkbox" id="vanhubVandocsShowAcked" onchange="window._vanhubLoadDocs()"> 확인된 항목도 보기
             </label>
@@ -16597,6 +16600,37 @@ ${text.slice(0, 4000)}`;
     }
     area.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px">${items.map(_vdRowHtml).join('')}</div>`;
     try { refreshDashVandocsAlert(); } catch(_){}
+  };
+
+  // VAN 접수서류 URL 복사 (고객 공유용)
+  window._vanhubCopyVandocsUrl = async function(btnEl) {
+    const url = (location.origin || 'https://work.neoretail.net') + '/vandocs.html';
+    let ok = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        ok = true;
+      } else {
+        // fallback (구형 브라우저)
+        const ta = document.createElement('textarea');
+        ta.value = url; ta.style.position='fixed'; ta.style.left='-9999px';
+        document.body.appendChild(ta); ta.select();
+        ok = document.execCommand('copy');
+        ta.remove();
+      }
+    } catch(e) { console.warn('[copyVandocsUrl]', e); }
+    if (ok) {
+      if (typeof showToast === 'function') showToast('🔗 접수 URL 이 복사되었습니다 — LINE/문자로 공유하세요');
+      if (btnEl) {
+        const orig = btnEl.innerHTML;
+        btnEl.innerHTML = '✓ 복사됨';
+        btnEl.style.background = '#10B981';
+        setTimeout(() => { btnEl.innerHTML = orig; btnEl.style.background = '#7C3AED'; }, 1500);
+      }
+    } else {
+      // 복사 실패 시 prompt 로 보여줘 사용자가 직접 복사
+      try { prompt('아래 URL 을 복사해 주세요:', url); } catch(_){}
+    }
   };
 
   // VAN hub 진입 시 미확인 서류 카운트만 미리 갱신 (패널은 닫힘 유지)
