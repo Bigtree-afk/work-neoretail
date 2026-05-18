@@ -17937,6 +17937,11 @@ ${text.slice(0, 4000)}`;
           <button type="button" class="btn btn-primary btn-sm" onclick="window._submitNewRoot('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode})" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">등록</button>
         </div>
         <div id="${escFn(newRootAttId)}" style="margin-top:6px"></div>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:5px">
+          <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:14px;cursor:pointer;font-size:11px;font-weight:700;color:#06A647">
+            <input type="checkbox" id="${escFn(containerId)}__newroot_line" style="accent-color:#06C755;margin:0"> 📡 등록 후 LINE 발송
+          </label>
+        </div>
       </div>` : '';
 
     let bodyHtml = '';
@@ -18033,6 +18038,11 @@ ${text.slice(0, 4000)}`;
                 <button type="button" class="btn btn-primary btn-sm" onclick="window._submitChild('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}','${escFn(formId)}')" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">＋ 기록 추가</button>
               </div>
               <div id="${escFn(formId)}_att" style="margin-top:6px"></div>
+              <div style="margin-top:6px;display:flex;align-items:center;gap:5px">
+                <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:14px;cursor:pointer;font-size:11px;font-weight:700;color:#06A647">
+                  <input type="checkbox" id="${escFn(formId)}_line" style="accent-color:#06C755;margin:0"> 📡 추가 후 LINE 발송
+                </label>
+              </div>
             </div>`;
           }
         }
@@ -18265,6 +18275,43 @@ ${text.slice(0, 4000)}`;
     return matches;
   };
 
+  /* ════════════════════════════════════════════════════════════
+     _openLineForThreadEntry — thread 의 새 항목(ROOT/child) 저장 후 LINE 발송
+     ────────────────────────────────────────────────────────────
+     containerId 의 entity (job/stocktake) 자동 감지 → 적절한 컴포저 호출
+     entry: 방금 저장된 thread 항목 ({status, text, attachments, ts, author})
+   ════════════════════════════════════════════════════════════ */
+  window._openLineForThreadEntry = function(containerId, jobId, entry) {
+    if (!entry || !jobId) return;
+    const entity = (containerId && window._threadEntities && window._threadEntities[containerId]) || 'job';
+    try {
+      if (entity === 'stocktake') {
+        const arr = (typeof window.getStocktakes === 'function') ? (window.getStocktakes() || []) : [];
+        const rec = arr.find(r => r.id === jobId);
+        if (!rec) return;
+        // 새 항목의 text/status/attachments 를 우선시 (단, 매장/일정/담당자 등은 rec 유지)
+        const merged = Object.assign({}, rec, {
+          status: entry.status || rec.status,
+          memo:   entry.text || rec.memo,
+          attachments: (Array.isArray(entry.attachments) && entry.attachments.length)
+                       ? entry.attachments
+                       : (Array.isArray(rec.attachments) ? rec.attachments : []),
+        });
+        if (typeof window._stocktakeOpenLineComposer === 'function') {
+          window._stocktakeOpenLineComposer(merged);
+        }
+        return;
+      }
+      // job (AS / 신규 / VAN)
+      const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+      const job = jobs.find(j => j.id === jobId);
+      if (!job) return;
+      if (typeof window._openLineForJob === 'function') {
+        window._openLineForJob(job, { entry });
+      }
+    } catch(e) { console.warn('[_openLineForThreadEntry]', e); }
+  };
+
   // 새 ROOT 제출 — AS draft 모드인 경우 즉시 live 저장으로 전환 (Fix A)
   window._submitNewRoot = function(containerId, jobId, draftMode) {
     const ta = document.getElementById(containerId + '__newroot');
@@ -18272,6 +18319,8 @@ ${text.slice(0, 4000)}`;
     if (!text) { try { showToast('내용을 입력하세요'); } catch(e){} return; }
     const ts = _kstNow();
     const who = _whoNow();
+    // 📡 LINE 발송 체크 상태 (저장 후 컴포저 열기)
+    const wantLine = !!document.getElementById(containerId + '__newroot_line')?.checked;
     // 첨부 회수
     const attKey = '__newroot__' + (jobId || 'draft');
     window._threadFormAttachments = window._threadFormAttachments || {};
@@ -18352,6 +18401,7 @@ ${text.slice(0, 4000)}`;
           try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
           try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(e){}
           try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
+          if (wantLine) { try { window._openLineForThreadEntry(containerId, existing.id, entry); } catch(_){} }
           return;
         }
 
@@ -18407,6 +18457,7 @@ ${text.slice(0, 4000)}`;
         try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
         try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(e){}
         try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
+        if (wantLine) { try { window._openLineForThreadEntry(containerId, newJob.id, entry); } catch(_){} }
         return;
       } catch(err) {
         console.warn('[_submitNewRoot AS live-save]', err);
@@ -18425,12 +18476,15 @@ ${text.slice(0, 4000)}`;
     window[openKey][entry.threadId] = true;
     _rerenderThread(containerId, jobId, draftMode);
     try { showToast('✅ 새 요청이 접수되었습니다'); } catch(e){}
+    if (wantLine && jobId) { try { window._openLineForThreadEntry(containerId, jobId, entry); } catch(_){} }
   };
 
   // child 제출
   window._submitChild = function(containerId, jobId, draftMode, rootId, formId) {
     const ta = document.getElementById(formId + '_text');
     const text = (ta && ta.value || '').trim();
+    // 📡 LINE 발송 체크 상태
+    const wantLine = !!document.getElementById(formId + '_line')?.checked;
     // 폼별 투입 장비 임시 목록 회수
     window._threadChildEquipDraft = window._threadChildEquipDraft || {};
     const eqList = (window._threadChildEquipDraft[formId] || []).slice();
@@ -18492,6 +18546,7 @@ ${text.slice(0, 4000)}`;
     }
     _rerenderThread(containerId, jobId, draftMode);
     try { showToast(st==='완료' ? '✅ 완료 처리되었습니다' : '🔄 진행 기록이 추가되었습니다'); } catch(e){}
+    if (wantLine && jobId) { try { window._openLineForThreadEntry(containerId, jobId, entry); } catch(_){} }
   };
 
   // 자식 폼의 textarea/상태 스냅샷 후 재렌더 + 복원 — 입력 중인 내용 보존
