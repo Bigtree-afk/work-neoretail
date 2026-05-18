@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>🆕 신규/오픈 모바일 — 현장 사용자 UI 목업</title>
+<style>
+  :root {
+    --primary:#2563EB; --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
+    --gray-300:#D1D5DB; --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-600:#4B5563;
+    --gray-700:#374151; --gray-800:#1F2937; --line:#06C755; --line-light:#06C7551A;
+    --beige:#FEF7E6; --danger:#EF4444; --warn:#F59E0B; --success:#10B981;
+    --purple:#8B5CF6;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans KR',sans-serif; background:#F0F2F5; margin:0; padding:18px; color:var(--gray-800); font-size:13px; line-height:1.5 }
+  h1 { font-size:17px; margin:0 0 6px }
+  h2 { font-size:14px; margin:24px 0 10px; padding-bottom:5px; border-bottom:2px solid var(--gray-200); color:var(--gray-700) }
+  .lead { font-size:12px; color:var(--gray-500); margin-bottom:14px }
+
+  .frames { display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:18px; align-items:start }
+  .device {
+    background:#1F2937; border-radius:34px; padding:8px;
+    box-shadow:0 12px 36px rgba(0,0,0,.18);
+    width:380px; max-width:100%; justify-self:center;
+  }
+  .notch { width:130px; height:24px; background:#1F2937; margin:-2px auto 0; border-radius:0 0 14px 14px; position:relative; z-index:5 }
+  .screen { background:#F0F2F5; border-radius:28px; overflow:hidden; height:712px; position:relative; display:flex; flex-direction:column }
+  .device-title { text-align:center; font-size:11px; color:var(--gray-500); margin-top:6px; font-weight:600 }
+
+  /* iOS Status Bar */
+  .statusbar { background:#fff; padding:5px 18px 0; display:flex; align-items:center; justify-content:space-between; font-size:11.5px; font-weight:700; color:var(--gray-800); height:24px }
+  .statusbar .icons { display:flex; gap:4px; font-size:10px }
+
+  /* App header */
+  .appbar { background:#fff; padding:12px 16px 10px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--gray-200) }
+  .appbar .back { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--gray-700); cursor:pointer }
+  .appbar .title { flex:1; font-weight:800; font-size:15px }
+  .appbar .badge { background:#06C7551A; color:#04A047; border-radius:11px; padding:2px 8px; font-size:10.5px; font-weight:800 }
+
+  /* Tabs */
+  .tabs { background:#fff; display:flex; padding:0 8px; border-bottom:1px solid var(--gray-200); overflow-x:auto; gap:0 }
+  .tab { padding:11px 10px; font-size:12px; font-weight:700; color:var(--gray-500); border-bottom:3px solid transparent; white-space:nowrap }
+  .tab.active { color:var(--primary); border-bottom-color:var(--primary) }
+
+  /* Body scroll */
+  .body { flex:1; overflow-y:auto; padding:12px 14px 90px; background:#F0F2F5 }
+
+  /* Cards */
+  .card { background:#fff; border-radius:12px; padding:13px 14px; margin-bottom:10px; box-shadow:0 1px 2px rgba(0,0,0,.04) }
+  .card.req { border-left:4px solid #3B82F6 }
+  .card.prog { border-left:4px solid #F59E0B }
+  .card.done { border-left:4px solid #10B981 }
+  .card.soon { border-left:4px solid #EF4444 }
+  .card.open { border-left:4px solid #8B5CF6 }
+  .card .topline { display:flex; align-items:center; gap:6px; margin-bottom:6px }
+  .card .nm { font-weight:800; font-size:14px; flex:1 }
+  .pill { display:inline-block; padding:2px 8px; border-radius:11px; font-size:10px; font-weight:800 }
+  .pill.req { background:#DBEAFE; color:#1e40af }
+  .pill.prog { background:#FEF3C7; color:#92400E }
+  .pill.done { background:#DCFCE7; color:#15803d }
+  .pill.line { background:var(--line-light); color:#04A047 }
+  .pill.soon { background:#FEE2E2; color:#991B1B }
+  .pill.open { background:#EDE9FE; color:#5B21B6 }
+  .card .meta { font-size:11px; color:var(--gray-500); margin-bottom:4px }
+  .card .summary { font-size:12.5px; color:var(--gray-700); margin-bottom:6px }
+  .card .actions-row { display:flex; gap:6px; margin-top:8px }
+  .btn-mini { flex:1; padding:8px 0; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; border:1.5px solid; text-align:center; background:#fff }
+  .btn-mini.prog { border-color:#F59E0B; color:#B45309 }
+  .btn-mini.done { border-color:#10B981; color:#15803d }
+  .btn-mini.line { background:var(--line); color:#fff; border-color:var(--line) }
+  .btn-mini.open { border-color:var(--purple); color:#5B21B6 }
+
+  /* Strip */
+  .strip { display:flex; gap:5px; flex-wrap:wrap; margin-top:6px }
+  .thumb { width:46px; height:46px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:9px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5); flex-shrink:0 }
+  .thumb.img1 { background:linear-gradient(135deg,#3B82F6,#1E3A8A) }
+  .thumb.img2 { background:linear-gradient(135deg,#10B981,#065F46) }
+  .thumb.img3 { background:linear-gradient(135deg,#F59E0B,#92400E) }
+  .thumb.img4 { background:linear-gradient(135deg,#8B5CF6,#5B21B6) }
+  .thumb.pdf { background:#DC2626 }
+  .thumb.xls { background:#15803D }
+  .thumb.more { background:#F3F4F6; color:var(--gray-500); border:1px dashed var(--gray-300); text-shadow:none }
+
+  /* FAB */
+  .fab {
+    position:absolute; right:18px; bottom:24px;
+    background:var(--primary); color:#fff; width:58px; height:58px; border-radius:50%;
+    box-shadow:0 6px 18px rgba(37,99,235,.45); display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:300;
+  }
+  .fab.line { background:var(--line); right:84px; box-shadow:0 6px 18px rgba(6,199,85,.45) }
+  .fab-label { position:absolute; right:18px; bottom:88px; background:rgba(0,0,0,.7); color:#fff; padding:4px 11px; border-radius:14px; font-size:11px; font-weight:600 }
+
+  /* Bottom Sheet */
+  .sheet-handle { width:36px; height:4px; background:#D1D5DB; border-radius:3px; margin:0 auto 12px }
+  .sheet-title { font-weight:800; font-size:15px; margin-bottom:10px; display:flex; align-items:center; gap:8px }
+
+  /* Form */
+  .field { margin-bottom:10px }
+  .field-label { font-size:11px; font-weight:700; color:var(--gray-600); margin-bottom:4px; display:flex; align-items:center; gap:5px }
+  .field-input, .field-select, .field-textarea {
+    width:100%; padding:11px 12px; border:1.5px solid var(--gray-300); border-radius:9px;
+    font-size:14px; font-family:inherit; background:#fff;
+  }
+  .field-textarea { min-height:62px; resize:vertical }
+  .field-counter { font-size:10px; color:var(--gray-500); text-align:right; margin-top:2px }
+
+  /* Photo grid */
+  .photo-grid-lg { display:grid; grid-template-columns:repeat(4,1fr); gap:7px }
+  .photo-lg { aspect-ratio:1; border-radius:9px; position:relative; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5) }
+  .photo-lg .x { position:absolute; top:-6px; right:-6px; background:#EF4444; color:#fff; width:22px; height:22px; border-radius:50%; font-size:13px; line-height:22px; text-align:center; font-weight:800; border:2px solid #fff }
+  .photo-lg.add {
+    background:#fff; border:2px dashed var(--gray-400); color:var(--gray-500); text-shadow:none;
+    display:flex; flex-direction:column; gap:1px; font-size:9px; font-weight:700;
+  }
+  .photo-lg.add .plus { font-size:24px; line-height:1 }
+  .photo-lg.add.camera { border-color:var(--primary); color:var(--primary); background:#EFF6FF }
+  .photo-lg.add.camera .icon { font-size:22px }
+
+  /* Big buttons */
+  .btn-big {
+    width:100%; padding:14px 0; border-radius:10px;
+    font-size:14.5px; font-weight:800; border:none; cursor:pointer; margin-bottom:8px;
+  }
+  .btn-big.primary { background:var(--primary); color:#fff }
+  .btn-big.line { background:var(--line); color:#fff }
+  .btn-big.warn { background:var(--warn); color:#fff }
+  .btn-big.success { background:var(--success); color:#fff }
+  .btn-big.purple { background:var(--purple); color:#fff }
+  .btn-big.ghost { background:#fff; color:var(--gray-700); border:1.5px solid var(--gray-300) }
+
+  /* LINE preview */
+  .line-preview {
+    background:#F3F4F6; border:1px dashed var(--line); border-radius:8px;
+    padding:9px 11px; font-family:'Noto Sans KR',monospace; font-size:12px; color:var(--gray-700);
+    margin:6px 0; line-height:1.5;
+  }
+  .line-preview .lbl { color:#04A047; font-weight:800; font-size:10.5px; display:block; margin-bottom:3px }
+
+  /* Tag */
+  .tag { display:inline-flex; align-items:center; gap:4px; background:#06C7551A; color:#04A047; border:1px solid #06C75533; border-radius:14px; padding:5px 11px; font-size:12px; font-weight:700; user-select:none; cursor:pointer }
+  .tag input { width:15px; height:15px; accent-color:var(--line); margin:0 }
+  .tag.warn { background:#FEE2E2; color:#991B1B; border-color:#FCA5A5 }
+
+  /* Section title */
+  .section-h { font-size:11.5px; font-weight:800; color:var(--gray-500); text-transform:uppercase; letter-spacing:.5px; margin:14px 0 8px; padding-left:2px }
+  .section-h:first-child { margin-top:0 }
+
+  /* Step indicator */
+  .stepper { display:flex; align-items:center; gap:0; margin:6px 0 14px }
+  .step { flex:1; text-align:center; font-size:10.5px; padding:6px 0; font-weight:700; color:var(--gray-500); position:relative }
+  .step.cur { color:var(--primary) }
+  .step.done { color:var(--success) }
+  .step .dot { display:block; width:24px; height:24px; border-radius:50%; background:var(--gray-300); color:#fff; line-height:24px; margin:0 auto 3px; font-size:11px; font-weight:800 }
+  .step.cur .dot { background:var(--primary) }
+  .step.done .dot { background:var(--success) }
+  .step:not(:last-child)::after { content:''; position:absolute; top:18px; left:60%; right:-40%; height:2px; background:var(--gray-300) }
+  .step.done:not(:last-child)::after { background:var(--success) }
+
+  /* Timeline (일정 트리플 시각화) */
+  .timeline-trio { display:flex; align-items:center; background:#fff; border-radius:12px; padding:14px 10px; margin-bottom:10px; position:relative }
+  .timeline-trio .tl-step { flex:1; text-align:center; position:relative; z-index:1 }
+  .timeline-trio .tl-dot { width:36px; height:36px; border-radius:50%; margin:0 auto 6px; display:flex; align-items:center; justify-content:center; font-size:17px; background:var(--gray-200); color:var(--gray-500); border:3px solid #fff; box-shadow:0 0 0 2px var(--gray-200) }
+  .timeline-trio .tl-step.done .tl-dot { background:var(--success); color:#fff; box-shadow:0 0 0 2px var(--success) }
+  .timeline-trio .tl-step.cur .tl-dot { background:var(--warn); color:#fff; box-shadow:0 0 0 2px var(--warn); animation:pulse 1.6s infinite }
+  .timeline-trio .tl-step.future .tl-dot { background:#fff; color:var(--gray-400); box-shadow:0 0 0 2px var(--gray-300) }
+  .timeline-trio .tl-lbl { font-size:10.5px; font-weight:800; color:var(--gray-700) }
+  .timeline-trio .tl-date { font-size:10px; color:var(--gray-500); margin-top:2px }
+  .timeline-trio .tl-step.cur .tl-date { color:var(--warn); font-weight:800 }
+  .timeline-trio::before {
+    content:''; position:absolute; top:32px; left:18%; right:18%; height:3px; background:var(--gray-200); z-index:0;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position:absolute; left:0; right:0; bottom:0;
+    background:#fff; border-top:1px solid var(--gray-200);
+    display:flex; justify-content:space-around; padding:6px 0 10px;
+  }
+  .nav-item { flex:1; text-align:center; padding:6px 0; font-size:10.5px; font-weight:700; color:var(--gray-500); cursor:pointer; display:flex; flex-direction:column; gap:3px; align-items:center }
+  .nav-item .icn { font-size:21px; line-height:1 }
+  .nav-item.active { color:var(--primary) }
+
+  .annot { font-size:11px; color:var(--gray-500); padding:8px 11px; background:#FFFBEB; border-left:3px solid #FCD34D; border-radius:6px; margin:8px 0 }
+
+  /* VAN card */
+  .van-card { background:#fff; border-radius:10px; padding:11px 13px; margin-bottom:8px; border-left:4px solid var(--gray-300) }
+  .van-card.done { border-left-color:var(--success) }
+  .van-card.prog { border-left-color:var(--warn) }
+  .van-card.todo { border-left-color:var(--gray-300) }
+  .van-head { display:flex; align-items:center; gap:8px; margin-bottom:7px }
+  .van-logo { width:38px; height:38px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#fff }
+  .van-logo.koces { background:#1E3A8A }
+  .van-logo.nice  { background:#DC2626 }
+  .van-logo.kis   { background:#F59E0B }
+  .van-logo.ksnet { background:#15803D }
+  .van-logo.simple { background:#8B5CF6 }
+  .van-logo.kakao { background:#FEE500; color:#3C1E1E }
+
+  /* Catalog */
+  .cat-row { display:flex; align-items:center; gap:9px; background:#fff; border-radius:9px; padding:9px 11px; margin-bottom:6px }
+  .cat-ico { width:36px; height:36px; border-radius:7px; background:#F3F4F6; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0 }
+  .cat-nm { font-size:12.5px; font-weight:700 }
+  .cat-sub { font-size:10.5px; color:var(--gray-500); margin-top:1px }
+  .qty { display:flex; align-items:center; gap:2px }
+  .qty button { width:26px; height:26px; border:1.5px solid var(--gray-300); background:#fff; border-radius:6px; font-size:14px; font-weight:800; color:var(--gray-700) }
+  .qty input { width:34px; height:26px; border:1.5px solid var(--gray-300); border-radius:6px; text-align:center; font-size:12.5px; font-weight:800; -moz-appearance:textfield }
+
+  /* Progress bar */
+  .pbar { background:var(--gray-200); border-radius:8px; height:6px; overflow:hidden; margin:5px 0 3px }
+  .pbar .fill { height:100%; background:var(--success); border-radius:8px }
+  .pbar .fill.prog { background:var(--warn) }
+  .pbar .fill.todo { background:var(--gray-400); width:0% }
+
+  code { background:#F3F4F6; padding:1px 5px; border-radius:3px; font-size:11.5px }
+</style>
+</head>
+<body>
+
+<h1>📱 신규(신규설치/오픈) 모바일 UI — 현장 작업자용 목업</h1>
+<p class="lead">
+  매장 신규 오픈/장비 설치 현장에서 한 손으로 빠르게 입력. 매장 등록 → 일정 (설치→가오픈→오픈) → 투입 장비 → VAN 서류 입력 → LINE 발송 흐름.<br>
+  <b>핵심</b>: 일정 트리플 시각화, 장비 카탈로그 빠른 검색, VAN TID 모바일 키패드 최적화, 카메라 즉시 진입, LINE 디폴트 ON.
+</p>
+
+<div class="frames">
+
+<!-- ① 홈/신규 리스트 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>09:42</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div style="font-size:21px">🆕</div>
+        <div class="title">신규/오픈</div>
+        <span class="badge">📡 8</span>
+      </div>
+      <div class="tabs">
+        <div class="tab">설치 예정 (4)</div>
+        <div class="tab active">오픈 임박 (2)</div>
+        <div class="tab">완료 (15)</div>
+      </div>
+      <div class="body">
+        ${[
+          {cls:'soon', pill:'soon', st:'오픈 D-2', nm:'카페모리(역삼점)', meta:'설치 ✓ · 가오픈 5/19 · 오픈 5/20', sub:'POS×2 · KIOSK×1 · KOCES TID 입력중', warn:true, line:3},
+          {cls:'prog', pill:'prog', st:'설치 중', nm:'더분식(왕십리)', meta:'설치 5/18 · 가오픈 5/22 · 오픈 5/25', sub:'POS×3 · 키친프린터×2 · NICE 진행', line:2},
+          {cls:'open', pill:'open', st:'가오픈', nm:'스시히로(서초)', meta:'가오픈 5/16 시작 · 오픈 5/23', sub:'POS×2 · KSNET TID 등록완료', line:5},
+          {cls:'done', pill:'done', st:'오픈완료', nm:'본가찜닭(잠실)', meta:'5/12 오픈 · VAN ✓ · 모든 장비 정상', sub:'POS×2 · VAN 3건', line:6},
+        ].map(c => `
+        <div class="card ${c.cls}">
+          <div class="topline">
+            <span class="pill ${c.pill}">${c.st}</span>
+            ${c.warn?'<span class="pill" style="background:#FEF3C7;color:#92400E">⚠️ 일정 임박</span>':''}
+            <span style="margin-left:auto" class="pill line">📡 ${c.line}</span>
+          </div>
+          <div class="nm">${c.nm}</div>
+          <div class="meta">${c.meta}</div>
+          <div class="summary">${c.sub}</div>
+          <div class="actions-row">
+            <button class="btn-mini ${c.cls==='done'?'done':c.cls==='soon'?'open':c.cls}">📋 진행 상세</button>
+            <button class="btn-mini line">📡 알림</button>
+          </div>
+        </div>
+        `).join('')}
+      </div>
+
+      <div class="fab-label" style="bottom:155px">＋ 신규 등록</div>
+      <div class="fab line">📡</div>
+      <div class="fab">＋</div>
+
+      <div class="bottom-nav">
+        <div class="nav-item"><div class="icn">📦</div>재고</div>
+        <div class="nav-item"><div class="icn">🔧</div>AS</div>
+        <div class="nav-item active"><div class="icn">🆕</div>신규</div>
+        <div class="nav-item"><div class="icn">🏪</div>매장</div>
+        <div class="nav-item"><div class="icn">⚙️</div>설정</div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">① 홈/신규 리스트 — 설치예정/오픈임박/완료 탭 + 일정 임박 배지</div>
+</div>
+
+<!-- ② 등록 풀폼 ① 매장/일정/담당자 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:12</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">🆕 신규 등록</div>
+        <span class="badge" style="background:#FEF3C7;color:#92400E">1/3</span>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step cur"><span class="dot">1</span>매장/일정</div>
+          <div class="step"><span class="dot">2</span>장비</div>
+          <div class="step"><span class="dot">3</span>VAN</div>
+        </div>
+
+        <div class="section-h">매장</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px;display:flex;align-items:center;gap:9px">
+          <div style="width:38px;height:38px;background:#EDE9FE;color:#5B21B6;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">🏪</div>
+          <div style="flex:1">
+            <div style="font-weight:800;font-size:13.5px">카페모리(역삼점)</div>
+            <div style="font-size:10.5px;color:var(--gray-500)">220-87-44912 · 김지영 · 미등록</div>
+          </div>
+          <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:800">변경</button>
+        </div>
+
+        <div class="section-h">작업 종류</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:8px">
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px;background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD"><input type="radio" checked>신규 오픈</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">장비 추가</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">교체/이전</span>
+        </div>
+
+        <div class="section-h">📅 매장 주요 일정</div>
+        <div class="timeline-trio">
+          <div class="tl-step done">
+            <div class="tl-dot">🔧</div>
+            <div class="tl-lbl">설치</div>
+            <div class="tl-date">5/15 (월)</div>
+          </div>
+          <div class="tl-step cur">
+            <div class="tl-dot">🚪</div>
+            <div class="tl-lbl">가오픈</div>
+            <div class="tl-date">5/19 (금)</div>
+          </div>
+          <div class="tl-step future">
+            <div class="tl-dot">🎉</div>
+            <div class="tl-lbl">오픈</div>
+            <div class="tl-date">5/20 (토)</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
+          <div class="field" style="margin:0">
+            <div class="field-label">설치 예정일</div>
+            <input class="field-input" type="date" value="2026-05-15" style="padding:8px;font-size:12px">
+          </div>
+          <div class="field" style="margin:0">
+            <div class="field-label">가오픈일</div>
+            <input class="field-input" type="date" value="2026-05-19" style="padding:8px;font-size:12px">
+          </div>
+          <div class="field" style="margin:0">
+            <div class="field-label">오픈일</div>
+            <input class="field-input" type="date" value="2026-05-20" style="padding:8px;font-size:12px">
+          </div>
+        </div>
+
+        <div class="section-h">👥 매장 담당자</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="field" style="margin:0">
+              <div class="field-label">이름</div>
+              <input class="field-input" value="김지영" style="padding:9px 11px;font-size:13px">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="field-label">직책</div>
+              <input class="field-input" value="대표" style="padding:9px 11px;font-size:13px">
+            </div>
+          </div>
+          <div class="field" style="margin:8px 0 0">
+            <div class="field-label">📞 연락처</div>
+            <input class="field-input" value="010-2345-6789" inputmode="tel" style="padding:9px 11px;font-size:13px">
+          </div>
+        </div>
+
+        <div class="section-h">🛠️ 담당 엔지니어</div>
+        <select class="field-select" style="margin-bottom:14px">
+          <option>이헌상 (본인)</option>
+          <option>김기사</option>
+          <option>박엔지니어</option>
+        </select>
+
+        <button class="btn-big primary">다음 → 투입 장비</button>
+        <button class="btn-big ghost">임시저장</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">② 등록 풀폼 ① — 매장/일정 트리플/담당자/엔지니어</div>
+</div>
+
+<!-- ③ 등록 풀폼 ② 투입 장비 카탈로그 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:18</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">🆕 카페모리(역삼점)</div>
+        <span class="badge">2/3</span>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step done"><span class="dot">✓</span>매장/일정</div>
+          <div class="step cur"><span class="dot">2</span>장비</div>
+          <div class="step"><span class="dot">3</span>VAN</div>
+        </div>
+
+        <!-- 카탈로그 검색 -->
+        <div style="position:relative;margin-bottom:10px">
+          <input type="text" placeholder="장비명 / 모델 검색 (예: POS, 키오스크)"
+                 style="width:100%;padding:11px 14px 11px 38px;border:1.5px solid var(--gray-300);border-radius:10px;font-size:13.5px;background:#fff">
+          <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:15px">🔍</span>
+        </div>
+
+        <!-- 카테고리 칩 -->
+        <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:4px">
+          <span class="tag" style="background:var(--primary);color:#fff;border-color:var(--primary);white-space:nowrap"><input type="radio" checked style="display:none">전체</span>
+          <span class="tag" style="background:#fff;color:var(--gray-600);border-color:var(--gray-300);white-space:nowrap">POS</span>
+          <span class="tag" style="background:#fff;color:var(--gray-600);border-color:var(--gray-300);white-space:nowrap">VAN</span>
+          <span class="tag" style="background:#fff;color:var(--gray-600);border-color:var(--gray-300);white-space:nowrap">키오스크</span>
+          <span class="tag" style="background:#fff;color:var(--gray-600);border-color:var(--gray-300);white-space:nowrap">주변기기</span>
+        </div>
+
+        <!-- 선택된 장비 요약 -->
+        <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px">📋</span>
+          <div style="flex:1;font-size:12px;color:#1e40af">선택: <b>5종 · 총 8개</b></div>
+          <button style="background:#fff;color:var(--primary);border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:800">📷 영수증</button>
+        </div>
+
+        <div class="section-h">투입 장비</div>
+
+        ${[
+          {ico:'🖥️', nm:'POS 본체 (NeoPOS-15)', sub:'15인치 터치 · 윈도우11', qty:2, picked:true},
+          {ico:'🧾', nm:'영수증 프린터 (Bixolon SRP-380)', sub:'80mm · USB', qty:2, picked:true},
+          {ico:'💳', nm:'KOCES 단말기 (KS-7000)', sub:'IC·MSR·NFC', qty:2, picked:true},
+          {ico:'🤖', nm:'키오스크 (NK-22)', sub:'22인치 스탠드형', qty:1, picked:true},
+          {ico:'📡', nm:'무선AP (TP-Link AX1800)', sub:'WiFi6', qty:1, picked:true},
+          {ico:'⌨️', nm:'주방 키친프린터', sub:'네트워크 80mm', qty:0, picked:false},
+          {ico:'📟', nm:'호출 단말기 (5인 세트)', sub:'무선 진동', qty:0, picked:false},
+        ].map(it => `
+        <div class="cat-row" style="${it.picked?'border:1.5px solid #BFDBFE;background:#F8FAFF':''}">
+          <div class="cat-ico" style="${it.picked?'background:#EFF6FF':''}">${it.ico}</div>
+          <div style="flex:1;min-width:0">
+            <div class="cat-nm">${it.nm}</div>
+            <div class="cat-sub">${it.sub}</div>
+          </div>
+          <div class="qty">
+            <button>−</button>
+            <input type="number" value="${it.qty}">
+            <button>+</button>
+          </div>
+        </div>
+        `).join('')}
+
+        <div style="display:flex;gap:7px;margin-top:14px">
+          <button class="btn-big ghost" style="margin:0">← 이전</button>
+          <button class="btn-big primary" style="margin:0">다음 → VAN 서류</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">③ 등록 풀폼 ② — 장비 카탈로그 검색 + 수량 조절 (8개 선택)</div>
+</div>
+
+<!-- ④ 등록 풀폼 ③ VAN 서류 + 첨부 + 메모 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:24</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">🆕 카페모리(역삼점)</div>
+        <span class="badge">3/3</span>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step done"><span class="dot">✓</span>매장/일정</div>
+          <div class="step done"><span class="dot">✓</span>장비</div>
+          <div class="step cur"><span class="dot">3</span>VAN</div>
+        </div>
+
+        <div class="annot" style="margin:0 0 10px">VAN 서류는 TID/Serial 만 입력 — 상세 서류는 PC 에서 처리. 큰 키패드(숫자)로 입력</div>
+
+        <div class="section-h">💳 VAN 서류 (TID/Serial)</div>
+
+        <!-- KOCES (입력 펼침) -->
+        <div class="van-card prog">
+          <div class="van-head">
+            <div class="van-logo koces">KOCES</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:13px">KOCES</div>
+              <div style="font-size:10.5px;color:var(--warn);font-weight:700">⌛ 입력 중 · 2/2 단말</div>
+            </div>
+            <span style="font-size:14px;color:var(--gray-400)">▼</span>
+          </div>
+          <div style="background:#F9FAFB;border-radius:7px;padding:9px;margin-bottom:6px">
+            <div style="font-size:10.5px;font-weight:800;color:var(--gray-500);margin-bottom:5px">단말 1</div>
+            <input class="field-input" placeholder="TID (8자리)" inputmode="numeric" value="22041897" style="padding:9px 11px;font-size:14.5px;letter-spacing:1.5px;font-weight:700;margin-bottom:5px">
+            <input class="field-input" placeholder="Serial No." value="KS7K-2026-04129" style="padding:9px 11px;font-size:13px;font-family:monospace">
+          </div>
+          <div style="background:#F9FAFB;border-radius:7px;padding:9px">
+            <div style="font-size:10.5px;font-weight:800;color:var(--gray-500);margin-bottom:5px">단말 2</div>
+            <input class="field-input" placeholder="TID (8자리)" inputmode="numeric" value="22041898" style="padding:9px 11px;font-size:14.5px;letter-spacing:1.5px;font-weight:700;margin-bottom:5px">
+            <input class="field-input" placeholder="Serial No." value="" style="padding:9px 11px;font-size:13px;font-family:monospace;border-color:#FCA5A5">
+          </div>
+        </div>
+
+        <!-- 다른 VAN 들 (접힘) -->
+        ${[
+          {logo:'nice', nm:'NICE', cnt:1, st:'todo', stTxt:'미입력', col:'var(--gray-500)'},
+          {logo:'kis', nm:'KIS', cnt:0, st:'na', stTxt:'해당없음', col:'var(--gray-400)'},
+          {logo:'ksnet', nm:'KSNET', cnt:1, st:'done', stTxt:'✓ 입력완료', col:'var(--success)'},
+          {logo:'simple', nm:'간편결제', cnt:1, st:'todo', stTxt:'미입력', col:'var(--gray-500)'},
+          {logo:'kakao', nm:'카카오페이', cnt:1, st:'done', stTxt:'✓ 입력완료', col:'var(--success)'},
+        ].map(v => `
+        <div class="van-card ${v.st==='done'?'done':v.st==='todo'?'todo':''}" style="display:flex;align-items:center;gap:9px;padding:10px 12px">
+          <div class="van-logo ${v.logo}">${v.nm}</div>
+          <div style="flex:1">
+            <div style="font-weight:800;font-size:12.5px">${v.nm}</div>
+            <div style="font-size:10.5px;color:${v.col};font-weight:700">${v.cnt>0?`${v.cnt}단말 · `:''}${v.stTxt}</div>
+          </div>
+          <span style="font-size:14px;color:var(--gray-400)">${v.st==='na'?'—':'▶'}</span>
+        </div>
+        `).join('')}
+
+        <div class="section-h">📎 첨부 (사업자등록증/계약서)</div>
+        <div class="photo-grid-lg" style="grid-template-columns:repeat(4,1fr);margin-bottom:6px">
+          <div class="photo-lg" style="background:linear-gradient(135deg,#3B82F6,#1E3A8A)">사업자<span class="x">×</span></div>
+          <div class="photo-lg" style="background:#DC2626;display:flex;flex-direction:column;font-size:9px">📄<span style="font-size:8px">계약.pdf</span><span class="x">×</span></div>
+          <div class="photo-lg add camera"><span class="icon">📸</span><span>촬영</span></div>
+          <div class="photo-lg add"><span class="plus">＋</span><span>파일</span></div>
+        </div>
+
+        <div class="section-h">📝 메모/특이사항</div>
+        <textarea class="field-textarea" placeholder="설치 시 특이사항을 적어두세요" style="margin-bottom:10px">2층 매장, 케이블 길이 추가 필요. 가오픈 전 시뮬레이션 결제 테스트 요청.</textarea>
+
+        <span class="tag" style="margin-bottom:10px;display:inline-flex"><input type="checkbox" checked>📡 저장 + LINE 발송</span>
+
+        <div style="display:flex;gap:7px">
+          <button class="btn-big ghost" style="margin:0">← 이전</button>
+          <button class="btn-big line" style="margin:0">💾 저장 + 📡 발송</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">④ 등록 풀폼 ③ — VAN TID/Serial + 첨부 + 메모 (KOCES 펼침)</div>
+</div>
+
+<!-- ⑤ 진행 단계 thread -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>15:22</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">🆕 카페모리(역삼점)</div>
+        <span class="badge" style="background:#FEE2E2;color:#991B1B">D-2</span>
+      </div>
+      <div class="body">
+        <!-- 매장 요약 -->
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+            <div>
+              <div style="font-weight:800;font-size:14px">카페모리(역삼점)</div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">신규 오픈 · 김지영(010-2345-6789)</div>
+            </div>
+            <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:5px 10px;font-size:10.5px;font-weight:800">✏️ 편집</button>
+          </div>
+          <!-- 일정 미니 트리오 -->
+          <div class="timeline-trio" style="padding:8px 6px;margin:6px 0 0;box-shadow:none;border:1px solid var(--gray-100)">
+            <div class="tl-step done"><div class="tl-dot" style="width:28px;height:28px;font-size:13px">🔧</div><div class="tl-lbl" style="font-size:9.5px">설치</div><div class="tl-date" style="font-size:9px">5/15 ✓</div></div>
+            <div class="tl-step cur"><div class="tl-dot" style="width:28px;height:28px;font-size:13px">🚪</div><div class="tl-lbl" style="font-size:9.5px">가오픈</div><div class="tl-date" style="font-size:9px">5/19</div></div>
+            <div class="tl-step future"><div class="tl-dot" style="width:28px;height:28px;font-size:13px">🎉</div><div class="tl-lbl" style="font-size:9.5px">오픈</div><div class="tl-date" style="font-size:9px">5/20</div></div>
+          </div>
+        </div>
+
+        <div class="section-h" style="display:flex;align-items:center;gap:6px">
+          📋 진행 단계
+          <span style="margin-left:auto;background:#06C7551A;color:#04A047;font-size:10px;font-weight:800;padding:3px 8px;border-radius:11px">📡 3회</span>
+        </div>
+
+        <!-- thread: 요청접수 -->
+        <div class="card req" style="padding:11px 13px;margin-bottom:8px">
+          <div class="topline" style="margin-bottom:3px">
+            <span class="pill req">요청접수</span>
+            <span class="meta" style="margin:0">5/10 14:30 · 이헌상</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">카페 신규 오픈, POS 2 + 키오스크 1 + KOCES 2 단말</div>
+          <div class="strip"><div class="thumb img1">견적</div></div>
+        </div>
+
+        <!-- 설치진행 -->
+        <div class="card prog" style="padding:11px 13px;margin-bottom:8px">
+          <div class="topline" style="margin-bottom:3px">
+            <span class="pill prog">설치 진행</span>
+            <span class="meta" style="margin:0">5/15 09:00 · 김기사</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">장비 반입 완료, 네트워크 구성 중</div>
+          <div class="strip">
+            <div class="thumb img3">반입</div>
+            <div class="thumb img4">매장</div>
+          </div>
+        </div>
+
+        <!-- 설치 완료 -->
+        <div class="card done" style="padding:11px 13px;margin-bottom:8px">
+          <div class="topline" style="margin-bottom:3px">
+            <span class="pill done">설치 완료</span>
+            <span class="meta" style="margin:0">5/15 18:20 · 김기사</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">POS×2 / KIOSK×1 / KOCES×2 정상 동작 확인. 가오픈 5/19 예정</div>
+          <div class="strip">
+            <div class="thumb img2">POS</div>
+            <div class="thumb img1">KIOSK</div>
+            <div class="thumb img3">단말</div>
+          </div>
+        </div>
+
+        <!-- 다음 단계 빈 카드 (행동 유도) -->
+        <div style="background:#fff;border:2px dashed var(--purple);border-radius:12px;padding:14px 13px;margin-bottom:8px;text-align:center">
+          <div style="font-size:24px">🚪</div>
+          <div style="font-weight:800;color:#5B21B6;font-size:13px;margin-top:3px">가오픈 (5/19) 등록 대기</div>
+          <div style="font-size:10.5px;color:var(--gray-500);margin-top:2px">시뮬레이션 결제 테스트 후 진행 추가</div>
+        </div>
+
+        <!-- 액션 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 8px">
+          <button class="btn-big purple" style="margin:0;padding:13px">＋ 진행 추가</button>
+          <button class="btn-big success" style="margin:0;padding:13px">🎉 오픈 완료</button>
+        </div>
+      </div>
+
+      <div class="fab line" style="bottom:18px">📡</div>
+    </div>
+  </div>
+  <div class="device-title">⑤ 진행 단계 thread — 요청접수→설치→가오픈→오픈 + 📡 표시</div>
+</div>
+
+<!-- ⑥ 빠른 LINE 발송 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen" style="background:#F0F2F5">
+      <div class="statusbar"><span>09:45</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">📡 빠른 LINE 발송</div>
+      </div>
+      <div class="body">
+        <div class="annot">신규 매장 일정/사진을 한 줄로 즉시 공유 — 상세 등록은 사이트에서 별도</div>
+
+        <div class="section-h">매장 선택</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:9px">
+            <div style="width:42px;height:42px;background:#EDE9FE;color:#5B21B6;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:21px">🏪</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:14px">카페모리(역삼점)</div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px;display:flex;gap:6px;align-items:center">
+                <span class="pill soon" style="padding:1px 6px;font-size:9.5px">오픈 D-2</span>
+                <span>220-87-44912</span>
+              </div>
+            </div>
+            <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:800">변경</button>
+          </div>
+        </div>
+
+        <div class="section-h">단계 (메시지 종류)</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px">
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">설치</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11px;background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD"><input type="radio" checked>가오픈</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">오픈</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">이슈</span>
+        </div>
+
+        <div class="section-h">사진 (필수)</div>
+        <div class="photo-grid-lg" style="grid-template-columns:repeat(3,1fr)">
+          <div class="photo-lg" style="background:linear-gradient(135deg,#8B5CF6,#5B21B6)">매장<span class="x">×</span></div>
+          <div class="photo-lg add camera">
+            <span class="icon">📸</span>
+            <span>촬영</span>
+          </div>
+          <div class="photo-lg add">
+            <span class="plus">＋</span>
+            <span>앨범</span>
+          </div>
+        </div>
+
+        <div class="section-h">한 줄 메시지 (≤30자)</div>
+        <div style="position:relative">
+          <textarea class="field-textarea" style="min-height:62px">가오픈 시뮬결제 테스트 OK</textarea>
+          <div class="field-counter">14/30</div>
+        </div>
+
+        <div class="line-preview">
+          <span class="lbl">📡 미리보기</span>
+          카페모리(역삼점) : 2026-05-18 [가오픈] ; 가오픈 시뮬결제 테스트 OK · 📷 1장
+        </div>
+
+        <button class="btn-big line" style="margin-top:8px">📡 LINE 발송</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑥ 빠른 LINE 발송 — 매장+단계+사진+한 줄 메시지</div>
+</div>
+
+<!-- ⑦ 매장 선택 + 미등록 가맹점 등록 시트 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen" style="background:rgba(0,0,0,.4)">
+      <div class="statusbar"><span>09:46</span><span class="icons">📶 📡 🔋</span></div>
+      <div style="background:#fff;height:60px;opacity:.4"></div>
+
+      <div style="background:#fff;border-radius:18px 18px 0 0;flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:10px 16px 6px">
+          <div class="sheet-handle"></div>
+          <div class="sheet-title">+ 미등록 가맹점 등록</div>
+        </div>
+
+        <div style="padding:0 14px 10px;display:flex;gap:6px">
+          <button style="flex:1;padding:8px 0;border:1.5px solid var(--gray-300);background:#fff;color:var(--gray-600);border-radius:8px;font-size:12px;font-weight:700">✓ 등록 매장</button>
+          <button style="flex:1;padding:8px 0;border:none;background:var(--warn);color:#fff;border-radius:8px;font-size:12px;font-weight:800">+ 미등록 가맹점</button>
+        </div>
+
+        <div style="padding:0 14px;flex:1;overflow-y:auto">
+          <div class="annot" style="margin:0 0 10px">신규 오픈 매장은 아직 정식 등록 전 — 임시 정보로 진행. 사업자등록증 사진 첨부 권장.</div>
+
+          <div class="field">
+            <div class="field-label">🏪 가맹점명 <span style="color:#DC2626">*</span></div>
+            <input class="field-input" value="카페모리(역삼점)">
+          </div>
+          <div class="field">
+            <div class="field-label">📇 사업자번호 <span style="color:#DC2626">*</span></div>
+            <input class="field-input" value="220-87-44912" inputmode="numeric" style="letter-spacing:1px;font-weight:700">
+          </div>
+          <div class="field">
+            <div class="field-label">👤 대표자명</div>
+            <input class="field-input" value="김지영">
+          </div>
+          <div class="field">
+            <div class="field-label">📞 연락처</div>
+            <input class="field-input" value="010-2345-6789" inputmode="tel">
+          </div>
+          <div class="field">
+            <div class="field-label">📍 주소</div>
+            <input class="field-input" value="서울 강남구 역삼동 678-1, 2층">
+          </div>
+
+          <div class="field">
+            <div class="field-label">📷 사업자등록증 (선택)</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px">
+              <div class="photo-lg" style="background:linear-gradient(135deg,#3B82F6,#1E3A8A);aspect-ratio:1;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:700">사업자<span class="x">×</span></div>
+              <div class="photo-lg add camera" style="aspect-ratio:1;border-radius:9px"><span class="icon">📸</span><span>촬영</span></div>
+              <div class="photo-lg add" style="aspect-ratio:1;border-radius:9px"><span class="plus">＋</span><span>앨범</span></div>
+            </div>
+          </div>
+
+          <div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:8px;padding:9px 11px;font-size:11px;color:#92400E;margin-bottom:10px">
+            ⚠️ 미등록 상태로 진행한 매장은 별도 표시. 정식 매장 등록 후 자동 매칭됩니다.
+          </div>
+        </div>
+
+        <div style="padding:10px 14px 16px;border-top:1px solid var(--gray-200);background:#fff">
+          <button class="btn-big warn" style="margin:0">+ 미등록 가맹점으로 진행</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑦ 매장 선택 시트 — 미등록 가맹점 등록 (사업자번호/주소)</div>
+</div>
+
+<!-- ⑧ VAN 서류 진행 상태 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>15:30</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">💳 VAN 서류 진행</div>
+        <span class="badge">3/5</span>
+      </div>
+      <div class="body">
+        <!-- 매장 요약 -->
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:10px">
+          <div style="font-weight:800;font-size:14px">카페모리(역삼점)</div>
+          <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">신규 오픈 · 오픈 5/20</div>
+          <div class="pbar" style="margin-top:8px"><div class="fill" style="width:60%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--gray-500);margin-top:3px">
+            <span>전체 진행률</span><span style="font-weight:800;color:var(--success)">60% (3/5)</span>
+          </div>
+        </div>
+
+        <div class="section-h">VAN 별 상태</div>
+
+        <!-- KOCES 진행중 -->
+        <div class="van-card prog">
+          <div class="van-head">
+            <div class="van-logo koces">KOCES</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:13px">KOCES</div>
+              <div style="font-size:10.5px;color:var(--warn);font-weight:700">⌛ TID 입력 중 · Serial 1건 누락</div>
+            </div>
+            <span class="pill prog">50%</span>
+          </div>
+          <div class="pbar"><div class="fill prog" style="width:50%"></div></div>
+          <div style="display:flex;gap:5px;margin-top:7px;flex-wrap:wrap">
+            <span class="pill" style="background:#DCFCE7;color:#15803d">단말1 ✓</span>
+            <span class="pill" style="background:#FEF3C7;color:#92400E">단말2 ⌛</span>
+          </div>
+          <button class="btn-mini prog" style="margin-top:7px;flex:0;padding:7px 14px">📝 이어서 입력</button>
+        </div>
+
+        <!-- NICE 미입력 -->
+        <div class="van-card todo">
+          <div class="van-head">
+            <div class="van-logo nice">NICE</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:13px">NICE</div>
+              <div style="font-size:10.5px;color:var(--gray-500);font-weight:700">📋 1단말 · 미입력</div>
+            </div>
+            <span class="pill" style="background:var(--gray-200);color:var(--gray-600)">0%</span>
+          </div>
+          <div class="pbar"><div class="fill todo"></div></div>
+          <button class="btn-mini" style="margin-top:7px;flex:0;padding:7px 14px;border-color:var(--gray-300);color:var(--gray-700)">＋ 입력 시작</button>
+        </div>
+
+        <!-- KSNET 완료 -->
+        <div class="van-card done">
+          <div class="van-head">
+            <div class="van-logo ksnet">KSNET</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:13px">KSNET</div>
+              <div style="font-size:10.5px;color:var(--success);font-weight:700">✓ 1단말 · 모두 입력 완료</div>
+            </div>
+            <span class="pill done">100%</span>
+          </div>
+          <div class="pbar"><div class="fill" style="width:100%"></div></div>
+          <div style="font-size:10.5px;color:var(--gray-500);font-family:monospace;margin-top:6px">TID 11223344 · SN KSN-2026-789</div>
+        </div>
+
+        <!-- 간편결제 -->
+        <div class="van-card todo">
+          <div class="van-head">
+            <div class="van-logo simple">간편</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:13px">간편결제</div>
+              <div style="font-size:10.5px;color:var(--gray-500);font-weight:700">📋 1단말 · 미입력</div>
+            </div>
+            <span class="pill" style="background:var(--gray-200);color:var(--gray-600)">0%</span>
+          </div>
+          <div class="pbar"><div class="fill todo"></div></div>
+        </div>
+
+        <!-- 카카오페이 완료 -->
+        <div class="van-card done">
+          <div class="van-head">
+            <div class="van-logo kakao">Kakao</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:13px">카카오페이</div>
+              <div style="font-size:10.5px;color:var(--success);font-weight:700">✓ 1단말 · 모두 입력 완료</div>
+            </div>
+            <span class="pill done">100%</span>
+          </div>
+          <div class="pbar"><div class="fill" style="width:100%"></div></div>
+          <div style="font-size:10.5px;color:var(--gray-500);font-family:monospace;margin-top:6px">CID KKO-220874-77 · SN —</div>
+        </div>
+
+        <!-- 합계 안내 -->
+        <div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;color:#92400E;display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px">⚠️</span>
+          <div style="flex:1">오픈 (5/20) 전까지 <b>2건 미입력</b> — NICE, 간편결제</div>
+        </div>
+
+        <button class="btn-big line">📡 진행상태 LINE 공유</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑧ VAN 서류 진행 상태 — 5개 VAN 카드별 진행률 + 상태</div>
+</div>
+
+</div>
+
+<h2>🗂️ 화면 흐름 (사용자 시나리오)</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <div style="font-size:12.5px;line-height:1.9">
+    <b>📥 신규 등록</b> &nbsp;①홈 → FAB＋ → ⑦매장선택(미등록 가맹점) → ②등록① → ③등록②(장비) → ④등록③(VAN) → 저장+📡<br>
+    <b>🔧 설치 현장</b> &nbsp;①홈 → 카드탭 → ⑤thread → 진행 추가 → 📡 발송<br>
+    <b>🚪 가오픈 등록</b> &nbsp;⑤thread → "가오픈 등록 대기" 카드 탭 → 진행 추가 시트 → 📡<br>
+    <b>💳 VAN 입력</b> &nbsp;④등록③(TID/Serial) 또는 ⑧VAN 상태 → 이어서 입력 → 카드별 100% 완료<br>
+    <b>⚡ 빠른 발송</b> &nbsp;①홈 → FAB📡 → ⑥빠른발송 (단계 선택 → 사진 → 한 줄)<br>
+    <b>🎉 오픈 완료</b> &nbsp;⑤thread → 오픈 완료 버튼 → 완료 처리 + LINE 발송
+  </div>
+</div>
+
+<h2>📐 디자인 원칙</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.8">
+    <li><b>일정 트리플 시각화</b> — 설치→가오픈→오픈 3단계 타임라인 항상 노출 (D-카운트로 임박 강조)</li>
+    <li><b>장비 카탈로그 빠른 진입</b> — 카테고리 칩 (POS/VAN/키오스크/주변기기) + 검색 + +/− 수량 조절</li>
+    <li><b>VAN TID 입력 최적화</b> — <code>inputmode="numeric"</code> + 큰 폰트(14.5px) + letter-spacing 으로 8자리 가독성</li>
+    <li><b>VAN 카드 분리</b> — KOCES/NICE/KIS/KSNET/간편/카카오 각각 카드 — 펼침/접힘 + 진행률 표시</li>
+    <li><b>3-스텝 풀폼</b> — 매장/일정 → 장비 → VAN. 각 스텝마다 임시저장 가능</li>
+    <li><b>FAB 2개 디자인</b> — 일반 ＋ (신규 등록) + LINE 📡 (빠른 사진+한줄 발송)</li>
+    <li><b>LINE 발송 디폴트 ON</b> — 단계별 자동 발송 (해제 가능). 단계 태그 (설치/가오픈/오픈/이슈) 자동 삽입</li>
+    <li><b>일정 임박 시각 강조</b> — D-2/D-1 등 빨간 배지 + 오픈 임박 탭 우선 노출</li>
+    <li><b>큰 터치 영역 + 30자 카운터</b> — 야외/현장 입력 가독성</li>
+  </ul>
+</div>
+
+<h2>🔧 기술 노트</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.8">
+    <li><b>같은 index.html 사용</b> — 별도 모바일 앱 아님. CSS 미디어쿼리로 모바일 모드 분기</li>
+    <li><code>@media (max-width: 640px)</code> 에서 활성화: 큰 버튼, 바텀시트, FAB, 풀폼 스텝퍼</li>
+    <li>일정 트리플: <code>.timeline-trio</code> 컴포넌트 → 설치/가오픈/오픈 3-state (done/cur/future)</li>
+    <li>VAN 입력: <code>jobVandocs</code> 컬렉션 — <code>{van:'KOCES', tid:'22041897', serial:'KS7K-...', terminal_no:1}</code></li>
+    <li>장비 카탈로그: <code>equipment_catalog</code> + <code>job_equipment</code> 조인 (qty 포함)</li>
+    <li>카메라 인풋: <code>&lt;input type="file" accept="image/*" capture="environment"&gt;</code></li>
+    <li>D-카운트 자동 계산: <code>오픈일 - 오늘</code> ≤ 2일 이면 빨간 배지 + 오픈 임박 탭 표시</li>
+    <li>VAN 진행률: <code>(입력완료 단말수 / 전체 단말수) × 100</code> 카드별 + 전체</li>
+    <li>오프라인 대비: TID/Serial 입력은 IndexedDB 임시 저장 → 온라인 복귀 시 동기화</li>
+    <li>LINE 메시지 단계 태그: <code>[설치] / [가오픈] / [오픈] / [이슈]</code> 자동 prefix</li>
+  </ul>
+</div>
+
+</body>
+</html>

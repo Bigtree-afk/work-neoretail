@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>🔧 AS 모바일 — 현장 엔지니어 UI 목업</title>
+<style>
+  :root {
+    --primary:#2563EB; --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
+    --gray-300:#D1D5DB; --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-600:#4B5563;
+    --gray-700:#374151; --gray-800:#1F2937; --line:#06C755; --line-light:#06C7551A;
+    --beige:#FEF7E6; --danger:#EF4444; --warn:#F59E0B; --success:#10B981;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans KR',sans-serif; background:#F0F2F5; margin:0; padding:18px; color:var(--gray-800); font-size:13px; line-height:1.5 }
+  h1 { font-size:17px; margin:0 0 6px }
+  h2 { font-size:14px; margin:24px 0 10px; padding-bottom:5px; border-bottom:2px solid var(--gray-200); color:var(--gray-700) }
+  .lead { font-size:12px; color:var(--gray-500); margin-bottom:14px }
+
+  .frames { display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:18px; align-items:start }
+  .device {
+    background:#1F2937; border-radius:34px; padding:8px;
+    box-shadow:0 12px 36px rgba(0,0,0,.18);
+    width:380px; max-width:100%; justify-self:center;
+  }
+  .notch { width:130px; height:24px; background:#1F2937; margin:-2px auto 0; border-radius:0 0 14px 14px; position:relative; z-index:5 }
+  .screen { background:#F0F2F5; border-radius:28px; overflow:hidden; height:732px; position:relative; display:flex; flex-direction:column }
+  .device-title { text-align:center; font-size:11px; color:var(--gray-500); margin-top:6px; font-weight:600 }
+
+  /* iOS Status Bar */
+  .statusbar { background:#fff; padding:5px 18px 0; display:flex; align-items:center; justify-content:space-between; font-size:11.5px; font-weight:700; color:var(--gray-800); height:24px }
+  .statusbar .icons { display:flex; gap:4px; font-size:10px }
+
+  /* App header */
+  .appbar { background:#fff; padding:12px 16px 10px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--gray-200) }
+  .appbar .back { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--gray-700); cursor:pointer }
+  .appbar .title { flex:1; font-weight:800; font-size:15px }
+  .appbar .badge { background:#06C7551A; color:#04A047; border-radius:11px; padding:2px 8px; font-size:10.5px; font-weight:800 }
+  .appbar .badge.danger { background:#FEE2E2; color:#991B1B }
+  .appbar .badge.warn { background:#FEF3C7; color:#92400E }
+
+  /* Tabs */
+  .tabs { background:#fff; display:flex; padding:0 8px; border-bottom:1px solid var(--gray-200); overflow-x:auto; gap:0 }
+  .tab { padding:11px 10px; font-size:12px; font-weight:700; color:var(--gray-500); border-bottom:3px solid transparent; white-space:nowrap }
+  .tab.active { color:var(--primary); border-bottom-color:var(--primary) }
+
+  /* Body scroll */
+  .body { flex:1; overflow-y:auto; padding:12px 14px 90px; background:#F0F2F5 }
+
+  /* Cards */
+  .card { background:#fff; border-radius:12px; padding:13px 14px; margin-bottom:10px; box-shadow:0 1px 2px rgba(0,0,0,.04) }
+  .card.req { border-left:4px solid #3B82F6 }
+  .card.prog { border-left:4px solid #F59E0B }
+  .card.done { border-left:4px solid #10B981 }
+  .card.urgent { border-left:4px solid var(--danger); background:linear-gradient(90deg,#FEF2F2 0%,#fff 30%) }
+  .card .topline { display:flex; align-items:center; gap:6px; margin-bottom:6px }
+  .card .nm { font-weight:800; font-size:14px; flex:1 }
+  .pill { display:inline-block; padding:2px 8px; border-radius:11px; font-size:10px; font-weight:800 }
+  .pill.req { background:#DBEAFE; color:#1e40af }
+  .pill.prog { background:#FEF3C7; color:#92400E }
+  .pill.done { background:#DCFCE7; color:#15803d }
+  .pill.urgent { background:#FEE2E2; color:#991B1B; animation:pulse 1.6s ease-in-out infinite }
+  .pill.line { background:var(--line-light); color:#04A047 }
+  .pill.dev { background:var(--gray-100); color:var(--gray-700); border:1px solid var(--gray-200) }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.55 } }
+  .card .meta { font-size:11px; color:var(--gray-500); margin-bottom:4px }
+  .card .summary { font-size:12.5px; color:var(--gray-700); margin-bottom:6px }
+  .card .actions-row { display:flex; gap:6px; margin-top:8px }
+  .btn-mini { flex:1; padding:8px 0; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; border:1.5px solid; text-align:center; background:#fff }
+  .btn-mini.prog { border-color:#F59E0B; color:#B45309 }
+  .btn-mini.done { border-color:#10B981; color:#15803d }
+  .btn-mini.line { background:var(--line); color:#fff; border-color:var(--line) }
+  .btn-mini.danger { background:var(--danger); color:#fff; border-color:var(--danger) }
+
+  /* D-day badge */
+  .dday { display:inline-block; padding:2px 7px; border-radius:6px; font-size:10px; font-weight:800; font-family:'SF Mono',monospace }
+  .dday.safe { background:#DCFCE7; color:#15803d }
+  .dday.near { background:#FEF3C7; color:#92400E }
+  .dday.urgent { background:#FEE2E2; color:#991B1B }
+
+  /* Strip */
+  .strip { display:flex; gap:5px; flex-wrap:wrap; margin-top:6px }
+  .thumb { width:46px; height:46px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:9px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5); flex-shrink:0 }
+  .thumb.img1 { background:linear-gradient(135deg,#3B82F6,#1E3A8A) }
+  .thumb.img2 { background:linear-gradient(135deg,#10B981,#065F46) }
+  .thumb.img3 { background:linear-gradient(135deg,#F59E0B,#92400E) }
+  .thumb.img4 { background:linear-gradient(135deg,#EF4444,#7F1D1D) }
+  .thumb.pdf { background:#DC2626 }
+  .thumb.xls { background:#15803D }
+  .thumb.more { background:#F3F4F6; color:var(--gray-500); border:1px dashed var(--gray-300); text-shadow:none }
+
+  /* FAB */
+  .fab {
+    position:absolute; right:18px; bottom:24px;
+    background:var(--primary); color:#fff; width:58px; height:58px; border-radius:50%;
+    box-shadow:0 6px 18px rgba(37,99,235,.45); display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:300;
+  }
+  .fab.line { background:var(--line); right:84px; box-shadow:0 6px 18px rgba(6,199,85,.45) }
+  .fab-label { position:absolute; right:18px; bottom:88px; background:rgba(0,0,0,.7); color:#fff; padding:4px 11px; border-radius:14px; font-size:11px; font-weight:600 }
+
+  /* Bottom Sheet */
+  .sheet-handle { width:36px; height:4px; background:#D1D5DB; border-radius:3px; margin:0 auto 12px }
+  .sheet-title { font-weight:800; font-size:15px; margin-bottom:10px; display:flex; align-items:center; gap:8px }
+
+  /* Form */
+  .field { margin-bottom:10px }
+  .field-label { font-size:11px; font-weight:700; color:var(--gray-600); margin-bottom:4px; display:flex; align-items:center; gap:5px }
+  .field-input, .field-select, .field-textarea {
+    width:100%; padding:11px 12px; border:1.5px solid var(--gray-300); border-radius:9px;
+    font-size:14px; font-family:inherit; background:#fff;
+  }
+  .field-textarea { min-height:62px; resize:vertical }
+  .field-counter { font-size:10px; color:var(--gray-500); text-align:right; margin-top:2px }
+
+  /* Photo grid */
+  .photo-grid-lg { display:grid; grid-template-columns:repeat(4,1fr); gap:7px }
+  .photo-lg { aspect-ratio:1; border-radius:9px; position:relative; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5) }
+  .photo-lg .x { position:absolute; top:-6px; right:-6px; background:#EF4444; color:#fff; width:22px; height:22px; border-radius:50%; font-size:13px; line-height:22px; text-align:center; font-weight:800; border:2px solid #fff }
+  .photo-lg.add {
+    background:#fff; border:2px dashed var(--gray-400); color:var(--gray-500); text-shadow:none;
+    display:flex; flex-direction:column; gap:1px; font-size:9px; font-weight:700;
+  }
+  .photo-lg.add .plus { font-size:24px; line-height:1 }
+  .photo-lg.add.camera { border-color:var(--primary); color:var(--primary); background:#EFF6FF }
+  .photo-lg.add.camera .icon { font-size:22px }
+
+  /* Big buttons */
+  .btn-big {
+    width:100%; padding:14px 0; border-radius:10px;
+    font-size:14.5px; font-weight:800; border:none; cursor:pointer; margin-bottom:8px;
+  }
+  .btn-big.primary { background:var(--primary); color:#fff }
+  .btn-big.line { background:var(--line); color:#fff }
+  .btn-big.warn { background:var(--warn); color:#fff }
+  .btn-big.success { background:var(--success); color:#fff }
+  .btn-big.danger { background:var(--danger); color:#fff }
+  .btn-big.ghost { background:#fff; color:var(--gray-700); border:1.5px solid var(--gray-300) }
+
+  /* LINE preview */
+  .line-preview {
+    background:#F3F4F6; border:1px dashed var(--line); border-radius:8px;
+    padding:9px 11px; font-family:'Noto Sans KR',monospace; font-size:12px; color:var(--gray-700);
+    margin:6px 0; line-height:1.5;
+  }
+  .line-preview .lbl { color:#04A047; font-weight:800; font-size:10.5px; display:block; margin-bottom:3px }
+
+  /* Tag */
+  .tag { display:inline-flex; align-items:center; gap:4px; background:#06C7551A; color:#04A047; border:1px solid #06C75533; border-radius:14px; padding:5px 11px; font-size:12px; font-weight:700; user-select:none; cursor:pointer }
+  .tag input { width:15px; height:15px; accent-color:var(--line); margin:0 }
+  .tag.warn { background:#FEE2E2; color:#991B1B; border-color:#FCA5A5 }
+  .tag.off { background:#fff; color:var(--gray-500); border-color:var(--gray-300) }
+
+  /* Section title */
+  .section-h { font-size:11.5px; font-weight:800; color:var(--gray-500); text-transform:uppercase; letter-spacing:.5px; margin:14px 0 8px; padding-left:2px }
+  .section-h:first-child { margin-top:0 }
+
+  /* Step indicator */
+  .stepper { display:flex; align-items:center; gap:0; margin:6px 0 14px }
+  .step { flex:1; text-align:center; font-size:10.5px; padding:6px 0; font-weight:700; color:var(--gray-500); position:relative }
+  .step.cur { color:var(--primary) }
+  .step.done { color:var(--success) }
+  .step .dot { display:block; width:24px; height:24px; border-radius:50%; background:var(--gray-300); color:#fff; line-height:24px; margin:0 auto 3px; font-size:11px; font-weight:800 }
+  .step.cur .dot { background:var(--primary) }
+  .step.done .dot { background:var(--success) }
+  .step:not(:last-child)::after { content:''; position:absolute; top:18px; left:60%; right:-40%; height:2px; background:var(--gray-300) }
+  .step.done:not(:last-child)::after { background:var(--success) }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position:absolute; left:0; right:0; bottom:0;
+    background:#fff; border-top:1px solid var(--gray-200);
+    display:flex; justify-content:space-around; padding:6px 0 10px;
+  }
+  .nav-item { flex:1; text-align:center; padding:6px 0; font-size:10.5px; font-weight:700; color:var(--gray-500); cursor:pointer; display:flex; flex-direction:column; gap:3px; align-items:center }
+  .nav-item .icn { font-size:21px; line-height:1 }
+  .nav-item.active { color:var(--primary) }
+
+  /* Toast */
+  .toast {
+    position:absolute; left:14px; right:14px; bottom:90px;
+    background:rgba(0,0,0,.85); color:#fff; padding:10px 14px;
+    border-radius:9px; font-size:12.5px; font-weight:600; z-index:9;
+    display:flex; align-items:center; gap:8px;
+  }
+
+  .annot { font-size:11px; color:var(--gray-500); padding:8px 11px; background:#FFFBEB; border-left:3px solid #FCD34D; border-radius:6px; margin:8px 0 }
+
+  /* Device chip (target equipment) */
+  .dev-chip { display:inline-flex; align-items:center; gap:5px; padding:8px 12px; border-radius:9px; font-size:12px; font-weight:700; border:1.5px solid var(--gray-300); background:#fff; color:var(--gray-600); cursor:pointer }
+  .dev-chip.sel { background:#EFF6FF; border-color:var(--primary); color:var(--primary) }
+
+  /* Catalog row */
+  .cat-row { background:#fff; border-radius:9px; padding:9px 11px; margin-bottom:5px; display:flex; align-items:center; gap:8px }
+
+  code { background:#F3F4F6; padding:1px 5px; border-radius:3px; font-size:11.5px }
+</style>
+</head>
+<body>
+
+<h1>📱 AS 모바일 UI — 현장 엔지니어용 목업</h1>
+<p class="lead">
+  AS 접수 → 현장 출동 → 진행 기록 → 완료 보고를 모바일에서 끝낼 수 있게 설계.
+  <b>긴급 케이스 빨강 강조</b>, 처리 예정일 D-day 표시, 카메라 즉시 진입, LINE 발송 디폴트 ON.<br>
+  <b>핵심</b>: 큰 터치 영역 (44px+), 진행 thread 시퀀스, 투입 장비 카탈로그 + 첨부.
+</p>
+
+<div class="frames">
+
+<!-- ① 홈/AS 리스트 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>09:42</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div style="font-size:21px">🔧</div>
+        <div class="title">AS 접수</div>
+        <span class="badge danger">긴급 2</span>
+        <span class="badge">📡 4</span>
+      </div>
+      <div class="tabs">
+        <div class="tab active">진행 중 (5)</div>
+        <div class="tab">완료 (18)</div>
+        <div class="tab">전체</div>
+      </div>
+      <div class="body">
+
+        <!-- 긴급 케이스 (3시간 이내) -->
+        <div class="card urgent">
+          <div class="topline">
+            <span class="pill urgent">🚨 긴급</span>
+            <span class="dday urgent">D-0 · 3h</span>
+            <span style="margin-left:auto;font-size:10.5px;color:var(--danger);font-weight:800">12:30 까지</span>
+          </div>
+          <div class="nm">정이가마트</div>
+          <div class="meta"><span class="pill dev">POS</span> <span class="pill dev">VAN</span> · 박과장 010-1234-5678</div>
+          <div class="summary">POS 화면 먹통, 영업 중단. 즉시 출동 요청.</div>
+          <div class="actions-row">
+            <button class="btn-mini danger">🚗 출동</button>
+            <button class="btn-mini line">📞 전화</button>
+          </div>
+        </div>
+
+        <!-- 진행 중 -->
+        <div class="card prog">
+          <div class="topline">
+            <span class="pill prog">진행 중</span>
+            <span class="dday near">D-1</span>
+            <span style="margin-left:auto" class="meta">5/19 14:00</span>
+          </div>
+          <div class="nm">다봄(주)</div>
+          <div class="meta"><span class="pill dev">키오스크</span> · 김매니저</div>
+          <div class="summary">키오스크 카드리더 인식 불량. 부품 주문 대기.</div>
+          <div class="strip">
+            <div class="thumb img1">증상</div>
+            <div class="thumb img2">리더</div>
+            <span class="pill line">📡 2회</span>
+          </div>
+          <div class="actions-row">
+            <button class="btn-mini prog">＋ 진행</button>
+            <button class="btn-mini done">✅ 완료</button>
+          </div>
+        </div>
+
+        <!-- 요청접수 -->
+        <div class="card req">
+          <div class="topline">
+            <span class="pill req">요청접수</span>
+            <span class="dday safe">D-3</span>
+            <span style="margin-left:auto" class="meta">5/21 10:00</span>
+          </div>
+          <div class="nm">명동교자(1호점)</div>
+          <div class="meta"><span class="pill dev">기타</span> · 영수증 프린터</div>
+          <div class="summary">영수증 프린터 용지 걸림 자주 발생. 정기 점검 요청.</div>
+          <div class="actions-row">
+            <button class="btn-mini prog">🚗 진행 시작</button>
+          </div>
+        </div>
+
+        <!-- 완료 -->
+        <div class="card done">
+          <div class="topline">
+            <span class="pill done">완료</span>
+            <span style="margin-left:auto" class="meta">5/15 완료</span>
+          </div>
+          <div class="nm">정미식품</div>
+          <div class="meta"><span class="pill dev">VAN</span> · 케이블 교체</div>
+          <div class="strip">
+            <div class="thumb img2">전</div>
+            <div class="thumb img3">후</div>
+            <span class="pill line">📡 3회</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="fab-label" style="bottom:155px">📷 빠른 AS 보고</div>
+      <div class="fab line">📡</div>
+      <div class="fab">＋</div>
+
+      <div class="bottom-nav">
+        <div class="nav-item"><div class="icn">📦</div>재고</div>
+        <div class="nav-item active"><div class="icn">🔧</div>AS</div>
+        <div class="nav-item"><div class="icn">🆕</div>신규</div>
+        <div class="nav-item"><div class="icn">🏪</div>매장</div>
+        <div class="nav-item"><div class="icn">⚙️</div>설정</div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">① 홈 / AS 리스트 — 긴급 빨강 + D-day + 진행/완료 탭</div>
+</div>
+
+<!-- ② 등록 풀폼 1/3 — 매장/대상장비/요청내용/매장담당자/일정 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:12</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">🔧 AS 등록</div>
+        <span class="badge warn">초안</span>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step cur"><span class="dot">1</span>기본</div>
+          <div class="step"><span class="dot">2</span>담당/장비</div>
+          <div class="step"><span class="dot">3</span>완료</div>
+        </div>
+
+        <div class="section-h">매장</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px;display:flex;align-items:center;gap:9px">
+          <div style="width:38px;height:38px;background:#06C7551A;color:#04A047;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">🏪</div>
+          <div style="flex:1">
+            <div style="font-weight:800;font-size:13.5px">정이가마트</div>
+            <div style="font-size:10.5px;color:var(--gray-500)">625-85-01902 · 등록 매장</div>
+          </div>
+          <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:800">변경</button>
+        </div>
+
+        <div class="section-h">🖥️ 대상 장비 (다중선택)</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          ${['VAN','POS','키오스크','기타'].map((d,i) => `
+            <span class="dev-chip ${i<2?'sel':''}">${i<2?'✓ ':''}${d}</span>
+          `).join('')}
+        </div>
+
+        <div class="section-h" style="display:flex;align-items:center">
+          📝 AS 요청 내용 / 증상
+          <span style="margin-left:auto;color:var(--danger);font-size:10.5px;font-weight:800">긴급</span>
+        </div>
+        <textarea class="field-textarea" placeholder="증상을 적어주세요">POS 화면 먹통. 재부팅해도 부팅 로고에서 멈춤. 영업 중단 상태.</textarea>
+        <div class="field-counter">38/200</div>
+
+        <div class="section-h">👥 매장 담당자</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="field" style="margin:0">
+              <div class="field-label">📇 이름</div>
+              <input class="field-input" value="박과장" style="padding:9px 11px;font-size:13px">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="field-label">🪪 직책</div>
+              <input class="field-input" value="점장" style="padding:9px 11px;font-size:13px">
+            </div>
+          </div>
+          <div class="field" style="margin:8px 0 0">
+            <div class="field-label">📞 연락처</div>
+            <input class="field-input" value="010-1234-5678" inputmode="tel" style="padding:9px 11px;font-size:13px">
+          </div>
+        </div>
+
+        <div class="section-h">📅 일정</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--gray-500);margin-bottom:6px">
+            <span>📞 AS 접수일 (자동)</span>
+            <span style="font-weight:700;color:var(--gray-700)">2026-05-18</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="field" style="margin:0">
+              <div class="field-label">🗓️ 처리 예정일</div>
+              <input class="field-input" type="date" value="2026-05-18" style="padding:9px 11px;font-size:13px;border-color:var(--danger);color:var(--danger);font-weight:700">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="field-label">⏰ 시간</div>
+              <input class="field-input" type="time" value="12:30" style="padding:9px 11px;font-size:13px">
+            </div>
+          </div>
+          <div style="margin-top:6px;font-size:10.5px;color:var(--danger);font-weight:700">⚠️ D-0 · 3시간 이내 — 긴급 처리</div>
+        </div>
+
+        <button class="btn-big primary" style="margin-top:6px">다음 → 담당자/장비</button>
+        <button class="btn-big ghost">임시저장</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">② 등록 풀폼 1/3 — 매장/장비/요청내용/매장담당자/처리예정일</div>
+</div>
+
+<!-- ③ 등록 풀폼 2/3 — 담당엔지니어/투입장비/첨부 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:14</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">🔧 정이가마트</div>
+        <span class="badge">2/3</span>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step done"><span class="dot">✓</span>기본</div>
+          <div class="step cur"><span class="dot">2</span>담당/장비</div>
+          <div class="step"><span class="dot">3</span>완료</div>
+        </div>
+
+        <div class="section-h">👷 담당 엔지니어</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px">
+          <select class="field-select" style="margin-bottom:8px">
+            <option>이헌상 (본인)</option>
+            <option>김엔지니어</option>
+            <option>박기사</option>
+          </select>
+          <div style="display:flex;gap:6px">
+            <span class="tag"><input type="checkbox" checked>📡 출동 알림 LINE 발송</span>
+          </div>
+        </div>
+
+        <div class="section-h" style="display:flex;align-items:center">
+          🧰 투입 장비 (카탈로그)
+          <span style="margin-left:auto;background:#EFF6FF;color:var(--primary);font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:11px">＋ 추가</span>
+        </div>
+
+        ${[
+          {n:'POS 본체 (Sunmi T2)', q:1, p:'450,000', sel:true},
+          {n:'직렬 케이블 1.8m', q:2, p:'12,000', sel:true},
+          {n:'영수증 프린터 용지', q:5, p:'3,500'},
+        ].map(it => `
+          <div class="cat-row" style="${it.sel?'border:1.5px solid var(--primary);background:#EFF6FF':''}">
+            <span style="font-size:18px">${it.sel?'✅':'⬜'}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.n}</div>
+              <div style="font-size:10.5px;color:var(--gray-500)">단가 ${it.p}원</div>
+            </div>
+            <input type="number" value="${it.q}" style="width:48px;padding:6px 4px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;text-align:center;font-weight:700">
+          </div>
+        `).join('')}
+
+        <div style="background:#FEF3C7;border-radius:8px;padding:9px 12px;margin:8px 0 12px;display:flex;justify-content:space-between;font-size:12px;font-weight:800">
+          <span style="color:#92400E">투입 장비 합계</span>
+          <span style="color:#92400E">474,000원</span>
+        </div>
+
+        <div class="section-h">📷 증상 사진</div>
+        <div class="photo-grid-lg" style="margin-bottom:6px">
+          <div class="photo-lg" style="background:linear-gradient(135deg,#EF4444,#7F1D1D)">먹통 화면<span class="x">×</span></div>
+          <div class="photo-lg" style="background:linear-gradient(135deg,#3B82F6,#1E3A8A)">POS<span class="x">×</span></div>
+          <div class="photo-lg add camera"><span class="icon">📸</span><span>촬영</span></div>
+          <div class="photo-lg add"><span class="plus">＋</span><span>앨범</span></div>
+        </div>
+        <div style="font-size:10.5px;color:var(--gray-500);text-align:right;margin-bottom:8px">2장 · 1.8MB</div>
+
+        <div style="display:flex;gap:7px">
+          <button class="btn-big ghost" style="margin:0">← 이전</button>
+          <button class="btn-big primary" style="margin:0">다음 → 완료</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">③ 등록 풀폼 2/3 — 엔지니어 + 투입장비 카탈로그 + 첨부 사진</div>
+</div>
+
+<!-- ④ 진행 단계 thread — 요청접수→진행 시퀀스 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>11:42</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">🔧 정이가마트</div>
+        <span class="badge warn">진행</span>
+      </div>
+      <div class="body">
+
+        <!-- 매장/요약 카드 -->
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:14px">정이가마트
+                <span class="pill urgent" style="margin-left:6px;font-size:9.5px">🚨 긴급</span>
+              </div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">
+                <span class="pill dev" style="font-size:9px">POS</span>
+                <span class="pill dev" style="font-size:9px">VAN</span>
+                · 박과장(010-1234-5678)
+              </div>
+            </div>
+            <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:5px 10px;font-size:10.5px;font-weight:800">✏️ 편집</button>
+          </div>
+          <div style="display:flex;gap:7px;font-size:10.5px;padding-top:6px;border-top:1px solid var(--gray-100);align-items:center">
+            <span style="color:var(--gray-500)">📞 접수 5/18 09:00</span>
+            <span class="dday urgent" style="margin-left:auto">D-0 · 3h</span>
+          </div>
+        </div>
+
+        <div class="section-h" style="display:flex;align-items:center;gap:6px">
+          📋 진행 단계
+          <span style="margin-left:auto;background:#06C7551A;color:#04A047;font-size:10px;font-weight:800;padding:3px 8px;border-radius:11px">📡 2회</span>
+        </div>
+
+        <!-- ROOT: 요청접수 -->
+        <div class="card req" style="padding:11px 13px;margin-bottom:8px">
+          <div class="topline" style="margin-bottom:3px">
+            <span class="pill req">요청접수</span>
+            <span class="meta" style="margin:0">5/18 09:00 · 이헌상</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">POS 화면 먹통, 영업 중단. 즉시 출동 요청.</div>
+          <div class="strip">
+            <div class="thumb img4">먹통</div>
+            <div class="thumb img1">POS</div>
+          </div>
+        </div>
+
+        <!-- 진행 1 -->
+        <div class="card prog" style="padding:11px 13px;margin-bottom:8px">
+          <div class="topline" style="margin-bottom:3px">
+            <span class="pill prog">진행</span>
+            <span class="meta" style="margin:0">5/18 11:15 · 이헌상</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">현장 도착. 케이블 단선 확인, 본체는 정상.</div>
+          <div class="strip">
+            <div class="thumb img3">현장</div>
+            <div class="thumb img2">케이블</div>
+          </div>
+        </div>
+
+        <!-- 진행 2 -->
+        <div class="card prog" style="padding:11px 13px;margin-bottom:8px">
+          <div class="topline" style="margin-bottom:3px">
+            <span class="pill prog">진행</span>
+            <span class="meta" style="margin:0">5/18 11:40 · 이헌상</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--gray-400)">📡 대기</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">직렬 케이블 교체. POS 부팅 정상 확인 중.</div>
+          <div class="strip">
+            <div class="thumb img2">교체</div>
+          </div>
+        </div>
+
+        <!-- 추가 액션 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 8px">
+          <button class="btn-big warn" style="margin:0;padding:13px">＋ 진행 추가</button>
+          <button class="btn-big success" style="margin:0;padding:13px">✅ 완료</button>
+        </div>
+      </div>
+
+      <div class="fab line" style="bottom:18px">📡</div>
+    </div>
+  </div>
+  <div class="device-title">④ 진행 단계 thread — 요청접수→진행 시퀀스 + ＋진행/✅완료</div>
+</div>
+
+<!-- ⑤ 진행 추가 바텀시트 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen" style="background:rgba(0,0,0,.4)">
+      <div class="statusbar"><span>11:45</span><span class="icons">📶 📡 🔋</span></div>
+      <div style="background:#fff;height:80px;opacity:.4"></div>
+
+      <div style="background:#fff;border-radius:18px 18px 0 0;flex:1;padding:14px 16px;overflow-y:auto">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">🔧 정이가마트 — 진행 추가</div>
+
+        <div class="stepper">
+          <div class="step done"><span class="dot">✓</span>요청</div>
+          <div class="step cur"><span class="dot">2</span>진행</div>
+          <div class="step"><span class="dot">3</span>완료</div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">📝 진행 내용 (≤30자)<span style="margin-left:auto;color:var(--gray-400)" class="field-counter">22/30</span></div>
+          <textarea class="field-textarea">케이블 교체, 정상 부팅 확인</textarea>
+        </div>
+
+        <div class="field">
+          <div class="field-label">📷 사진</div>
+          <div class="photo-grid-lg">
+            <div class="photo-lg" style="background:linear-gradient(135deg,#10B981,#065F46)">교체<span class="x">×</span></div>
+            <div class="photo-lg add camera"><span class="icon">📸</span><span>촬영</span></div>
+            <div class="photo-lg add"><span class="plus">＋</span><span>앨범</span></div>
+            <div class="photo-lg add"><span class="plus">＋</span><span>파일</span></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">🧰 투입 장비 (이번 단계)</div>
+          <div class="cat-row" style="border:1.5px solid var(--primary);background:#EFF6FF;margin-bottom:5px">
+            <span style="font-size:16px">✅</span>
+            <div style="flex:1;font-size:12px;font-weight:700">직렬 케이블 1.8m</div>
+            <span style="font-size:11px;color:var(--gray-500)">×1</span>
+          </div>
+          <button style="width:100%;padding:8px 0;background:#fff;border:1.5px dashed var(--gray-300);border-radius:8px;color:var(--gray-500);font-size:11.5px;font-weight:700">＋ 카탈로그에서 추가</button>
+        </div>
+
+        <div class="field">
+          <span class="tag"><input type="checkbox" checked>📡 LINE 발송</span>
+          <span style="margin-left:6px;font-size:10.5px;color:var(--gray-500)">→ AS 알림방</span>
+        </div>
+
+        <div class="line-preview">
+          <span class="lbl">📡 미리보기</span>
+          [AS] 정이가마트 : 5/18 11:45 ; 케이블 교체, 정상 부팅 확인 · 🧰 케이블×1 · 📷 1장
+        </div>
+
+        <button class="btn-big line">📡 진행 추가 + LINE 발송</button>
+        <button class="btn-big ghost">취소</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑤ 진행 추가 바텀시트 — 내용+사진+투입장비+LINE 미리보기</div>
+</div>
+
+<!-- ⑥ 빠른 LINE 발송 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen" style="background:#F0F2F5">
+      <div class="statusbar"><span>11:48</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">📡 빠른 LINE 발송</div>
+      </div>
+      <div class="body">
+        <div class="annot">사진 찍고 한 줄만 적어 LINE 으로 즉시 공유 — 상세 등록은 사이트에서 별도 처리</div>
+
+        <div class="section-h">매장 선택</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:9px">
+            <div style="width:42px;height:42px;background:#06C7551A;color:#04A047;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:21px">🏪</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:14px">정이가마트</div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px;display:flex;gap:6px;align-items:center">
+                <span class="pill urgent" style="padding:1px 6px;font-size:9.5px">🚨 긴급 AS</span>
+                <span>POS · VAN</span>
+              </div>
+            </div>
+            <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:800">변경</button>
+          </div>
+        </div>
+
+        <div class="section-h">사진 (필수)</div>
+        <div class="photo-grid-lg" style="grid-template-columns:repeat(3,1fr)">
+          <div class="photo-lg" style="background:linear-gradient(135deg,#EF4444,#7F1D1D)">먹통<span class="x">×</span></div>
+          <div class="photo-lg add camera"><span class="icon">📸</span><span>촬영</span></div>
+          <div class="photo-lg add"><span class="plus">＋</span><span>앨범</span></div>
+        </div>
+
+        <div class="section-h">한 줄 메시지 (≤30자)</div>
+        <div style="position:relative">
+          <textarea class="field-textarea" style="min-height:62px">POS 먹통 출동, 도착 12:00 예정</textarea>
+          <div class="field-counter">19/30</div>
+        </div>
+
+        <div class="section-h">발송 채팅방</div>
+        <div style="display:flex;gap:6px;align-items:center;background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:8px">
+          <span style="font-size:20px">👥</span>
+          <span style="flex:1;font-weight:700;font-size:13px">🔧 AS 알림방</span>
+          <span style="font-size:11px;color:var(--gray-500)">변경 ›</span>
+        </div>
+
+        <div class="line-preview">
+          <span class="lbl">📡 미리보기</span>
+          [AS] 정이가마트 : 2026-05-18 ; POS 먹통 출동, 도착 12:00 예정 · 📷 1장
+        </div>
+
+        <button class="btn-big line" style="margin-top:8px">📡 LINE 발송</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑥ 빠른 LINE 발송 — FAB 📡 진입 (사진+한줄+발송)</div>
+</div>
+
+<!-- ⑦ 매장 선택 시트 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen" style="background:rgba(0,0,0,.4)">
+      <div class="statusbar"><span>09:45</span><span class="icons">📶 📡 🔋</span></div>
+      <div style="background:#fff;height:60px;opacity:.4"></div>
+
+      <div style="background:#fff;border-radius:18px 18px 0 0;flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:10px 16px 6px">
+          <div class="sheet-handle"></div>
+          <div class="sheet-title">🏪 매장 선택 (AS)</div>
+        </div>
+
+        <div style="padding:0 14px 8px;position:relative">
+          <input type="text" placeholder="매장명 / 사업자번호 / 대표자 검색"
+                 style="width:100%;padding:11px 14px 11px 38px;border:1.5px solid var(--gray-300);border-radius:10px;font-size:13.5px;background:#fff">
+          <span style="position:absolute;left:24px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:15px">🔍</span>
+        </div>
+
+        <div style="padding:0 14px 10px;display:flex;gap:6px">
+          <button style="flex:1;padding:8px 0;border:none;background:var(--primary);color:#fff;border-radius:8px;font-size:12px;font-weight:800">✓ 등록 매장</button>
+          <button style="flex:1;padding:8px 0;border:1.5px solid var(--gray-300);background:#fff;color:var(--gray-600);border-radius:8px;font-size:12px;font-weight:700">+ 미등록 가맹점</button>
+        </div>
+
+        <div style="flex:1;overflow-y:auto;padding:0 14px 14px">
+          <div style="font-size:10.5px;font-weight:800;color:var(--gray-500);text-transform:uppercase;margin:4px 0 6px">최근 AS 매장 (3)</div>
+
+          ${[
+            {nm:'정이가마트', biz:'625-85-01902', last:'🚨 긴급 AS 진행중', sel:true, urg:true},
+            {nm:'다봄(주)', biz:'381-88-03511', last:'AS 진행중 (키오스크)'},
+            {nm:'명동교자(1호점)', biz:'104-87-12345', last:'AS 요청접수 5/21'},
+          ].map(s => `
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:${s.sel?'#EFF6FF':'#fff'};border:1.5px solid ${s.sel?'var(--primary)':'var(--gray-200)'};border-radius:10px;margin-bottom:6px">
+            <div style="width:38px;height:38px;background:${s.sel?'var(--primary)':'#F3F4F6'};color:${s.sel?'#fff':'var(--gray-500)'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px">🏪</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:13px">${s.nm}${s.sel?' <span style="color:var(--primary);font-size:11px">✓</span>':''}</div>
+              <div style="font-size:10.5px;color:${s.urg?'#991B1B':'var(--gray-500)'};margin-top:1px;font-weight:${s.urg?'700':'400'}">${s.biz} · ${s.last}</div>
+            </div>
+          </div>
+          `).join('')}
+
+          <div style="font-size:10.5px;font-weight:800;color:var(--gray-500);text-transform:uppercase;margin:14px 0 6px">전체 등록 매장</div>
+
+          ${[
+            {nm:'정미식품', biz:'113-22-01567'},
+            {nm:'명동교자(이태원지점)', biz:'104-87-00001'},
+            {nm:'서울김밥 강남점', biz:'220-11-44555'},
+          ].map(s => `
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;border-bottom:1px solid var(--gray-100)">
+            <div style="width:34px;height:34px;background:#F3F4F6;color:var(--gray-500);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px">🏪</div>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:12.5px">${s.nm}</div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">${s.biz}</div>
+            </div>
+          </div>
+          `).join('')}
+        </div>
+
+        <div style="padding:10px 14px 16px;border-top:1px solid var(--gray-200);background:#fff">
+          <button class="btn-big primary" style="margin:0">✓ 정이가마트 선택</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑦ 매장 선택 시트 — 검색 + 최근 AS + 등록/미등록 토글</div>
+</div>
+
+<!-- ⑧ 완료 처리 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>12:18</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">정이가마트 완료</div>
+        <span class="badge">3/3</span>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step done"><span class="dot">✓</span>요청</div>
+          <div class="step done"><span class="dot">✓</span>진행</div>
+          <div class="step cur"><span class="dot">3</span>완료</div>
+        </div>
+
+        <div class="section-h">⏱️ 처리 시간</div>
+        <div style="background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px">
+            <span style="color:var(--gray-500)">접수</span>
+            <span style="font-weight:700">5/18 09:00</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px">
+            <span style="color:var(--gray-500)">출동</span>
+            <span style="font-weight:700">5/18 10:30</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:var(--gray-500)">완료</span>
+            <input type="datetime-local" value="2026-05-18T12:15" style="padding:5px 8px;border:1.5px solid var(--primary);border-radius:6px;font-size:12px;font-weight:700">
+          </div>
+          <div style="height:1px;background:var(--gray-200);margin:10px 0"></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800">
+            <span style="color:var(--success)">총 소요</span>
+            <span style="color:var(--success)">3시간 15분</span>
+          </div>
+        </div>
+
+        <div class="section-h">🧰 최종 투입 장비</div>
+        <div class="cat-row" style="border:1.5px solid var(--gray-200);margin-bottom:5px">
+          <span style="font-size:16px">✅</span>
+          <div style="flex:1;font-size:12.5px;font-weight:700">직렬 케이블 1.8m</div>
+          <span style="font-size:11px;color:var(--gray-500)">×1 · 12,000원</span>
+        </div>
+        <div style="background:#FEF3C7;border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;justify-content:space-between;font-size:12px;font-weight:800">
+          <span style="color:#92400E">투입 장비 합계</span>
+          <span style="color:#92400E">12,000원</span>
+        </div>
+
+        <div class="section-h">📝 완료 메시지 / 처리 결과</div>
+        <textarea class="field-textarea" placeholder="처리 결과를 적어주세요">직렬 케이블 단선 → 신규 케이블 교체. POS 정상 작동 확인. 영업 재개.</textarea>
+
+        <div class="section-h">📷 결과 사진</div>
+        <div class="photo-grid-lg" style="grid-template-columns:repeat(4,1fr)">
+          <div class="photo-lg" style="background:linear-gradient(135deg,#EF4444,#7F1D1D)">전<span class="x">×</span></div>
+          <div class="photo-lg" style="background:linear-gradient(135deg,#10B981,#065F46)">후<span class="x">×</span></div>
+          <div class="photo-lg add camera"><span class="icon">📸</span><span>촬영</span></div>
+          <div class="photo-lg add"><span class="plus">＋</span><span>앨범</span></div>
+        </div>
+
+        <div style="margin-top:12px">
+          <span class="tag"><input type="checkbox" checked>📡 LINE 발송 (완료 알림)</span>
+        </div>
+
+        <div class="line-preview" style="margin-top:8px">
+          <span class="lbl">📡 미리보기</span>
+          [AS] 정이가마트 : 2026-05-18 ; 완료 (3h 15m) · 케이블 교체, POS 정상 · 🧰 12,000원 · 📷 2장
+        </div>
+
+        <button class="btn-big success">✅ 완료 처리 + LINE 발송</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑧ 완료 처리 — 처리시간 + 투입장비 합계 + 결과사진 + 완료메시지</div>
+</div>
+
+</div>
+
+<h2>🗂️ 화면 흐름 (사용자 시나리오)</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <div style="font-size:12.5px;line-height:1.9">
+    <b>📥 AS 신규 접수</b> &nbsp;①홈 → FAB＋ → ⑦매장선택 → ②등록1 → ③등록2 → 저장+📡 출동알림<br>
+    <b>🚗 현장 출동/진행</b> &nbsp;①홈 (긴급 카드) → 출동버튼 → ④thread → ⑤진행추가시트 → 📡 발송<br>
+    <b>⚡ 빠른 보고</b> &nbsp;①홈 → FAB📡 → ⑥빠른발송 → 📡 (등록은 사이트에서)<br>
+    <b>✅ 완료 처리</b> &nbsp;④thread → ✅완료 버튼 → ⑧완료시트 → 📡 완료알림<br>
+    <b>📞 긴급 대응</b> &nbsp;①홈 → 빨강 카드 → 📞 전화 버튼 → 동시에 🚗 출동 → ④thread<br>
+    <b>🧰 투입장비 관리</b> &nbsp;③등록2 또는 ⑤진행시트 → 카탈로그 ＋추가 → 수량 입력 → ⑧완료시 합계 자동 산출
+  </div>
+</div>
+
+<h2>📐 디자인 원칙</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.8">
+    <li><b>긴급 케이스 빨강 강조</b> — 처리 예정일 3시간 이내 = 카드 좌측 빨강 바 + 🚨 펄스 배지 + D-day 빨강</li>
+    <li><b>D-day 색상 그라데이션</b> — D-3+ 녹색 → D-1 노랑 → D-0/3h 이내 빨강</li>
+    <li><b>한 손 사용</b> — 주요 액션(출동/완료/발송)은 항상 화면 하단 영역에 배치</li>
+    <li><b>큰 터치 영역</b> — 모든 버튼 최소 44px 높이 (Apple HIG 기준)</li>
+    <li><b>카메라 즉시 진입</b> — [📸 촬영] 버튼은 OS 카메라 다이얼로그 통과 없이 바로 띄움 (capture="environment")</li>
+    <li><b>FAB 2개</b> — 일반 ＋ (AS 등록) + LINE 📡 (빠른 사진+한줄 발송)</li>
+    <li><b>스텝퍼</b> — 요청 → 진행 → 완료. 회색 → 파랑(현재) → 녹색(완료)</li>
+    <li><b>📞 전화 버튼 직결</b> — 긴급 케이스에선 매장 담당자 번호 1탭 호출 (tel:)</li>
+    <li><b>LINE 발송 디폴트 ON</b> — 출동/진행/완료 매 단계 자동 발송 (해제 가능), 미리보기 항상 노출</li>
+    <li><b>대상 장비 칩</b> — VAN/POS/키오스크/기타 다중선택, 카드에 작은 회색 칩으로 노출</li>
+    <li><b>투입 장비 카탈로그</b> — 자주 쓰는 부품은 카탈로그에서 ✅ 토글 + 수량 입력, 합계 자동 산출</li>
+  </ul>
+</div>
+
+<h2>🔧 기술 노트</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.8">
+    <li><b>같은 index.html 사용</b> — 별도 모바일 앱 아님. CSS 미디어쿼리로 모바일 모드 분기</li>
+    <li><code>@media (max-width: 640px)</code> 에서 활성화: 큰 버튼, 바텀시트, FAB</li>
+    <li>카메라 인풋: <code>&lt;input type="file" accept="image/*" capture="environment"&gt;</code></li>
+    <li>전화 호출: <code>&lt;a href="tel:01012345678"&gt;</code> — 긴급 카드 📞 버튼에서 1탭 진입</li>
+    <li>D-day 계산: 처리예정일과 현재 시각의 ms 차이로 색상 클래스 분기 (safe/near/urgent)</li>
+    <li>긴급 임계: 3시간 이내 = urgent, 24시간 이내 = near, 그 외 = safe</li>
+    <li>투입 장비 합계: <code>items.reduce((s,i) => s + i.qty * i.price, 0)</code> — 카탈로그 단가는 config 에 저장</li>
+    <li>LINE 메시지 포맷: <code>[AS] {매장명} : {일시} ; {내용} · 🧰 {장비요약} · 📷 {N장}</code></li>
+    <li>iOS Safari Add to Home Screen 으로 앱처럼 사용 (PWA manifest 추가 가능)</li>
+    <li>오프라인 대비: 사진은 IndexedDB 임시 저장 → 온라인 복귀 시 R2 업로드</li>
+    <li>긴급 케이스 푸시 알림 (선택): Web Push API + service worker → D-0/3h 이내 자동 알림</li>
+  </ul>
+</div>
+
+<h2>🚀 다음 작업</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <ol style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.9">
+    <li><b>AS 모바일 모드 분기 CSS</b> — <code>@media (max-width:640px)</code> 에서 위 디자인 적용</li>
+    <li><b>긴급 카드 컴포넌트</b> — 좌측 빨강 바 + 🚨 펄스 배지 + 📞 전화 직결 버튼</li>
+    <li><b>D-day 헬퍼</b> — 처리예정일 기준 색상 클래스 자동 산출 (safe/near/urgent)</li>
+    <li><b>투입 장비 카탈로그</b> — config/as_catalog.yaml 에 자주 쓰는 부품/단가 정의 + 합계 자동 산출</li>
+    <li><b>진행 thread 컴포넌트</b> — 요청접수 → 진행 → 완료 카드 시퀀스 (재고조사와 공용)</li>
+    <li><b>빠른 LINE 발송 화면</b> — /api/line-send 호출 (AS 알림방 default)</li>
+    <li>(선택) <b>Web Push 긴급 알림</b> — service worker + D-0/3h 이내 자동 푸시</li>
+  </ol>
+</div>
+
+</body>
+</html>

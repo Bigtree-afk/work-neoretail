@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>💳 VAN 모바일 — 현장 사용자 UI 목업</title>
+<style>
+  :root {
+    --primary:#2563EB; --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
+    --gray-300:#D1D5DB; --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-600:#4B5563;
+    --gray-700:#374151; --gray-800:#1F2937; --line:#06C755; --line-light:#06C7551A;
+    --beige:#FEF7E6; --danger:#EF4444; --warn:#F59E0B; --success:#10B981;
+    --van-purple:#7C3AED; --van-purple-light:#7C3AED1A;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans KR',sans-serif; background:#F0F2F5; margin:0; padding:18px; color:var(--gray-800); font-size:13px; line-height:1.5 }
+  h1 { font-size:17px; margin:0 0 6px }
+  h2 { font-size:14px; margin:24px 0 10px; padding-bottom:5px; border-bottom:2px solid var(--gray-200); color:var(--gray-700) }
+  .lead { font-size:12px; color:var(--gray-500); margin-bottom:14px }
+
+  .frames { display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:18px; align-items:start }
+  .device {
+    background:#1F2937; border-radius:34px; padding:8px;
+    box-shadow:0 12px 36px rgba(0,0,0,.18);
+    width:380px; max-width:100%; justify-self:center;
+  }
+  .notch { width:130px; height:24px; background:#1F2937; margin:-2px auto 0; border-radius:0 0 14px 14px; position:relative; z-index:5 }
+  .screen { background:#F0F2F5; border-radius:28px; overflow:hidden; height:712px; position:relative; display:flex; flex-direction:column }
+  .device-title { text-align:center; font-size:11px; color:var(--gray-500); margin-top:6px; font-weight:600 }
+
+  /* iOS Status Bar */
+  .statusbar { background:#fff; padding:5px 18px 0; display:flex; align-items:center; justify-content:space-between; font-size:11.5px; font-weight:700; color:var(--gray-800); height:24px }
+  .statusbar .icons { display:flex; gap:4px; font-size:10px }
+
+  /* App header */
+  .appbar { background:#fff; padding:12px 16px 10px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--gray-200) }
+  .appbar .back { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--gray-700); cursor:pointer }
+  .appbar .title { flex:1; font-weight:800; font-size:15px }
+  .appbar .badge { background:#06C7551A; color:#04A047; border-radius:11px; padding:2px 8px; font-size:10.5px; font-weight:800 }
+
+  /* Tabs */
+  .tabs { background:#fff; display:flex; padding:0 8px; border-bottom:1px solid var(--gray-200); overflow-x:auto; gap:0 }
+  .tab { padding:11px 10px; font-size:12px; font-weight:700; color:var(--gray-500); border-bottom:3px solid transparent; white-space:nowrap }
+  .tab.active { color:var(--primary); border-bottom-color:var(--primary) }
+
+  /* 카테고리 칩 */
+  .chips { display:flex; gap:6px; padding:10px 14px; overflow-x:auto; background:#fff; border-bottom:1px solid var(--gray-200) }
+  .chip { padding:6px 12px; border-radius:14px; background:#F3F4F6; color:var(--gray-600); font-size:12px; font-weight:700; white-space:nowrap; border:1px solid transparent }
+  .chip.active { background:var(--van-purple-light); color:var(--van-purple); border-color:var(--van-purple) }
+
+  /* Body scroll */
+  .body { flex:1; overflow-y:auto; padding:12px 14px 90px; background:#F0F2F5 }
+
+  /* Cards */
+  .card { background:#fff; border-radius:12px; padding:13px 14px; margin-bottom:10px; box-shadow:0 1px 2px rgba(0,0,0,.04) }
+  .card.req { border-left:4px solid #3B82F6 }
+  .card.prog { border-left:4px solid #F59E0B }
+  .card.done { border-left:4px solid #10B981 }
+  .card.van { border-left:4px solid var(--van-purple) }
+  .card .topline { display:flex; align-items:center; gap:6px; margin-bottom:6px }
+  .card .nm { font-weight:800; font-size:14px; flex:1 }
+  .pill { display:inline-block; padding:2px 8px; border-radius:11px; font-size:10px; font-weight:800 }
+  .pill.req { background:#DBEAFE; color:#1e40af }
+  .pill.prog { background:#FEF3C7; color:#92400E }
+  .pill.done { background:#DCFCE7; color:#15803d }
+  .pill.line { background:var(--line-light); color:#04A047 }
+  .pill.van { background:var(--van-purple-light); color:var(--van-purple) }
+  .pill.cat-new { background:#DBEAFE; color:#1e40af }
+  .pill.cat-re { background:#FEF3C7; color:#92400E }
+  .pill.cat-settle { background:#DCFCE7; color:#15803d }
+  .pill.cat-contract { background:#E0E7FF; color:#3730a3 }
+  .pill.cat-change { background:#FCE7F3; color:#9d174d }
+  .card .meta { font-size:11px; color:var(--gray-500); margin-bottom:4px }
+  .card .summary { font-size:12.5px; color:var(--gray-700); margin-bottom:6px }
+  .card .actions-row { display:flex; gap:6px; margin-top:8px }
+  .btn-mini { flex:1; padding:8px 0; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; border:1.5px solid; text-align:center; background:#fff }
+  .btn-mini.prog { border-color:#F59E0B; color:#B45309 }
+  .btn-mini.done { border-color:#10B981; color:#15803d }
+  .btn-mini.line { background:var(--line); color:#fff; border-color:var(--line) }
+  .btn-mini.van { border-color:var(--van-purple); color:var(--van-purple) }
+
+  /* 진행률 바 */
+  .progress { height:6px; background:var(--gray-200); border-radius:3px; overflow:hidden; margin-top:4px }
+  .progress > i { display:block; height:100%; background:var(--van-purple); border-radius:3px }
+
+  /* Strip */
+  .strip { display:flex; gap:5px; flex-wrap:wrap; margin-top:6px }
+  .thumb { width:46px; height:46px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:9px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5); flex-shrink:0 }
+  .thumb.img1 { background:linear-gradient(135deg,#3B82F6,#1E3A8A) }
+  .thumb.img2 { background:linear-gradient(135deg,#10B981,#065F46) }
+  .thumb.img3 { background:linear-gradient(135deg,#F59E0B,#92400E) }
+  .thumb.pdf { background:#DC2626 }
+  .thumb.xls { background:#15803D }
+  .thumb.more { background:#F3F4F6; color:var(--gray-500); border:1px dashed var(--gray-300); text-shadow:none }
+
+  /* FAB */
+  .fab {
+    position:absolute; right:18px; bottom:24px;
+    background:var(--van-purple); color:#fff; width:58px; height:58px; border-radius:50%;
+    box-shadow:0 6px 18px rgba(124,58,237,.45); display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:300;
+  }
+  .fab.line { background:var(--line); right:84px; box-shadow:0 6px 18px rgba(6,199,85,.45) }
+  .fab-label { position:absolute; right:18px; bottom:88px; background:rgba(0,0,0,.7); color:#fff; padding:4px 11px; border-radius:14px; font-size:11px; font-weight:600 }
+
+  /* Bottom Sheet */
+  .sheet { position:absolute; inset:0; background:rgba(0,0,0,.5); z-index:8; display:flex; align-items:flex-end; }
+  .sheet-body { background:#fff; width:100%; border-radius:18px 18px 0 0; padding:14px 16px 26px; box-shadow:0 -4px 16px rgba(0,0,0,.15); max-height:88%; overflow-y:auto; }
+  .sheet-handle { width:36px; height:4px; background:#D1D5DB; border-radius:3px; margin:0 auto 12px }
+  .sheet-title { font-weight:800; font-size:15px; margin-bottom:10px; display:flex; align-items:center; gap:8px }
+
+  /* Form */
+  .field { margin-bottom:10px }
+  .field-label { font-size:11px; font-weight:700; color:var(--gray-600); margin-bottom:4px; display:flex; align-items:center; gap:5px }
+  .field-input, .field-select, .field-textarea {
+    width:100%; padding:11px 12px; border:1.5px solid var(--gray-300); border-radius:9px;
+    font-size:14px; font-family:inherit; background:#fff;
+  }
+  .field-textarea { min-height:62px; resize:vertical }
+  .field-counter { font-size:10px; color:var(--gray-500); text-align:right; margin-top:2px }
+
+  /* Photo grid */
+  .photo-grid-lg { display:grid; grid-template-columns:repeat(4,1fr); gap:7px }
+  .photo-lg { aspect-ratio:1; border-radius:9px; position:relative; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5) }
+  .photo-lg .x { position:absolute; top:-6px; right:-6px; background:#EF4444; color:#fff; width:22px; height:22px; border-radius:50%; font-size:13px; line-height:22px; text-align:center; font-weight:800; border:2px solid #fff }
+  .photo-lg.add { background:#fff; border:2px dashed var(--gray-400); color:var(--gray-500); text-shadow:none; display:flex; flex-direction:column; gap:1px; font-size:9px; font-weight:700; }
+  .photo-lg.add .plus { font-size:24px; line-height:1 }
+  .photo-lg.add.camera { border-color:var(--primary); color:var(--primary); background:#EFF6FF }
+  .photo-lg.add.camera .icon { font-size:22px }
+
+  /* Big buttons */
+  .btn-big { width:100%; padding:14px 0; border-radius:10px; font-size:14.5px; font-weight:800; border:none; cursor:pointer; margin-bottom:8px; }
+  .btn-big.primary { background:var(--primary); color:#fff }
+  .btn-big.van { background:var(--van-purple); color:#fff }
+  .btn-big.line { background:var(--line); color:#fff }
+  .btn-big.warn { background:var(--warn); color:#fff }
+  .btn-big.success { background:var(--success); color:#fff }
+  .btn-big.ghost { background:#fff; color:var(--gray-700); border:1.5px solid var(--gray-300) }
+
+  /* LINE preview */
+  .line-preview { background:#F3F4F6; border:1px dashed var(--line); border-radius:8px; padding:9px 11px; font-family:'Noto Sans KR',monospace; font-size:12px; color:var(--gray-700); margin:6px 0; line-height:1.5; }
+  .line-preview .lbl { color:#04A047; font-weight:800; font-size:10.5px; display:block; margin-bottom:3px }
+
+  /* Tag */
+  .tag { display:inline-flex; align-items:center; gap:4px; background:#06C7551A; color:#04A047; border:1px solid #06C75533; border-radius:14px; padding:5px 11px; font-size:12px; font-weight:700; user-select:none; cursor:pointer }
+  .tag input { width:15px; height:15px; accent-color:var(--line); margin:0 }
+  .tag.warn { background:#FEE2E2; color:#991B1B; border-color:#FCA5A5 }
+  .tag.van { background:var(--van-purple-light); color:var(--van-purple); border-color:#C4B5FD }
+  .tag.van input { accent-color:var(--van-purple) }
+
+  /* Section title */
+  .section-h { font-size:11.5px; font-weight:800; color:var(--gray-500); text-transform:uppercase; letter-spacing:.5px; margin:14px 0 8px; padding-left:2px }
+  .section-h:first-child { margin-top:0 }
+
+  /* Step indicator */
+  .stepper { display:flex; align-items:center; gap:0; margin:6px 0 14px }
+  .step { flex:1; text-align:center; font-size:10.5px; padding:6px 0; font-weight:700; color:var(--gray-500); position:relative }
+  .step.cur { color:var(--van-purple) }
+  .step.done { color:var(--success) }
+  .step .dot { display:block; width:24px; height:24px; border-radius:50%; background:var(--gray-300); color:#fff; line-height:24px; margin:0 auto 3px; font-size:11px; font-weight:800 }
+  .step.cur .dot { background:var(--van-purple) }
+  .step.done .dot { background:var(--success) }
+  .step:not(:last-child)::after { content:''; position:absolute; top:18px; left:60%; right:-40%; height:2px; background:var(--gray-300) }
+  .step.done:not(:last-child)::after { background:var(--success) }
+
+  /* Bottom nav */
+  .bottom-nav { position:absolute; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--gray-200); display:flex; justify-content:space-around; padding:6px 0 10px; }
+  .nav-item { flex:1; text-align:center; padding:6px 0; font-size:10.5px; font-weight:700; color:var(--gray-500); cursor:pointer; display:flex; flex-direction:column; gap:3px; align-items:center }
+  .nav-item .icn { font-size:21px; line-height:1 }
+  .nav-item.active { color:var(--van-purple) }
+
+  /* TID 입력 행 */
+  .tid-row { display:flex; gap:6px; align-items:center; margin-bottom:6px }
+  .tid-row .van-name { width:64px; font-weight:800; font-size:11.5px; color:var(--van-purple); background:var(--van-purple-light); border-radius:7px; padding:7px 0; text-align:center; flex-shrink:0 }
+  .tid-row .field-input { padding:8px 10px; font-size:12.5px; font-family:'SF Mono',monospace; letter-spacing:.3px }
+  .copy-btn { background:#EFF6FF; color:var(--primary); border:none; border-radius:7px; padding:7px 10px; font-size:11px; font-weight:800; flex-shrink:0 }
+  .ocr-btn { background:#FEF3C7; color:#92400E; border:none; border-radius:7px; padding:7px 10px; font-size:11px; font-weight:800; flex-shrink:0 }
+
+  /* VAN 체크박스 카드 */
+  .van-pick { display:flex; align-items:center; gap:8px; padding:9px 11px; background:#fff; border:1.5px solid var(--gray-200); border-radius:9px; margin-bottom:6px }
+  .van-pick.checked { border-color:var(--van-purple); background:var(--van-purple-light) }
+  .van-pick input { width:18px; height:18px; accent-color:var(--van-purple) }
+  .van-pick .nm { font-weight:800; font-size:13px; flex:1 }
+  .van-pick .st { font-size:10.5px; color:var(--gray-500) }
+
+  /* Prefill 알림 */
+  .prefill-box { background:#F5F3FF; border:1px solid #C4B5FD; border-radius:8px; padding:9px 11px; font-size:11.5px; color:var(--van-purple); margin:8px 0; line-height:1.5 }
+  .prefill-box b { color:#5B21B6 }
+
+  /* Toast */
+  .toast { position:absolute; left:14px; right:14px; bottom:90px; background:rgba(0,0,0,.85); color:#fff; padding:10px 14px; border-radius:9px; font-size:12.5px; font-weight:600; z-index:9; display:flex; align-items:center; gap:8px; }
+  .annot { font-size:11px; color:var(--gray-500); padding:8px 11px; background:#FFFBEB; border-left:3px solid #FCD34D; border-radius:6px; margin:8px 0 }
+  code { background:#F3F4F6; padding:1px 5px; border-radius:3px; font-size:11.5px }
+</style>
+</head>
+<body>
+
+<h1>📱 VAN 모바일 UI — 가맹/등록 현장 사용자 목업</h1>
+<p class="lead">
+  카드사 가맹 신청 → VAN사 등록 → TID 발급 흐름을 현장에서 <b>탭 2~3번</b>에 처리.<br>
+  <b>핵심</b>: TID/Serial 빠른 입력 (복붙·OCR), 매장 선택 시 기존 VAN 프로필 prefill, LINE 발송 디폴트 ON, 진행률 즉시 시각화.
+</p>
+
+<div class="frames">
+
+<!-- ① 홈 / VAN 리스트 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>09:42</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div style="font-size:21px">💳</div>
+        <div class="title">VAN</div>
+        <span class="badge">📡 7</span>
+      </div>
+      <div class="chips">
+        <span class="chip active">전체</span>
+        <span class="chip">신규등록</span>
+        <span class="chip">재신고</span>
+        <span class="chip">정산</span>
+        <span class="chip">계약</span>
+        <span class="chip">변경</span>
+      </div>
+      <div class="body">
+
+        ${[
+          {cls:'prog', cat:'신규등록', catCls:'cat-new', nm:'정이가마트', meta:'박과장 · 5/15 신청', pct:60, vans:['KOCES ✓','NICE ✓','KIS …','KSNET …'], line:2},
+          {cls:'prog', cat:'재신고', catCls:'cat-re', nm:'다봄(주)', meta:'김점장 · 5/16 신청', pct:35, vans:['KOCES ✓','NICE …'], line:1},
+          {cls:'req', cat:'계약', catCls:'cat-contract', nm:'서울김밥 강남점', meta:'5/18 예정 · 미등록', pct:0, vans:[], line:0},
+          {cls:'done', cat:'정산', catCls:'cat-settle', nm:'명동교자(1호점)', meta:'5/12 완료', pct:100, vans:['KOCES ✓','NICE ✓','KIS ✓'], line:3},
+        ].map(c => `
+        <div class="card ${c.cls}">
+          <div class="topline">
+            <span class="pill ${c.catCls}">${c.cat}</span>
+            <span class="pill ${c.cls}">${c.cls==='req'?'요청접수':c.cls==='prog'?'진행':'완료'}</span>
+            <span class="meta" style="margin:0 0 0 auto">${c.meta}</span>
+          </div>
+          <div class="nm">${c.nm}</div>
+          <div style="font-size:11px;color:var(--gray-500);display:flex;justify-content:space-between;margin-top:4px">
+            <span>가맹 진행률</span>
+            <span style="font-weight:800;color:var(--van-purple)">${c.pct}%</span>
+          </div>
+          <div class="progress"><i style="width:${c.pct}%"></i></div>
+          ${c.vans.length ? `<div class="strip" style="margin-top:8px">${c.vans.map(v=>`<span class="pill van">${v}</span>`).join('')}${c.line?`<span class="pill line">📡 ${c.line}회</span>`:''}</div>` : ''}
+        </div>
+        `).join('')}
+
+      </div>
+
+      <div class="fab-label" style="bottom:155px">＋ VAN 신규 등록</div>
+      <div class="fab line">📡</div>
+      <div class="fab">＋</div>
+
+      <div class="bottom-nav">
+        <div class="nav-item"><div class="icn">📦</div>재고</div>
+        <div class="nav-item"><div class="icn">🔧</div>AS</div>
+        <div class="nav-item active"><div class="icn">💳</div>VAN</div>
+        <div class="nav-item"><div class="icn">🏪</div>매장</div>
+        <div class="nav-item"><div class="icn">⚙️</div>설정</div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">① 홈 / VAN 리스트 — 카테고리 칩 + 가맹 진행률 카드</div>
+</div>
+
+<!-- ② 등록 풀폼 1/3 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:12</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">💳 VAN 신규 등록</div>
+        <span class="badge" style="background:#FEF3C7;color:#92400E">초안</span>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step cur"><span class="dot">1</span>기본</div>
+          <div class="step"><span class="dot">2</span>가맹/VAN</div>
+          <div class="step"><span class="dot">3</span>메모</div>
+        </div>
+
+        <div class="section-h">VAN 업무 카테고리</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:8px">
+          <span class="tag van" style="justify-content:center;padding:8px 4px;font-size:11.5px"><input type="radio" checked>신규등록</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">재신고</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">정산</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">계약</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">변경</span>
+        </div>
+
+        <div class="section-h">매장</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px;display:flex;align-items:center;gap:9px">
+          <div style="width:38px;height:38px;background:var(--van-purple-light);color:var(--van-purple);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">🏪</div>
+          <div style="flex:1">
+            <div style="font-weight:800;font-size:13.5px">정이가마트</div>
+            <div style="font-size:10.5px;color:var(--gray-500)">625-85-01902 · 정주영</div>
+          </div>
+          <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:800">변경</button>
+        </div>
+
+        <div class="prefill-box">
+          ✨ <b>기존 VAN 프로필 발견</b> — KOCES TID, NICE Serial 등이 자동 prefill 됩니다. 다음 단계에서 확인하세요.
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div class="field" style="margin:0">
+            <div class="field-label">📅 업무일</div>
+            <input class="field-input" type="date" value="2026-05-18" style="padding:9px 11px;font-size:13px">
+          </div>
+          <div class="field" style="margin:0">
+            <div class="field-label">🧑‍💼 담당 엔지니어</div>
+            <select class="field-select" style="padding:9px 11px;font-size:13px">
+              <option>이헌상 (본인)</option>
+              <option>김매니저</option>
+              <option>박팀장</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="section-h">👤 거래처 담당자</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="field" style="margin:0">
+              <div class="field-label">이름</div>
+              <input class="field-input" value="박과장" style="padding:9px 11px;font-size:13px">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="field-label">직책</div>
+              <input class="field-input" value="점장" style="padding:9px 11px;font-size:13px">
+            </div>
+          </div>
+          <div class="field" style="margin:8px 0 0">
+            <div class="field-label">📞 연락처</div>
+            <input class="field-input" value="010-1234-5678" inputmode="tel" style="padding:9px 11px;font-size:13px">
+          </div>
+        </div>
+
+        <button class="btn-big van" style="margin-top:14px">다음 → 가맹/VAN 등록</button>
+        <button class="btn-big ghost">임시저장</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">② 등록 풀폼 ① — 카테고리/매장/업무일/담당자</div>
+</div>
+
+<!-- ③ 등록 풀폼 2/3 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:15</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">💳 정이가마트</div>
+        <span class="badge">2/3</span>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step done"><span class="dot">✓</span>기본</div>
+          <div class="step cur"><span class="dot">2</span>가맹/VAN</div>
+          <div class="step"><span class="dot">3</span>메모</div>
+        </div>
+
+        <div class="section-h">💳 카드사 가맹</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="field" style="margin:0">
+              <div class="field-label">신청일</div>
+              <input class="field-input" type="date" value="2026-05-18" style="padding:9px 11px;font-size:13px">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="field-label">완료일</div>
+              <input class="field-input" type="date" placeholder="미완료" style="padding:9px 11px;font-size:13px;color:var(--gray-400)">
+            </div>
+          </div>
+          <div class="field" style="margin:8px 0 0">
+            <div class="field-label">비고</div>
+            <input class="field-input" placeholder="예: 신한카드 우선 처리 요청" style="padding:9px 11px;font-size:13px">
+          </div>
+        </div>
+
+        <div class="section-h" style="display:flex;align-items:center">
+          🔌 VAN사 등록
+          <span style="margin-left:auto;font-size:10px;font-weight:700;color:var(--van-purple);background:var(--van-purple-light);padding:2px 7px;border-radius:10px">복수 선택</span>
+        </div>
+
+        <!-- KOCES (체크됨 + prefill) -->
+        <div class="van-pick checked">
+          <input type="checkbox" checked>
+          <div class="nm">KOCES</div>
+          <span class="st" style="color:var(--van-purple);font-weight:700">prefill ✨</span>
+        </div>
+        <div style="background:#fff;border-radius:9px;padding:9px 11px;margin:-2px 0 8px 26px;border:1px solid var(--gray-200)">
+          <div class="tid-row">
+            <div class="van-name">TID</div>
+            <input class="field-input" value="50012345678" inputmode="numeric">
+            <button class="copy-btn">📋</button>
+            <button class="ocr-btn">📸 OCR</button>
+          </div>
+          <div class="tid-row" style="margin-bottom:0">
+            <div class="van-name">Serial</div>
+            <input class="field-input" value="KC2025-A0421">
+            <button class="copy-btn">📋</button>
+          </div>
+        </div>
+
+        <!-- NICE 체크됨 -->
+        <div class="van-pick checked">
+          <input type="checkbox" checked>
+          <div class="nm">NICE</div>
+          <span class="st" style="color:var(--warn);font-weight:700">진행 중</span>
+        </div>
+        <div style="background:#fff;border-radius:9px;padding:9px 11px;margin:-2px 0 8px 26px;border:1px solid var(--gray-200)">
+          <div class="tid-row">
+            <div class="van-name">TID</div>
+            <input class="field-input" placeholder="발급 대기" style="color:var(--gray-400)">
+            <button class="ocr-btn">📸 OCR</button>
+          </div>
+          <div class="tid-row" style="margin-bottom:0">
+            <div class="van-name">Serial</div>
+            <input class="field-input" placeholder="—" style="color:var(--gray-400)">
+          </div>
+        </div>
+
+        <!-- KIS/KSNET 미체크 -->
+        <div class="van-pick"><input type="checkbox"><div class="nm">KIS</div><span class="st">미선택</span></div>
+        <div class="van-pick"><input type="checkbox"><div class="nm">KSNET</div><span class="st">미선택</span></div>
+
+        <div style="display:flex;gap:7px;margin-top:14px">
+          <button class="btn-big ghost" style="margin:0">← 이전</button>
+          <button class="btn-big van" style="margin:0">다음 → 메모/첨부</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">③ 등록 풀폼 ② — 카드사 가맹 + VAN 4종 + TID/Serial (복붙·OCR)</div>
+</div>
+
+<!-- ④ 등록 풀폼 3/3 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:18</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">💳 정이가마트</div>
+        <span class="badge">3/3</span>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step done"><span class="dot">✓</span>기본</div>
+          <div class="step done"><span class="dot">✓</span>가맹/VAN</div>
+          <div class="step cur"><span class="dot">3</span>메모</div>
+        </div>
+
+        <div class="section-h">💸 간편결제 / 카카오페이</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:10px">
+          <div class="tid-row">
+            <div class="van-name" style="background:#FEF3C7;color:#92400E">카카오</div>
+            <input class="field-input" value="KP-825-019021" placeholder="TID">
+            <button class="copy-btn">📋</button>
+          </div>
+          <div class="tid-row" style="margin-bottom:0">
+            <div class="van-name" style="background:#DBEAFE;color:#1e40af">제로페이</div>
+            <input class="field-input" placeholder="미사용" style="color:var(--gray-400)">
+            <button class="ocr-btn">📸 OCR</button>
+          </div>
+        </div>
+
+        <div class="section-h">📝 메모</div>
+        <textarea class="field-textarea" placeholder="특이사항·요청사항을 적어두세요">기존 KOCES 단말 교체. 카카오페이 추가 신청. 매주 화요일 정산 요청.</textarea>
+        <div class="field-counter">42/200</div>
+
+        <div class="section-h">📎 첨부 (사진 + 파일)</div>
+        <div class="photo-grid-lg" style="grid-template-columns:repeat(4,1fr);margin-bottom:6px">
+          <div class="photo-lg" style="background:linear-gradient(135deg,#7C3AED,#4C1D95)">단말<span class="x">×</span></div>
+          <div class="photo-lg" style="background:linear-gradient(135deg,#3B82F6,#1E3A8A)">계약<span class="x">×</span></div>
+          <div class="photo-lg" style="background:#DC2626;display:flex;flex-direction:column;font-size:9px">📄<span style="font-size:8px">신청서.pdf</span><span class="x">×</span></div>
+          <div class="photo-lg add camera"><span class="icon">📸</span><span>촬영</span></div>
+        </div>
+        <div style="font-size:10.5px;color:var(--gray-500);text-align:right;margin-bottom:10px">3개 · 1.8MB</div>
+
+        <span class="tag van" style="margin-bottom:10px;display:inline-flex"><input type="checkbox" checked>📡 저장 + LINE 발송</span>
+
+        <div class="line-preview">
+          <span class="lbl">📡 미리보기</span>
+          정이가마트 : VAN 신규등록 ; KOCES/NICE 신청, 카카오페이 추가 · 📷 3
+        </div>
+
+        <div style="display:flex;gap:7px;margin-top:8px">
+          <button class="btn-big ghost" style="margin:0">← 이전</button>
+          <button class="btn-big line" style="margin:0">💾 저장 + 📡 발송</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">④ 등록 풀폼 ③ — 간편결제 TID + 메모 + 첨부 + 저장</div>
+</div>
+
+<!-- ⑤ 진행 단계 thread -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>15:22</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">💳 정이가마트</div>
+        <span class="badge" style="background:#FEF3C7;color:#92400E">진행</span>
+      </div>
+      <div class="body">
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+            <div>
+              <div style="display:flex;align-items:center;gap:5px">
+                <span class="pill cat-new">신규등록</span>
+                <span style="font-weight:800;font-size:14px">정이가마트</span>
+              </div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:3px">박과장(010-1234-5678) · 이헌상</div>
+            </div>
+            <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:5px 10px;font-size:10.5px;font-weight:800">✏️ 편집</button>
+          </div>
+          <div style="font-size:11px;color:var(--gray-500);display:flex;justify-content:space-between;margin-top:6px">
+            <span>가맹 진행률</span><span style="font-weight:800;color:var(--van-purple)">60%</span>
+          </div>
+          <div class="progress"><i style="width:60%"></i></div>
+        </div>
+
+        <div class="section-h" style="display:flex;align-items:center;gap:6px">
+          📋 진행 단계
+          <span style="margin-left:auto;background:#06C7551A;color:#04A047;font-size:10px;font-weight:800;padding:3px 8px;border-radius:11px">📡 4회</span>
+        </div>
+
+        ${[
+          {cls:'req', t:'5/15 14:30 · 이헌상', st:'요청접수', msg:'VAN 신규 등록 의뢰 — 단말 교체 + 카카오페이', line:true},
+          {cls:'prog', t:'5/16 10:20 · 이헌상', st:'신청', msg:'KOCES / NICE 가맹 신청서 제출 · 카드사 접수 대기', line:true},
+          {cls:'prog', t:'5/17 11:05 · KOCES', st:'접수', msg:'KOCES TID 발급 (50012345678) — 단말 설치 예정', line:true},
+          {cls:'prog', t:'5/18 09:30 · 이헌상', st:'진행', msg:'KOCES 단말 설치 완료. NICE 발급 대기 중', line:true},
+        ].map(c => `
+        <div class="card ${c.cls}" style="padding:11px 13px;margin-bottom:8px">
+          <div class="topline" style="margin-bottom:3px">
+            <span class="pill ${c.cls}">${c.st}</span>
+            <span class="meta" style="margin:0">${c.t}</span>
+            ${c.line?'<span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>':''}
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">${c.msg}</div>
+        </div>`).join('')}
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 8px">
+          <button class="btn-big warn" style="margin:0;padding:13px">＋ 진행 추가</button>
+          <button class="btn-big success" style="margin:0;padding:13px">✅ 완료</button>
+        </div>
+      </div>
+
+      <div class="fab line" style="bottom:18px">📡</div>
+    </div>
+  </div>
+  <div class="device-title">⑤ 진행 단계 thread — 요청접수 → 신청 → 접수 → 진행 시퀀스 + 📡</div>
+</div>
+
+<!-- ⑥ VAN 진행 상태 카드 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>15:28</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">📊 VAN 진행 상태</div>
+        <span class="badge">60%</span>
+      </div>
+      <div class="body">
+
+        <!-- 카드사 가맹 -->
+        <div style="background:#fff;border-radius:12px;padding:13px 14px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+            <span style="font-size:18px">💳</span>
+            <span style="font-weight:800;font-size:13.5px;flex:1">카드사 가맹</span>
+            <span class="pill prog">진행 중</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--gray-500);margin-bottom:6px">신청 5/16 → 완료 예정 5/22 (영업일 5일)</div>
+          <div class="progress" style="height:8px"><i style="width:65%"></i></div>
+          <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--gray-500);margin-top:4px">
+            <span>3/5 영업일 경과</span><span style="font-weight:700;color:var(--van-purple)">65%</span>
+          </div>
+        </div>
+
+        <!-- VAN사별 등록 상태 -->
+        <div class="section-h">VAN사별 등록 상태</div>
+
+        ${[
+          {nm:'KOCES', st:'done', stTxt:'등록 완료', tid:'50012345678', serial:'KC2025-A0421', date:'5/17'},
+          {nm:'NICE', st:'prog', stTxt:'발급 대기', tid:'—', serial:'—', date:'5/16'},
+          {nm:'KIS', st:'idle', stTxt:'미신청', tid:'—', serial:'—', date:'—'},
+          {nm:'KSNET', st:'idle', stTxt:'미신청', tid:'—', serial:'—', date:'—'},
+        ].map(v => `
+        <div class="card ${v.st==='done'?'done':v.st==='prog'?'prog':''}" style="${v.st==='idle'?'opacity:.55;border-left:4px solid var(--gray-300)':''};padding:11px 13px">
+          <div class="topline" style="margin-bottom:6px">
+            <span style="font-weight:800;font-size:13.5px;color:var(--van-purple)">${v.nm}</span>
+            <span class="pill ${v.st==='done'?'done':v.st==='prog'?'prog':''}" style="${v.st==='idle'?'background:var(--gray-200);color:var(--gray-500)':''}">${v.stTxt}</span>
+            <span class="meta" style="margin:0 0 0 auto">${v.date}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:50px 1fr 32px;gap:5px 8px;font-size:11.5px;align-items:center">
+            <span style="color:var(--gray-500)">TID</span>
+            <span style="font-family:monospace;font-weight:700;color:${v.tid==='—'?'var(--gray-400)':'var(--gray-800)'}">${v.tid}</span>
+            <button class="copy-btn" style="padding:4px 7px;font-size:10px;${v.tid==='—'?'opacity:.3':''}">📋</button>
+            <span style="color:var(--gray-500)">Serial</span>
+            <span style="font-family:monospace;font-weight:700;color:${v.serial==='—'?'var(--gray-400)':'var(--gray-800)'}">${v.serial}</span>
+            <button class="copy-btn" style="padding:4px 7px;font-size:10px;${v.serial==='—'?'opacity:.3':''}">📋</button>
+          </div>
+        </div>`).join('')}
+
+        <button class="btn-big van" style="margin-top:8px">✏️ VAN 등록 정보 수정</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑥ VAN 진행 상태 — 카드사 진행률 + VAN 4종 상태 + TID 복사</div>
+</div>
+
+<!-- ⑦ 빠른 LINE 발송 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen" style="background:#F0F2F5">
+      <div class="statusbar"><span>09:45</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">📡 빠른 LINE 발송</div>
+      </div>
+      <div class="body">
+        <div class="annot">단말 설치 사진 + 한 줄 메시지로 즉시 공유 — 상세 등록은 나중에</div>
+
+        <div class="section-h">매장 + 카테고리</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:9px">
+            <div style="width:42px;height:42px;background:var(--van-purple-light);color:var(--van-purple);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:21px">💳</div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:14px">정이가마트</div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:2px;display:flex;gap:6px;align-items:center">
+                <span class="pill cat-new" style="padding:1px 6px;font-size:9.5px">신규등록</span>
+                <span>625-85-01902</span>
+              </div>
+            </div>
+            <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:800">변경</button>
+          </div>
+        </div>
+
+        <div class="section-h">VAN사 / 단계</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px">
+          <span class="tag van" style="justify-content:center;padding:7px;font-size:11.5px"><input type="radio" checked>KOCES</span>
+          <span class="tag" style="justify-content:center;padding:7px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">NICE</span>
+          <span class="tag" style="justify-content:center;padding:7px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">KIS</span>
+          <span class="tag" style="justify-content:center;padding:7px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">KSNET</span>
+        </div>
+
+        <div class="section-h">사진 (필수)</div>
+        <div class="photo-grid-lg" style="grid-template-columns:repeat(3,1fr)">
+          <div class="photo-lg" style="background:linear-gradient(135deg,#7C3AED,#4C1D95)">단말<span class="x">×</span></div>
+          <div class="photo-lg add camera"><span class="icon">📸</span><span>촬영</span></div>
+          <div class="photo-lg add"><span class="plus">＋</span><span>앨범</span></div>
+        </div>
+
+        <div class="section-h">한 줄 메시지 (≤30자)</div>
+        <div style="position:relative">
+          <textarea class="field-textarea" style="min-height:62px">KOCES 단말 설치 완료, 테스트 결제 OK</textarea>
+          <div class="field-counter">23/30</div>
+        </div>
+
+        <div class="line-preview">
+          <span class="lbl">📡 미리보기</span>
+          정이가마트 [신규등록·KOCES] : 5/18 ; 단말 설치 완료, 테스트 결제 OK · 📷 1
+        </div>
+
+        <button class="btn-big line" style="margin-top:8px">📡 LINE 발송</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑦ 빠른 LINE 발송 — 매장 + VAN사 + 사진 + 한 줄</div>
+</div>
+
+<!-- ⑧ 매장 선택 시트 (prefill 표시) -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen" style="background:rgba(0,0,0,.4)">
+      <div class="statusbar"><span>10:08</span><span class="icons">📶 📡 🔋</span></div>
+      <div style="background:#fff;height:60px;opacity:.4"></div>
+
+      <div style="background:#fff;border-radius:18px 18px 0 0;flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:10px 16px 6px">
+          <div class="sheet-handle"></div>
+          <div class="sheet-title">🏪 매장 선택</div>
+        </div>
+
+        <div style="padding:0 14px 8px;position:relative">
+          <input type="text" placeholder="매장명 / 사업자번호 / 대표자"
+                 style="width:100%;padding:11px 14px 11px 38px;border:1.5px solid var(--gray-300);border-radius:10px;font-size:13.5px;background:#fff">
+          <span style="position:absolute;left:24px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:15px">🔍</span>
+        </div>
+
+        <div style="padding:0 14px 10px;display:flex;gap:6px">
+          <button style="flex:1;padding:8px 0;border:none;background:var(--van-purple);color:#fff;border-radius:8px;font-size:12px;font-weight:800">✓ 등록 매장</button>
+          <button style="flex:1;padding:8px 0;border:1.5px solid var(--gray-300);background:#fff;color:var(--gray-600);border-radius:8px;font-size:12px;font-weight:700">+ 미등록 가맹점</button>
+        </div>
+
+        <div style="flex:1;overflow-y:auto;padding:0 14px 14px">
+          <div style="font-size:10.5px;font-weight:800;color:var(--gray-500);text-transform:uppercase;margin:4px 0 6px">VAN 프로필 있음 (prefill ✨)</div>
+
+          ${[
+            {nm:'정이가마트', biz:'625-85-01902', last:'KOCES·NICE 등록됨', vans:'KOCES ✓ NICE ✓', sel:true},
+            {nm:'명동교자(1호점)', biz:'104-87-12345', last:'4종 모두 등록', vans:'KOCES ✓ NICE ✓ KIS ✓'},
+          ].map(s => `
+          <div style="padding:11px 12px;background:${s.sel?'#F5F3FF':'#fff'};border:1.5px solid ${s.sel?'var(--van-purple)':'var(--gray-200)'};border-radius:10px;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:38px;height:38px;background:${s.sel?'var(--van-purple)':'var(--van-purple-light)'};color:${s.sel?'#fff':'var(--van-purple)'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px">🏪</div>
+              <div style="flex:1">
+                <div style="font-weight:800;font-size:13px">${s.nm}${s.sel?' <span style="color:var(--van-purple);font-size:11px">✓</span>':''}</div>
+                <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">${s.biz} · ${s.last}</div>
+              </div>
+            </div>
+            <div style="margin-top:7px;padding-top:7px;border-top:1px dashed var(--gray-200);font-size:10.5px;color:var(--van-purple);font-weight:700">
+              ✨ ${s.vans}
+            </div>
+          </div>
+          `).join('')}
+
+          <div style="font-size:10.5px;font-weight:800;color:var(--gray-500);text-transform:uppercase;margin:14px 0 6px">VAN 프로필 없음 (신규)</div>
+
+          ${[
+            {nm:'다봄(주)', biz:'381-88-03511'},
+            {nm:'정미식품', biz:'113-22-01567'},
+          ].map(s => `
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;border-bottom:1px solid var(--gray-100)">
+            <div style="width:34px;height:34px;background:#F3F4F6;color:var(--gray-500);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px">🏪</div>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:12.5px">${s.nm}</div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">${s.biz}</div>
+            </div>
+            <span style="font-size:10px;color:var(--gray-400);font-weight:700">신규</span>
+          </div>
+          `).join('')}
+        </div>
+
+        <div style="padding:10px 14px 16px;border-top:1px solid var(--gray-200);background:#fff">
+          <button class="btn-big van" style="margin:0">✓ 정이가마트 선택 (prefill 적용)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑧ 매장 선택 시트 — VAN 프로필 prefill 표시 + 등록/미등록 토글</div>
+</div>
+
+</div>
+
+<h2>🗂️ 화면 흐름 (사용자 시나리오)</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <div style="font-size:12.5px;line-height:1.9">
+    <b>📥 VAN 신규 등록</b> &nbsp;①홈 → FAB＋ → ⑧매장선택 (prefill) → ②풀폼① → ③풀폼② → ④풀폼③ → 저장+📡<br>
+    <b>🚗 가맹 진행 추가</b> &nbsp;①홈 → 카드탭 → ⑤thread → 진행추가 시트 → 📡 발송<br>
+    <b>⚡ 빠른 발송</b> &nbsp;①홈 → FAB📡 → ⑦빠른발송 (매장+VAN+사진+한줄) → 📡<br>
+    <b>📊 가맹 상태 확인</b> &nbsp;①홈 → 카드탭 → ⑥VAN진행상태 → TID 복사 / 수정<br>
+    <b>🔁 재신고/변경</b> &nbsp;⑧매장선택 (prefill ✨) → 기존 KOCES TID 자동 입력 → ③풀폼② 수정<br>
+    <b>✅ 완료/정산</b> &nbsp;⑤thread → 완료버튼 → ⑥VAN상태 (100%) → 📡 발송
+  </div>
+</div>
+
+<h2>📐 디자인 원칙</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.8">
+    <li><b>TID/Serial 입력 단순화</b> — 복붙 버튼 📋 항상 노출, 카메라 OCR 📸 보조 (단말 라벨 자동 인식)</li>
+    <li><b>매장 선택 시 prefill ✨</b> — 기존 VAN 프로필 있으면 KOCES/NICE TID 등 자동 채움 (재신고/변경 시 핵심)</li>
+    <li><b>가맹 신청일 = 오늘 (자동)</b> — 신청일 필드 디폴트로 오늘 날짜 입력</li>
+    <li><b>가맹 진행률 가시화</b> — 카드/홈/상세 모두 진행률 바로 표시 (영업일 기반 추정)</li>
+    <li><b>VAN 4종 복수 체크</b> — KOCES/NICE/KIS/KSNET 각각 독립 토글 + TID/Serial 행 펼침</li>
+    <li><b>카테고리 칩</b> — 신규등록/재신고/정산/계약/변경 5개 가로 스크롤 칩 (홈 필터)</li>
+    <li><b>LINE 발송 디폴트 ON</b> — 매장+카테고리+VAN사+한줄 자동 합성 미리보기</li>
+    <li><b>한 손 사용</b> — 주요 액션은 항상 화면 하단, 44px+ 터치 영역</li>
+    <li><b>VAN 보라 컬러 시그니처</b> — #7C3AED 로 재고(파랑)·AS와 시각적 구분</li>
+  </ul>
+</div>
+
+<h2>🔧 기술 노트</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.8">
+    <li><b>매장 prefill 데이터</b> — <code>store.vanProfile = {kocesTid, kocesSerial, niceTid, ...}</code> 매장 모델에 캐시</li>
+    <li><b>TID OCR</b> — <code>&lt;input type="file" accept="image/*" capture="environment"&gt;</code> + Tesseract.js / Vision API 로 숫자 추출</li>
+    <li><b>복사 버튼</b> — <code>navigator.clipboard.writeText(tid)</code> + 토스트 알림</li>
+    <li><b>가맹 진행률 계산</b> — <code>(today - 신청일) / 영업일 5</code>, 단 완료일 입력 시 100%</li>
+    <li><b>카테고리 칩</b> — URL query <code>?cat=new|re|settle|contract|change</code> 필터 연동</li>
+    <li><b>LINE 발송 페이로드</b> — <code>{store, category, van, msg, photos[]}</code> → <code>/api/line-send</code></li>
+    <li><b>오프라인 대비</b> — 단말 사진은 IndexedDB 임시 저장 → 온라인 복귀 시 R2 업로드</li>
+    <li><b>같은 index.html</b> — 별도 앱 아님. <code>@media (max-width:640px)</code> 분기로 모바일 활성화</li>
+  </ul>
+</div>
+
+</body>
+</html>
