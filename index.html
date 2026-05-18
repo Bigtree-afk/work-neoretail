@@ -906,6 +906,124 @@
     .comment-panel { width: 100%; top: 56px; }
     .comment-fab-wrap { bottom: 20px; right: 16px; }
   }
+
+  /* ═══════════════════════════════════════════════════════════════
+     📱 모바일 모드 분기 (≤640px) — 현장 작업자 한 손 사용 최적화
+     ─────────────────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    /* 본문 패딩 축소 + 글자 크기 미세 조정 */
+    body { font-size: 14px; }
+    .main, main, .container { padding: 8px !important; }
+    .card { padding: 11px 12px !important; border-radius: 10px !important; }
+
+    /* 큰 터치 영역 — Apple HIG 44px 권장 */
+    button, .btn, .btn-mini, input[type="button"], input[type="submit"] {
+      min-height: 40px;
+      font-size: 13.5px;
+    }
+    .btn-sm { min-height: 32px; font-size: 12.5px; }
+    input[type="text"], input[type="number"], input[type="tel"], input[type="email"],
+    input[type="date"], input[type="time"], input[type="search"],
+    select, textarea {
+      font-size: 16px !important;   /* iOS 자동 줌 방지 */
+      padding: 10px 12px !important;
+      border-radius: 8px !important;
+    }
+    textarea { min-height: 60px; }
+
+    /* 모달 — 전체 화면 시트 스타일 */
+    .modal-overlay .modal,
+    .modal-overlay .modal-content {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: 100vh !important;
+      max-height: 100vh !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+    }
+    .modal-overlay .modal-body, .modal-overlay .modal-content > .modal-body {
+      padding: 12px !important;
+    }
+    .modal-overlay .modal-header { padding: 12px 14px !important; }
+    .modal-overlay .modal-footer {
+      position: sticky;
+      bottom: 0;
+      background: #fff;
+      border-top: 1px solid #E5E7EB;
+      padding: 10px 12px !important;
+      box-shadow: 0 -2px 8px rgba(0,0,0,.04);
+      z-index: 5;
+    }
+    .modal-overlay .modal-footer .btn { flex: 1; min-height: 44px; }
+
+    /* 폼 그리드 — 2/3 컬럼을 1 컬럼으로 자동 변환 */
+    .form-group [style*="grid-template-columns:1fr 1fr 1fr"],
+    .form-group [style*="grid-template-columns: 1fr 1fr 1fr"],
+    .form-group [style*="grid-template-columns:1fr 1fr"],
+    .form-group [style*="grid-template-columns: 1fr 1fr"] {
+      grid-template-columns: 1fr !important;
+    }
+
+    /* 테이블 — 가로 스크롤 가능 */
+    table { font-size: 12px; }
+    .table-wrap, [style*="overflow-x:auto"] { overflow-x: auto; }
+
+    /* 상단 네비/탭 — 가로 스크롤 + 압축 */
+    .tabs, .top-bar, .hub-filter-wrap {
+      overflow-x: auto;
+      flex-wrap: nowrap !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    .tab, .hub-filter { white-space: nowrap; flex-shrink: 0; }
+
+    /* 통계 카드 — 한 줄에 2개 (3-4개 → 2x2) */
+    .stat-grid,
+    [style*="grid-template-columns:repeat(4,1fr)"],
+    [style*="grid-template-columns: repeat(4, 1fr)"],
+    [style*="grid-template-columns:repeat(3,1fr)"],
+    [style*="grid-template-columns: repeat(3, 1fr)"] {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* 데스크톱 전용 컬럼 숨김 */
+    .hide-mobile, .desktop-only { display: none !important; }
+    .mobile-only { display: inline-flex !important; }
+
+    /* 업로더 — 썸네일 크기 + 그리드 자동 조정 */
+    .ns-up-photo, .ns-up-file { width: 72px !important; height: 72px !important; }
+    .ns-uploader { padding: 8px; }
+    .ns-uploader-head { font-size: 11px; flex-wrap: wrap; }
+
+    /* 라이트박스 — 모바일 패딩 */
+    .ns-lbox .ns-lbox-stage { padding: 8px; }
+    .ns-lbox .ns-lbox-nav { width: 36px; height: 36px; font-size: 18px; }
+
+    /* LINE 컴포저 모달 — 발송 버튼 강조 */
+    #lineSendComposerModal .modal-footer .btn { font-size: 14px; font-weight: 800; }
+
+    /* 사이드 패널 / 코멘트 패널 — 전체화면 */
+    .comment-panel, .side-panel { width: 100% !important; left: 0 !important; right: 0 !important; }
+
+    /* 작은 글씨 / 보조 정보 — 더 작게 (공간 확보) */
+    .meta, .text-muted, .help-text { font-size: 11px; }
+
+    /* 스레드 카드 — 좌측 컬러바 두께 축소 */
+    .thread-root, .thread-child { padding: 9px 11px; }
+
+    /* 폼 그룹 라벨 정렬 */
+    .form-group label { font-size: 12px; margin-bottom: 4px; }
+  }
+
+  /* iOS 안전 영역 (notch) 대응 */
+  @supports (padding: max(0px)) {
+    @media (max-width: 640px) {
+      body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+      .modal-overlay .modal-footer { padding-bottom: max(10px, env(safe-area-inset-bottom)) !important; }
+    }
+  }
+
+  /* mobile-only / desktop-only 데스크톱 디폴트 */
+  .mobile-only { display: none; }
 /* ── 로그인 게이트 (회사 내부용) ── */
 body.auth-required > .main,
 body.auth-required > nav,
@@ -3144,6 +3262,25 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div>
           <label>👤 담당 엔지니어</label>
           <select id="vanJobEngineer"><option value="">담당자 선택...</option></select>
+        </div>
+      </div>
+
+      <!-- 📇 거래처 담당자 정보 -->
+      <div class="form-group" style="background:#FAFAFA;border:1px solid var(--gray-200);border-radius:10px;padding:11px 13px">
+        <label style="display:flex;align-items:center;gap:6px;margin-bottom:6px">📇 거래처 담당자 <span style="font-size:10px;color:var(--gray-400);font-weight:400">선택 — 미정이면 비워두세요</span></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div>
+            <div style="font-size:10.5px;color:var(--gray-600);margin-bottom:3px;font-weight:600">이름</div>
+            <input type="text" id="vanContactName" placeholder="예: 박과장">
+          </div>
+          <div>
+            <div style="font-size:10.5px;color:var(--gray-600);margin-bottom:3px;font-weight:600">직책</div>
+            <input type="text" id="vanContactRole" placeholder="예: 점장 / 사장 / 매니저" list="contactRoleList">
+          </div>
+          <div>
+            <div style="font-size:10.5px;color:var(--gray-600);margin-bottom:3px;font-weight:600">연락처</div>
+            <input type="tel" id="vanContactPhone" placeholder="010-0000-0000">
+          </div>
         </div>
       </div>
 
@@ -6739,44 +6876,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     else if (status === '일정확정') content = '조사 일정 확정';
     else content = '재고조사 의뢰';
 
-    // 1줄 헤더
-    const headLine = `${rec.storeName} : ${processDate} ; ${content}`;
-
-    // 보조 정보 — 일정/규모/담당자
-    const lines = [];
-    // 일정
-    if (rec.scheduleDate && rec.scheduleDate !== processDate) {
-      lines.push(`📅 조사예정 ${rec.scheduleDate}`);
-    } else if (rec.scheduleDate) {
-      lines.push(`📅 조사예정 ${rec.scheduleDate}`);
-    }
-    // 규모
-    const sizeParts = [];
-    if (rec.area)        sizeParts.push(`${rec.area}평`);
-    if (rec.headcount)   sizeParts.push(`${rec.headcount}명`);
-    if (rec.fee)         sizeParts.push(`수수료 ${Number(rec.fee).toLocaleString('ko-KR')}원`);
-    if (sizeParts.length) lines.push(`📊 ${sizeParts.join(' · ')}`);
-    // 완료/마감 시 결과
-    if (status === '조사완료' || status === '정산' || status === '마감') {
-      const res = [];
-      if (rec.expectedAmount && rec.actualAmount) res.push(`예상 → 실 ${Number(rec.expectedAmount).toLocaleString('ko-KR')} → ${Number(rec.actualAmount).toLocaleString('ko-KR')}원`);
-      if (typeof rec.margin === 'number')         res.push(`수익 ${rec.margin >= 0 ? '+':''}${rec.margin.toLocaleString('ko-KR')}원`);
-      if (rec.paymentMethod)                      res.push(`수금 ${rec.paymentMethod}`);
-      if (res.length) lines.push(`💰 ${res.join(' · ')}`);
-    }
-    // 담당자
-    const owner = rec.owner || (((typeof _currentAuthName==='function') ? _currentAuthName() : '') || '');
-    const contactBits = [];
-    if (rec.contactName)  contactBits.push(rec.contactRole ? `${rec.contactRole} ${rec.contactName}` : rec.contactName);
-    if (rec.contactPhone) contactBits.push(rec.contactPhone);
-    if (owner || contactBits.length) {
-      const parts = [];
-      if (owner) parts.push(`담당 ${owner}`);
-      if (contactBits.length) parts.push(`거래처 ${contactBits.join(' ')}`);
-      lines.push(`👤 ${parts.join(' / ')}`);
-    }
-
-    const defaultText = headLine + (lines.length ? '\n' + lines.join('\n') : '');
+    // 공용 빌더 사용 (조사예정 라벨로)
+    const defaultText = (typeof window._buildEnrichedLineText === 'function')
+      ? window._buildEnrichedLineText(rec, {
+          processDate,
+          headContent: content,
+          scheduleLabel: '📅 조사예정',
+        })
+      : `${rec.storeName} : ${processDate} ; ${content}`;
 
     const attachments = Array.isArray(rec.attachments) ? rec.attachments : [];
 
@@ -13281,6 +13388,163 @@ ${text.slice(0, 4000)}`;
   })();
 
   /* ════════════════════════════════════════════════════════════
+     _buildEnrichedLineText — 카테고리 공용 다중 라인 메시지 빌더
+     ────────────────────────────────────────────────────────────
+     포맷:
+       매장명 : 처리일 ; 본문(≤30자)
+       📅 일정
+       📊 규모 / 옵션
+       💰 결과 (완료 시)
+       👤 담당 ... / 거래처 ...
+
+     opts.category : 'stocktake' | 'as' | 'newjob' | 'van' | ...
+     opts.headContent : 본문(content) — 미지정 시 상태 기반 자동
+     opts.scheduleLabel : '📅 조사예정' | '📅 처리예정' | '📅 설치예정' (카테고리별 라벨)
+   ════════════════════════════════════════════════════════════ */
+  window._buildEnrichedLineText = function(rec, opts) {
+    if (!rec) return '';
+    opts = opts || {};
+    const status = rec.status || rec.statusLabel || '';
+    const todayKst = (function(){
+      const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset() + 9*60);
+      return d.toISOString().slice(0,10);
+    })();
+    const processDate = opts.processDate || rec.doneDate || rec.scheduleDate || rec.consultDate || rec.dueDate || rec.date || todayKst;
+    const storeName = rec.storeName || rec.store || '';
+    let content = opts.headContent || '';
+    if (!content) {
+      const memo30 = (rec.memo || rec.text || rec.request || '').replace(/\s+/g,' ').trim().slice(0, 30);
+      content = memo30 || (status || '업무 등록');
+    }
+    const headLine = `${storeName} : ${processDate} ; ${content}`;
+
+    const lines = [];
+    // 일정
+    const schedLabel = opts.scheduleLabel || '📅 예정';
+    const sd = rec.scheduleDate || rec.dueDate || rec.installDate || rec.softOpenDate || rec.openDate;
+    if (sd && sd !== processDate) lines.push(`${schedLabel} ${sd}`);
+    // 규모
+    const sizeParts = [];
+    if (rec.area)        sizeParts.push(`${rec.area}평`);
+    if (rec.headcount)   sizeParts.push(`${rec.headcount}명`);
+    if (rec.fee)         sizeParts.push(`수수료 ${Number(rec.fee).toLocaleString('ko-KR')}원`);
+    if (sizeParts.length) lines.push(`📊 ${sizeParts.join(' · ')}`);
+    // 완료 시 결과
+    if (/(완료|정산|마감)/.test(status)) {
+      const res = [];
+      if (rec.expectedAmount && rec.actualAmount) res.push(`예상 → 실 ${Number(rec.expectedAmount).toLocaleString('ko-KR')} → ${Number(rec.actualAmount).toLocaleString('ko-KR')}원`);
+      if (typeof rec.margin === 'number')         res.push(`수익 ${rec.margin >= 0 ? '+':''}${rec.margin.toLocaleString('ko-KR')}원`);
+      if (rec.paymentMethod)                      res.push(`수금 ${rec.paymentMethod}`);
+      if (res.length) lines.push(`💰 ${res.join(' · ')}`);
+    }
+    // 담당자
+    const owner = rec.owner || rec.engineer || rec.assignee || (((typeof _currentAuthName==='function') ? _currentAuthName() : '') || '');
+    const contactBits = [];
+    if (rec.contactName)  contactBits.push(rec.contactRole ? `${rec.contactRole} ${rec.contactName}` : rec.contactName);
+    if (rec.contactPhone) contactBits.push(rec.contactPhone);
+    if (owner || contactBits.length) {
+      const parts = [];
+      if (owner) parts.push(`담당 ${owner}`);
+      if (contactBits.length) parts.push(`거래처 ${contactBits.join(' ')}`);
+      lines.push(`👤 ${parts.join(' / ')}`);
+    }
+
+    return headLine + (lines.length ? '\n' + lines.join('\n') : '');
+  };
+
+  /* ════════════════════════════════════════════════════════════
+     _openLineForJob — AS/신규/VAN job 객체로 LINE composer 열기
+     ────────────────────────────────────────────────────────────
+     job: jobs[] 의 객체 (또는 thread root/entry)
+     opts.entry: thread 항목(있으면 그 항목 텍스트를 본문으로 사용)
+     opts.category: 명시적 카테고리 ('as'|'newjob'|'van' 자동 감지 가능)
+   ════════════════════════════════════════════════════════════ */
+  window._openLineForJob = function(job, opts) {
+    if (!job) return;
+    opts = opts || {};
+    // 카테고리 자동 감지
+    let category = opts.category;
+    if (!category) {
+      const t = String(job.type || '').toLowerCase();
+      if (/AS|에이에스|as/i.test(job.type || '')) category = 'as';
+      else if (/VAN/i.test(job.type || '') || job.vanRegistration) category = 'van';
+      else category = 'newjob';
+    }
+    const labelMap = { as:'🔧 AS', newjob:'🆕 신규', van:'💳 VAN', stocktake:'📦 재고조사' };
+    const scheduleLabelMap = { as:'📅 처리예정', newjob:'📅 설치예정', van:'📅 진행일', stocktake:'📅 조사예정' };
+
+    // entry 가 주어지면 그 텍스트를 본문으로, 아니면 job 최신 ROOT/메모 사용
+    const entry = opts.entry;
+    let headContent = '';
+    let attachments = Array.isArray(job.attachments) ? job.attachments.slice() : [];
+    if (entry) {
+      headContent = (entry.text || '').replace(/\s+/g,' ').trim().slice(0, 60);
+      if (Array.isArray(entry.attachments) && entry.attachments.length) {
+        attachments = entry.attachments;
+      }
+    } else if (Array.isArray(job.thread) && job.thread.length) {
+      // 최신 항목 (ts 기준)
+      const latest = job.thread.slice().sort((a,b)=>(b.ts||'').localeCompare(a.ts||''))[0];
+      if (latest) {
+        headContent = (latest.text || '').replace(/\s+/g,' ').trim().slice(0, 60);
+        if (Array.isArray(latest.attachments) && latest.attachments.length) {
+          // job-level + thread-level 합치기 (중복 제거 by key/url)
+          const seen = new Set(attachments.map(a => a.key || a.url));
+          latest.attachments.forEach(a => {
+            const k = a.key || a.url;
+            if (!seen.has(k)) { attachments.push(a); seen.add(k); }
+          });
+        }
+      }
+    }
+    if (!headContent) headContent = (job.memo || job.notes || job.type || '업무 등록').slice(0, 60);
+
+    // rec 객체로 정규화 (job 필드를 _buildEnrichedLineText 가 읽는 키 이름으로 매핑)
+    const rec = Object.assign({}, job, {
+      storeName: job.storeName || job.store || '',
+      status:    (entry && entry.status) || job.status || (job.completed ? '완료' : '진행중'),
+      scheduleDate: job.scheduleDate || job.asDueDate || job.installDate || job.softOpenDate || job.openDate || job.date || '',
+      contactName: job.contactName || '',
+      contactPhone: job.contactPhone || '',
+      contactRole: job.contactRole || '',
+      owner: job.owner || job.engineer || job.assignee || '',
+      memo: headContent,
+    });
+
+    const defaultText = (typeof window._buildEnrichedLineText === 'function')
+      ? window._buildEnrichedLineText(rec, { scheduleLabel: scheduleLabelMap[category] || '📅 예정', headContent })
+      : `${rec.storeName} : ${(new Date()).toISOString().slice(0,10)} ; ${headContent}`;
+
+    if (typeof window._openLineSendComposer !== 'function') {
+      if (typeof showToast === 'function') showToast('⚠ LINE 컴포저가 로드되지 않았습니다');
+      return;
+    }
+    window._openLineSendComposer({
+      category,
+      categoryLabel: `${labelMap[category] || ''} — ${rec.status || ''}`,
+      defaultText,
+      attachments,
+      jobId: job.id,
+      onSent: (result) => {
+        try {
+          const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+          const i = jobs.findIndex(x => x.id === job.id);
+          if (i >= 0) {
+            jobs[i].lineHistory = Array.isArray(jobs[i].lineHistory) ? jobs[i].lineHistory : [];
+            jobs[i].lineHistory.push({
+              at: (new Date()).toISOString(),
+              ok: !!(result && result.ok),
+              count: result && result.count,
+              text: defaultText.slice(0, 200),
+            });
+            if (typeof saveJobs === 'function') saveJobs(jobs);
+          }
+        } catch(e){ console.warn('[openLineForJob] history save failed', e); }
+      },
+    });
+  };
+
+  /* ════════════════════════════════════════════════════════════
      _openLineSendComposer — LINE 발송 전 사용자 편집 모달 (전 카테고리 공용)
      ────────────────────────────────────────────────────────────
      사용:
@@ -17167,7 +17431,8 @@ ${text.slice(0, 4000)}`;
     _vanUnregMode = false;
     const get = (id) => document.getElementById(id);
     ['vanStoreName','vanCardApply','vanCardComplete','vanCardNote','vanJobMemo','payInputSimple','payInputKakao',
-     'vanUnregName','vanUnregBiz','vanUnregCeo','vanUnregTel','vanUnregAddr'].forEach(id => { const el=get(id); if(el)el.value=''; });
+     'vanUnregName','vanUnregBiz','vanUnregCeo','vanUnregTel','vanUnregAddr',
+     'vanContactName','vanContactRole','vanContactPhone'].forEach(id => { const el=get(id); if(el)el.value=''; });
     const pick = get('vanStorePickedInfo'); if(pick)pick.style.display='none';
     const unreg = get('vanUnregForm'); if(unreg)unreg.style.display='none';
     const unregBtn = get('vanUnregBtn'); if(unregBtn){unregBtn.style.background='none';unregBtn.style.color='var(--gray-500)';}
@@ -17379,6 +17644,9 @@ ${text.slice(0, 4000)}`;
       engineer,
       assignee: engineer,
       vanRegistration: { cardAcquire, vans, pay },
+      contactName:  (document.getElementById('vanContactName')?.value || '').trim(),
+      contactRole:  (document.getElementById('vanContactRole')?.value || '').trim(),
+      contactPhone: (document.getElementById('vanContactPhone')?.value || '').trim(),
       memo,
       attachments: (function(){
         try { if (window._vanJobUploaderCtl) return window._vanJobUploaderCtl.get() || []; } catch(_){}
