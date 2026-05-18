@@ -700,6 +700,439 @@
   <div class="device-title">⑤ LINE 발송 이력 — 매장별 누적 (재발송도 여기서)</div>
 </div>
 
+<!-- ⑨ 재고조사 등록/편집 풀폼 (Part 1) — 매장/상태/담당자/일정 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:12</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">📦 재고조사 등록</div>
+        <span class="badge" style="background:#FEF3C7;color:#92400E">초안</span>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step cur"><span class="dot">1</span>기본</div>
+          <div class="step"><span class="dot">2</span>규모</div>
+          <div class="step"><span class="dot">3</span>정산</div>
+        </div>
+
+        <div class="section-h">매장</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px;display:flex;align-items:center;gap:9px">
+          <div style="width:38px;height:38px;background:#06C7551A;color:#04A047;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">🏪</div>
+          <div style="flex:1">
+            <div style="font-weight:800;font-size:13.5px">정이가마트</div>
+            <div style="font-size:10.5px;color:var(--gray-500)">625-85-01902 · 정주영</div>
+          </div>
+          <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:800">변경</button>
+        </div>
+
+        <div class="section-h">상태</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:8px">
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px;background:#DBEAFE;color:#1e40af;border-color:#93C5FD"><input type="radio">상담</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px"><input type="radio" checked>요청접수</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">조사예정</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">조사중</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">조사완료</span>
+          <span class="tag" style="justify-content:center;padding:8px 4px;font-size:11.5px;background:#fff;color:var(--gray-500);border-color:var(--gray-300)"><input type="radio">정산/마감</span>
+        </div>
+
+        <div class="section-h">👥 담당자 정보</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px">
+          <div class="field" style="margin-bottom:8px">
+            <div class="field-label">🧑‍💼 우리 담당자</div>
+            <select class="field-select">
+              <option>이헌상 (본인)</option>
+              <option>김매니저</option>
+              <option>박팀장</option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="field" style="margin:0">
+              <div class="field-label">📇 거래처 이름</div>
+              <input class="field-input" placeholder="박과장" style="padding:9px 11px;font-size:13px">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="field-label">🪪 직책</div>
+              <input class="field-input" placeholder="점장 / 사장" style="padding:9px 11px;font-size:13px">
+            </div>
+          </div>
+          <div class="field" style="margin:8px 0 0">
+            <div class="field-label">📞 거래처 연락처</div>
+            <input class="field-input" placeholder="010-0000-0000" inputmode="tel" style="padding:9px 11px;font-size:13px">
+          </div>
+        </div>
+
+        <div class="section-h">📅 일정</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div class="field" style="margin:0">
+            <div class="field-label">📞 상담일</div>
+            <input class="field-input" type="date" value="2026-05-18" style="padding:9px 11px;font-size:13px">
+          </div>
+          <div class="field" style="margin:0">
+            <div class="field-label">🔍 조사예정일</div>
+            <input class="field-input" type="date" value="2026-05-20" style="padding:9px 11px;font-size:13px">
+          </div>
+        </div>
+
+        <div class="section-h">📝 요청 내용 / 메모</div>
+        <textarea class="field-textarea" placeholder="요청 사항이나 특이사항을 적어두세요">매장 전체 + 창고 1동 재고조사. 토요일 마감 후 진행. 영업 전 도착 요청.</textarea>
+
+        <button class="btn-big primary" style="margin-top:14px">다음 → 규모/금액</button>
+        <button class="btn-big ghost">임시저장</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑨ 등록 풀폼 ① — 매장/상태/담당자/일정/메모</div>
+</div>
+
+<!-- ⑩ 등록 풀폼 (Part 2) — 규모/금액 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:14</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">📦 정이가마트</div>
+        <span class="badge">2/3</span>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step done"><span class="dot">✓</span>기본</div>
+          <div class="step cur"><span class="dot">2</span>규모</div>
+          <div class="step"><span class="dot">3</span>정산</div>
+        </div>
+
+        <div class="section-h">📊 규모</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <div class="field" style="margin:0">
+            <div class="field-label">평수 (평)</div>
+            <input class="field-input" type="number" value="350" style="padding:11px;font-size:15px;text-align:right;font-weight:700">
+          </div>
+          <div class="field" style="margin:0">
+            <div class="field-label">인원수 (명)</div>
+            <input class="field-input" type="number" value="4" style="padding:11px;font-size:15px;text-align:right;font-weight:700">
+          </div>
+        </div>
+
+        <div class="section-h">💰 금액</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field" style="margin:0">
+              <div class="field-label">예상 재고액 (원)</div>
+              <input class="field-input" inputmode="numeric" value="12,000,000" style="padding:10px;font-size:14px;text-align:right;font-weight:700">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="field-label">실 재고액 (원)</div>
+              <input class="field-input" inputmode="numeric" placeholder="조사 후 입력" style="padding:10px;font-size:14px;text-align:right;color:var(--gray-400)">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="field-label">수수료 (원)</div>
+              <input class="field-input" inputmode="numeric" value="350,000" style="padding:10px;font-size:14px;text-align:right;color:var(--warn);font-weight:700">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="field-label">수금액 (원)</div>
+              <input class="field-input" inputmode="numeric" placeholder="0" style="padding:10px;font-size:14px;text-align:right">
+            </div>
+          </div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--gray-200);display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11.5px;color:var(--gray-500)">예상 수익 (자동 계산)</span>
+            <span style="font-size:14.5px;font-weight:800;color:var(--success)">+30,000원</span>
+          </div>
+        </div>
+
+        <div class="section-h">📎 첨부 (사진/문서)</div>
+        <div class="photo-grid-lg" style="grid-template-columns:repeat(4,1fr);margin-bottom:6px">
+          <div class="photo-lg" style="background:linear-gradient(135deg,#3B82F6,#1E3A8A)">상담<span class="x">×</span></div>
+          <div class="photo-lg" style="background:#15803D;display:flex;flex-direction:column;font-size:9px">📊<span style="font-size:8px">견적.xlsx</span><span class="x">×</span></div>
+          <div class="photo-lg add camera"><span class="icon">📸</span><span>촬영</span></div>
+          <div class="photo-lg add"><span class="plus">＋</span><span>파일</span></div>
+        </div>
+        <div style="font-size:10.5px;color:var(--gray-500);text-align:right;margin-bottom:8px">2개 · 1.2MB</div>
+
+        <div style="display:flex;gap:7px">
+          <button class="btn-big ghost" style="margin:0">← 이전</button>
+          <button class="btn-big primary" style="margin:0">다음 → 정산/작업자</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑩ 등록 풀폼 ② — 평수/인원/예상-실/수수료-수금 + 첨부</div>
+</div>
+
+<!-- ⑪ 작업자/비용 — 인건비 정산 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:15</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">👷 작업자 / 비용</div>
+        <span class="badge">3/3</span>
+      </div>
+      <div class="body">
+        <div class="stepper">
+          <div class="step done"><span class="dot">✓</span>기본</div>
+          <div class="step done"><span class="dot">✓</span>규모</div>
+          <div class="step cur"><span class="dot">3</span>정산</div>
+        </div>
+
+        <div class="section-h" style="display:flex;align-items:center;gap:6px">
+          👷 작업자 (인건비)
+          <span style="margin-left:auto;background:#EFF6FF;color:var(--primary);font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:11px">＋ 추가</span>
+        </div>
+
+        <div style="background:#fff;border-radius:10px;padding:10px 12px;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:800;background:var(--gray-100);color:var(--gray-700);border-radius:6px;padding:3px 7px">1</span>
+            <input class="field-input" value="김작업" style="flex:1;padding:7px 9px;font-size:13px;font-weight:700">
+            <span style="color:#DC2626;font-size:17px;font-weight:300">×</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+            <div>
+              <div style="font-size:10px;color:var(--gray-500);margin-bottom:2px">일당</div>
+              <input class="field-input" inputmode="numeric" value="120,000" style="padding:6px 8px;font-size:12px;text-align:right">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--gray-500);margin-bottom:2px">시간</div>
+              <input class="field-input" type="number" value="8" style="padding:6px 8px;font-size:12px;text-align:right">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--gray-500);margin-bottom:2px">금액 (자동)</div>
+              <input class="field-input" value="120,000" disabled style="padding:6px 8px;font-size:12px;text-align:right;background:#F9FAFB;font-weight:700;color:var(--gray-700)">
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border-radius:10px;padding:10px 12px;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:800;background:var(--gray-100);color:var(--gray-700);border-radius:6px;padding:3px 7px">2</span>
+            <input class="field-input" value="박조수" style="flex:1;padding:7px 9px;font-size:13px;font-weight:700">
+            <span style="color:#DC2626;font-size:17px;font-weight:300">×</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+            <div><div style="font-size:10px;color:var(--gray-500);margin-bottom:2px">일당</div><input class="field-input" value="100,000" inputmode="numeric" style="padding:6px 8px;font-size:12px;text-align:right"></div>
+            <div><div style="font-size:10px;color:var(--gray-500);margin-bottom:2px">시간</div><input class="field-input" type="number" value="8" style="padding:6px 8px;font-size:12px;text-align:right"></div>
+            <div><div style="font-size:10px;color:var(--gray-500);margin-bottom:2px">금액</div><input class="field-input" value="100,000" disabled style="padding:6px 8px;font-size:12px;text-align:right;background:#F9FAFB;font-weight:700;color:var(--gray-700)"></div>
+          </div>
+        </div>
+
+        <div style="background:#FEE2E2;border-radius:8px;padding:8px 12px;margin-bottom:12px;display:flex;justify-content:space-between;font-size:12px;font-weight:800">
+          <span style="color:#991B1B">인건비 합계</span>
+          <span style="color:#991B1B">220,000원</span>
+        </div>
+
+        <div class="section-h" style="display:flex;align-items:center;gap:6px">
+          🧾 추가 비용
+          <span style="margin-left:auto;background:#EFF6FF;color:var(--primary);font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:11px">＋ 추가</span>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:10px 12px;margin-bottom:6px">
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="field-input" value="교통비" style="flex:1.4;padding:7px 9px;font-size:12.5px">
+            <input class="field-input" value="50,000" inputmode="numeric" style="flex:1;padding:7px 9px;font-size:12.5px;text-align:right">
+            <span style="color:#DC2626;font-size:17px;font-weight:300">×</span>
+          </div>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:10px 12px;margin-bottom:6px">
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="field-input" value="식대" style="flex:1.4;padding:7px 9px;font-size:12.5px">
+            <input class="field-input" value="40,000" inputmode="numeric" style="flex:1;padding:7px 9px;font-size:12.5px;text-align:right">
+            <span style="color:#DC2626;font-size:17px;font-weight:300">×</span>
+          </div>
+        </div>
+
+        <div style="background:#FFFBEB;border-radius:8px;padding:10px 12px;margin:8px 0 12px;font-size:12px;border:1px solid #FCD34D">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--gray-600)">수수료</span><span style="font-weight:700">+350,000</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--gray-600)">인건비</span><span style="font-weight:700;color:#DC2626">−220,000</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--gray-600)">비용</span><span style="font-weight:700;color:#DC2626">−90,000</span></div>
+          <div style="height:1px;background:#FCD34D;margin:6px 0"></div>
+          <div style="display:flex;justify-content:space-between;font-weight:800"><span style="color:var(--success)">예상 수익</span><span style="color:var(--success);font-size:14px">+40,000원</span></div>
+        </div>
+
+        <span class="tag" style="margin-bottom:10px;display:inline-flex"><input type="checkbox" checked>📡 저장 + LINE 발송</span>
+
+        <div style="display:flex;gap:7px">
+          <button class="btn-big ghost" style="margin:0">← 이전</button>
+          <button class="btn-big line" style="margin:0">💾 저장 + 📡 발송</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑪ 작업자/비용 — 일당×시간 자동 + 수익 자동 산출</div>
+</div>
+
+<!-- ⑫ 진행 단계 thread — 요청접수 → 진행 → 완료 시퀀스 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>15:22</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">📦 정이가마트</div>
+        <span class="badge" style="background:#FEF3C7;color:#92400E">진행</span>
+      </div>
+      <div class="body">
+        <!-- 매장/요약 -->
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+            <div>
+              <div style="font-weight:800;font-size:14px">정이가마트</div>
+              <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">350평 · 4명 · 박과장(010-1234-5678)</div>
+            </div>
+            <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:5px 10px;font-size:10.5px;font-weight:800">✏️ 편집</button>
+          </div>
+          <div style="display:flex;gap:7px;font-size:10.5px;color:var(--gray-500);padding-top:6px;border-top:1px solid var(--gray-100)">
+            <span>📞 상담 5/15</span>
+            <span>🔍 예정 5/20</span>
+            <span style="margin-left:auto;color:var(--warn);font-weight:700">진행 중</span>
+          </div>
+        </div>
+
+        <div class="section-h" style="display:flex;align-items:center;gap:6px">
+          📋 진행 단계
+          <span style="margin-left:auto;background:#06C7551A;color:#04A047;font-size:10px;font-weight:800;padding:3px 8px;border-radius:11px">📡 3회</span>
+        </div>
+
+        <!-- ROOT: 요청접수 -->
+        <div class="card req" style="padding:11px 13px;margin-bottom:8px">
+          <div class="topline" style="margin-bottom:3px">
+            <span class="pill req">요청접수</span>
+            <span class="meta" style="margin:0">5/12 14:30 · 이헌상</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">매장 전체 + 창고 1동 재고조사. 토요일 마감 후 진행.</div>
+          <div class="strip"><div class="thumb img1">견적</div></div>
+        </div>
+
+        <!-- 진행 1 -->
+        <div class="card prog" style="padding:11px 13px;margin-bottom:8px">
+          <div class="topline" style="margin-bottom:3px">
+            <span class="pill prog">진행</span>
+            <span class="meta" style="margin:0">5/20 09:00 · 김작업</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">현장 도착, 인원 4명 확인</div>
+          <div class="strip"><div class="thumb img3">현장</div></div>
+        </div>
+
+        <!-- 진행 2 -->
+        <div class="card prog" style="padding:11px 13px;margin-bottom:8px">
+          <div class="topline" style="margin-bottom:3px">
+            <span class="pill prog">진행</span>
+            <span class="meta" style="margin:0">5/20 13:10 · 김작업</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--gray-700)">창고 영역 완료, 매장 진행중</div>
+          <div class="strip">
+            <div class="thumb img1">창고</div>
+            <div class="thumb img2">매장</div>
+          </div>
+        </div>
+
+        <!-- 추가 액션 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 8px">
+          <button class="btn-big warn" style="margin:0;padding:13px">＋ 진행 추가</button>
+          <button class="btn-big success" style="margin:0;padding:13px">✅ 완료</button>
+        </div>
+      </div>
+
+      <div class="fab line" style="bottom:18px">📡</div>
+    </div>
+  </div>
+  <div class="device-title">⑫ 진행 단계 thread — 요청접수→진행→완료 카드 시퀀스 + 📡 표시</div>
+</div>
+
+<!-- ⑬ 첨부 관리 (사진+파일 통합) -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>15:24</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">📎 첨부 관리</div>
+        <span class="badge">6개</span>
+      </div>
+      <div class="body">
+
+        <div class="annot" style="margin:0 0 10px">사진과 문서를 통합 관리. 길게 누르면 다중 선택 → 일괄 LINE 발송 / 삭제 가능</div>
+
+        <!-- 카메라/업로드 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:12px">
+          <button style="padding:14px 0;border-radius:10px;background:var(--primary);color:#fff;border:none;font-size:12px;font-weight:800;display:flex;flex-direction:column;align-items:center;gap:3px">
+            <span style="font-size:20px">📸</span>촬영
+          </button>
+          <button style="padding:14px 0;border-radius:10px;background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300);font-size:12px;font-weight:800;display:flex;flex-direction:column;align-items:center;gap:3px">
+            <span style="font-size:20px">🖼️</span>앨범
+          </button>
+          <button style="padding:14px 0;border-radius:10px;background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300);font-size:12px;font-weight:800;display:flex;flex-direction:column;align-items:center;gap:3px">
+            <span style="font-size:20px">📄</span>파일
+          </button>
+        </div>
+
+        <!-- 사진 그리드 -->
+        <div class="section-h">사진 (4)</div>
+        <div class="photo-grid-lg" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+          <div class="photo-lg" style="background:linear-gradient(135deg,#3B82F6,#1E3A8A);position:relative">
+            상담<span class="x">×</span>
+            <span style="position:absolute;bottom:3px;left:4px;background:rgba(0,0,0,.6);color:#fff;font-size:9px;padding:1px 5px;border-radius:6px">5/12</span>
+          </div>
+          <div class="photo-lg" style="background:linear-gradient(135deg,#F59E0B,#92400E);position:relative">
+            현장<span class="x">×</span>
+            <span style="position:absolute;bottom:3px;left:4px;background:rgba(0,0,0,.6);color:#fff;font-size:9px;padding:1px 5px;border-radius:6px">5/20</span>
+          </div>
+          <div class="photo-lg" style="background:linear-gradient(135deg,#3B82F6,#1E3A8A);position:relative">
+            창고<span class="x">×</span>
+            <span style="position:absolute;bottom:3px;left:4px;background:rgba(0,0,0,.6);color:#fff;font-size:9px;padding:1px 5px;border-radius:6px">5/20</span>
+          </div>
+          <div class="photo-lg" style="background:linear-gradient(135deg,#10B981,#065F46);position:relative">
+            매장<span class="x">×</span>
+            <span style="position:absolute;bottom:3px;left:4px;background:rgba(0,0,0,.6);color:#fff;font-size:9px;padding:1px 5px;border-radius:6px">5/20</span>
+          </div>
+        </div>
+
+        <!-- 파일 리스트 -->
+        <div class="section-h">파일 (2)</div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:6px;display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:42px;background:#15803D;color:#fff;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800">XLS</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">정이가마트_재고견적.xlsx</div>
+            <div style="font-size:10.5px;color:var(--gray-500)">450KB · 5/12 14:30</div>
+          </div>
+          <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:800">👁️</button>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:6px;display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:42px;background:#DC2626;color:#fff;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800">PDF</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">계약서_재고조사.pdf</div>
+            <div style="font-size:10.5px;color:var(--gray-500)">780KB · 5/15 11:20</div>
+          </div>
+          <button style="background:#EFF6FF;color:var(--primary);border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:800">👁️</button>
+        </div>
+
+        <button class="btn-big line" style="margin-top:12px">📡 선택한 항목 LINE 발송</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⑬ 첨부 관리 — 사진/파일 통합 + 촬영-앨범-파일 3원 진입</div>
+</div>
+
+</div>
+
+<h2>🗂️ 화면 흐름 (사용자 시나리오)</h2>
+<div class="card" style="background:#fff;padding:16px">
+  <div style="font-size:12.5px;line-height:1.9">
+    <b>📥 신규 등록</b> &nbsp;①홈 → ⑥매장선택 → ⑨등록① → ⑩등록② → ⑪정산입력 → 저장+📡<br>
+    <b>🚗 현장 진행</b> &nbsp;①홈 → 카드탭 → ⑫thread → ②진행추가시트 → 📡 발송<br>
+    <b>⚡ 빠른 발송</b> &nbsp;①홈 → FAB📡 → ③빠른발송 → 📡 (등록 별도)<br>
+    <b>✅ 완료/정산</b> &nbsp;⑫thread → 완료버튼 → ④완료시트 → 📡 발송<br>
+    <b>📎 첨부</b> &nbsp;⑫thread 또는 ⑩등록② → ⑬첨부관리 (다중 선택)<br>
+    <b>📜 이력</b> &nbsp;⑫thread → 📡뱃지 탭 → ⑤LINE이력
+  </div>
 </div>
 
 <h2>📐 디자인 원칙</h2>
