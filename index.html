@@ -3369,6 +3369,15 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <label>📷📎 첨부 (계약서·TID 화면 등)</label>
         <div id="vanJobUploader"></div>
       </div>
+
+      <!-- 📋 요청사항 · 처리 기록 (요청접수 → 진행 → 완료) -->
+      <input type="hidden" id="vanJobEditId">
+      <div class="form-group">
+        <div id="vanJobThread"></div>
+        <div id="vanJobThreadNotSaved" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;padding:10px 13px;border-radius:8px;font-size:12.5px;margin-top:6px">
+          💡 등록 후 진행 단계 (요청접수 → 진행 → 완료) 기록이 가능합니다. 우선 [+ VAN 업무 등록]으로 저장하세요.
+        </div>
+      </div>
     </div>
     <div class="modal-footer" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
       <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:700;color:#06A647">
@@ -17576,23 +17585,139 @@ ${text.slice(0, 4000)}`;
   let _vanPickedStore = null;       // 선택된 매장 객체
   let _vanUnregMode = false;
 
-  window.openVanJobModal = function() {
+  window.openVanJobModal = function(jobId) {
     _resetVanJobForm();
     if (typeof showModal === 'function') showModal('vanJobModal');
     // 담당자 옵션 채우기 (newJobModal 의 jobEngineer 로직 재활용 — 간단 복제)
     try { _vanFillEngineerOptions(); } catch(e){}
-    // 업무일 기본값: 오늘
+    // 업무일 + 가맹 신청일 기본값: 오늘 (KST)
+    const today = (function(){
+      const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset() + 9*60);
+      return d.toISOString().slice(0,10);
+    })();
     const d = document.getElementById('vanJobDate');
-    if (d && !d.value) d.value = new Date().toISOString().slice(0,10);
-    // 📷📎 uploader mount
+    if (d && !d.value) d.value = today;
+    const ca = document.getElementById('vanCardApply');
+    if (ca && !ca.value) ca.value = today;
+
+    // 편집 모드 — 기존 job 데이터 로드
+    const editIdEl = document.getElementById('vanJobEditId');
+    if (editIdEl) editIdEl.value = '';
+    let initialAtts = [];
+    let editJob = null;
+    if (jobId) {
+      try {
+        const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+        editJob = jobs.find(j => j.id === jobId) || null;
+      } catch(_){}
+      if (editJob) {
+        if (editIdEl) editIdEl.value = jobId;
+        // 카테고리 (VAN/신규등록/재신고/정산/계약/변경)
+        try {
+          const cat = (editJob.type || '').replace('VAN/','');
+          document.querySelectorAll('#vanCatList .van-cat-chip').forEach(ch => {
+            ch.classList.toggle('active', (ch.dataset.cat||'').includes(cat));
+          });
+        } catch(_){}
+        // 매장
+        try {
+          if (editJob.storeId) {
+            const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+            const s = stores.find(x => x.id === editJob.storeId);
+            if (s) { _vanPickedStore = s; }
+          }
+          const nameEl = document.getElementById('vanStoreName');
+          if (nameEl) nameEl.value = editJob.storeName || editJob.store || '';
+          // 미등록 모드 복원
+          if (editJob.unregStore) {
+            _vanUnregMode = true;
+            const unregForm = document.getElementById('vanUnregForm'); if (unregForm) unregForm.style.display = '';
+            ['Name','Biz','Ceo','Tel','Addr'].forEach(k => {
+              const el = document.getElementById('vanUnreg'+k);
+              if (el) el.value = editJob.unregStore[k.toLowerCase()] || editJob.unregStore[k.charAt(0).toLowerCase()+k.slice(1)] || '';
+            });
+          }
+        } catch(_){}
+        // 업무일, 담당자
+        if (d)  d.value  = editJob.date || today;
+        const eng = document.getElementById('vanJobEngineer');
+        if (eng) eng.value = editJob.engineer || editJob.assignee || '';
+        // 거래처 담당자
+        ['Name','Role','Phone'].forEach(k => {
+          const el = document.getElementById('vanContact'+k);
+          const key = 'contact'+k;
+          if (el) el.value = editJob[key] || '';
+        });
+        // 카드 가맹
+        const vr = editJob.vanRegistration || {};
+        if (vr.cardAcquire) {
+          if (ca) ca.value = vr.cardAcquire.applyDate || today;
+          const cc = document.getElementById('vanCardComplete'); if (cc) cc.value = vr.cardAcquire.completeDate || '';
+          const cn = document.getElementById('vanCardNote');     if (cn) cn.value = vr.cardAcquire.note || '';
+        }
+        // VAN사
+        (vr.vans || []).forEach(v => {
+          const cb = document.querySelector(`#vanPickRow input[data-van="${v.brand}"]`);
+          if (cb) { cb.checked = true; try { _vanFormToggleVan(v.brand, true); } catch(_){} }
+          const tEl = document.querySelector(`#vanDetailList input[data-van-field="${v.brand}.tid"]`); if (tEl) tEl.value = v.tid || '';
+          const sEl = document.querySelector(`#vanDetailList input[data-van-field="${v.brand}.serial"]`); if (sEl) sEl.value = v.serial || '';
+        });
+        // 간편결제
+        (vr.pay || []).forEach(p => {
+          if (p.brand === '간편결제') {
+            const c = document.getElementById('payCheckSimple'); const i = document.getElementById('payInputSimple');
+            if (c) { c.checked = true; } if (i) { i.disabled = false; i.value = p.tid || ''; }
+          } else if (p.brand === '카카오페이') {
+            const c = document.getElementById('payCheckKakao'); const i = document.getElementById('payInputKakao');
+            if (c) { c.checked = true; } if (i) { i.disabled = false; i.value = p.tid || ''; }
+          }
+        });
+        // 메모
+        const memoEl = document.getElementById('vanJobMemo'); if (memoEl) memoEl.value = editJob.memo || '';
+        // 첨부
+        initialAtts = Array.isArray(editJob.attachments) ? editJob.attachments : [];
+        // 등록 버튼 라벨 변경
+        try {
+          const footer = document.querySelector('#vanJobModal .modal-footer .btn.btn-primary');
+          if (footer) footer.textContent = '💾 변경 저장';
+        } catch(_){}
+      }
+    } else {
+      // 신규 등록 모드 — 버튼 원복
+      try {
+        const footer = document.querySelector('#vanJobModal .modal-footer .btn.btn-primary');
+        if (footer) footer.textContent = '+ VAN 업무 등록';
+      } catch(_){}
+    }
+
+    // 📷📎 uploader mount (편집 시 기존 첨부 로딩)
     try {
       const box = document.getElementById('vanJobUploader');
       if (box && window.NS_UPLOAD) {
         window._vanJobUploaderCtl = window.NS_UPLOAD.mount(box, {
-          initial: [], category: 'van', max: 30,
+          initial: initialAtts, category: 'van', max: 30,
         });
       }
     } catch(e){ console.warn('vanJob uploader mount failed', e); }
+
+    // 📋 thread 렌더 — 편집 모드에서만, 신규 시 안내문
+    try {
+      const threadBox = document.getElementById('vanJobThread');
+      const notSaved  = document.getElementById('vanJobThreadNotSaved');
+      if (editJob && editJob.id) {
+        if (notSaved) notSaved.style.display = 'none';
+        if (threadBox && typeof window._renderThreadGroups === 'function') {
+          window._renderThreadGroups('vanJobThread', editJob.thread || [], {
+            editable: true,
+            jobId: editJob.id,
+            draftMode: false,
+          });
+        }
+      } else {
+        if (threadBox) threadBox.innerHTML = '';
+        if (notSaved) notSaved.style.display = '';
+      }
+    } catch(e){ console.warn('[openVanJobModal thread render]', e); }
   };
 
   function _resetVanJobForm() {
@@ -17616,6 +17741,14 @@ ${text.slice(0, 4000)}`;
     if (get('payInputSimple')) get('payInputSimple').disabled = true;
     if (get('payInputKakao'))  get('payInputKakao').disabled = true;
     const lineChk = get('vanJobLineSend'); if (lineChk) lineChk.checked = false;
+    const editIdEl = get('vanJobEditId'); if (editIdEl) editIdEl.value = '';
+    // thread / 푸터 라벨 / 미등록 폼 초기화
+    const threadBox = get('vanJobThread'); if (threadBox) threadBox.innerHTML = '';
+    const notSaved  = get('vanJobThreadNotSaved'); if (notSaved) notSaved.style.display = '';
+    try {
+      const footer = document.querySelector('#vanJobModal .modal-footer .btn.btn-primary');
+      if (footer) footer.textContent = '+ VAN 업무 등록';
+    } catch(_){}
   }
 
   function _vanFillEngineerOptions() {
@@ -17853,10 +17986,28 @@ ${text.slice(0, 4000)}`;
         addr: (document.getElementById('vanUnregAddr')?.value||'').trim(),
       };
     }
-    // jobs 에 unshift
+    // 편집 모드 — 기존 job 업데이트, 아니면 unshift
+    const editId = (document.getElementById('vanJobEditId')?.value || '').trim();
+    let isEdit = false;
     try {
       const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
-      jobs.unshift(newJob);
+      if (editId) {
+        const idx = jobs.findIndex(x => x.id === editId);
+        if (idx >= 0) {
+          isEdit = true;
+          const existing = jobs[idx];
+          // 기존 id/createdAt/thread 보존, 폼 값으로 덮어쓰기 (thread 는 별도 _setThreadFor 로 관리됨)
+          newJob.id = existing.id;
+          newJob.createdAt = existing.createdAt || newJob.createdAt;
+          newJob.thread = Array.isArray(existing.thread) ? existing.thread : newJob.thread;
+          newJob.memos  = Array.isArray(existing.memos)  ? existing.memos  : newJob.memos;
+          newJob.lineHistory = Array.isArray(existing.lineHistory) ? existing.lineHistory : [];
+          // unregStore 보존 (편집 모드에서 미등록 폼 안 보이는 경우)
+          if (existing.unregStore && !newJob.unregStore) newJob.unregStore = existing.unregStore;
+          jobs[idx] = newJob;
+        }
+      }
+      if (!isEdit) jobs.unshift(newJob);
       if (typeof saveJobs === 'function') saveJobs(jobs);
     } catch(e) { console.warn('[saveVanJob] save failed:', e); }
     // 매장 프로필에 누적
@@ -17890,7 +18041,7 @@ ${text.slice(0, 4000)}`;
     const wantLine = !!document.getElementById('vanJobLineSend')?.checked;
     const savedJobId = newJob.id;
     closeModal('vanJobModal');
-    showToast && showToast(`✅ VAN 업무 등록 완료 — ${storeName}`);
+    showToast && showToast(isEdit ? `💾 VAN 업무 저장됨 — ${storeName}` : `✅ VAN 업무 등록 완료 — ${storeName}`);
     // 화면 갱신
     try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
     try { if (typeof window.renderVanHub === 'function') window.renderVanHub(); } catch(e){}
@@ -19303,6 +19454,15 @@ ${text.slice(0, 4000)}`;
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const j = jobs.find(x => x.id === id);
     if (!j) { showToast && showToast('작업을 찾을 수 없습니다'); return; }
+
+    // VAN 카테고리 — 전용 vanJobModal 로 라우팅 (편집 모드)
+    try {
+      const catRoute = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
+      if (catRoute === 'van' && typeof window.openVanJobModal === 'function') {
+        window.openVanJobModal(id);
+        return;
+      }
+    } catch(_){}
 
     let modal = document.getElementById('newopenDetailModal');
     if (!modal) {
