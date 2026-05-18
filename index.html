@@ -4539,19 +4539,45 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     </div>
     <div class="modal-footer" style="justify-content:space-between;gap:8px">
       <button class="btn btn-outline" onclick="window._lineSendComposerCancel()">취소 (발송 X)</button>
-      <button class="btn" id="lsComposerSendBtn" onclick="window._lineSendComposerSubmit()" style="background:var(--line);color:#fff;border-color:var(--line);font-weight:800;display:inline-flex;align-items:center;gap:8px;padding:9px 18px">
-        <!-- 종이비행기 + LINE 로고 합성 아이콘 -->
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-          <!-- 종이비행기 본체 (흰색) -->
-          <path d="M2.5 12L21.5 3.5L17 21L11.5 14L2.5 12Z" fill="#fff" stroke="#fff" stroke-width="0.8" stroke-linejoin="round"/>
-          <path d="M11.5 14L21.5 3.5" stroke="#06A647" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
-          <!-- LINE 로고 말풍선 (우측 하단 배지) -->
-          <g transform="translate(13.5 13.5)">
-            <rect x="-0.4" y="-0.4" width="10.8" height="10.8" rx="2.6" fill="#06C755" stroke="#fff" stroke-width="0.9"/>
-            <text x="5" y="7.4" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="5.4" font-weight="900" fill="#fff" letter-spacing="-0.2">LINE</text>
+      <button class="btn" id="lsComposerSendBtn" onclick="window._lineSendComposerSubmit()" style="background:var(--line);color:#fff;border-color:var(--line);font-weight:800;display:inline-flex;align-items:center;gap:9px;padding:10px 20px;font-size:14px">
+        <!-- 종이비행기 + LINE 말풍선 합성 아이콘 -->
+        <svg width="30" height="30" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.25))">
+          <!-- 종이비행기 본체 (Lucide send 스타일) -->
+          <g>
+            <!-- 큰 삼각형 비행기 -->
+            <path d="M34 4 L4 16 L16 21 L21 33 Z"
+                  fill="#ffffff"
+                  stroke="#ffffff"
+                  stroke-width="1.2"
+                  stroke-linejoin="round"/>
+            <!-- 폴드라인 (비행기 안쪽 접힌선) -->
+            <path d="M34 4 L16 21"
+                  stroke="#06A647"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  opacity="0.55"/>
+            <!-- 작은 삼각형 (꼬리) — 음영 -->
+            <path d="M16 21 L21 33 L24 24 Z"
+                  fill="#E6FFF2"
+                  opacity="0.85"/>
+          </g>
+          <!-- LINE 말풍선 배지 (우상단) -->
+          <g transform="translate(22 -1)">
+            <!-- 흰색 외곽 (분리감) -->
+            <rect x="-1.5" y="-1.5" width="19" height="19" rx="5" fill="#ffffff"/>
+            <!-- LINE 녹색 본체 -->
+            <rect x="0" y="0" width="16" height="16" rx="4" fill="#06C755"/>
+            <!-- LINE 로고 텍스트 -->
+            <text x="8" y="11.4"
+                  text-anchor="middle"
+                  font-family="-apple-system,Helvetica,Arial,sans-serif"
+                  font-size="7.6"
+                  font-weight="900"
+                  fill="#ffffff"
+                  letter-spacing="-0.3">LINE</text>
           </g>
         </svg>
-        <span class="ls-send-label">LINE 발송</span>
+        <span class="ls-send-label" style="font-size:14.5px;letter-spacing:-0.2px">LINE 발송</span>
       </button>
     </div>
   </div>
