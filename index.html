@@ -4312,6 +4312,15 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </table>
         </div>
       </div>
+
+      <!-- 📝 진행 단계 — 요청접수 → 진행*N → 완료 (인원 세팅 / 추가 미팅 등 누적) -->
+      <div style="border-top:1px solid var(--gray-200);margin:14px 0 8px;padding-top:10px">
+        <div style="font-weight:700;font-size:13px;color:var(--gray-800);margin-bottom:6px">📝 진행 단계 <span style="font-size:10.5px;font-weight:500;color:var(--gray-500)">— 인원 세팅, 미팅, 일정 변경 등 누적 기록</span></div>
+        <div id="stEditorThread"></div>
+        <div id="stEditorThreadNotSaved" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;padding:10px 13px;border-radius:8px;font-size:12.5px">
+          💡 먼저 [저장] 으로 등록하시면 진행 단계를 추가할 수 있습니다.
+        </div>
+      </div>
     </div>
     <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
       <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#04A047;background:#06C7551A;border:1px solid #06C75533;border-radius:7px;padding:5px 10px;cursor:pointer">
@@ -6180,6 +6189,43 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       }
     } catch(e) { console.warn('uploader mount failed', e); }
 
+    // 📝 진행 단계 thread mount — 등록된 후에만 활성
+    try {
+      const threadBox = document.getElementById('stEditorThread');
+      const placeholder = document.getElementById('stEditorThreadNotSaved');
+      const isNew = !rec.id;
+      if (isNew) {
+        if (threadBox) threadBox.style.display = 'none';
+        if (placeholder) placeholder.style.display = '';
+      } else {
+        if (threadBox) threadBox.style.display = '';
+        if (placeholder) placeholder.style.display = 'none';
+        // 빈 thread 이면 첫 ROOT 자동 시드 (요청접수)
+        if (!Array.isArray(rec.thread) || rec.thread.length === 0) {
+          const seedText = (rec.memo || '').trim() || '재고조사 요청';
+          const seedTs = (typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' ');
+          const author = ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
+          rec.thread = [{
+            ts: seedTs, author, status:'요청접수', text: seedText,
+            threadId: 'TR-st-seed-' + Date.now() + '-' + Math.random().toString(36).slice(2,7),
+            parentId: null,
+          }];
+          // persist
+          const allRecs = window.getStocktakes() || [];
+          const ix = allRecs.findIndex(x => x.id === rec.id);
+          if (ix >= 0) { allRecs[ix].thread = rec.thread; window.saveStocktakes(allRecs); }
+        }
+        // entity 등록 — _setThreadFor / _getThreadFor 가 stocktake 경로로 분기
+        window._threadEntities = window._threadEntities || {};
+        window._threadEntities['stEditorThread'] = 'stocktake';
+        window._renderThreadGroups('stEditorThread', rec.thread || [], {
+          editable: !readonly,
+          jobId: rec.id,   // stocktake.id 를 jobId 슬롯에 재사용 (entity='stocktake' 라 stocktake 저장소로 갑니다)
+          draftMode: false,
+        });
+      }
+    } catch(e) { console.warn('stocktake thread mount failed', e); }
+
     // readonly 모드 — 모든 입력 비활성, 저장 버튼 숨김
     _stocktakeApplyReadonly(readonly);
 
@@ -6574,6 +6620,17 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       paymentMethod,
       memo: String(document.getElementById('stEditorMemo').value||''),
       attachments: (function(){ try { return window._stocktakeUploaderCtl ? window._stocktakeUploaderCtl.get() : []; } catch(_) { return []; } })(),
+      // 진행 단계 thread — 기존 record 의 thread 보존 (live 편집은 _setThreadFor 가 별도 저장)
+      thread: (function(){
+        if (!id) return [];   // 신규 등록 — thread 는 첫 오픈 시 자동 시드됨
+        const cur = arr.find(x => x.id === id);
+        return Array.isArray(cur && cur.thread) ? cur.thread : [];
+      })(),
+      lineHistory: (function(){
+        if (!id) return [];
+        const cur = arr.find(x => x.id === id);
+        return Array.isArray(cur && cur.lineHistory) ? cur.lineHistory : [];
+      })(),
       createdAt: Date.now(),
     };
 
@@ -17626,7 +17683,7 @@ ${text.slice(0, 4000)}`;
     const openKey = '_threadOpen_' + (jobId || 'draft');
     window[openKey] = window[openKey] || {};
     // 현재 effective 상태 계산
-    const thread = _getThreadFor(jobId, draftMode);
+    const thread = _getThreadFor(jobId, draftMode, containerId);
     const normalized = window._threadMigrate(thread);
     const root = normalized.find(e => e.threadId === rootId);
     if (!root) return;
@@ -17638,7 +17695,17 @@ ${text.slice(0, 4000)}`;
     _rerenderThread(containerId, jobId, draftMode);
   };
 
-  function _getThreadFor(jobId, draftMode) {
+  function _threadEntityFor(containerId) {
+    return (containerId && window._threadEntities && window._threadEntities[containerId]) || 'job';
+  }
+  function _getThreadFor(jobId, draftMode, containerId) {
+    const entity = _threadEntityFor(containerId);
+    if (entity === 'stocktake') {
+      if (!jobId) return [];
+      const all = (typeof window.getStocktakes === 'function') ? (window.getStocktakes() || []) : [];
+      const s = all.find(x => x.id === jobId);
+      return (s && Array.isArray(s.thread)) ? s.thread : [];
+    }
     if (draftMode) return window._jobThreadDraft || [];
     if (!jobId) return [];
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
@@ -17655,7 +17722,18 @@ ${text.slice(0, 4000)}`;
    *      이유: 한 ROOT 완료가 job 전체 completed 화면 다음 요청 ROOT 추가가 분리됨
    *   3. arr 는 saveJobs 호출 전 반드시 _threadMigrate 정규화
    * ════════════════════════════════════════════════════════════════════════ */
-  function _setThreadFor(jobId, draftMode, arr) {
+  function _setThreadFor(jobId, draftMode, arr, containerId) {
+    const entity = _threadEntityFor(containerId);
+    if (entity === 'stocktake') {
+      if (!jobId) return;
+      const all = (typeof window.getStocktakes === 'function') ? (window.getStocktakes() || []) : [];
+      const i = all.findIndex(x => x.id === jobId);
+      if (i < 0) return;
+      all[i].thread = (typeof window._threadMigrate === 'function') ? window._threadMigrate(arr.slice()) : arr.slice();
+      if (typeof window.saveStocktakes === 'function') window.saveStocktakes(all);
+      try { if (typeof window.renderStocktakeHub === 'function') window.renderStocktakeHub(); } catch(_){}
+      return;
+    }
     if (draftMode) { window._jobThreadDraft = arr.slice(); return; }
     if (!jobId) return;
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
@@ -17692,7 +17770,7 @@ ${text.slice(0, 4000)}`;
   // 컨테이너별 maxRoots 설정 보존 — 첫 렌더에서 지정된 값을 재렌더 시에도 사용
   window._threadMaxRootsMap = window._threadMaxRootsMap || {};
   function _rerenderThread(containerId, jobId, draftMode) {
-    const thread = _getThreadFor(jobId, draftMode);
+    const thread = _getThreadFor(jobId, draftMode, containerId);
     const maxRoots = window._threadMaxRootsMap[containerId] || 0;
     window._renderThreadGroups(containerId, thread, { editable:true, jobId: jobId||null, draftMode: !!draftMode, maxRoots });
   }
@@ -17912,10 +17990,10 @@ ${text.slice(0, 4000)}`;
       }
     }
 
-    // 기본 경로 (신규/VAN draft, 또는 기존 live edit)
-    let arr = window._threadMigrate(_getThreadFor(jobId, draftMode));
+    // 기본 경로 (신규/VAN draft, 또는 기존 live edit, stocktake)
+    let arr = window._threadMigrate(_getThreadFor(jobId, draftMode, containerId));
     arr.push(entry);
-    _setThreadFor(jobId, draftMode, arr);
+    _setThreadFor(jobId, draftMode, arr, containerId);
     // 새 ROOT 폼 닫기, 새 ROOT 펼침
     const openKey = '_threadOpen_' + (jobId || 'draft');
     window[openKey] = window[openKey] || {};
@@ -17974,9 +18052,9 @@ ${text.slice(0, 4000)}`;
     }
     let arr;
     if (!_liveRoute) {
-      arr = window._threadMigrate(_getThreadFor(jobId, draftMode));
+      arr = window._threadMigrate(_getThreadFor(jobId, draftMode, containerId));
       arr.push(entry);
-      _setThreadFor(jobId, draftMode, arr);
+      _setThreadFor(jobId, draftMode, arr, containerId);
     }
     // ⚠ AS 처리 장비는 child.equipment 에만 보관 — job.equipment(설치되어야 할 장비)로 누적하지 않음
     //   (요청건 단위로 어떤 장비가 어디에 투입됐는지 명확히 추적하기 위함)
@@ -18042,13 +18120,13 @@ ${text.slice(0, 4000)}`;
   // 노드 삭제 (ROOT 또는 child)
   window._removeThreadNode = function(containerId, jobId, draftMode, nodeId, isRoot) {
     if (isRoot && !confirm('이 요청과 하위 기록을 모두 삭제할까요?')) return;
-    let arr = window._threadMigrate(_getThreadFor(jobId, draftMode));
+    let arr = window._threadMigrate(_getThreadFor(jobId, draftMode, containerId));
     if (isRoot) {
       arr = arr.filter(e => e.threadId !== nodeId && e.parentId !== nodeId);
     } else {
       arr = arr.filter(e => e.threadId !== nodeId);
     }
-    _setThreadFor(jobId, draftMode, arr);
+    _setThreadFor(jobId, draftMode, arr, containerId);
     _rerenderThread(containerId, jobId, draftMode);
   };
 
