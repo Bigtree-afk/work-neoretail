@@ -314,6 +314,8 @@
   .hub-sj .sjwn{font-size:10.5px;background:var(--gray-100);color:var(--gray-700);padding:3px 8px;border-radius:6px;font-weight:700;flex-shrink:0}
   .hub-sj .sjwn.urgent{background:var(--neo-red);color:#fff}
   .hub-sj .sjwn.done{background:#d1fae5;color:#065f46}
+  .hub-sj .hub-line-btn{flex-shrink:0;background:#06C7551A;color:#04A047;border:1px solid #06C75555;border-radius:7px;padding:5px 9px;font-size:13px;font-weight:700;cursor:pointer;line-height:1;transition:all .12s}
+  .hub-sj .hub-line-btn:hover{background:#06C755;color:#fff;border-color:#06C755;transform:scale(1.08)}
   .hub-empty{padding:40px 20px;text-align:center;color:var(--gray-400);font-size:12px;background:#fff;border:1px dashed var(--gray-300);border-radius:10px}
 
   /* ═══════════════ 매장 상세 모달 V2 (8탭) ═══════════════ */
@@ -5265,6 +5267,30 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   function _hubEsc(s) { return (typeof esc === 'function') ? esc(s) : String(s||''); }
 
   // 그룹 카드 렌더
+  // 📡 hub-sj 카드의 LINE 발송 버튼 핸들러
+  //   AS/신규/VAN/소모품 모두 jobs[] 의 job 객체 — _openLineForJob 으로 일임
+  //   rootId 가 주어지면 해당 ROOT entry 를 본문에 사용
+  window._hubLineSend = function(jobId, rootId) {
+    if (!jobId) return;
+    try {
+      const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+      const job = jobs.find(j => j.id === jobId);
+      if (!job) { if (typeof showToast==='function') showToast('⚠ 업무를 찾을 수 없습니다'); return; }
+      let entry = null;
+      if (rootId && Array.isArray(job.thread)) {
+        entry = job.thread.find(e => e && e.threadId === rootId);
+      }
+      if (typeof window._openLineForJob === 'function') {
+        window._openLineForJob(job, { entry });
+      } else if (typeof showToast==='function') {
+        showToast('⚠ LINE 컴포저가 로드되지 않았습니다');
+      }
+    } catch(e) {
+      console.warn('[_hubLineSend]', e);
+      if (typeof showToast==='function') showToast('⚠ LINE 발송 준비 실패');
+    }
+  };
+
   function _hubRenderGroup(g, cat, opts) {
     opts = opts || {};
     const escFn = _hubEsc;
@@ -5303,12 +5329,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         const txt = (r.text || '').replace(/\s+/g,' ').slice(0, 70);
         const meta = j.asDueDate ? `예정 ${j.asDueDate}${j.asDueTime?' '+j.asDueTime:''}` : '';
         const onclick = j.id ? `editNewopen('${escFn(j.id)}')` : '';
+        const lineBtn = j.id ? `<button class="hub-line-btn" title="📡 이 요청 LINE 발송" onclick="event.stopPropagation();window._hubLineSend('${escFn(j.id)}','${escFn(r.threadId||'')}')">📡</button>` : '';
         return `<div class="hub-sj" onclick="${onclick}">
           <div class="sjl">
             <span class="sjtag ${cat}" style="${done?'opacity:0.6':''}">${done?'✅ 완료':'📥 요청접수'}</span>
             <div class="sjti">${escFn(txt || '(내용 없음)')}</div>
             <div class="sjmt">${r.ts ? '📅 '+escFn(r.ts)+' · ' : ''}${escFn(r.author||'')}${meta?' · '+meta:''}</div>
           </div>
+          ${lineBtn}
           <div class="sjwn ${done?'done':''}">${done?'완료':'진행중'}</div>
         </div>`;
       }).join('') + (sortedRoots.length > 8 ? `<div style="text-align:center;font-size:11px;color:var(--gray-400);padding:6px">... 외 ${sortedRoots.length - 8}건 (열어서 모두 보기)</div>` : '');
@@ -5325,12 +5353,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         const memos = Array.isArray(j.memos) ? j.memos.length : 0;
         const date = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
         const onclick = j.id ? `editNewopen('${escFn(j.id)}')` : '';
+        const lineBtn = j.id ? `<button class="hub-line-btn" title="📡 LINE 발송" onclick="event.stopPropagation();window._hubLineSend('${escFn(j.id)}','')">📡</button>` : '';
         return `<div class="hub-sj" onclick="${onclick}">
           <div class="sjl">
             <span class="sjtag ${cat}">${escFn(j.type || cat)}</span>
             <div class="sjti">${escFn(j.title || j.type || '업무')}</div>
             <div class="sjmt">${date ? '📅 '+date+' · ' : ''}${who?who+' · ':''}${memos?'메모 '+memos+'건':''}</div>
           </div>
+          ${lineBtn}
           <div class="sjwn ${wnCls}">${dd.text}</div>
         </div>`;
       }).join('');
@@ -13520,16 +13550,26 @@ ${text.slice(0, 4000)}`;
   window._openLineForJob = function(job, opts) {
     if (!job) return;
     opts = opts || {};
-    // 카테고리 자동 감지
+    // 카테고리 자동 감지 — classifyJobCategory 우선, fallback 으로 type 패턴 매칭
     let category = opts.category;
     if (!category) {
-      const t = String(job.type || '').toLowerCase();
-      if (/AS|에이에스|as/i.test(job.type || '')) category = 'as';
-      else if (/VAN/i.test(job.type || '') || job.vanRegistration) category = 'van';
-      else category = 'newjob';
+      let detected = '';
+      try { if (typeof window.classifyJobCategory === 'function') detected = window.classifyJobCategory(job); } catch(_){}
+      // classifyJobCategory: 'as' | 'new' | 'van' | 'supplies' | 'churn'
+      if (detected === 'supplies') category = 'supply';
+      else if (detected === 'new')  category = 'newjob';
+      else if (detected === 'as')   category = 'as';
+      else if (detected === 'van')  category = 'van';
+      else {
+        const tp = String(job.type || '');
+        if (/소모품|supply|supplies/i.test(tp))       category = 'supply';
+        else if (/AS|에이에스/i.test(tp))             category = 'as';
+        else if (/VAN/i.test(tp) || job.vanRegistration) category = 'van';
+        else category = 'newjob';
+      }
     }
-    const labelMap = { as:'🔧 AS', newjob:'🆕 신규', van:'💳 VAN', stocktake:'📦 재고조사' };
-    const scheduleLabelMap = { as:'📅 처리예정', newjob:'📅 설치예정', van:'📅 진행일', stocktake:'📅 조사예정' };
+    const labelMap = { as:'🔧 AS', newjob:'🆕 신규', van:'💳 VAN', stocktake:'📦 재고조사', supply:'🛒 소모품판매' };
+    const scheduleLabelMap = { as:'📅 처리예정', newjob:'📅 설치예정', van:'📅 진행일', stocktake:'📅 조사예정', supply:'📅 발송예정' };
 
     // entry 가 주어지면 그 텍스트를 본문으로, 아니면 job 최신 ROOT/메모 사용
     const entry = opts.entry;
