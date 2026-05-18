@@ -183,8 +183,42 @@
 
   code { background:#F3F4F6; padding:1px 5px; border-radius:3px; font-size:11.5px }
 </style>
+<style>
+  /* ─── 목업 상단 카테고리 네비 (공통) ─── */
+  .mockup-nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(255,255,255,0.96); backdrop-filter: blur(8px);
+    border-bottom: 1px solid #E5E7EB;
+    padding: 10px 18px; margin: -18px -18px 18px;
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  }
+  .mockup-nav .label {
+    font-size: 11px; font-weight: 800; color: #6B7280;
+    margin-right: 4px; letter-spacing: 0.3px;
+  }
+  .mockup-nav a {
+    padding: 6px 12px; border-radius: 18px;
+    background: #F3F4F6; color: #4B5563;
+    font-size: 12px; font-weight: 700; text-decoration: none;
+    border: 1px solid transparent; transition: all .12s;
+  }
+  .mockup-nav a:hover { background: #E5E7EB; color: #1F2937; }
+  .mockup-nav a.active {
+    background: #2563EB; color: #fff; border-color: #2563EB;
+    box-shadow: 0 2px 6px rgba(37,99,235,.3);
+  }
+</style>
 </head>
 <body>
+
+<nav class="mockup-nav">
+  <span class="label">📱 모바일 목업</span>
+  <a href="mobile-stocktake-mockup.html" class="active">📦 재고조사</a>
+  <a href="mobile-newjob-mockup.html">🆕 신규</a>
+  <a href="mobile-as-mockup.html">🔧 AS</a>
+  <a href="mobile-van-mockup.html">💳 VAN</a>
+  <a href="mobile-supplies-mockup.html">🛒 소모품</a>
+</nav>
 
 <h1>📱 재고조사 모바일 UI — 현장 작업자용 목업</h1>
 <p class="lead">
