@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>📝 모바일 목업 — 메모 / 피드백 도구</title>
+<style>
+  :root {
+    --primary:#2563EB; --primary-dark:#1E40AF;
+    --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
+    --gray-300:#D1D5DB; --gray-400:#9CA3AF; --gray-500:#6B7280;
+    --gray-600:#4B5563; --gray-700:#374151; --gray-800:#1F2937;
+    --success:#10B981; --warn:#F59E0B; --danger:#EF4444;
+    --bg:#F0F2F5;
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; margin:0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+    background: var(--bg); color: var(--gray-800); font-size: 13px; line-height: 1.5;
+    overflow: hidden;
+  }
+  .app { display:grid; grid-template-rows: 52px 1fr; height:100vh; }
+  header.bar {
+    background:#fff; border-bottom:1px solid var(--gray-200);
+    display:flex; align-items:center; gap:10px; padding: 0 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  header.bar .title { font-weight:800; font-size:15px; }
+  header.bar .sub { font-size:11px; color:var(--gray-500); }
+  header.bar select {
+    padding:6px 11px; border:1.5px solid var(--gray-300); border-radius:8px;
+    font-size:13px; font-weight:600; background:#fff; cursor:pointer;
+    font-family: inherit;
+  }
+  header.bar .spacer { flex:1; }
+  header.bar .btn {
+    background:var(--primary); color:#fff; border:none; border-radius:8px;
+    padding:7px 14px; font-size:12.5px; font-weight:800; cursor:pointer;
+    font-family: inherit; display:inline-flex; align-items:center; gap:5px;
+    transition: background .12s;
+  }
+  header.bar .btn:hover { background:var(--primary-dark); }
+  header.bar .btn.danger { background:var(--danger); }
+  header.bar .btn.outline { background:#fff; color:var(--gray-700); border:1.5px solid var(--gray-300); }
+  header.bar .btn.outline:hover { background:var(--gray-100); }
+  header.bar .cnt {
+    background:#FEF3C7; color:#92400E; border-radius:11px;
+    padding:3px 9px; font-size:11px; font-weight:800;
+  }
+
+  .main { display:grid; grid-template-columns: 1fr 380px; gap:0; height:100%; overflow:hidden; }
+  @media (max-width: 920px) { .main { grid-template-columns: 1fr; } .side { display:none; } }
+
+  /* Iframe panel */
+  .iframe-wrap { position:relative; background:#1F2937; overflow:hidden; }
+  iframe { width:100%; height:100%; border:0; background:#fff; }
+  .iframe-msg {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:#94A3B8; font-size:14px; pointer-events:none;
+  }
+  .floating-help {
+    position:absolute; right:14px; bottom:14px;
+    background: rgba(31, 41, 55, 0.92); color:#fff;
+    padding:8px 13px; border-radius:8px; font-size:11.5px; line-height:1.5;
+    max-width:280px; box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    z-index: 10;
+  }
+  .floating-help b { color:#FCD34D; }
+
+  /* Side panel */
+  .side {
+    background:#fff; border-left:1px solid var(--gray-200);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .side-head {
+    padding:11px 14px; border-bottom:1px solid var(--gray-200);
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    background:#F9FAFB;
+  }
+  .side-head .lbl { font-weight:800; font-size:13px; flex:1; }
+  .side-head input.search {
+    width:100%; padding:6px 10px; border:1px solid var(--gray-300);
+    border-radius:6px; font-size:12px; font-family:inherit;
+  }
+  .add-form {
+    padding:12px 14px; background:#FEFCE8; border-bottom:1px solid #FDE68A;
+  }
+  .add-form .row { display:flex; gap:6px; margin-bottom:8px; }
+  .add-form input, .add-form textarea, .add-form select {
+    width:100%; padding:7px 10px; border:1px solid var(--gray-300);
+    border-radius:6px; font-size:12.5px; font-family:inherit; background:#fff;
+  }
+  .add-form textarea { min-height:60px; resize:vertical; }
+  .add-form .actions { display:flex; gap:6px; }
+  .add-form .actions button {
+    flex:1; padding:7px 12px; border-radius:6px; font-size:12px;
+    font-weight:800; cursor:pointer; border:none; font-family:inherit;
+    transition: background .12s;
+  }
+  .add-form .actions .primary { background:var(--primary); color:#fff; }
+  .add-form .actions .primary:hover { background:var(--primary-dark); }
+  .add-form .actions .ghost { background:#fff; color:var(--gray-700); border:1px solid var(--gray-300); }
+  .add-form .actions .ghost:hover { background:var(--gray-100); }
+
+  .memo-list { flex:1; overflow-y:auto; padding:8px; }
+  .memo-empty {
+    text-align:center; color:var(--gray-400); padding:40px 16px;
+    font-size:12px; line-height:1.6;
+  }
+  .memo-empty .ic { font-size:36px; display:block; margin-bottom:8px; }
+  .memo {
+    background:#fff; border:1px solid var(--gray-200); border-left:4px solid var(--primary);
+    border-radius:8px; padding:10px 12px; margin-bottom:7px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.03);
+    cursor:default;
+  }
+  .memo.priority-high { border-left-color: var(--danger); background:#FEF2F2; }
+  .memo.priority-mid  { border-left-color: var(--warn); }
+  .memo.priority-low  { border-left-color: var(--success); }
+  .memo.done { opacity: 0.55; }
+  .memo .top {
+    display:flex; align-items:center; gap:6px; margin-bottom:5px; flex-wrap:wrap;
+  }
+  .memo .target {
+    background:var(--gray-100); color:var(--gray-700);
+    border-radius:11px; padding:1px 8px; font-size:10.5px; font-weight:800;
+  }
+  .memo .ts { font-size:10px; color:var(--gray-400); margin-left:auto; }
+  .memo .text {
+    font-size:12.5px; color:var(--gray-800); line-height:1.6;
+    white-space:pre-wrap; word-break:break-word;
+  }
+  .memo .row-act {
+    margin-top:6px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;
+    padding-top:6px; border-top:1px dashed var(--gray-100);
+  }
+  .memo .row-act button {
+    background:transparent; border:1px solid var(--gray-300);
+    border-radius:6px; padding:3px 9px; font-size:10.5px;
+    color:var(--gray-600); cursor:pointer; font-family:inherit;
+  }
+  .memo .row-act button:hover { background:var(--gray-100); color:var(--gray-800); }
+  .memo .row-act button.done-btn { color:var(--success); border-color:#A7F3D0; }
+  .memo .row-act button.danger { color:var(--danger); border-color:#FCA5A5; margin-left:auto; }
+
+  .badge-prio {
+    font-size:10px; font-weight:800; padding:2px 7px; border-radius:10px;
+  }
+  .badge-prio.high { background:#FEE2E2; color:#991B1B; }
+  .badge-prio.mid  { background:#FEF3C7; color:#92400E; }
+  .badge-prio.low  { background:#D1FAE5; color:#065F46; }
+
+  /* 모바일에서 사이드패널 토글 */
+  @media (max-width:920px) {
+    .toggle-side {
+      position:absolute; right:14px; top:60px; z-index:11;
+      background:var(--primary); color:#fff; border:none; border-radius:50%;
+      width:46px; height:46px; font-size:20px; cursor:pointer;
+      box-shadow:0 4px 12px rgba(37,99,235,0.4);
+    }
+    .side.shown { display:flex !important; position:fixed; top:52px; right:0; bottom:0; width:100%; max-width:380px; z-index:50; box-shadow:-4px 0 16px rgba(0,0,0,0.15); }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="bar">
+    <span style="font-size:18px">📝</span>
+    <div>
+      <div class="title">모바일 목업 메모</div>
+      <div class="sub">현장 검토 · 피드백 기록 도구</div>
+    </div>
+    <select id="mockupSel" onchange="loadMockup()">
+      <option value="mobile-stocktake-mockup.html">📦 재고조사</option>
+      <option value="mobile-newjob-mockup.html" selected>🆕 신규</option>
+      <option value="mobile-as-mockup.html">🔧 AS</option>
+      <option value="mobile-van-mockup.html">💳 VAN</option>
+      <option value="mobile-supplies-mockup.html">🛒 소모품</option>
+    </select>
+    <span class="cnt" id="memoCnt">메모 0건</span>
+    <div class="spacer"></div>
+    <button class="btn outline" onclick="exportMemos()" title="이 목업의 메모를 텍스트로 내보냄">⬇ 내보내기</button>
+    <button class="btn outline" onclick="window.open(currentMockupUrl(), '_blank')" title="새 탭에서 목업 열기">↗ 새 탭</button>
+    <button class="btn danger" onclick="clearAllMemos()" title="이 목업의 모든 메모 삭제">🗑 전체 지우기</button>
+  </header>
+
+  <div class="main">
+    <div class="iframe-wrap">
+      <iframe id="mockupFrame" src=""></iframe>
+      <div class="floating-help">
+        💡 <b>화면 번호</b>를 우측에 입력하고 메모를 작성하세요.<br>
+        예) <b>②</b> 진행 추가 시트 — '버튼 더 크게', '카메라 즉시 실행'
+      </div>
+    </div>
+
+    <aside class="side" id="sidePanel">
+      <div class="side-head">
+        <span class="lbl">📋 메모 목록</span>
+        <input class="search" id="memoSearch" placeholder="🔍 메모 검색..." oninput="renderMemos()">
+      </div>
+
+      <!-- 새 메모 작성 폼 -->
+      <div class="add-form">
+        <div class="row" style="gap:7px">
+          <input type="text" id="inpTarget" placeholder="화면/위치 (예: ① 홈, ③ 사진)" style="flex:1.4">
+          <select id="inpPriority" style="flex:1">
+            <option value="mid">🟡 중간</option>
+            <option value="high">🔴 높음</option>
+            <option value="low">🟢 낮음</option>
+          </select>
+        </div>
+        <div class="row">
+          <textarea id="inpMemo" placeholder="피드백 / 수정 요청을 적으세요. (Ctrl+Enter 로 추가)"></textarea>
+        </div>
+        <div class="actions">
+          <button class="ghost" onclick="clearForm()">초기화</button>
+          <button class="primary" onclick="addMemo()">＋ 메모 추가</button>
+        </div>
+      </div>
+
+      <div class="memo-list" id="memoList"></div>
+    </aside>
+  </div>
+
+  <button class="toggle-side" onclick="document.getElementById('sidePanel').classList.toggle('shown')" title="메모 토글">📝</button>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════
+   메모 저장 — localStorage
+   key: mockup_memos_v1
+   value: { [mockupFile]: [ { id, target, priority, text, ts, done } ] }
+════════════════════════════════════════════════ */
+const STORAGE_KEY = 'mockup_memos_v1';
+
+function loadAll() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+function saveAll(d) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+  catch(e) { console.warn(e); }
+}
+
+function currentMockupFile() {
+  return document.getElementById('mockupSel').value;
+}
+function currentMockupUrl() {
+  return location.origin + '/preview/' + currentMockupFile();
+}
+function currentMemos() {
+  return loadAll()[currentMockupFile()] || [];
+}
+
+function loadMockup() {
+  const file = currentMockupFile();
+  document.getElementById('mockupFrame').src = file;
+  renderMemos();
+}
+
+function fmtTs(t) {
+  const d = new Date(t);
+  if (isNaN(d)) return '';
+  const pad = n => String(n).padStart(2,'0');
+  return `${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function esc(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderMemos() {
+  const list = document.getElementById('memoList');
+  const cntEl = document.getElementById('memoCnt');
+  const q = (document.getElementById('memoSearch').value || '').toLowerCase();
+  let memos = currentMemos();
+  cntEl.textContent = `메모 ${memos.length}건`;
+  if (q) {
+    memos = memos.filter(m =>
+      (m.target||'').toLowerCase().includes(q) ||
+      (m.text||'').toLowerCase().includes(q)
+    );
+  }
+  if (memos.length === 0) {
+    list.innerHTML = `<div class="memo-empty">
+      <span class="ic">📭</span>
+      ${q ? '검색 결과가 없습니다' : '아직 메모가 없습니다.<br>좌측 목업을 보면서<br>위 폼으로 메모를 추가해 보세요.'}
+    </div>`;
+    return;
+  }
+  // 정렬: 미완료 우선 → 우선순위 (high > mid > low) → 최신순
+  const prioRank = { high:0, mid:1, low:2 };
+  memos.sort((a,b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    const pa = prioRank[a.priority||'mid'] ?? 1;
+    const pb = prioRank[b.priority||'mid'] ?? 1;
+    if (pa !== pb) return pa - pb;
+    return (b.ts||0) - (a.ts||0);
+  });
+  list.innerHTML = memos.map(m => {
+    const cls = `memo${m.priority?' priority-'+m.priority:''}${m.done?' done':''}`;
+    const prioLabel = m.priority === 'high' ? '🔴 높음' : m.priority === 'low' ? '🟢 낮음' : '🟡 중간';
+    return `<div class="${cls}">
+      <div class="top">
+        ${m.target ? `<span class="target">${esc(m.target)}</span>` : ''}
+        <span class="badge-prio ${m.priority||'mid'}">${prioLabel}</span>
+        <span class="ts">${fmtTs(m.ts)}</span>
+      </div>
+      <div class="text">${esc(m.text)}</div>
+      <div class="row-act">
+        <button onclick="editMemo('${m.id}')">✏ 수정</button>
+        <button class="done-btn" onclick="toggleDone('${m.id}')">${m.done?'↺ 미완료로':'✓ 완료'}</button>
+        <button class="danger" onclick="deleteMemo('${m.id}')">🗑 삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addMemo() {
+  const target = (document.getElementById('inpTarget').value || '').trim();
+  const text   = (document.getElementById('inpMemo').value || '').trim();
+  const priority = document.getElementById('inpPriority').value || 'mid';
+  if (!text) { alert('메모 내용을 입력하세요'); return; }
+  const all = loadAll();
+  const file = currentMockupFile();
+  if (!all[file]) all[file] = [];
+  all[file].unshift({
+    id: 'M-' + Date.now().toString(36) + Math.random().toString(36).slice(2,5),
+    target, text, priority,
+    ts: Date.now(),
+    done: false,
+  });
+  saveAll(all);
+  clearForm();
+  renderMemos();
+}
+
+function clearForm() {
+  document.getElementById('inpMemo').value = '';
+  // target/priority 는 유지 — 연속 작성 편의
+}
+
+function editMemo(id) {
+  const all = loadAll();
+  const file = currentMockupFile();
+  const arr = all[file] || [];
+  const m = arr.find(x => x.id === id);
+  if (!m) return;
+  const newText = prompt('메모 수정 (취소 가능):', m.text);
+  if (newText == null) return;
+  const trimmed = newText.trim();
+  if (!trimmed) { if (!confirm('빈 내용 — 삭제할까요?')) return; deleteMemo(id); return; }
+  m.text = trimmed;
+  m.editedAt = Date.now();
+  saveAll(all);
+  renderMemos();
+}
+
+function toggleDone(id) {
+  const all = loadAll();
+  const file = currentMockupFile();
+  const arr = all[file] || [];
+  const m = arr.find(x => x.id === id);
+  if (!m) return;
+  m.done = !m.done;
+  saveAll(all);
+  renderMemos();
+}
+
+function deleteMemo(id) {
+  if (!confirm('이 메모를 삭제할까요?')) return;
+  const all = loadAll();
+  const file = currentMockupFile();
+  all[file] = (all[file] || []).filter(m => m.id !== id);
+  saveAll(all);
+  renderMemos();
+}
+
+function clearAllMemos() {
+  const file = currentMockupFile();
+  const memos = currentMemos();
+  if (!memos.length) { alert('삭제할 메모가 없습니다'); return; }
+  if (!confirm(`이 목업(${file})의 메모 ${memos.length}건을 모두 삭제할까요?`)) return;
+  const all = loadAll();
+  delete all[file];
+  saveAll(all);
+  renderMemos();
+}
+
+function exportMemos() {
+  const file = currentMockupFile();
+  const memos = currentMemos();
+  if (!memos.length) { alert('내보낼 메모가 없습니다'); return; }
+  const opt = document.querySelector('#mockupSel option:checked');
+  const title = opt ? opt.textContent.trim() : file;
+  const prioMap = { high:'🔴 높음', mid:'🟡 중간', low:'🟢 낮음' };
+  const lines = [];
+  lines.push(`# 📝 ${title} — 모바일 목업 메모`);
+  lines.push(`> ${new Date().toLocaleString('ko-KR')} 기준 · 총 ${memos.length}건`);
+  lines.push(``);
+
+  const sorted = memos.slice().sort((a,b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    return (b.ts||0) - (a.ts||0);
+  });
+  sorted.forEach((m, i) => {
+    const head = `${i+1}. ${m.target?`[${m.target}] `:''}${prioMap[m.priority]||''}${m.done?' ✓완료':''}`;
+    lines.push(head);
+    lines.push(`   ${m.text.replace(/\n/g, '\n   ')}`);
+    lines.push(`   _${new Date(m.ts).toLocaleString('ko-KR')}_`);
+    lines.push(``);
+  });
+  const out = lines.join('\n');
+
+  // 클립보드 복사 시도
+  try {
+    if (navigator.clipboard) navigator.clipboard.writeText(out);
+  } catch(e){}
+
+  // 다운로드도 함께
+  const blob = new Blob([out], { type: 'text/markdown;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const safe = title.replace(/[^\w가-힣]+/g, '_');
+  a.download = `mockup_memos_${safe}_${new Date().toISOString().slice(0,10)}.md`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+// Ctrl+Enter 로 메모 추가
+document.getElementById('inpMemo').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    addMemo();
+  }
+});
+
+// URL 해시로 초기 mockup 선택 (#newjob, #as, #van, #stocktake, #supplies)
+(function initFromHash() {
+  const h = (location.hash || '').replace('#','').toLowerCase();
+  const map = {
+    stocktake: 'mobile-stocktake-mockup.html',
+    newjob:    'mobile-newjob-mockup.html',
+    new:       'mobile-newjob-mockup.html',
+    as:        'mobile-as-mockup.html',
+    van:       'mobile-van-mockup.html',
+    supplies:  'mobile-supplies-mockup.html',
+    supply:    'mobile-supplies-mockup.html',
+  };
+  if (map[h]) document.getElementById('mockupSel').value = map[h];
+})();
+
+loadMockup();
+</script>
+
+</body>
+</html>
