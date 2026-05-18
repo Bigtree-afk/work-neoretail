@@ -4204,6 +4204,31 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <option value="마감">마감</option>
         </select>
       </div>
+
+      <!-- 👥 담당자 정보 — 우리쪽 담당 + 거래처 담당 -->
+      <div style="border:1px solid var(--gray-200);background:#FAFAFA;border-radius:8px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-size:11.5px;font-weight:700;color:var(--gray-700);margin-bottom:6px">👥 담당자 정보</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:3px">🧑‍💼 우리 담당자</div>
+            <select id="stEditorOwner" style="width:100%;padding:6px 8px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:12.5px;background:#fff">
+              <option value="">— 선택 —</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:3px">📇 거래처 담당자</div>
+            <input type="text" id="stEditorContactName" placeholder="이름 (예: 박과장)" style="width:100%;padding:6px 8px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:12.5px">
+          </div>
+          <div>
+            <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:3px">📞 거래처 연락처</div>
+            <input type="tel" id="stEditorContactPhone" placeholder="010-0000-0000" inputmode="tel" style="width:100%;padding:6px 8px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:12.5px">
+          </div>
+          <div>
+            <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:3px">🪪 거래처 직책</div>
+            <input type="text" id="stEditorContactRole" placeholder="예: 점장 / 사장 / 매니저" style="width:100%;padding:6px 8px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:12.5px">
+          </div>
+        </div>
+      </div>
       <!-- 일정 — 상담일 + 조사예정일 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div><label style="font-size:11.5px;color:var(--gray-600);font-weight:600">📞 상담일</label><input type="date" id="stEditorConsultDate" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px"></div>
@@ -6136,8 +6161,41 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       }
     } catch(e){}
     document.getElementById('stEditorStatus').value = rec.status || '상담';
-    document.getElementById('stEditorConsultDate').value = rec.consultDate || '';
+    // 상담일 기본값 — 신규 등록 시 오늘 (KST), 수정 시 기존 값 유지
+    const todayKst = (function(){
+      const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset() + 9*60);
+      return d.toISOString().slice(0,10);
+    })();
+    document.getElementById('stEditorConsultDate').value = rec.consultDate || (id ? '' : todayKst);
     document.getElementById('stEditorScheduleDate').value = rec.scheduleDate || '';
+    // 담당자 정보 채우기 + 우리 담당자 옵션 목록 빌드
+    try {
+      const ownerSel = document.getElementById('stEditorOwner');
+      if (ownerSel) {
+        const users = (typeof getUsers === 'function') ? (getUsers() || []) : [];
+        const opts = ['<option value="">— 선택 —</option>'];
+        users.forEach(u => {
+          const nm = String(u.name || u.email || '').trim();
+          if (!nm) return;
+          opts.push(`<option value="${_strEsc ? _strEsc(nm) : nm}">${nm}</option>`);
+        });
+        ownerSel.innerHTML = opts.join('');
+        // 기본값 — 기록 owner 또는 현재 로그인 사용자
+        const curOwner = rec.owner || (rec.id ? '' : (((typeof _currentAuthName==='function') ? _currentAuthName() : '') || ''));
+        if (curOwner) {
+          // 만약 현재 user 이름이 list 에 없으면 옵션 추가
+          if (!Array.from(ownerSel.options).some(o => o.value === curOwner)) {
+            const opt = document.createElement('option');
+            opt.value = curOwner; opt.textContent = curOwner;
+            ownerSel.appendChild(opt);
+          }
+          ownerSel.value = curOwner;
+        }
+      }
+      const cn = document.getElementById('stEditorContactName');     if (cn) cn.value = rec.contactName || '';
+      const cp = document.getElementById('stEditorContactPhone');    if (cp) cp.value = rec.contactPhone || '';
+      const cr = document.getElementById('stEditorContactRole');     if (cr) cr.value = rec.contactRole || '';
+    } catch(e){ console.warn('stocktake owner/contact init failed', e); }
     document.getElementById('stEditorDoneDate').value = rec.doneDate || '';
     document.getElementById('stEditorArea').value = rec.area || '';
     document.getElementById('stEditorHeadcount').value = rec.headcount || '';
@@ -6619,6 +6677,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       margin,
       paymentMethod,
       memo: String(document.getElementById('stEditorMemo').value||''),
+      // 담당자 정보
+      owner:        String(document.getElementById('stEditorOwner')?.value || ''),
+      contactName:  String(document.getElementById('stEditorContactName')?.value || '').trim(),
+      contactPhone: String(document.getElementById('stEditorContactPhone')?.value || '').trim(),
+      contactRole:  String(document.getElementById('stEditorContactRole')?.value || '').trim(),
       attachments: (function(){ try { return window._stocktakeUploaderCtl ? window._stocktakeUploaderCtl.get() : []; } catch(_) { return []; } })(),
       // 진행 단계 thread — 기존 record 의 thread 보존 (live 편집은 _setThreadFor 가 별도 저장)
       thread: (function(){
@@ -6658,13 +6721,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     if (!rec) return;
     const status = rec.status || '';
     // 처리일 자동: 상태별
+    const todayKst = (function(){
+      const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset() + 9*60);
+      return d.toISOString().slice(0,10);
+    })();
     let processDate = '';
-    if (status === '마감' || status === '정산' || status === '조사완료') processDate = rec.doneDate || rec.scheduleDate || '';
-    else if (status === '일정확정') processDate = rec.scheduleDate || rec.consultDate || '';
-    else processDate = rec.consultDate || (new Date()).toISOString().slice(0,10);
-    if (!processDate) processDate = (new Date()).toISOString().slice(0,10);
+    if (status === '마감' || status === '정산' || status === '조사완료') processDate = rec.doneDate || rec.scheduleDate || todayKst;
+    else if (status === '일정확정') processDate = rec.scheduleDate || rec.consultDate || todayKst;
+    else processDate = rec.consultDate || todayKst;
 
-    // 본문 디폴트 — 사용자가 자유 편집 가능
+    // 메시지 본문 (≤30) — memo 우선
     const memo30 = (rec.memo || '').replace(/\s+/g,' ').trim().slice(0, 30);
     let content;
     if (memo30) content = memo30;
@@ -6673,7 +6739,45 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     else if (status === '일정확정') content = '조사 일정 확정';
     else content = '재고조사 의뢰';
 
-    const defaultText = `${rec.storeName} : ${processDate} ; ${content}`;
+    // 1줄 헤더
+    const headLine = `${rec.storeName} : ${processDate} ; ${content}`;
+
+    // 보조 정보 — 일정/규모/담당자
+    const lines = [];
+    // 일정
+    if (rec.scheduleDate && rec.scheduleDate !== processDate) {
+      lines.push(`📅 조사예정 ${rec.scheduleDate}`);
+    } else if (rec.scheduleDate) {
+      lines.push(`📅 조사예정 ${rec.scheduleDate}`);
+    }
+    // 규모
+    const sizeParts = [];
+    if (rec.area)        sizeParts.push(`${rec.area}평`);
+    if (rec.headcount)   sizeParts.push(`${rec.headcount}명`);
+    if (rec.fee)         sizeParts.push(`수수료 ${Number(rec.fee).toLocaleString('ko-KR')}원`);
+    if (sizeParts.length) lines.push(`📊 ${sizeParts.join(' · ')}`);
+    // 완료/마감 시 결과
+    if (status === '조사완료' || status === '정산' || status === '마감') {
+      const res = [];
+      if (rec.expectedAmount && rec.actualAmount) res.push(`예상 → 실 ${Number(rec.expectedAmount).toLocaleString('ko-KR')} → ${Number(rec.actualAmount).toLocaleString('ko-KR')}원`);
+      if (typeof rec.margin === 'number')         res.push(`수익 ${rec.margin >= 0 ? '+':''}${rec.margin.toLocaleString('ko-KR')}원`);
+      if (rec.paymentMethod)                      res.push(`수금 ${rec.paymentMethod}`);
+      if (res.length) lines.push(`💰 ${res.join(' · ')}`);
+    }
+    // 담당자
+    const owner = rec.owner || (((typeof _currentAuthName==='function') ? _currentAuthName() : '') || '');
+    const contactBits = [];
+    if (rec.contactName)  contactBits.push(rec.contactRole ? `${rec.contactRole} ${rec.contactName}` : rec.contactName);
+    if (rec.contactPhone) contactBits.push(rec.contactPhone);
+    if (owner || contactBits.length) {
+      const parts = [];
+      if (owner) parts.push(`담당 ${owner}`);
+      if (contactBits.length) parts.push(`거래처 ${contactBits.join(' ')}`);
+      lines.push(`👤 ${parts.join(' / ')}`);
+    }
+
+    const defaultText = headLine + (lines.length ? '\n' + lines.join('\n') : '');
+
     const attachments = Array.isArray(rec.attachments) ? rec.attachments : [];
 
     if (typeof window._openLineSendComposer !== 'function') {
@@ -6699,6 +6803,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
               text: result.text,
               to: result.to,
               status,
+              owner: owner,
               ok: true,
             });
             window.saveStocktakes(arr);
