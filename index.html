@@ -4515,7 +4515,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <select id="lsComposerRoom" style="width:100%;padding:9px 11px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;background:#fff">
           <option value="">— 로딩 중 —</option>
         </select>
-        <div style="font-size:10px;color:var(--gray-500);margin-top:3px">변경 시 이번 발송에만 적용 (기본값은 관리자 설정)</div>
+        <div style="margin-top:5px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:14px;cursor:pointer;font-size:11px;font-weight:700;color:#06A647">
+            <input type="checkbox" id="lsComposerSetDefault" style="accent-color:#06C755;margin:0">
+            <span id="lsComposerSetDefaultLabel">📌 이 채팅방을 기본으로 설정</span>
+          </label>
+          <span id="lsComposerCurDefault" style="font-size:10.5px;color:var(--gray-500)"></span>
+        </div>
+        <div style="font-size:10px;color:var(--gray-500);margin-top:3px">변경 시 이번 발송에만 적용 — 체크 시 다음부터 이 카테고리 기본값으로 저장</div>
       </div>
 
       <!-- 메시지 본문 편집 -->
@@ -13668,12 +13675,36 @@ ${text.slice(0, 4000)}`;
     ta.oninput = updatePreview;
     updatePreview();
 
+    // 카테고리별 기본 설정 UI 초기화
+    const catLabelMap = { stocktake:'재고조사', as:'AS', newjob:'신규', van:'VAN', supply:'소모품', memo:'메모' };
+    const setDefaultChk = document.getElementById('lsComposerSetDefault');
+    const setDefaultLbl = document.getElementById('lsComposerSetDefaultLabel');
+    const curDefaultEl  = document.getElementById('lsComposerCurDefault');
+    if (setDefaultChk) setDefaultChk.checked = false;
+    if (setDefaultLbl) setDefaultLbl.textContent = `📌 [${catLabelMap[category]||category}] 기본 채팅방으로 설정`;
+    if (curDefaultEl)  curDefaultEl.textContent = '';
+
     // 채팅방 옵션 로딩
     roomSel.innerHTML = '<option value="">— 로딩 중 —</option>';
     fetch('/api/line-rooms', { cache:'no-store' }).then(r => r.json()).then(d => {
       const rooms = Array.isArray(d.rooms) ? d.rooms : [];
       const catRooms = d.categoryRooms || {};
       const defaultRoom = opts.defaultTo || catRooms[category] || '';
+      // 현재 기본 채팅방 표시
+      if (curDefaultEl) {
+        if (catRooms[category]) {
+          const cur = rooms.find(r => r.id === catRooms[category]);
+          curDefaultEl.textContent = `현재 기본: ${cur && cur.name ? cur.name : (catRooms[category].slice(0,12)+'…')}`;
+        } else {
+          curDefaultEl.textContent = '현재 기본 미설정';
+          curDefaultEl.style.color = '#B45309';
+        }
+      }
+      // composer state 에 기본값 저장 (submit 시 비교용)
+      if (window._lineSendComposerState) {
+        window._lineSendComposerState.currentDefaultRoom = catRooms[category] || '';
+        window._lineSendComposerState.allCategoryRooms   = catRooms;
+      }
       // 정렬: 매핑된 방 먼저, group → room → user
       const sorted = [...rooms].sort((a,b) => {
         if (a.mapped !== b.mapped) return a.mapped ? -1 : 1;
@@ -13751,6 +13782,26 @@ ${text.slice(0, 4000)}`;
       const d = await r.json().catch(()=>({}));
       if (d.ok) {
         if (typeof showToast==='function') showToast(`📡 LINE 발송 완료 (${d.count||1}건)`);
+        // 📌 기본 채팅방 저장 (체크 시 + 현재 기본과 다를 때)
+        try {
+          const setDefault = !!document.getElementById('lsComposerSetDefault')?.checked;
+          if (setDefault && to && to !== st.currentDefaultRoom) {
+            const pin = localStorage.getItem('line_admin_pin') || '';
+            const updated = Object.assign({}, st.allCategoryRooms || {}, { [st.category]: to });
+            const url = '/api/line-config' + (pin ? ('?admin='+encodeURIComponent(pin)) : '');
+            fetch(url, {
+              method:'POST',
+              headers:{'content-type':'application/json'},
+              body: JSON.stringify({ categoryRooms: updated }),
+            }).then(rr => rr.json()).then(dd => {
+              if (dd && dd.ok) {
+                if (typeof showToast==='function') showToast(`📌 [${st.category}] 기본 채팅방 저장됨`);
+              } else if (dd && dd.error === 'unauthorized') {
+                if (typeof showToast==='function') showToast('⚠ 기본 저장 실패 — 관리자 PIN 필요');
+              }
+            }).catch(_=>{});
+          }
+        } catch(_){}
         if (typeof st.onSent === 'function') { try { st.onSent({ text, to, ok:true, count:d.count }); } catch(_){} }
         closeModal('lineSendComposerModal');
         window._lineSendComposerState = null;
