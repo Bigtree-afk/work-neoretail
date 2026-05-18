@@ -117,11 +117,15 @@ export async function onRequestPost({ request, env }) {
   try { form = await request.formData(); }
   catch (e) { return text('invalid form-data: ' + e.message, 400); }
 
-  const store     = String(form.get('store')     || '').trim();
-  const category  = String(form.get('category')  || '').trim();
-  const docType   = String(form.get('docType')   || '').trim();
-  const submitter = String(form.get('submitter') || '').trim();
-  const note      = String(form.get('note')      || '').trim();
+  const store          = String(form.get('store')          || '').trim();
+  const category       = String(form.get('category')       || '').trim();
+  const docType        = String(form.get('docType')        || '').trim();
+  const submitter      = String(form.get('submitter')      || '').trim();
+  const submitterName  = String(form.get('submitterName')  || '').trim();
+  const submitterPhone = String(form.get('submitterPhone') || '').trim();
+  const storePhone     = String(form.get('storePhone')     || '').trim();
+  const email          = String(form.get('email')          || '').trim();
+  const note           = String(form.get('note')           || '').trim();
 
   if (!store)   return text('매장명(store)이 필요합니다', 400);
   if (!docType) return text('서류 종류(docType)가 필요합니다', 400);
@@ -161,17 +165,20 @@ export async function onRequestPost({ request, env }) {
   }
 
   const submission = {
-    id, store, category, docType, submitter, note,
+    id, store, category, docType,
+    submitter, submitterName, submitterPhone,
+    storePhone, email, note,
     files: fileMetas,
     createdAt: new Date().toISOString(),
   };
 
   await env.STORES_KV.put('vandoc:' + id, JSON.stringify(submission));
 
-  // 인덱스 갱신
+  // 인덱스 갱신 — 목록 표시용 필드도 포함 (개별 GET 없이도 연락처 보임)
   const idx = (await env.STORES_KV.get('vandocs_index', 'json')) || { items: [] };
   idx.items.unshift({
-    id, store, category, docType, submitter,
+    id, store, category, docType,
+    submitter, submitterName, submitterPhone, storePhone, email,
     count: fileMetas.length, totalBytes,
     createdAt: submission.createdAt,
   });

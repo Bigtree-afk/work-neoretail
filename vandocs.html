@@ -189,21 +189,35 @@
 <main>
   <div class="breadcrumb" id="breadcrumb"></div>
 
-  <!-- 매장명 + 제출자 (항상 노출) -->
+  <!-- 매장명 + 연락처 + 제출자 (항상 노출) -->
   <div class="step">
     <div class="form-row">
       <label>매장명 <span style="color:var(--danger)">*</span></label>
       <input type="text" id="inpStore" placeholder="예) 웰빙마트 신림점" autocomplete="off">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <div>
-        <label>제출자 (선택)</label>
-        <input type="text" id="inpSubmitter" placeholder="이름 / 연락처">
+        <label>매장 전화번호 (선택)</label>
+        <input type="tel" id="inpStorePhone" placeholder="02-0000-0000" inputmode="tel" autocomplete="tel">
       </div>
       <div>
-        <label>비고 (선택)</label>
-        <input type="text" id="inpNote" placeholder="간단한 메모">
+        <label>이메일 (선택)</label>
+        <input type="email" id="inpEmail" placeholder="example@email.com" inputmode="email" autocomplete="email">
       </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div>
+        <label>제출자 이름 (선택)</label>
+        <input type="text" id="inpSubmitterName" placeholder="예) 홍길동" autocomplete="name">
+      </div>
+      <div>
+        <label>제출자 핸드폰 (선택)</label>
+        <input type="tel" id="inpSubmitterPhone" placeholder="010-0000-0000" inputmode="tel">
+      </div>
+    </div>
+    <div class="form-row" style="margin-bottom:0">
+      <label>비고 (선택)</label>
+      <input type="text" id="inpNote" placeholder="간단한 메모">
     </div>
   </div>
 
@@ -553,8 +567,13 @@ async function submitAll() {
   if (!store) { toast('매장명을 입력하세요'); $('inpStore').focus(); return; }
   if (pickedFiles.length === 0) { toast('업로드할 파일이 없습니다'); return; }
 
-  const submitter = ($('inpSubmitter').value || '').trim();
-  const note      = ($('inpNote').value || '').trim();
+  const submitterName  = ($('inpSubmitterName').value || '').trim();
+  const submitterPhone = ($('inpSubmitterPhone').value || '').trim();
+  const storePhone     = ($('inpStorePhone').value || '').trim();
+  const email          = ($('inpEmail').value || '').trim();
+  const note           = ($('inpNote').value || '').trim();
+  // 기존 submitter 필드 호환 — '이름 / 핸드폰' 형식으로 합쳐서 함께 전송
+  const submitter = [submitterName, submitterPhone].filter(Boolean).join(' / ');
   const category  = path.join(' / ');
   // 카테고리 마지막 단계명을 docType 으로 사용 (예: "1인대표" / "대표자 변경")
   const docType   = path[path.length - 1] || '서류 일괄';
@@ -564,6 +583,10 @@ async function submitAll() {
   fd.append('category', category);
   fd.append('docType', docType);
   fd.append('submitter', submitter);
+  fd.append('submitterName', submitterName);
+  fd.append('submitterPhone', submitterPhone);
+  fd.append('storePhone', storePhone);
+  fd.append('email', email);
   fd.append('note', note);
   pickedFiles.forEach(p => fd.append('files', p.file));
 
@@ -613,11 +636,24 @@ function formatBytes(n) {
   return (n/(1024*1024)).toFixed(1) + ' MB';
 }
 
-/* 매장명 자동 저장 (편의) */
+/* 매장명/연락처 자동 저장 (편의) — 다음 업로드 시 자동 채워줌 */
 try {
-  const saved = localStorage.getItem('vandocs_store');
-  if (saved) $('inpStore').value = saved;
-  $('inpStore').addEventListener('change', e => localStorage.setItem('vandocs_store', e.target.value || ''));
+  const PERSIST_KEYS = [
+    ['inpStore',          'vandocs_store'],
+    ['inpStorePhone',     'vandocs_storePhone'],
+    ['inpEmail',          'vandocs_email'],
+    ['inpSubmitterName',  'vandocs_submitterName'],
+    ['inpSubmitterPhone', 'vandocs_submitterPhone'],
+  ];
+  PERSIST_KEYS.forEach(([id, key]) => {
+    const el = $(id);
+    if (!el) return;
+    const saved = localStorage.getItem(key);
+    if (saved && !el.value) el.value = saved;
+    el.addEventListener('change', e => {
+      try { localStorage.setItem(key, e.target.value || ''); } catch(_){}
+    });
+  });
 } catch(e){}
 
 render();

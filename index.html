@@ -16541,14 +16541,26 @@ ${text.slice(0, 4000)}`;
     const ackBtn = it.acknowledged
       ? ''
       : `<button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 10px" onclick="event.stopPropagation();ackVandoc('${esc(it.id)}')">확인</button>`;
-    return `<div class="vd-row" style="border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;background:#fff;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:background 0.15s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='#fff'" onclick="openVandocDetail('${esc(it.id)}')">
+    // 👤 제출자 정보 — name + phone 분리 + 매장전화 + 이메일
+    const contactBits = [];
+    const subName  = it.submitterName  || (it.submitter && !it.submitterPhone ? it.submitter : '');
+    const subPhone = it.submitterPhone || '';
+    if (subName)  contactBits.push(`👤 ${esc(subName)}`);
+    if (subPhone) contactBits.push(`📱 <a href="tel:${esc(subPhone)}" onclick="event.stopPropagation()" style="color:#1E40AF;text-decoration:none">${esc(subPhone)}</a>`);
+    if (it.storePhone) contactBits.push(`☎ <a href="tel:${esc(it.storePhone)}" onclick="event.stopPropagation()" style="color:#1E40AF;text-decoration:none">${esc(it.storePhone)}</a>`);
+    if (it.email) contactBits.push(`✉ <a href="mailto:${esc(it.email)}" onclick="event.stopPropagation()" style="color:#1E40AF;text-decoration:none">${esc(it.email)}</a>`);
+    const contactHtml = contactBits.length
+      ? `<div style="font-size:11px;color:var(--gray-700);display:flex;flex-wrap:wrap;gap:8px;background:#F9FAFB;border-radius:6px;padding:5px 9px;margin:2px 0">${contactBits.join(' · ')}</div>`
+      : '';
+    return `<div class="vd-row" style="border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;background:#fff;cursor:pointer;display:flex;flex-direction:column;gap:5px;transition:background 0.15s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='#fff'" onclick="openVandocDetail('${esc(it.id)}')">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
         <div style="font-weight:700;font-size:13px;flex:1;min-width:0">${esc(it.store)} <span style="color:var(--gray-400);font-size:11px;font-weight:400">— ${esc(it.docType||'')}</span></div>
         ${ackBadge}
       </div>
+      ${contactHtml}
       <div style="font-size:11px;color:var(--gray-500);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <span>${esc(it.category||'')}</span>
-        <span>${esc(created)} · 파일 ${fileCount}개${it.submitter?` · ${esc(it.submitter)}`:''}</span>
+        <span>${esc(created)} · 파일 ${fileCount}개</span>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:6px">${dlBtn}${ackBtn}</div>
     </div>`;
@@ -16900,8 +16912,35 @@ ${text.slice(0, 4000)}`;
           </a>
         </div>`;
       }).join('');
+      // 👤 제출자 / ☎ 매장 / ✉ 이메일 정보 카드
+      const contactRows = [];
+      const subName  = data.submitterName  || (data.submitter && !data.submitterPhone ? data.submitter : '');
+      const subPhone = data.submitterPhone || '';
+      if (subName || subPhone) {
+        contactRows.push(`<div style="display:flex;gap:8px;align-items:center">
+          <span style="min-width:78px;font-size:11px;color:var(--gray-500);font-weight:700">👤 제출자</span>
+          <span style="font-size:13px;color:var(--gray-800);font-weight:600">${esc(subName||'-')}</span>
+          ${subPhone?`<a href="tel:${esc(subPhone)}" style="font-size:13px;color:#1E40AF;text-decoration:none;font-weight:700;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:2px 9px">📱 ${esc(subPhone)}</a>`:''}
+        </div>`);
+      }
+      if (data.storePhone) {
+        contactRows.push(`<div style="display:flex;gap:8px;align-items:center">
+          <span style="min-width:78px;font-size:11px;color:var(--gray-500);font-weight:700">☎ 매장전화</span>
+          <a href="tel:${esc(data.storePhone)}" style="font-size:13px;color:#1E40AF;text-decoration:none;font-weight:700;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:2px 9px">${esc(data.storePhone)}</a>
+        </div>`);
+      }
+      if (data.email) {
+        contactRows.push(`<div style="display:flex;gap:8px;align-items:center">
+          <span style="min-width:78px;font-size:11px;color:var(--gray-500);font-weight:700">✉ 이메일</span>
+          <a href="mailto:${esc(data.email)}" style="font-size:13px;color:#1E40AF;text-decoration:none;font-weight:700;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:2px 9px">${esc(data.email)}</a>
+        </div>`);
+      }
+      const contactCardHtml = contactRows.length
+        ? `<div style="background:#F9FAFB;border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:6px">${contactRows.join('')}</div>`
+        : '';
       bodyEl.innerHTML = `<div style="padding:16px">
         <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px">${meta}</div>
+        ${contactCardHtml}
         ${data.note?`<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:10px">📝 ${esc(data.note)}</div>`:''}
         ${fileCount > 0 ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;background:#F9FAFB;border:1px solid var(--gray-200);border-radius:8px;padding:8px 12px;margin-bottom:10px">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600">
