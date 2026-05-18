@@ -6792,6 +6792,10 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     const margin = fee - totalLabor - totalExpense;
     const paymentMethod = (document.querySelector('input[name="stPaymentMethod"]:checked')?.value) || '현금';
 
+    // 기존 record 조회 (thread / lineHistory 보존용) — rec 빌드 전에 미리 가져옴
+    const arr = window.getStocktakes();
+    const existing = id ? arr.find(x => x.id === id) : null;
+
     const rec = {
       id: id || ('ST-' + Date.now().toString(36)),
       storeId,
@@ -6821,20 +6825,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       contactRole:  String(document.getElementById('stEditorContactRole')?.value || '').trim(),
       attachments: (function(){ try { return window._stocktakeUploaderCtl ? window._stocktakeUploaderCtl.get() : []; } catch(_) { return []; } })(),
       // 진행 단계 thread — 기존 record 의 thread 보존 (live 편집은 _setThreadFor 가 별도 저장)
-      thread: (function(){
-        if (!id) return [];   // 신규 등록 — thread 는 첫 오픈 시 자동 시드됨
-        const cur = arr.find(x => x.id === id);
-        return Array.isArray(cur && cur.thread) ? cur.thread : [];
-      })(),
-      lineHistory: (function(){
-        if (!id) return [];
-        const cur = arr.find(x => x.id === id);
-        return Array.isArray(cur && cur.lineHistory) ? cur.lineHistory : [];
-      })(),
+      thread:      Array.isArray(existing && existing.thread)      ? existing.thread      : [],
+      lineHistory: Array.isArray(existing && existing.lineHistory) ? existing.lineHistory : [],
       createdAt: Date.now(),
     };
 
-    const arr = window.getStocktakes();
     const idx = id ? arr.findIndex(r => r.id === id) : -1;
     if (idx >= 0) {
       rec.createdAt = arr[idx].createdAt || rec.createdAt;
@@ -6907,11 +6902,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             arr[i].lineHistory = Array.isArray(arr[i].lineHistory) ? arr[i].lineHistory : [];
             arr[i].lineHistory.push({
               ts: new Date().toISOString(),
-              text: result.text,
-              to: result.to,
+              text: result && result.text,
+              to:   result && result.to,
               status,
-              owner: owner,
-              ok: true,
+              owner: rec.owner || '',
+              ok: !!(result && result.ok),
             });
             window.saveStocktakes(arr);
             window.renderStocktakeHub();
