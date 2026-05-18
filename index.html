@@ -2005,12 +2005,34 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <!-- SCREEN: VANHUB (📑 VAN — 매장별 그룹 hub) -->
     <!-- ═══════════════════════════════════════ -->
     <div class="screen" id="screen-vanhub">
-      <div class="hub-route-info" style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px 13px;font-size:11.5px;color:#92400e;margin-bottom:12px;display:flex;align-items:center;gap:8px;line-height:1.5">
+      <div class="hub-route-info" style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px 13px;font-size:11.5px;color:#92400e;margin-bottom:12px;display:flex;align-items:center;gap:8px;line-height:1.5;flex-wrap:wrap">
         <span style="font-size:16px">ℹ️</span>
-        <div>모이는 카테고리: <strong>VAN/신규등록·재신고·정산·계약·변경(당사간)</strong>
+        <div style="flex:1;min-width:200px">모이는 카테고리: <strong>VAN/신규등록·재신고·정산·계약·변경(당사간)</strong>
           <span style="margin-left:8px;color:var(--gray-500)">※ 가맹 등록은 카드사별 진행이 처리기록에 누적</span>
         </div>
+        <button onclick="window._vanhubToggleVandocs()" style="background:#7C3AED;color:#fff;border:none;border-radius:7px;padding:6px 13px;font-size:11.5px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-family:inherit">
+          📑 접수서류 확인
+          <span id="vanhubVandocsBadge" style="background:#fff;color:#7C3AED;padding:1px 7px;border-radius:10px;font-size:10.5px;font-weight:800;min-width:18px;text-align:center">0</span>
+        </button>
       </div>
+
+      <!-- 📑 VAN 접수서류 패널 (접힘 토글) -->
+      <div id="vanhubVandocsPanel" style="display:none;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;padding:12px 14px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <div style="font-weight:700;color:#5B21B6;font-size:13px">📑 접수된 VAN 서류 <span id="vanhubVandocsCountLbl" style="font-size:11px;color:var(--gray-500);font-weight:600"></span></div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <label style="font-size:11px;color:#5B21B6;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
+              <input type="checkbox" id="vanhubVandocsShowAcked" onchange="window._vanhubLoadDocs()"> 확인된 항목도 보기
+            </label>
+            <button class="btn btn-outline btn-sm" onclick="window._vanhubLoadDocs()" style="font-size:11px;padding:4px 10px">🔄 새로고침</button>
+            <button onclick="window._vanhubToggleVandocs(false)" style="background:transparent;border:1px solid #DDD6FE;color:#7C3AED;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">접기</button>
+          </div>
+        </div>
+        <div id="vanhubVandocsArea" style="background:#fff;border:1px solid #E5E7EB;border-radius:6px;padding:6px;max-height:340px;overflow-y:auto">
+          <div style="text-align:center;padding:18px;color:var(--gray-400);font-size:12px">버튼을 눌러 서류 목록을 펼치세요.</div>
+        </div>
+      </div>
+
       <div class="hub-actbar" style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:9px 14px;margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap" id="vanhubFilters">
           <button class="hub-filter active" data-filter="all">전체 <span id="vanhubCntAll">0</span></button>
@@ -7091,6 +7113,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   /* ─── VAN hub ─── */
   window.renderVanHub = function() {
+    // 접수서류 미확인 카운트 배지 갱신 (백그라운드)
+    try { if (typeof window._vanhubRefreshDocsBadge === 'function') window._vanhubRefreshDocsBadge(); } catch(_){}
     _hubGenericRender({
       containerId: 'vanhubContainer',
       filtersId: 'vanhubFilters',
@@ -16540,6 +16564,51 @@ ${text.slice(0, 4000)}`;
     refreshDashVandocsAlert();
   }
   window.loadVandocsList = loadVandocsList;
+
+  /* ─── VAN hub 인라인 접수서류 패널 (myPageModal 의 복제 — 같은 데이터/렌더링 재사용) ─── */
+  window._vanhubToggleVandocs = function(forceState) {
+    const panel = document.getElementById('vanhubVandocsPanel');
+    if (!panel) return;
+    const hidden = (panel.style.display === 'none');
+    const open = (typeof forceState === 'boolean') ? forceState : hidden;
+    panel.style.display = open ? '' : 'none';
+    if (open) window._vanhubLoadDocs();
+  };
+
+  window._vanhubLoadDocs = async function() {
+    const area = document.getElementById('vanhubVandocsArea');
+    const badge = document.getElementById('vanhubVandocsBadge');
+    const countLbl = document.getElementById('vanhubVandocsCountLbl');
+    if (!area) return;
+    area.innerHTML = `<div style="text-align:center;padding:20px;color:var(--gray-400);font-size:12px">불러오는 중…</div>`;
+    const showAcked = !!document.getElementById('vanhubVandocsShowAcked')?.checked;
+    let data;
+    try { data = await fetchVandocsIndex(false); } catch(e) { data = { items: [] }; }
+    const all = data.items || [];
+    const unackCount = all.filter(it => !it.acknowledged).length;
+    if (badge) badge.textContent = unackCount;
+    const items = showAcked ? all : all.filter(it => !it.acknowledged);
+    if (countLbl) countLbl.textContent = showAcked
+      ? `(전체 ${all.length}건 · 미확인 ${unackCount}건)`
+      : `(미확인 ${unackCount}건)`;
+    if (!items.length) {
+      area.innerHTML = `<div style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">${showAcked?'업로드된 서류가 없습니다.':'확인할 신규 서류가 없습니다.'}</div>`;
+      return;
+    }
+    area.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px">${items.map(_vdRowHtml).join('')}</div>`;
+    try { refreshDashVandocsAlert(); } catch(_){}
+  };
+
+  // VAN hub 진입 시 미확인 서류 카운트만 미리 갱신 (패널은 닫힘 유지)
+  window._vanhubRefreshDocsBadge = async function() {
+    const badge = document.getElementById('vanhubVandocsBadge');
+    if (!badge) return;
+    try {
+      const data = await fetchVandocsIndex(false);
+      const unack = (data.items || []).filter(it => !it.acknowledged).length;
+      badge.textContent = unack;
+    } catch(_){}
+  };
 
   async function ackVandoc(id) {
     let by = '';
