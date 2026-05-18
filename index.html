@@ -4553,7 +4553,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           <span id="lsComposerCharCount" style="font-size:10.5px;color:var(--gray-500);margin-left:auto">0자</span>
         </div>
         <textarea id="lsComposerText" rows="4" style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13.5px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
-        <div style="font-size:10px;color:var(--gray-500);margin-top:3px">권장 포맷: <code style="background:#FFFBEB;padding:1px 5px;border-radius:3px;border:1px solid #FCD34D">매장명 : 처리일 ; 요청내용</code></div>
+        <div style="font-size:10px;color:var(--gray-500);margin-top:3px">권장 포맷: <code style="background:#FFFBEB;padding:1px 5px;border-radius:3px;border:1px solid #FCD34D">매장명 : 처리일 ; 요청내용</code> · 본문(첫 줄) 권장 ≤140byte (한글 ~46자)</div>
       </div>
 
       <!-- 첨부 미리보기 -->
@@ -6974,8 +6974,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     else if (status === '일정확정') processDate = rec.scheduleDate || rec.consultDate || todayKst;
     else processDate = rec.consultDate || todayKst;
 
-    // 메시지 본문 (≤30) — memo 우선
-    const memo30 = (rec.memo || '').replace(/\s+/g,' ').trim().slice(0, 30);
+    // 메시지 본문 (≤140byte) — memo 우선
+    const memoHead = (rec.memo || '').replace(/\s+/g,' ').trim();
+    const memo30 = (typeof window._sliceByByte === 'function')
+                 ? window._sliceByByte(memoHead, window._LINE_HEAD_BYTES || 140)
+                 : memoHead.slice(0, 140);
     let content;
     if (memo30) content = memo30;
     else if (status === '마감') content = '재고조사 마감 처리';
@@ -13496,10 +13499,47 @@ ${text.slice(0, 4000)}`;
   })();
 
   /* ════════════════════════════════════════════════════════════
+     LINE 메시지 본문 길이 — UTF-8 byte 기준 (한글 3byte, ASCII 1byte)
+     · 헤더 본문(headContent) 최대 140byte
+     · 한 LINE 메시지 전체는 LINE API 한도 4900자 유지 (서버측)
+   ════════════════════════════════════════════════════════════ */
+  window._LINE_HEAD_BYTES = 140;
+  window._byteLen = function(s) {
+    s = String(s == null ? '' : s);
+    let n = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      if (c < 0x80) n += 1;
+      else if (c < 0x800) n += 2;
+      else if (c >= 0xD800 && c <= 0xDBFF) { n += 4; i++; }   // surrogate pair (이모지)
+      else n += 3;
+    }
+    return n;
+  };
+  window._sliceByByte = function(s, maxBytes) {
+    s = String(s == null ? '' : s);
+    if (window._byteLen(s) <= maxBytes) return s;
+    let n = 0, out = '';
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      let inc;
+      if (c < 0x80) inc = 1;
+      else if (c < 0x800) inc = 2;
+      else if (c >= 0xD800 && c <= 0xDBFF) inc = 4;
+      else inc = 3;
+      if (n + inc > maxBytes) break;
+      n += inc;
+      out += s[i];
+      if (inc === 4) { out += s[i+1]; i++; }
+    }
+    return out;
+  };
+
+  /* ════════════════════════════════════════════════════════════
      _buildEnrichedLineText — 카테고리 공용 다중 라인 메시지 빌더
      ────────────────────────────────────────────────────────────
      포맷:
-       매장명 : 처리일 ; 본문(≤30자)
+       매장명 : 처리일 ; 본문(≤140byte)
        📅 일정
        📊 규모 / 옵션
        💰 결과 (완료 시)
@@ -13521,8 +13561,11 @@ ${text.slice(0, 4000)}`;
     const storeName = rec.storeName || rec.store || '';
     let content = opts.headContent || '';
     if (!content) {
-      const memo30 = (rec.memo || rec.text || rec.request || '').replace(/\s+/g,' ').trim().slice(0, 30);
-      content = memo30 || (status || '업무 등록');
+      const head = (rec.memo || rec.text || rec.request || '').replace(/\s+/g,' ').trim();
+      content = (typeof window._sliceByByte === 'function')
+              ? window._sliceByByte(head, window._LINE_HEAD_BYTES || 140)
+              : head.slice(0, 140);
+      if (!content) content = status || '업무 등록';
     }
     const headLine = `${storeName} : ${processDate} ; ${content}`;
 
@@ -13595,8 +13638,11 @@ ${text.slice(0, 4000)}`;
     const entry = opts.entry;
     let headContent = '';
     let attachments = Array.isArray(job.attachments) ? job.attachments.slice() : [];
+    const _bSlice = (s) => (typeof window._sliceByByte === 'function')
+                          ? window._sliceByByte(s, window._LINE_HEAD_BYTES || 140)
+                          : String(s||'').slice(0, 140);
     if (entry) {
-      headContent = (entry.text || '').replace(/\s+/g,' ').trim().slice(0, 60);
+      headContent = _bSlice((entry.text || '').replace(/\s+/g,' ').trim());
       if (Array.isArray(entry.attachments) && entry.attachments.length) {
         attachments = entry.attachments;
       }
@@ -13604,7 +13650,7 @@ ${text.slice(0, 4000)}`;
       // 최신 항목 (ts 기준)
       const latest = job.thread.slice().sort((a,b)=>(b.ts||'').localeCompare(a.ts||''))[0];
       if (latest) {
-        headContent = (latest.text || '').replace(/\s+/g,' ').trim().slice(0, 60);
+        headContent = _bSlice((latest.text || '').replace(/\s+/g,' ').trim());
         if (Array.isArray(latest.attachments) && latest.attachments.length) {
           // job-level + thread-level 합치기 (중복 제거 by key/url)
           const seen = new Set(attachments.map(a => a.key || a.url));
@@ -13615,7 +13661,7 @@ ${text.slice(0, 4000)}`;
         }
       }
     }
-    if (!headContent) headContent = (job.memo || job.notes || job.type || '업무 등록').slice(0, 60);
+    if (!headContent) headContent = _bSlice(job.memo || job.notes || job.type || '업무 등록');
 
     // rec 객체로 정규화 (job 필드를 _buildEnrichedLineText 가 읽는 키 이름으로 매핑)
     const rec = Object.assign({}, job, {
@@ -13722,8 +13768,12 @@ ${text.slice(0, 4000)}`;
     // 미리보기 업데이트 함수
     function updatePreview() {
       const text = ta.value;
-      charCount.textContent = text.length + '자';
-      charCount.style.color = text.length > 200 ? '#DC2626' : 'var(--gray-500)';
+      // 첫 줄(헤더) byte 수 표시 + 전체 길이
+      const firstLine = (text.split('\n')[0] || '');
+      const headBytes = (typeof window._byteLen === 'function') ? window._byteLen(firstLine) : firstLine.length;
+      const limit = window._LINE_HEAD_BYTES || 140;
+      charCount.textContent = `${text.length}자 · 첫줄 ${headBytes}/${limit}byte`;
+      charCount.style.color = (headBytes > limit) ? '#DC2626' : (text.length > 4900 ? '#DC2626' : 'var(--gray-500)');
       let preview = text;
       if (files.length) {
         preview += '\n\n📎 파일:';
