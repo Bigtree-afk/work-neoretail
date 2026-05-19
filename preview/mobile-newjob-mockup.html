@@ -34,6 +34,18 @@
   .tab.active { color:var(--primary); border-bottom-color:var(--primary) }
   .body { flex:1; overflow-y:auto; padding:12px 14px 90px; background:#F0F2F5 }
 
+  /* 홈 — 긴급 배지 펄스 */
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.12); opacity: 0.85; }
+  }
+
+  /* 하단 네비 (홈 화면용) */
+  .bottom-nav { position:absolute; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--gray-200); display:flex; justify-content:space-around; padding:6px 0 10px }
+  .nav-item { flex:1; text-align:center; padding:6px 0; font-size:10.5px; font-weight:700; color:var(--gray-500); display:flex; flex-direction:column; gap:3px; align-items:center }
+  .nav-item .icn { font-size:21px; line-height:1 }
+  .nav-item.active { color:var(--primary) }
+
   /* List card */
   .card { background:#fff; border-radius:12px; padding:13px 14px; margin-bottom:10px; box-shadow:0 1px 2px rgba(0,0,0,.04) }
   .card.req { border-left:4px solid #3B82F6 }
@@ -213,6 +225,150 @@
 
 <div class="frames">
 
+<!-- ⓪ 메인 홈 — 5개 카테고리 아이콘 2 줄 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>09:40</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div style="font-size:21px">🏠</div>
+        <div class="title">NeoRetail</div>
+        <span class="badge" style="background:#FEF3C7;color:#92400E">⚠ 6</span>
+      </div>
+      <div class="body" style="padding:14px 14px 90px;background:linear-gradient(180deg,#fff,#F0F2F5 50%)">
+
+        <!-- 인사 -->
+        <div style="font-size:13px;color:var(--gray-600);margin-bottom:6px">안녕하세요, 이헌상님 👋</div>
+        <div style="font-size:18px;font-weight:800;color:var(--gray-800);margin-bottom:14px">오늘 처리할 업무를 선택하세요</div>
+
+        <!-- 5개 카테고리 아이콘 (2줄: 3 + 2) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #BFDBFE;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(59,130,246,.08);position:relative">
+            <div style="font-size:32px">🆕</div>
+            <div style="font-size:12.5px;font-weight:800;color:#1E40AF">신규</div>
+            <div style="font-size:10px;color:var(--gray-500)">6건 진행</div>
+            <span style="position:absolute;top:6px;right:6px;background:#EF4444;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px">D-2</span>
+          </a>
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #FCA5A5;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(239,68,68,.08);position:relative">
+            <div style="font-size:32px">🔧</div>
+            <div style="font-size:12.5px;font-weight:800;color:#991B1B">AS</div>
+            <div style="font-size:10px;color:var(--gray-500)">3건 긴급</div>
+            <span style="position:absolute;top:6px;right:6px;background:#EF4444;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px;animation:pulse 1.4s infinite">긴급</span>
+          </a>
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #DDD6FE;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(124,58,237,.08);position:relative">
+            <div style="font-size:32px">💳</div>
+            <div style="font-size:12.5px;font-weight:800;color:#5B21B6">VAN</div>
+            <div style="font-size:10px;color:var(--gray-500)">4건 · 📑 2</div>
+            <span style="position:absolute;top:6px;right:6px;background:#7C3AED;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px">📑 2</span>
+          </a>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #FCD34D;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(245,158,11,.08);position:relative">
+            <div style="font-size:32px">🛒</div>
+            <div style="font-size:12.5px;font-weight:800;color:#92400E">소모품판매</div>
+            <div style="font-size:10px;color:var(--gray-500)">미수 3건</div>
+            <span style="position:absolute;top:6px;right:6px;background:#F59E0B;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px">미수</span>
+          </a>
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #A7F3D0;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(16,185,129,.08);position:relative">
+            <div style="font-size:32px">📦</div>
+            <div style="font-size:12.5px;font-weight:800;color:#065F46">재고조사</div>
+            <div style="font-size:10px;color:var(--gray-500)">2건 진행</div>
+            <span style="position:absolute;top:6px;right:6px;background:#10B981;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px">2</span>
+          </a>
+        </div>
+
+        <!-- 안내 -->
+        <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;padding:9px 11px;font-size:11px;color:#1E40AF;line-height:1.55;margin-bottom:12px">
+          💡 각 아이콘 탭 → <b>① 서브 카테고리 선택</b> → <b>② 매장 선택</b> → <b>③ 기존 요청 확인/수정</b> 또는 <b>④ 신규 업무 등록</b> 흐름이 모든 업무에 동일하게 적용됩니다.
+        </div>
+
+        <!-- 빠른 진입: 최근 작업한 매장 -->
+        <div style="font-size:11px;font-weight:800;color:var(--gray-600);margin-bottom:6px;text-transform:uppercase">최근 매장</div>
+        <div style="background:#fff;border-radius:10px;padding:9px 12px;margin-bottom:5px;display:flex;align-items:center;gap:8px">
+          <div style="width:32px;height:32px;background:#06C7551A;color:#04A047;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px">🏪</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:12.5px">카페모리(역삼점)</div>
+            <div style="font-size:10.5px;color:var(--gray-500)">🆕 신규/오픈 · D-2</div>
+          </div>
+          <span style="font-size:11px;color:var(--gray-400)">›</span>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:9px 12px;margin-bottom:5px;display:flex;align-items:center;gap:8px">
+          <div style="width:32px;height:32px;background:#FEE2E2;color:#991B1B;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px">🏪</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:12.5px">정이가마트</div>
+            <div style="font-size:10.5px;color:var(--gray-500)">🔧 AS · POS 영수증 출력 안됨</div>
+          </div>
+          <span style="font-size:11px;color:var(--gray-400)">›</span>
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-item active"><div class="icn">🏠</div>홈</div>
+        <div class="nav-item"><div class="icn">📅</div>일정</div>
+        <div class="nav-item"><div class="icn">🏪</div>매장</div>
+        <div class="nav-item"><div class="icn">📡</div>LINE</div>
+        <div class="nav-item"><div class="icn">⚙️</div>설정</div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⓪ 메인 홈 — 5개 업무 아이콘 · 매장별 빠른 진입</div>
+</div>
+
+<!-- ⓪ⓑ 서브 카테고리 선택 시트 — 신규 아이콘 탭 시 진입 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen" style="background:rgba(0,0,0,.4)">
+      <div class="statusbar"><span>09:41</span><span class="icons">📶 📡 🔋</span></div>
+      <div style="background:#fff;height:50px;opacity:.4"></div>
+      <div style="background:#fff;border-radius:18px 18px 0 0;flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:10px 16px 4px">
+          <div style="width:36px;height:4px;background:#D1D5DB;border-radius:3px;margin:0 auto 12px"></div>
+          <div style="font-size:15px;font-weight:800;color:var(--gray-800);display:flex;align-items:center;gap:7px;margin-bottom:6px">🆕 신규 — 서브 카테고리</div>
+          <div style="font-size:11.5px;color:var(--gray-500);margin-bottom:12px">진행할 업무 유형을 선택하세요. 그 다음 단계에서 매장을 선택합니다.</div>
+        </div>
+
+        <div style="padding:0 14px 14px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
+          <a href="#" style="text-decoration:none;background:#fff;border:2px solid #BFDBFE;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+            <div style="font-size:30px">🏪</div>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:800;color:#1E40AF">신규/오픈</div>
+              <div style="font-size:11px;color:var(--gray-500);margin-top:2px">신규 매장 오픈 + 장비 설치 (설치예정·가오픈·오픈일 입력)</div>
+            </div>
+            <span style="font-size:18px;color:#1E40AF">›</span>
+          </a>
+          <a href="#" style="text-decoration:none;background:#fff;border:2px solid var(--gray-200);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+            <div style="font-size:30px">🔄</div>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:800;color:var(--gray-800)">신규/프로그램 교체</div>
+              <div style="font-size:11px;color:var(--gray-500);margin-top:2px">기존 POS 의 POS 프로그램 교체 (TID 유지)</div>
+            </div>
+            <span style="font-size:18px;color:var(--gray-400)">›</span>
+          </a>
+          <a href="#" style="text-decoration:none;background:#fff;border:2px solid var(--gray-200);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+            <div style="font-size:30px">🔁</div>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:800;color:var(--gray-800)">신규/VAN 변경</div>
+              <div style="font-size:11px;color:var(--gray-500);margin-top:2px">VAN사 변경 + 단말 교체</div>
+            </div>
+            <span style="font-size:18px;color:var(--gray-400)">›</span>
+          </a>
+
+          <div style="margin-top:8px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:9px;padding:9px 11px;font-size:11px;color:#92400E;line-height:1.55">
+            ⚠️ AS / VAN / 소모품 / 재고조사 업무는 홈에서 해당 메뉴로 진입하세요 — 업무간 혼선 방지.
+          </div>
+        </div>
+
+        <div style="padding:10px 14px 16px;border-top:1px solid var(--gray-200);background:#fff">
+          <button style="width:100%;padding:11px;background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300);border-radius:10px;font-weight:700">취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⓪ⓑ 서브 카테고리 선택 — 신규/오픈·교체·VAN변경 중 선택</div>
+</div>
+
 <!-- ① 홈 / 신규 리스트 -->
 <div>
   <div class="device">
@@ -373,25 +529,17 @@
           </div>
         </div>
 
-        <!-- 작업 유형 -->
+        <!-- 작업 유형 — 신규 컨텍스트 진입이므로 신규/* 만 선택 -->
         <div class="sec">
-          <div class="sec-h">📂 작업 유형</div>
-          <select class="field-select">
-            <option>상담</option>
-            <option selected>신규</option>
-            <option>신규가맹</option>
-            <option>VAN사 변경</option>
-            <option>SW 변경</option>
-            <option>당사매장 인수</option>
-            <option>POS 교체</option>
-            <option>장비 추가</option>
-            <option>AS 처리</option>
-          </select>
-          <select class="field-select" style="margin-top:6px">
-            <option selected>🏪 신규/오픈</option>
-            <option>🔄 신규/프로그램교체</option>
-            <option>🔁 신규/VAN변경</option>
-          </select>
+          <div class="sec-h">📂 작업 유형
+            <span class="hint right" style="background:#06C7551A;color:#04A047;padding:2px 8px;border-radius:10px;font-weight:800">🆕 신규 메뉴 진입</span>
+          </div>
+          <div class="radio-row">
+            <label class="radio-chip on"><input type="radio" name="m_jobtype" checked>🏪 신규/오픈</label>
+            <label class="radio-chip"><input type="radio" name="m_jobtype">🔄 신규/프로그램교체</label>
+            <label class="radio-chip"><input type="radio" name="m_jobtype">🔁 신규/VAN변경</label>
+          </div>
+          <div style="font-size:10.5px;color:var(--gray-500);margin-top:4px">※ AS/VAN/소모품/재고조사는 각 메뉴에서 진입해 등록 — 작업 유형 혼선 방지</div>
         </div>
 
         <!-- 담당 엔지니어 -->
@@ -584,96 +732,118 @@
           </div>
         </div>
 
-        <!-- 투입 장비 (카탈로그 검색 + 행, 각 행 — 품목·수량·단가) -->
+        <!-- 투입 장비 — 모바일 단순 체크리스트 (신품/중고 토글 + 항목별 수량) -->
         <div class="sec">
           <div class="sec-h">📦 투입 장비
-            <button class="toggle-btn right">＋ 행 추가</button>
-          </div>
-          <div class="equip-search">
-            <input type="text" placeholder="카탈로그 검색 (예: POS, 키오스크)">
-            <span class="ico">🔍</span>
+            <span class="hint right">※ 상세 출고는 PC에서</span>
           </div>
 
-          <div class="equip-card on">
-            <div class="top">
-              <div class="equip-ico">🖥️</div>
-              <div style="flex:1;min-width:0">
-                <div class="equip-nm">POS 본체 (NeoPOS-15)</div>
-                <div class="equip-sub">15인치 터치 · 윈도우11</div>
-              </div>
-              <button class="equip-row-x">✕</button>
-            </div>
-            <div class="equip-grid">
-              <div>
-                <div class="field-label-sm">상태</div>
-                <select style="padding:6px 4px;font-size:12px;width:100%;border:1.5px solid var(--gray-300);border-radius:6px"><option>신품</option><option>중고</option></select>
-              </div>
-              <div>
-                <div class="field-label-sm">수량</div>
-                <input type="number" value="2">
-              </div>
-              <div>
-                <div class="field-label-sm">단가(판매)</div>
-                <input type="number" value="850000">
-              </div>
-            </div>
+          <!-- 신품 / 중고 토글 -->
+          <div style="display:flex;gap:5px;margin-bottom:10px">
+            <label class="radio-chip on" style="flex:1;justify-content:center;padding:9px 0">
+              <input type="radio" name="m_grade" checked>🆕 신품
+            </label>
+            <label class="radio-chip" style="flex:1;justify-content:center;padding:9px 0">
+              <input type="radio" name="m_grade">♻️ 중고
+            </label>
           </div>
 
-          <div class="equip-card on">
-            <div class="top">
-              <div class="equip-ico">💳</div>
-              <div style="flex:1;min-width:0">
-                <div class="equip-nm">KOCES 단말기 (KS-7000)</div>
-                <div class="equip-sub">IC·MSR·NFC</div>
+          <div style="font-size:10.5px;color:var(--gray-500);margin-bottom:8px">투입할 장비에 체크하고 수량을 입력하세요. 세부 모델/단가는 PC 에서 출고할 때 지정.</div>
+
+          <!-- 장비 항목 리스트 (체크박스 + 수량) -->
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <!-- 서버 -->
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid #BFDBFE;border-radius:8px;cursor:pointer">
+              <input type="checkbox" checked style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">🖥️</span>
+              <span style="font-weight:700;font-size:13px;flex:1">서버</span>
+              <input type="number" value="1" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right;font-weight:700">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <!-- PC -->
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">💻</span>
+              <span style="font-weight:700;font-size:13px;flex:1">PC</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <!-- 포스 -->
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid #BFDBFE;border-radius:8px;cursor:pointer">
+              <input type="checkbox" checked style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">🛒</span>
+              <span style="font-weight:700;font-size:13px;flex:1">포스</span>
+              <input type="number" value="2" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right;font-weight:700">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <!-- 키오스크 -->
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid #BFDBFE;border-radius:8px;cursor:pointer">
+              <input type="checkbox" checked style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">🤖</span>
+              <span style="font-weight:700;font-size:13px;flex:1">키오스크</span>
+              <input type="number" value="1" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right;font-weight:700">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <!-- 고정스캐너 -->
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">🔍</span>
+              <span style="font-weight:700;font-size:13px;flex:1">고정스캐너</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <!-- 핸디터미널 -->
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">📲</span>
+              <span style="font-weight:700;font-size:13px;flex:1">핸디터미널</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <!-- 라벨프린터 -->
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">🖨️</span>
+              <span style="font-weight:700;font-size:13px;flex:1">라벨프린터</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <!-- 포스다이 좌타/우타 (한 행에 2 입력) -->
+            <div style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px">
+              <span style="font-size:18px">🪑</span>
+              <span style="font-weight:700;font-size:13px;flex:1">포스다이</span>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                <span style="font-size:9.5px;color:var(--gray-500);font-weight:700">좌타</span>
+                <input type="number" placeholder="0" min="0" style="width:54px;padding:5px 6px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;text-align:right">
               </div>
-              <button class="equip-row-x">✕</button>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                <span style="font-size:9.5px;color:var(--gray-500);font-weight:700">우타</span>
+                <input type="number" placeholder="0" min="0" style="width:54px;padding:5px 6px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;text-align:right">
+              </div>
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
             </div>
-            <div class="equip-grid">
-              <div>
-                <div class="field-label-sm">상태</div>
-                <select style="padding:6px 4px;font-size:12px;width:100%;border:1.5px solid var(--gray-300);border-radius:6px"><option>신품</option></select>
-              </div>
-              <div>
-                <div class="field-label-sm">수량</div>
-                <input type="number" value="2">
-              </div>
-              <div>
-                <div class="field-label-sm">단가(판매)</div>
-                <input type="number" value="280000">
-              </div>
-            </div>
+            <!-- 체크기 -->
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">📋</span>
+              <span style="font-weight:700;font-size:13px;flex:1">체크기</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <!-- 핸디스캐너 -->
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">🔫</span>
+              <span style="font-weight:700;font-size:13px;flex:1">핸디스캐너</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
           </div>
 
-          <div class="equip-card on">
-            <div class="top">
-              <div class="equip-ico">🤖</div>
-              <div style="flex:1;min-width:0">
-                <div class="equip-nm">키오스크 (NK-22)</div>
-                <div class="equip-sub">22인치 스탠드형</div>
-              </div>
-              <button class="equip-row-x">✕</button>
-            </div>
-            <div class="equip-grid">
-              <div>
-                <div class="field-label-sm">상태</div>
-                <select style="padding:6px 4px;font-size:12px;width:100%;border:1.5px solid var(--gray-300);border-radius:6px"><option>신품</option></select>
-              </div>
-              <div>
-                <div class="field-label-sm">수량</div>
-                <input type="number" value="1">
-              </div>
-              <div>
-                <div class="field-label-sm">단가(판매)</div>
-                <input type="number" value="1850000">
-              </div>
-            </div>
-          </div>
-
-          <button class="equip-add-btn">＋ 행 추가 (커스텀 품목)</button>
-
-          <div style="margin-top:7px;padding:8px 10px;background:#F3F4F6;border-radius:7px;display:flex;justify-content:space-between;font-size:12px">
-            <span style="color:var(--gray-600);font-weight:700">합계 (판매가 × 수량)</span>
-            <span style="color:var(--primary);font-weight:800">4,110,000</span>
+          <!-- 합계 -->
+          <div style="margin-top:8px;padding:8px 11px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:7px;display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:#1E40AF;font-weight:700">선택 항목</span>
+            <span style="color:#1E40AF;font-weight:800">4종 · 합 6 nea (서버 1 · 포스 2 · 키오스크 1 · 포스다이 좌 2)</span>
           </div>
         </div>
 
@@ -755,7 +925,29 @@
           <div class="body-t">설치 완료. POS×2 / KIOSK×1 / KOCES×2 정상 동작 확인. 가오픈 5/19 예정.</div>
         </div>
 
-        <button class="thread-add" style="background:#fff">＋ 새 요청 접수 / 진행 추가</button>
+        <!-- + 새 기록 추가 폼 (펼침 상태) — 단계별 LINE 발송 토글 -->
+        <div style="background:#F8FAFC;border:1.5px solid #CBD5E1;border-radius:10px;padding:11px 12px;margin-top:8px">
+          <div style="font-size:11.5px;font-weight:800;color:var(--gray-700);margin-bottom:8px">＋ 새 기록 추가</div>
+          <div class="radio-row">
+            <label class="radio-chip on"><input type="radio" name="m_st" checked>🔄 진행</label>
+            <label class="radio-chip"><input type="radio" name="m_st">✅ 완료</label>
+            <label class="radio-chip"><input type="radio" name="m_st">📥 새 요청접수</label>
+          </div>
+          <textarea class="field-textarea" placeholder="처리/진행 내용을 입력하세요..." style="margin-bottom:7px">가오픈 시뮬레이션 완료. 5/20 오픈 준비.</textarea>
+          <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:7px">
+            <button style="background:#fff;color:var(--primary);border:1.5px solid var(--primary);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700">📷 사진 추가</button>
+            <button style="background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700">📎 파일</button>
+          </div>
+          <!-- 📡 LINE 발송 체크 — 이번 진행/완료 등록 후 즉시 발송 -->
+          <label style="display:flex;align-items:center;gap:6px;padding:7px 11px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;cursor:pointer;margin-bottom:8px">
+            <input type="checkbox" checked style="accent-color:var(--line);margin:0">
+            <span style="font-size:11.5px;color:#06A647;font-weight:800">📡 이 진행 기록 등록 후 LINE 발송</span>
+          </label>
+          <div style="display:flex;gap:6px">
+            <button class="btn-big" style="flex:1;padding:11px;background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300);border-radius:8px;font-weight:700">취소</button>
+            <button class="btn-big" style="flex:2;padding:11px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:800">＋ 기록 추가</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -764,14 +956,24 @@
 
 </div>
 
-<h2>🗂️ 시나리오</h2>
-<div class="card" style="background:#fff;padding:14px;font-size:12.5px;line-height:1.8">
-  ①홈 리스트 → FAB＋ → ②등록 풀폼(데스크톱 newJobModal 섹션 순서대로 스크롤) → 작업 등록 / LINE 발송. 카드 탭 → ③ thread 상세에서 진행 추가.
+<h2>🗂️ 시나리오 (메모 피드백 반영)</h2>
+<div class="card" style="background:#fff;padding:14px;font-size:12.5px;line-height:1.85">
+  <b>⓪ 메인 홈</b>에서 5개 업무 아이콘 중 <b>🆕 신규</b> 탭 → <b>⓪ⓑ 서브 카테고리 시트</b>(신규/오픈·교체·VAN변경) → <b>① 신규 리스트</b> 또는 <b>② 등록 풀폼</b> → 등록 후 <b>③ thread</b> 에서 진행/완료 단계마다 <b>📡 LINE 발송 체크</b> 로 즉시 알림 발송.<br>
+  ⚠ AS·VAN·소모품·재고조사도 동일 흐름 — 홈에서 해당 아이콘 진입 → 서브 카테고리 → 매장 선택 → 기존 요청 확인 또는 신규 등록.
+</div>
+
+<h2>📝 반영된 메모</h2>
+<div class="card" style="background:#FEF3C7;border:1px solid #FCD34D;padding:14px;font-size:12px;line-height:1.85;color:#92400E">
+  <b>① 메인 홈</b> 5개 업무 아이콘 2줄 배치 (홈 화면 신설)<br>
+  <b>② 업무간 구분</b> 각 메뉴 진입 시 서브 카테고리만 표시 (작업 유형 칩에 "🆕 신규 메뉴 진입" 안내)<br>
+  <b>③ 작업 유형 단순화</b> 신규/* 만 라디오로 표시 (다른 카테고리 옵션 제거)<br>
+  <b>④ 단계별 LINE 발송</b> thread 의 새 기록 추가 폼에 "📡 이 진행 기록 등록 후 LINE 발송" 체크박스 (기본 ON)<br>
+  <b>⑤ 투입 장비 단순화</b> 신품/중고 토글 + 10종 체크리스트(서버/PC/포스/키오스크/고정스캐너/핸디터미널/라벨프린터/포스다이 좌·우타/체크기/핸디스캐너) + 수량(nea) — 세부 모델·단가는 PC에서
 </div>
 
 <h2>🔧 기술 노트</h2>
 <div class="card" style="background:#fff;padding:14px;font-size:12.5px;line-height:1.8">
-  데스크톱 <code>newJobModal</code> 의 동일 필드 ID/구조 그대로 (점포명 라디오, jobType, jobEngineer, jobInstallDate/SoftOpenDate/OpenDate, jobAddressInput, jobContact*, jobThreadContainer, jobVandocsContainer, equipTable, jobNotes, newJobUploader, newJobLineSend). 데스크톱 3-컬럼 grid 는 모바일에서 stacked. 별도 모바일 전용 화면 없음 — 동일 데이터/저장 로직 재사용.
+  데스크톱 <code>newJobModal</code> 의 필드 구조는 유지하되 모바일에선 진입 흐름과 입력 형태를 단순화. 투입 장비는 PC에선 카탈로그 + 단가 카드, 모바일에선 체크리스트 + 수량만 (저장 시 도메인 모델은 그대로 유지). LINE 발송 체크박스는 기존 <code>newJobLineSend</code> + thread 단계별 발송 흐름 재사용.
 </div>
 
 </body>
