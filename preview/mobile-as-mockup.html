@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>🔧 AS 모바일 — 현장 엔지니어 UI 목업</title>
+<title>🔧 AS 모바일 — 데스크톱 newJobModal(AS) 1:1 이식</title>
 <style>
   :root {
     --primary:#2563EB; --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
     --gray-300:#D1D5DB; --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-600:#4B5563;
     --gray-700:#374151; --gray-800:#1F2937; --line:#06C755; --line-light:#06C7551A;
-    --beige:#FEF7E6; --danger:#EF4444; --warn:#F59E0B; --success:#10B981;
+    --danger:#EF4444; --warn:#F59E0B; --success:#10B981; --purple:#8B5CF6;
   }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent }
   body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans KR',sans-serif; background:#F0F2F5; margin:0; padding:18px; color:var(--gray-800); font-size:13px; line-height:1.5 }
@@ -18,170 +18,120 @@
   .lead { font-size:12px; color:var(--gray-500); margin-bottom:14px }
 
   .frames { display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:18px; align-items:start }
-  .device {
-    background:#1F2937; border-radius:34px; padding:8px;
-    box-shadow:0 12px 36px rgba(0,0,0,.18);
-    width:380px; max-width:100%; justify-self:center;
-  }
+  .device { background:#1F2937; border-radius:34px; padding:8px; box-shadow:0 12px 36px rgba(0,0,0,.18); width:380px; max-width:100%; justify-self:center }
   .notch { width:130px; height:24px; background:#1F2937; margin:-2px auto 0; border-radius:0 0 14px 14px; position:relative; z-index:5 }
-  .screen { background:#F0F2F5; border-radius:28px; overflow:hidden; height:752px; position:relative; display:flex; flex-direction:column }
+  .screen { background:#F0F2F5; border-radius:28px; overflow:hidden; height:760px; position:relative; display:flex; flex-direction:column }
   .device-title { text-align:center; font-size:11px; color:var(--gray-500); margin-top:6px; font-weight:600 }
 
   .statusbar { background:#fff; padding:5px 18px 0; display:flex; align-items:center; justify-content:space-between; font-size:11.5px; font-weight:700; color:var(--gray-800); height:24px }
   .statusbar .icons { display:flex; gap:4px; font-size:10px }
-
   .appbar { background:#fff; padding:12px 16px 10px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--gray-200) }
-  .appbar .back { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--gray-700); cursor:pointer }
+  .appbar .back { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--gray-700) }
   .appbar .title { flex:1; font-weight:800; font-size:15px }
   .appbar .badge { background:#06C7551A; color:#04A047; border-radius:11px; padding:2px 8px; font-size:10.5px; font-weight:800 }
   .appbar .badge.danger { background:#FEE2E2; color:#991B1B }
-  .appbar .badge.warn { background:#FEF3C7; color:#92400E }
-
-  .tabs { background:#fff; display:flex; padding:0 8px; border-bottom:1px solid var(--gray-200); overflow-x:auto; gap:0 }
-  .tab { padding:11px 10px; font-size:12px; font-weight:700; color:var(--gray-500); border-bottom:3px solid transparent; white-space:nowrap }
-  .tab.active { color:var(--primary); border-bottom-color:var(--primary) }
-
   .body { flex:1; overflow-y:auto; padding:12px 14px 90px; background:#F0F2F5 }
 
+  /* 펄스 (긴급 배지) */
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.12); opacity: 0.85; }
+  }
+
+  /* 하단 네비 */
+  .bottom-nav { position:absolute; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--gray-200); display:flex; justify-content:space-around; padding:6px 0 10px }
+  .nav-item { flex:1; text-align:center; padding:6px 0; font-size:10.5px; font-weight:700; color:var(--gray-500); display:flex; flex-direction:column; gap:3px; align-items:center }
+  .nav-item .icn { font-size:21px; line-height:1 }
+  .nav-item.active { color:var(--danger) }
+
+  /* List card */
   .card { background:#fff; border-radius:12px; padding:13px 14px; margin-bottom:10px; box-shadow:0 1px 2px rgba(0,0,0,.04) }
   .card.req { border-left:4px solid #3B82F6 }
   .card.prog { border-left:4px solid #F59E0B }
   .card.done { border-left:4px solid #10B981 }
-  .card.urgent { border-left:4px solid var(--danger); background:linear-gradient(90deg,#FEF2F2 0%,#fff 30%) }
+  .card.soon { border-left:4px solid #F59E0B; background:linear-gradient(90deg,#FFFBEB 0%,#fff 35%) }
+  .card.urgent { border-left:4px solid var(--danger); background:linear-gradient(90deg,#FEF2F2 0%,#fff 35%) }
   .card .topline { display:flex; align-items:center; gap:6px; margin-bottom:6px }
   .card .nm { font-weight:800; font-size:14px; flex:1 }
   .pill { display:inline-block; padding:2px 8px; border-radius:11px; font-size:10px; font-weight:800 }
   .pill.req { background:#DBEAFE; color:#1e40af }
   .pill.prog { background:#FEF3C7; color:#92400E }
   .pill.done { background:#DCFCE7; color:#15803d }
-  .pill.urgent { background:#FEE2E2; color:#991B1B }
+  .pill.soon { background:#FEF3C7; color:#92400E }
+  .pill.urgent { background:#FEE2E2; color:#991B1B; animation:pulse 1.4s infinite }
   .pill.line { background:var(--line-light); color:#04A047 }
   .pill.dev { background:var(--gray-100); color:var(--gray-700); border:1px solid var(--gray-200) }
   .card .meta { font-size:11px; color:var(--gray-500); margin-bottom:4px }
   .card .summary { font-size:12.5px; color:var(--gray-700); margin-bottom:6px }
-  .card .actions-row { display:flex; gap:6px; margin-top:8px }
-  .btn-mini { flex:1; padding:8px 0; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; border:1.5px solid; text-align:center; background:#fff }
-  .btn-mini.prog { border-color:#F59E0B; color:#B45309 }
-  .btn-mini.done { border-color:#10B981; color:#15803d }
-  .btn-mini.line { background:var(--line); color:#fff; border-color:var(--line) }
-  .btn-mini.danger { background:var(--danger); color:#fff; border-color:var(--danger) }
 
-  .dday { display:inline-block; padding:2px 7px; border-radius:6px; font-size:10px; font-weight:800; font-family:'SF Mono',monospace }
-  .dday.safe { background:#DCFCE7; color:#15803d }
-  .dday.near { background:#FEF3C7; color:#92400E }
-  .dday.urgent { background:#FEE2E2; color:#991B1B }
-
-  .strip { display:flex; gap:5px; flex-wrap:wrap; margin-top:6px }
-  .thumb { width:46px; height:46px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:9px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5); flex-shrink:0 }
-  .thumb.img1 { background:linear-gradient(135deg,#3B82F6,#1E3A8A) }
-  .thumb.img2 { background:linear-gradient(135deg,#10B981,#065F46) }
-  .thumb.img3 { background:linear-gradient(135deg,#F59E0B,#92400E) }
-  .thumb.img4 { background:linear-gradient(135deg,#EF4444,#7F1D1D) }
-  .thumb.pdf { background:#DC2626 }
-  .thumb.xls { background:#15803D }
-  .thumb.more { background:#F3F4F6; color:var(--gray-500); border:1px dashed var(--gray-300); text-shadow:none }
-
-  .fab {
-    position:absolute; right:18px; bottom:24px;
-    background:var(--primary); color:#fff; width:58px; height:58px; border-radius:50%;
-    box-shadow:0 6px 18px rgba(37,99,235,.45); display:flex; align-items:center; justify-content:center;
-    font-size:26px; font-weight:300;
-  }
-
-  /* Form fields */
+  /* Form */
   .field { margin-bottom:10px }
-  .field-label { font-size:11px; font-weight:700; color:var(--gray-600); margin-bottom:4px; display:flex; align-items:center; gap:5px; justify-content:space-between }
+  .field-label { font-size:11.5px; font-weight:700; color:var(--gray-600); margin-bottom:4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap }
   .field-label .hint { font-size:10px; color:var(--gray-400); font-weight:500 }
   .field-input, .field-select, .field-textarea {
-    width:100%; padding:11px 12px; border:1.5px solid var(--gray-300); border-radius:9px;
+    width:100%; padding:10px 12px; border:1.5px solid var(--gray-300); border-radius:9px;
     font-size:13.5px; font-family:inherit; background:#fff;
   }
-  .field-input.sm, .field-select.sm { padding:8px 10px; font-size:12.5px }
   .field-textarea { min-height:62px; resize:vertical }
-  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:8px }
-  .three-col { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px }
 
-  /* Section title */
-  .section-h { font-size:11.5px; font-weight:800; color:var(--gray-500); text-transform:uppercase; letter-spacing:.5px; margin:16px 0 8px; padding-left:2px; display:flex; align-items:center; gap:6px }
-  .section-h:first-child { margin-top:0 }
+  /* Section box */
+  .sec { background:#fff; border-radius:11px; padding:12px 13px; margin-bottom:11px; border:1px solid var(--gray-200) }
+  .sec-h { font-size:12px; font-weight:800; color:var(--gray-700); margin-bottom:9px; display:flex; align-items:center; gap:6px; flex-wrap:wrap }
+  .sec-h .hint { font-size:10px; font-weight:500; color:var(--gray-400) }
+  .sec-h .right { margin-left:auto }
 
-  /* AS receipt panel (모바일에서 다시 노출) */
-  .as-panel { background:#FEF3C7; border:1px solid #FCD34D; border-radius:10px; padding:12px; margin-bottom:10px }
-  .as-panel-title { font-size:13px; font-weight:800; color:#92400E; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px }
-  .as-panel-title .recv { font-size:10.5px; font-weight:700 }
-  .as-panel .field-input, .as-panel .field-textarea { border-color:#FCD34D }
-  .as-panel .lbl-sm { font-size:10.5px; color:#92400E; font-weight:700; margin-bottom:3px }
+  /* Radio chip */
+  .radio-row { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:7px }
+  .radio-chip { display:inline-flex; align-items:center; gap:4px; padding:5px 10px; background:#fff; border:1px solid var(--gray-200); border-radius:14px; font-size:11.5px; font-weight:600; color:var(--gray-700) }
+  .radio-chip input { margin:0; accent-color:var(--primary) }
+  .radio-chip.on { background:#EFF6FF; border-color:#BFDBFE; color:#1d4ed8 }
+  .radio-chip.on.as { background:#FEE2E2; border-color:#FCA5A5; color:#991B1B }
 
-  /* Target device checkboxes */
-  .dev-checks { display:flex; gap:6px; flex-wrap:wrap }
-  .dev-check { display:inline-flex; align-items:center; gap:5px; padding:8px 11px; background:#fff; border:1.5px solid #FCD34D; border-radius:8px; cursor:pointer; font-size:12px; font-weight:700; color:#92400E }
-  .dev-check input { margin:0; width:14px; height:14px; accent-color:#92400E }
-  .dev-check.on { background:#92400E; color:#fff; border-color:#92400E }
+  /* Search dropdown */
+  .search-wrap { position:relative }
+  .search-wrap .ico { position:absolute; right:11px; top:50%; transform:translateY(-50%); color:var(--gray-400); font-size:13px }
 
-  /* Toggle row (미등록) */
-  .toggle-line { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px }
-  .chip-btn { background:#fff; border:1px solid var(--gray-300); color:var(--gray-600); font-size:10.5px; padding:3px 9px; border-radius:6px; font-weight:700; cursor:pointer }
+  /* Picked info */
+  .picked { margin-top:6px; padding:6px 10px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:6px; font-size:11px; color:#065F46; display:flex; gap:6px; justify-content:space-between; flex-wrap:wrap }
+  .picked code { background:#fff; padding:1px 6px; border-radius:3px; font-family:monospace; font-size:10.5px }
 
-  /* Search result row */
-  .search-res { background:#fff; border:1px solid var(--gray-200); border-radius:8px; max-height:150px; overflow-y:auto; margin-top:4px }
-  .search-row { padding:7px 10px; border-bottom:1px solid var(--gray-100); font-size:12px }
-  .search-row:last-child { border-bottom:none }
-  .search-row b { color:var(--primary) }
-  .search-row .biz { font-size:10.5px; color:var(--gray-500); font-family:monospace }
+  /* Thread */
+  .thread { background:var(--gray-50); border:1px dashed var(--gray-300); border-radius:10px; padding:11px }
+  .thread .empty { text-align:center; color:var(--gray-400); font-size:11.5px; padding:14px 0 }
+  .thread-item { background:#fff; border:1px solid var(--gray-200); border-radius:9px; padding:9px 11px; margin-bottom:6px }
+  .thread-item.req { border-left:4px solid #3B82F6 }
+  .thread-item.prog { border-left:4px solid #F59E0B }
+  .thread-item.done { border-left:4px solid #10B981 }
+  .thread-item .head { display:flex; gap:6px; align-items:center; margin-bottom:4px }
+  .thread-item .head .who { font-size:10.5px; color:var(--gray-500) }
+  .thread-item .body-t { font-size:12.5px; color:var(--gray-700) }
+  .thread-add { width:100%; margin-top:7px; padding:9px 0; background:#fff; border:1.5px dashed var(--primary); color:var(--primary); border-radius:8px; font-weight:800; font-size:12px }
 
-  /* Picked store info */
-  .picked-info { background:#F0FDF4; border:1px solid #BBF7D0; border-radius:6px; padding:6px 10px; font-size:11px; color:#065F46; margin-top:5px }
-
-  /* Thread (요청·진행·완료) */
-  .thread-wrap { background:#F9FAFB; border:1px solid var(--gray-200); border-radius:10px; padding:10px }
-  .thread-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px }
-  .thread-head .title { font-size:12.5px; font-weight:800; color:var(--gray-700) }
-  .thread-add { background:var(--primary); color:#fff; border:none; border-radius:7px; padding:5px 10px; font-size:11px; font-weight:800; cursor:pointer }
-  .thread-empty { background:#fff; border:1px dashed var(--gray-300); border-radius:8px; padding:14px; text-align:center; font-size:11.5px; color:var(--gray-500) }
-
-  /* Equip catalog card */
-  .eq-card { background:#fff; border:1px solid var(--gray-200); border-radius:9px; padding:10px 12px; margin-bottom:6px; display:flex; align-items:center; gap:10px }
-  .eq-card .nm { font-size:12.5px; font-weight:800; color:var(--gray-800) }
-  .eq-card .var { font-size:11px; color:var(--gray-500); margin-top:2px }
-  .eq-card .right { margin-left:auto; display:flex; align-items:center; gap:5px }
-  .eq-card .qty { width:38px; padding:4px 6px; border:1px solid var(--gray-300); border-radius:6px; font-size:12px; text-align:center; font-weight:700 }
-  .eq-card .used-tag { font-size:10px; padding:2px 6px; border-radius:5px; font-weight:800 }
-  .eq-card .used-tag.new { background:#DBEAFE; color:#1e40af }
-  .eq-card .used-tag.used { background:#FEF3C7; color:#92400E }
-  .eq-card .del { color:var(--danger); font-size:15px; cursor:pointer; padding:0 4px }
-
-  /* Photo grid */
-  .photo-grid-lg { display:grid; grid-template-columns:repeat(4,1fr); gap:7px }
-  .photo-lg { aspect-ratio:1; border-radius:9px; position:relative; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5) }
-  .photo-lg.add { background:#fff; border:2px dashed var(--gray-400); color:var(--gray-500); text-shadow:none; flex-direction:column; gap:1px; font-size:9px; font-weight:700 }
-  .photo-lg.add .plus { font-size:24px; line-height:1 }
+  /* Attachment */
+  .photo-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px }
+  .photo-lg { aspect-ratio:1; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:9.5px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5); position:relative }
+  .photo-lg.add { background:#fff; border:2px dashed var(--gray-400); color:var(--gray-500); text-shadow:none; flex-direction:column; gap:1px }
+  .photo-lg.add .plus { font-size:22px; line-height:1 }
   .photo-lg.add.camera { border-color:var(--primary); color:var(--primary); background:#EFF6FF }
-  .photo-lg.add.camera .icon { font-size:22px }
+  .photo-lg .x { position:absolute; top:-5px; right:-5px; background:#EF4444; color:#fff; width:18px; height:18px; border-radius:50%; font-size:11px; line-height:18px; text-align:center; font-weight:800; border:2px solid #fff }
 
   /* Sticky footer */
   .sticky-footer {
     position:absolute; left:0; right:0; bottom:0;
     background:#fff; border-top:1px solid var(--gray-200);
-    padding:10px 14px 14px; display:flex; align-items:center; gap:8px;
+    padding:10px 12px 12px;
+    display:flex; flex-direction:column; gap:7px;
   }
-  .line-check { display:inline-flex; align-items:center; gap:5px; padding:6px 10px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:14px; font-size:11.5px; font-weight:800; color:#04A047 }
-  .line-check input { accent-color:var(--line); margin:0 }
-  .btn-submit { flex:1; padding:12px 0; border-radius:9px; background:var(--primary); color:#fff; border:none; font-size:14px; font-weight:800; cursor:pointer }
-
-  /* Thread detail screen */
-  .tcard { background:#fff; border-radius:10px; padding:11px 13px; margin-bottom:8px; border-left:4px solid var(--gray-300) }
-  .tcard.req { border-left-color:#3B82F6 }
-  .tcard.prog { border-left-color:#F59E0B }
-  .tcard.done { border-left-color:#10B981 }
-  .tcard .thead { display:flex; align-items:center; gap:6px; margin-bottom:5px }
-  .tcard .who { font-size:11px; color:var(--gray-500); margin-left:auto }
-  .tcard .body-txt { font-size:12.5px; color:var(--gray-700); line-height:1.5; white-space:pre-wrap }
-  .tcard .foot { display:flex; align-items:center; gap:6px; margin-top:6px; padding-top:6px; border-top:1px dashed var(--gray-200) }
-  .tcard .foot .line-mini { font-size:10px; padding:1px 6px; border-radius:5px; background:var(--line-light); color:#04A047; font-weight:800 }
+  .line-check { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:14px; font-size:11.5px; font-weight:700; color:#06A647; align-self:flex-start }
+  .line-check input { accent-color:#06C755; margin:0 }
+  .btn-big { width:100%; padding:13px 0; border-radius:10px; font-size:14px; font-weight:800; border:none; background:var(--primary); color:#fff }
+  .btn-row { display:flex; gap:7px }
+  .btn-row .btn-big { flex:1 }
+  .btn-big.ghost { background:#fff; color:var(--gray-700); border:1.5px solid var(--gray-300) }
 
   code { background:#F3F4F6; padding:1px 5px; border-radius:3px; font-size:11.5px }
 
-  /* Nav */
+  /* Mockup nav */
   .mockup-nav {
     position: sticky; top: 0; z-index: 50;
     background: rgba(255,255,255,0.96); backdrop-filter: blur(8px);
@@ -190,9 +140,9 @@
     display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
   }
   .mockup-nav .label { font-size: 11px; font-weight: 800; color: #6B7280; margin-right: 4px; letter-spacing: 0.3px }
-  .mockup-nav a { padding: 6px 12px; border-radius: 18px; background: #F3F4F6; color: #4B5563; font-size: 12px; font-weight: 700; text-decoration: none; border: 1px solid transparent; transition: all .12s }
+  .mockup-nav a { padding: 6px 12px; border-radius: 18px; background: #F3F4F6; color: #4B5563; font-size: 12px; font-weight: 700; text-decoration: none; border: 1px solid transparent }
   .mockup-nav a:hover { background: #E5E7EB; color: #1F2937 }
-  .mockup-nav a.active { background: #2563EB; color: #fff; border-color: #2563EB; box-shadow: 0 2px 6px rgba(37,99,235,.3) }
+  .mockup-nav a.active { background: #DC2626; color: #fff; border-color: #DC2626; box-shadow: 0 2px 6px rgba(220,38,38,.3) }
 </style>
 </head>
 <body>
@@ -207,388 +157,574 @@
   <a href="mockup-debug.html#as" style="margin-left:auto;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D">📝 메모</a>
 </nav>
 
-<h1>🔧 AS 모바일 UI — 데스크톱 newJobModal (AS 컨텍스트) 재현</h1>
-<p class="lead">
-  데스크톱 <code>#newJobModal</code> 의 AS 컨텍스트 필드를 모바일 풀폼으로 그대로 재배치.
-  AS 접수 정보 패널은 데스크톱에선 영구 숨김됐지만, 모바일에선 1차 입력 진입점으로 재노출.
-</p>
+<h1>📱 AS 모바일 — 데스크톱 <code>newJobModal</code>(AS 컨텍스트) 1:1 이식</h1>
+<p class="lead">메인 홈에서 AS 아이콘 → 진입 페이지(서브 카테고리 + 진행 중 리스트) → 등록/편집 풀폼 → thread 상세. 신규(newjob) 모바일과 동일한 진입 패턴.</p>
 
 <div class="frames">
 
-<!-- ═══════════════ ① AS 리스트 ═══════════════ -->
+<!-- ⓪ 메인 홈 — 5개 카테고리 아이콘 (AS active 강조) -->
 <div>
   <div class="device">
     <div class="notch"></div>
     <div class="screen">
-      <div class="statusbar"><span>09:42</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="statusbar"><span>09:40</span><span class="icons">📶 📡 🔋</span></div>
       <div class="appbar">
-        <div style="font-size:21px">🔧</div>
-        <div class="title">AS 접수</div>
-        <span class="badge danger">긴급 2</span>
-        <span class="badge">📡 4</span>
+        <div style="font-size:21px">🏠</div>
+        <div class="title">NeoRetail</div>
+        <span class="badge danger">⚠ 긴급 3</span>
       </div>
-      <div class="tabs">
-        <div class="tab active">진행 중 (5)</div>
-        <div class="tab">완료 (18)</div>
-        <div class="tab">긴급 (2)</div>
+      <div class="body" style="padding:14px 14px 90px;background:linear-gradient(180deg,#fff,#F0F2F5 50%)">
+
+        <div style="font-size:13px;color:var(--gray-600);margin-bottom:6px">안녕하세요, 이헌상님 👋</div>
+        <div style="font-size:18px;font-weight:800;color:var(--gray-800);margin-bottom:14px">오늘 처리할 업무를 선택하세요</div>
+
+        <!-- 5개 카테고리 아이콘 (2줄: 3 + 2) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #BFDBFE;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(59,130,246,.08);position:relative">
+            <div style="font-size:32px">🆕</div>
+            <div style="font-size:12.5px;font-weight:800;color:#1E40AF">신규</div>
+            <div style="font-size:10px;color:var(--gray-500)">6건 진행</div>
+            <span style="position:absolute;top:6px;right:6px;background:#3B82F6;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px">D-2</span>
+          </a>
+          <!-- AS active 강조 (빨강 보더 굵게 + 펄스 긴급) -->
+          <a href="#" style="text-decoration:none;background:linear-gradient(180deg,#FEF2F2,#fff);border:2.5px solid #DC2626;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(220,38,38,.22);position:relative">
+            <div style="font-size:32px">🔧</div>
+            <div style="font-size:12.5px;font-weight:800;color:#991B1B">AS</div>
+            <div style="font-size:10px;color:#991B1B;font-weight:700">3건 긴급</div>
+            <span style="position:absolute;top:6px;right:6px;background:#DC2626;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px;animation:pulse 1.4s infinite">긴급</span>
+          </a>
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #DDD6FE;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(124,58,237,.08);position:relative">
+            <div style="font-size:32px">💳</div>
+            <div style="font-size:12.5px;font-weight:800;color:#5B21B6">VAN</div>
+            <div style="font-size:10px;color:var(--gray-500)">4건 · 📑 2</div>
+            <span style="position:absolute;top:6px;right:6px;background:#7C3AED;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px">📑 2</span>
+          </a>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #FCD34D;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(245,158,11,.08);position:relative">
+            <div style="font-size:32px">🛒</div>
+            <div style="font-size:12.5px;font-weight:800;color:#92400E">소모품판매</div>
+            <div style="font-size:10px;color:var(--gray-500)">미수 3건</div>
+            <span style="position:absolute;top:6px;right:6px;background:#F59E0B;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px">미수</span>
+          </a>
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #A7F3D0;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(16,185,129,.08);position:relative">
+            <div style="font-size:32px">📦</div>
+            <div style="font-size:12.5px;font-weight:800;color:#065F46">재고조사</div>
+            <div style="font-size:10px;color:var(--gray-500)">2건 진행</div>
+            <span style="position:absolute;top:6px;right:6px;background:#10B981;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px">2</span>
+          </a>
+        </div>
+
+        <!-- 안내 -->
+        <div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:9px;padding:9px 11px;font-size:11px;color:#991B1B;line-height:1.55;margin-bottom:12px">
+          🚨 <b>AS 긴급 3건</b> — 3시간 이내 처리 필요. 탭하여 빠르게 진입하세요.
+        </div>
+
+        <!-- 빠른 진입: 최근 AS 매장 -->
+        <div style="font-size:11px;font-weight:800;color:var(--gray-600);margin-bottom:6px;text-transform:uppercase">최근 AS 매장</div>
+        <div style="background:#fff;border-radius:10px;padding:9px 12px;margin-bottom:5px;display:flex;align-items:center;gap:8px">
+          <div style="width:32px;height:32px;background:#FEE2E2;color:#991B1B;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px">🏪</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:12.5px">정이가마트</div>
+            <div style="font-size:10.5px;color:var(--gray-500)">🔧 AS/POS · 영수증 출력 안됨</div>
+          </div>
+          <span style="font-size:11px;color:var(--gray-400)">›</span>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:9px 12px;margin-bottom:5px;display:flex;align-items:center;gap:8px">
+          <div style="width:32px;height:32px;background:#FEE2E2;color:#991B1B;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px">🏪</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:12.5px">본가찜닭(잠실)</div>
+            <div style="font-size:10.5px;color:var(--gray-500)">🔧 AS/VAN · KOCES 통신 오류</div>
+          </div>
+          <span style="font-size:11px;color:var(--gray-400)">›</span>
+        </div>
       </div>
-      <div class="body">
 
-        <div class="card urgent">
-          <div class="topline">
-            <span class="pill urgent">🚨 긴급</span>
-            <span class="dday urgent">D-0 · 3h</span>
-            <span style="margin-left:auto;font-size:10.5px;color:var(--danger);font-weight:800">오늘 12:30</span>
-          </div>
-          <div class="nm">정이가마트</div>
-          <div class="meta"><span class="pill dev">💳 VAN</span> <span class="pill dev">🖥 POS</span> · 박과장 010-1234-5678</div>
-          <div class="summary">POS 화면 먹통, 영업 중단. 즉시 출동 요청.</div>
-          <div class="actions-row">
-            <button class="btn-mini danger">🚗 출동</button>
-            <button class="btn-mini line">📞 전화</button>
-          </div>
-        </div>
-
-        <div class="card prog">
-          <div class="topline">
-            <span class="pill prog">진행 중</span>
-            <span class="dday near">D-1</span>
-            <span style="margin-left:auto" class="meta">5/19 14:00</span>
-          </div>
-          <div class="nm">다봄(주)</div>
-          <div class="meta"><span class="pill dev">📟 키오스크</span> · 김매니저 010-2345-6789</div>
-          <div class="summary">키오스크 카드리더 인식 불량. 부품 주문 대기.</div>
-          <div class="strip">
-            <div class="thumb img1">증상</div>
-            <div class="thumb img2">리더</div>
-            <span class="pill line">📡 2회</span>
-          </div>
-          <div class="actions-row">
-            <button class="btn-mini prog">＋ 진행기록</button>
-            <button class="btn-mini done">✅ 완료</button>
-          </div>
-        </div>
-
-        <div class="card req">
-          <div class="topline">
-            <span class="pill req">요청 접수</span>
-            <span class="dday safe">D-3</span>
-            <span style="margin-left:auto" class="meta">5/21 오전</span>
-          </div>
-          <div class="nm">행복국밥 강남점</div>
-          <div class="meta"><span class="pill dev">💳 VAN</span> · 사장님 010-3456-7890</div>
-          <div class="summary">영수증 프린터 용지 걸림 반복. 점검 요청.</div>
-          <div class="actions-row">
-            <button class="btn-mini prog">＋ 진행기록</button>
-            <button class="btn-mini line">📡 LINE</button>
-          </div>
-        </div>
-
-        <div class="card prog">
-          <div class="topline">
-            <span class="pill prog">진행 중</span>
-            <span class="dday safe">D-5</span>
-            <span style="margin-left:auto" class="meta">5/23 14:00</span>
-          </div>
-          <div class="nm">백년옥</div>
-          <div class="meta"><span class="pill dev">📦 기타</span> · 이실장</div>
-          <div class="summary">CCTV DVR 부팅 오류. 현장 확인 완료, 교체 진행.</div>
-        </div>
-
-        <div class="card req">
-          <div class="topline">
-            <span class="pill req">요청 접수</span>
-            <span class="dday safe">D-6</span>
-            <span style="margin-left:auto" class="meta">5/24</span>
-          </div>
-          <div class="nm">스타벅스 송파</div>
-          <div class="meta"><span class="pill dev">🖥 POS</span> · 본사 채팅</div>
-          <div class="summary">POS 부팅 시 간헐적 멈춤. 점검 요청.</div>
-        </div>
-
+      <div class="bottom-nav">
+        <div class="nav-item"><div class="icn">🏠</div>홈</div>
+        <div class="nav-item"><div class="icn">🆕</div>신규</div>
+        <div class="nav-item active"><div class="icn">🔧</div>AS</div>
+        <div class="nav-item"><div class="icn">💳</div>VAN</div>
+        <div class="nav-item"><div class="icn">🛒</div>소모품</div>
       </div>
-      <div class="fab">＋</div>
     </div>
   </div>
-  <div class="device-title">① AS 리스트 (진행 / 완료 / 긴급)</div>
+  <div class="device-title">⓪ 메인 홈 — 5개 업무 아이콘 · AS active 강조 (긴급 펄스)</div>
 </div>
 
-
-<!-- ═══════════════ ② AS 등록 풀폼 ═══════════════ -->
+<!-- ⓪ⓑ AS 진입 페이지 — 위 [새 AS 접수 서브 카테고리] + 아래 [진행 중 AS 리스트 — 탭 시 수정] -->
 <div>
   <div class="device">
     <div class="notch"></div>
     <div class="screen">
-      <div class="statusbar"><span>09:43</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="statusbar"><span>09:41</span><span class="icons">📶 📡 🔋</span></div>
       <div class="appbar">
-        <div class="back">←</div>
-        <div class="title">AS 등록</div>
-        <span class="badge warn">AS</span>
+        <div class="back">‹</div>
+        <div class="title">🔧 AS 업무</div>
+        <span class="badge danger">긴급 3</span>
       </div>
-      <div class="body">
+
+      <div class="body" style="padding:0 0 80px;background:#F0F2F5">
+        <!-- 상단: 새 AS 접수 (서브 카테고리) -->
+        <div style="background:#fff;padding:13px 14px 14px;border-bottom:8px solid #F0F2F5">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:9px">
+            <div style="font-size:12px;font-weight:800;color:#991B1B;text-transform:uppercase;letter-spacing:0.5px">＋ 새 AS 접수</div>
+            <span style="font-size:10.5px;color:var(--gray-500)">— 대상 장비를 탭하세요</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <a href="#" style="text-decoration:none;background:#fff;border:2px solid #FCA5A5;border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:11px">
+              <div style="font-size:26px">💳</div>
+              <div style="flex:1">
+                <div style="font-size:13.5px;font-weight:800;color:#991B1B">AS/VAN</div>
+                <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">단말 통신 · 결제 오류</div>
+              </div>
+              <span style="font-size:18px;color:#991B1B">›</span>
+            </a>
+            <a href="#" style="text-decoration:none;background:#fff;border:2px solid var(--gray-200);border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:11px">
+              <div style="font-size:26px">🖥</div>
+              <div style="flex:1">
+                <div style="font-size:13.5px;font-weight:800;color:var(--gray-800)">AS/POS</div>
+                <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">영수증 · 결제 오류</div>
+              </div>
+              <span style="font-size:18px;color:var(--gray-400)">›</span>
+            </a>
+            <a href="#" style="text-decoration:none;background:#fff;border:2px solid var(--gray-200);border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:11px">
+              <div style="font-size:26px">📟</div>
+              <div style="flex:1">
+                <div style="font-size:13.5px;font-weight:800;color:var(--gray-800)">AS/키오스크</div>
+                <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">화면 · 터치 · 결제 오류</div>
+              </div>
+              <span style="font-size:18px;color:var(--gray-400)">›</span>
+            </a>
+            <a href="#" style="text-decoration:none;background:#fff;border:2px solid var(--gray-200);border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:11px">
+              <div style="font-size:26px">📦</div>
+              <div style="flex:1">
+                <div style="font-size:13.5px;font-weight:800;color:var(--gray-800)">AS/기타</div>
+                <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">주변기기 · 스캐너 · 프린터</div>
+              </div>
+              <span style="font-size:18px;color:var(--gray-400)">›</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- 하단: 진행 중 AS (탭 시 수정 진입) -->
+        <div style="padding:13px 14px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:9px">
+            <div style="font-size:12px;font-weight:800;color:#991B1B;text-transform:uppercase;letter-spacing:0.5px">📋 진행 중 AS (5)</div>
+            <span style="font-size:10.5px;color:var(--gray-500)">— 카드 탭 시 수정</span>
+          </div>
+
+          <!-- 긴급 (3시간 이내) -->
+          <a href="#" class="card urgent" style="display:block;text-decoration:none;color:inherit">
+            <div class="topline">
+              <span class="pill urgent">긴급 D-0 2h</span>
+              <span class="pill dev">💳 VAN</span>
+              <span style="margin-left:auto" class="pill line">📡 4</span>
+            </div>
+            <div class="nm">본가찜닭(잠실)</div>
+            <div class="meta">AS/VAN · 처리예정 오늘 12:00</div>
+            <div class="summary">KOCES 단말 통신 오류 — 결제 전건 실패</div>
+          </a>
+
+          <a href="#" class="card urgent" style="display:block;text-decoration:none;color:inherit">
+            <div class="topline">
+              <span class="pill urgent">긴급 D-0 3h</span>
+              <span class="pill dev">🖥 POS</span>
+              <span style="margin-left:auto" class="pill line">📡 2</span>
+            </div>
+            <div class="nm">정이가마트</div>
+            <div class="meta">AS/POS · 처리예정 오늘 13:00</div>
+            <div class="summary">영수증 출력 안 됨 — 프린터 헤드 점검 요</div>
+          </a>
+
+          <!-- 처리예정 임박 (노랑) -->
+          <a href="#" class="card soon" style="display:block;text-decoration:none;color:inherit">
+            <div class="topline">
+              <span class="pill soon">임박 D-1</span>
+              <span class="pill dev">📟 KIO</span>
+              <span style="margin-left:auto" class="pill line">📡 1</span>
+            </div>
+            <div class="nm">메가커피(논현)</div>
+            <div class="meta">AS/키오스크 · 처리예정 5/20 14:00</div>
+            <div class="summary">키오스크 1대 터치 미인식 — 패널 점검</div>
+          </a>
+
+          <!-- 진행중 (주황) -->
+          <a href="#" class="card prog" style="display:block;text-decoration:none;color:inherit">
+            <div class="topline">
+              <span class="pill prog">진행중</span>
+              <span class="pill dev">📦 기타</span>
+              <span style="margin-left:auto" class="pill line">📡 3</span>
+            </div>
+            <div class="nm">스시히로(서초)</div>
+            <div class="meta">AS/기타 · 처리예정 5/22</div>
+            <div class="summary">핸디스캐너 2대 페어링 끊김 — 펌웨어 업데이트 진행</div>
+          </a>
+
+          <!-- 완료 (녹색) -->
+          <a href="#" class="card done" style="display:block;text-decoration:none;color:inherit">
+            <div class="topline">
+              <span class="pill done">완료</span>
+              <span class="pill dev">🖥 POS</span>
+              <span style="margin-left:auto" class="pill line">📡 5</span>
+            </div>
+            <div class="nm">카페모리(역삼점)</div>
+            <div class="meta">AS/POS · 5/17 처리완료</div>
+            <div class="summary">POS#2 자동 종료 — 전원 케이블 교체</div>
+          </a>
+
+          <div style="background:#FEE2E2;border:1px solid #FCA5A5;border-radius:9px;padding:9px 11px;font-size:11px;color:#991B1B;line-height:1.55;margin-top:6px">
+            💡 카드를 탭하면 해당 AS의 <b>등록 풀폼이 편집 모드로 열립니다</b> — 접수정보·장비·thread 모두 수정 가능.
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-item"><div class="icn">🏠</div>홈</div>
+        <div class="nav-item"><div class="icn">🆕</div>신규</div>
+        <div class="nav-item active"><div class="icn">🔧</div>AS</div>
+        <div class="nav-item"><div class="icn">💳</div>VAN</div>
+        <div class="nav-item"><div class="icn">🛒</div>소모품</div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⓪ⓑ AS 진입 — 위 [새 AS 접수 서브 카테고리] · 아래 [진행 중 AS — 탭 시 수정]</div>
+</div>
+
+<!-- ① AS 등록/편집 풀폼 (데스크톱 newJobModal AS 컨텍스트 1:1) -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:12</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">🔧 새 AS 접수</div>
+        <span class="badge danger">AS</span>
+      </div>
+      <div class="body" style="padding-bottom:160px">
+
+        <!-- 작업 유형 — AS 컨텍스트 진입 -->
+        <div class="sec">
+          <div class="sec-h">📂 작업 유형
+            <span class="hint right" style="background:#FEE2E2;color:#991B1B;padding:2px 8px;border-radius:10px;font-weight:800">🔧 AS 메뉴 진입</span>
+          </div>
+          <div class="radio-row">
+            <label class="radio-chip on as"><input type="radio" name="m_jobtype" checked>💳 AS/VAN</label>
+            <label class="radio-chip"><input type="radio" name="m_jobtype">🖥 AS/POS</label>
+            <label class="radio-chip"><input type="radio" name="m_jobtype">📟 AS/키오스크</label>
+            <label class="radio-chip"><input type="radio" name="m_jobtype">📦 AS/기타</label>
+          </div>
+          <div style="font-size:10.5px;color:var(--gray-500);margin-top:4px">※ 신규/VAN/소모품/재고조사는 각 메뉴에서 진입해 등록</div>
+        </div>
 
         <!-- 점포명 검색 -->
-        <div class="section-h">🏪 매장 선택</div>
-        <div class="field">
-          <div class="toggle-line">
-            <div class="field-label" style="margin:0">점포명 <span class="hint">🔍 검색 (상호·사업자)</span></div>
-            <button class="chip-btn">+ 미등록 가맹점</button>
+        <div class="sec">
+          <div class="sec-h">🏪 점포명 <span class="hint">🔍 검색</span></div>
+          <div class="radio-row">
+            <label class="radio-chip on"><input type="radio" name="scope" checked>상호·사업자</label>
+            <label class="radio-chip"><input type="radio" name="scope">대표자</label>
+            <label class="radio-chip"><input type="radio" name="scope">주소</label>
           </div>
-          <input class="field-input" placeholder="검색어 입력..." value="정이가마트">
-          <div class="search-res">
-            <div class="search-row"><b>정이가마트</b> <span class="biz">123-45-67890</span><br><span style="font-size:10.5px;color:var(--gray-500)">서울 강남구 · 박과장</span></div>
+          <div class="search-wrap">
+            <input class="field-input" type="text" placeholder="검색어를 입력하세요..." value="본가찜닭">
+            <span class="ico">🔍</span>
           </div>
-          <div class="picked-info"><b>✓ 선택됨</b> · 사업자 <code>123-45-67890</code> · 대표 정OO</div>
+          <div class="picked">
+            <span><b>✓ 선택됨</b> · 본가찜닭(잠실) · 사업자 <code>220-87-31207</code></span>
+            <span>이대표</span>
+          </div>
         </div>
 
-        <!-- 작업 유형 (AS 고정 표시) -->
-        <div class="field">
-          <div class="field-label">작업 유형</div>
-          <select class="field-select"><option>AS 처리</option></select>
-          <select class="field-select sm" style="margin-top:5px"><option>🖥 AS/POS</option><option>💳 AS/VAN</option><option>🛒 AS/장비판매</option><option>🔄 AS/장비교체</option><option>📦 AS/장비회수</option></select>
-        </div>
-
-        <!-- AS 접수 정보 패널 (모바일 재노출) -->
-        <div class="section-h">🔧 AS 접수 정보</div>
-        <div class="as-panel">
-          <div class="as-panel-title">
-            <span>🔧 접수 정보</span>
-            <span class="recv">AS 접수: <b>2026-05-18 09:42</b></span>
+        <!-- AS 접수 정보 패널 (모바일 노출) -->
+        <div class="sec" style="border-color:#FCA5A5;background:#FEF7F7">
+          <div class="sec-h" style="color:#991B1B">🔧 AS 접수 정보
+            <span class="hint right" style="background:#fff;color:#991B1B;padding:2px 8px;border-radius:10px;font-weight:800;border:1px solid #FCA5A5">필수</span>
           </div>
 
-          <div class="two-col" style="margin-bottom:9px">
-            <div>
-              <div class="lbl-sm">처리 예정일</div>
-              <input type="date" class="field-input sm" value="2026-05-18">
+          <div class="field">
+            <div class="field-label">📥 접수일시 <span class="hint">· 자동</span></div>
+            <input class="field-input" type="text" value="2026-05-19 10:08" readonly style="background:#F9FAFB;color:var(--gray-500)">
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px">
+            <div class="field" style="margin:0">
+              <div class="field-label">📅 처리예정일</div>
+              <input class="field-input" type="date" value="2026-05-19">
             </div>
-            <div>
-              <div class="lbl-sm">처리 예정 시간</div>
-              <input type="time" class="field-input sm" value="12:30">
+            <div class="field" style="margin:0">
+              <div class="field-label">⏰ 처리예정시각</div>
+              <input class="field-input" type="time" value="12:00">
             </div>
           </div>
 
-          <div style="margin-bottom:9px">
-            <div class="lbl-sm">대상 장비</div>
-            <div class="dev-checks">
-              <label class="dev-check on"><input type="checkbox" checked> 💳 VAN</label>
-              <label class="dev-check on"><input type="checkbox" checked> 🖥 POS</label>
-              <label class="dev-check"><input type="checkbox"> 📟 키오스크</label>
-              <label class="dev-check"><input type="checkbox"> 📦 기타</label>
+          <div class="field">
+            <div class="field-label">🎯 대상 장비 <span class="hint">· 복수 선택</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <label class="radio-chip on as" style="justify-content:flex-start;padding:8px 10px"><input type="checkbox" checked>💳 VAN(단말)</label>
+              <label class="radio-chip" style="justify-content:flex-start;padding:8px 10px"><input type="checkbox">🖥 POS</label>
+              <label class="radio-chip" style="justify-content:flex-start;padding:8px 10px"><input type="checkbox">📟 키오스크</label>
+              <label class="radio-chip" style="justify-content:flex-start;padding:8px 10px"><input type="checkbox">📦 기타</label>
             </div>
           </div>
 
-          <div>
-            <div class="lbl-sm">📝 AS 요청 내용 / 증상</div>
-            <textarea class="field-textarea" placeholder="예) 카드 단말 통신 오류, 영수증 프린터 용지 걸림, 부팅 안 됨...">POS 화면 먹통. 영업 중단 상태, 즉시 출동 요청. 카드 결제만 임시로 단말로 가능.</textarea>
+          <div class="field" style="margin-bottom:0">
+            <div class="field-label">📝 AS 요청내용</div>
+            <textarea class="field-textarea" placeholder="증상 / 발생시점 / 영향 범위...">KOCES 단말 통신 오류로 결제 전건 실패. 오전 9시부터 발생. 신용·체크 모두 거절됨. 매장 영업 차질 발생 중.</textarea>
           </div>
         </div>
 
         <!-- 담당 엔지니어 -->
-        <div class="section-h">👷 담당</div>
-        <div class="field">
-          <div class="field-label">담당 엔지니어 <span class="hint">· 등록 직원만</span></div>
+        <div class="sec">
+          <div class="sec-h">🛠 담당 엔지니어 <span class="hint">· 등록 직원만</span></div>
           <select class="field-select">
-            <option>김기사 (현장 출동)</option>
-            <option>이엔지니어</option>
-            <option>박기술</option>
+            <option>이헌상 (본인)</option>
+            <option>김기사</option>
+            <option>박엔지니어</option>
           </select>
         </div>
 
         <!-- 매장 담당자 -->
-        <div class="field">
-          <div class="field-label">👤 매장 담당자 <span class="hint">미정이면 비워두세요</span></div>
-          <div class="three-col">
-            <div>
-              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:700">이름</div>
-              <input class="field-input sm" value="박과장">
-            </div>
-            <div>
-              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:700">직책</div>
-              <input class="field-input sm" value="점장">
-            </div>
-            <div>
-              <div style="font-size:10px;color:var(--gray-500);margin-bottom:3px;font-weight:700">연락처</div>
-              <input class="field-input sm" value="010-1234-5678">
-            </div>
+        <div class="sec">
+          <div class="sec-h">👤 매장 담당자 <span class="hint">미정이면 비워두세요</span></div>
+          <div class="field">
+            <div class="field-label">이름</div>
+            <input class="field-input" placeholder="예: 홍길동" value="이대표">
+          </div>
+          <div class="field">
+            <div class="field-label">직책</div>
+            <input class="field-input" placeholder="예: 점장 / 사장 / 매니저" value="대표">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <div class="field-label">연락처</div>
+            <input class="field-input" type="tel" placeholder="010-0000-0000" value="010-7788-1122" inputmode="tel">
           </div>
         </div>
 
-        <!-- 요청사항·처리 기록 thread -->
-        <div class="section-h">📋 요청사항 · 처리 기록</div>
-        <div class="thread-wrap">
-          <div class="thread-head">
-            <div class="title">스레드 (요청접수 → 진행 → 완료)</div>
-            <button class="thread-add">＋ 새 기록</button>
-          </div>
-          <div class="thread-empty">
-            아직 기록이 없습니다.<br>
-            <span style="font-size:10.5px;color:var(--gray-400)">위 'AS 요청 내용' 이 등록 시 ROOT(요청접수)로 자동 추가됩니다.</span>
+        <!-- 요청·처리 thread placeholder -->
+        <div class="sec">
+          <div class="sec-h">📋 요청사항 · 처리기록</div>
+          <div class="thread">
+            <div class="thread-item req">
+              <div class="head">
+                <span class="pill req">요청접수</span>
+                <span class="who">5/19 10:08 · 이헌상</span>
+              </div>
+              <div class="body-t">KOCES 단말 통신 오류 — 결제 전건 실패. 오늘 12시 이전 처리 요청.</div>
+            </div>
+            <button class="thread-add">＋ 새 진행 / 완료 기록 추가</button>
           </div>
         </div>
 
-        <!-- AS 투입 장비 -->
-        <div class="section-h">🔧 AS 투입 장비 <span style="font-size:10.5px;color:var(--gray-400);font-weight:600">· 2개</span></div>
-        <div class="field">
-          <input class="field-input sm" placeholder="🔍 카탈로그 검색 (예: 프린터, 카드리더)">
+        <!-- AS 투입 장비 — 단순 체크리스트 패턴 (신규와 동일) -->
+        <div class="sec">
+          <div class="sec-h">📦 AS 투입 장비
+            <span class="hint right">※ 상세 출고는 PC에서</span>
+          </div>
+
+          <!-- 신품 / 중고 토글 -->
+          <div style="display:flex;gap:5px;margin-bottom:10px">
+            <label class="radio-chip on" style="flex:1;justify-content:center;padding:9px 0">
+              <input type="radio" name="m_grade" checked>🆕 신품
+            </label>
+            <label class="radio-chip" style="flex:1;justify-content:center;padding:9px 0">
+              <input type="radio" name="m_grade">♻️ 중고</label>
+          </div>
+
+          <div style="font-size:10.5px;color:var(--gray-500);margin-bottom:8px">교체 또는 추가 투입할 장비에 체크하고 수량을 입력하세요. 세부 모델/단가는 PC에서.</div>
+
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">🖥️</span>
+              <span style="font-weight:700;font-size:13px;flex:1">서버</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">💻</span>
+              <span style="font-weight:700;font-size:13px;flex:1">PC</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">🛒</span>
+              <span style="font-weight:700;font-size:13px;flex:1">포스</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">🤖</span>
+              <span style="font-weight:700;font-size:13px;flex:1">키오스크</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">🔍</span>
+              <span style="font-weight:700;font-size:13px;flex:1">고정스캐너</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">📲</span>
+              <span style="font-weight:700;font-size:13px;flex:1">핸디터미널</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">🖨️</span>
+              <span style="font-weight:700;font-size:13px;flex:1">라벨프린터</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <div style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px">
+              <span style="font-size:18px">🪑</span>
+              <span style="font-weight:700;font-size:13px;flex:1">포스다이</span>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                <span style="font-size:9.5px;color:var(--gray-500);font-weight:700">좌타</span>
+                <input type="number" placeholder="0" min="0" style="width:54px;padding:5px 6px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;text-align:right">
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                <span style="font-size:9.5px;color:var(--gray-500);font-weight:700">우타</span>
+                <input type="number" placeholder="0" min="0" style="width:54px;padding:5px 6px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;text-align:right">
+              </div>
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </div>
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">📋</span>
+              <span style="font-weight:700;font-size:13px;flex:1">체크기</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;cursor:pointer">
+              <input type="checkbox" style="width:17px;height:17px;accent-color:var(--primary);margin:0">
+              <span style="font-size:18px">🔫</span>
+              <span style="font-weight:700;font-size:13px;flex:1">핸디스캐너</span>
+              <input type="number" placeholder="0" min="0" style="width:58px;padding:6px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;text-align:right">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:600">nea</span>
+            </label>
+          </div>
+
+          <div style="margin-top:8px;padding:8px 11px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:7px;display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:#991B1B;font-weight:700">선택 항목</span>
+            <span style="color:#991B1B;font-weight:800">0종 · 교체 장비 미선택</span>
+          </div>
         </div>
-        <div class="eq-card">
-          <div>
-            <div class="nm">SAM4S Giant-100</div>
-            <div class="var">영수증 프린터 · 80mm</div>
-          </div>
-          <div class="right">
-            <span class="used-tag new">신품</span>
-            <input class="qty" value="1">
-            <span class="del">✕</span>
-          </div>
-        </div>
-        <div class="eq-card">
-          <div>
-            <div class="nm">SUNMI K2 카드리더</div>
-            <div class="var">교체용 · IC/RF</div>
-          </div>
-          <div class="right">
-            <span class="used-tag used">중고</span>
-            <input class="qty" value="1">
-            <span class="del">✕</span>
-          </div>
-        </div>
-        <button style="width:100%;padding:9px;background:#fff;border:1px dashed var(--gray-300);border-radius:8px;font-size:12px;font-weight:700;color:var(--gray-500);cursor:pointer">＋ 장비 추가</button>
 
         <!-- 첨부 -->
-        <div class="section-h">📷📎 첨부</div>
-        <div class="photo-grid-lg">
-          <div class="photo-lg" style="background:linear-gradient(135deg,#3B82F6,#1E3A8A)">증상1</div>
-          <div class="photo-lg" style="background:linear-gradient(135deg,#10B981,#065F46)">현장</div>
-          <div class="photo-lg add camera"><span class="icon">📷</span><span>촬영</span></div>
-          <div class="photo-lg add"><span class="plus">＋</span><span>파일</span></div>
+        <div class="sec" style="margin-bottom:0">
+          <div class="sec-h">📷📎 첨부 <span class="hint">증상 사진·로그·영수증</span></div>
+          <div class="photo-grid">
+            <div class="photo-lg" style="background:linear-gradient(135deg,#EF4444,#7F1D1D)">단말오류<span class="x">×</span></div>
+            <div class="photo-lg add camera"><span class="plus">📸</span><span>촬영</span></div>
+            <div class="photo-lg add"><span class="plus">＋</span><span>파일</span></div>
+            <div class="photo-lg add"><span class="plus">＋</span><span>파일</span></div>
+          </div>
         </div>
 
-        <div style="height:24px"></div>
       </div>
 
-      <!-- Sticky footer -->
+      <!-- 하단 sticky 푸터 -->
       <div class="sticky-footer">
-        <label class="line-check"><input type="checkbox" checked> 📡 LINE 발송</label>
-        <button class="btn-submit">작업 등록</button>
+        <label class="line-check">
+          <input type="checkbox" checked> 📡 등록 후 LINE 발송
+        </label>
+        <div class="btn-row">
+          <button class="btn-big ghost">취소</button>
+          <button class="btn-big" style="background:#DC2626">AS 접수</button>
+        </div>
       </div>
     </div>
   </div>
-  <div class="device-title">② AS 등록 / 편집 (풀폼 · 스크롤)</div>
+  <div class="device-title">① AS 등록/편집 풀폼 — 신규 접수·기존 AS 수정 공용 (newJobModal AS 1:1)</div>
 </div>
 
-
-<!-- ═══════════════ ③ thread 상세 ═══════════════ -->
+<!-- ② thread 상세 -->
 <div>
   <div class="device">
     <div class="notch"></div>
     <div class="screen">
-      <div class="statusbar"><span>14:18</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="statusbar"><span>15:22</span><span class="icons">📶 📡 🔋</span></div>
       <div class="appbar">
-        <div class="back">←</div>
-        <div class="title">정이가마트 · AS</div>
-        <span class="badge warn">진행 중</span>
+        <div class="back">‹</div>
+        <div class="title">📋 AS 처리 thread</div>
+        <span class="badge danger">3</span>
       </div>
-      <div class="body">
-
-        <!-- 요청 메타 -->
-        <div class="card" style="border-left:4px solid var(--warn)">
-          <div class="topline">
-            <span class="pill prog">진행 중</span>
-            <span class="dday urgent">D-0 · 3h</span>
-            <span style="margin-left:auto;font-size:11px;color:var(--gray-500)">담당 김기사</span>
-          </div>
-          <div class="nm">정이가마트</div>
-          <div class="meta"><span class="pill dev">💳 VAN</span> <span class="pill dev">🖥 POS</span> · 박과장 010-1234-5678</div>
+      <div class="body" style="padding-bottom:90px">
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:10px">
+          <div style="font-weight:800;font-size:14px">본가찜닭(잠실)</div>
+          <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">AS/VAN · 220-87-31207 · 이대표</div>
+          <div style="font-size:10.5px;color:#991B1B;margin-top:2px;font-weight:700">🔧 KOCES 단말 통신 오류 · 처리예정 5/19 12:00</div>
         </div>
 
-        <!-- thread 카드 1: 요청접수 -->
-        <div class="section-h">📋 요청사항 · 처리 기록 (3)</div>
-
-        <div class="tcard req">
-          <div class="thead">
-            <span class="pill req">요청 접수</span>
-            <span class="who">박과장 · 05-18 09:42</span>
+        <div class="thread-item req" style="margin-bottom:8px">
+          <div class="head">
+            <span class="pill req">요청접수</span>
+            <span class="who">5/19 10:08 · 이헌상</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
           </div>
-          <div class="body-txt">POS 화면 먹통. 영업 중단 상태, 즉시 출동 요청. 카드 결제만 임시로 단말로 가능.</div>
-          <div class="foot">
-            <span class="line-mini">📡 LINE 발송됨</span>
-            <span style="font-size:10.5px;color:var(--gray-500)">대상: 💳 POS</span>
-          </div>
+          <div class="body-t">KOCES 단말 통신 오류 — 결제 전건 실패. 12시 이전 처리 요청.</div>
         </div>
 
-        <!-- thread 카드 2: 진행 -->
-        <div class="tcard prog">
-          <div class="thead">
+        <div class="thread-item prog" style="margin-bottom:8px">
+          <div class="head">
             <span class="pill prog">진행</span>
-            <span class="who">김기사 · 05-18 11:05</span>
+            <span class="who">5/19 11:15 · 이헌상</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
           </div>
-          <div class="body-txt">현장 도착. POS 본체 전원부 점검 결과 SMPS 불량 확인. 교체용 부품 차량 보유분 사용.</div>
-          <div class="strip" style="margin-top:6px">
-            <div class="thumb img4">SMPS</div>
-            <div class="thumb img3">본체</div>
-          </div>
-          <div class="foot">
-            <span class="line-mini">📡 LINE 발송됨</span>
-          </div>
+          <div class="body-t">현장 도착. KOCES 단말 점검 — 통신 모듈 이상 확인. 대체 단말 준비.</div>
         </div>
 
-        <!-- thread 카드 3: 완료 -->
-        <div class="tcard done">
-          <div class="thead">
+        <div class="thread-item done" style="margin-bottom:8px">
+          <div class="head">
             <span class="pill done">완료</span>
-            <span class="who">김기사 · 05-18 12:15</span>
+            <span class="who">5/19 11:50 · 이헌상</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
           </div>
-          <div class="body-txt">SMPS 교체 후 정상 부팅 · POS·VAN 결제 테스트 OK. 사장님 확인 서명.</div>
-          <div class="strip" style="margin-top:6px">
-            <div class="thumb img2">OK</div>
-            <div class="thumb pdf">서명</div>
-          </div>
-          <div class="foot">
-            <span class="line-mini">📡 LINE 발송됨</span>
-            <span style="font-size:10.5px;color:var(--gray-500)">투입: SMPS×1 (신품)</span>
-          </div>
+          <div class="body-t">신품 KOCES 단말로 교체 완료. 시뮬 결제 5회 정상. 영업 정상화.</div>
         </div>
 
-        <!-- 새 기록 폼 -->
-        <div class="section-h">＋ 새 기록 추가</div>
-        <div style="background:#fff;border-radius:10px;padding:11px 12px">
-          <div class="field" style="margin-bottom:8px">
-            <div class="field-label">기록 유형</div>
-            <select class="field-select sm">
-              <option>진행</option>
-              <option>완료</option>
-              <option>추가 요청</option>
-            </select>
+        <!-- + 새 기록 추가 폼 -->
+        <div style="background:#F8FAFC;border:1.5px solid #CBD5E1;border-radius:10px;padding:11px 12px;margin-top:8px">
+          <div style="font-size:11.5px;font-weight:800;color:var(--gray-700);margin-bottom:8px">＋ 새 기록 추가</div>
+          <div class="radio-row">
+            <label class="radio-chip on"><input type="radio" name="m_st" checked>🔄 진행</label>
+            <label class="radio-chip"><input type="radio" name="m_st">✅ 완료</label>
+            <label class="radio-chip"><input type="radio" name="m_st">📥 새 요청접수</label>
           </div>
-          <div class="field" style="margin-bottom:8px">
-            <div class="field-label">내용</div>
-            <textarea class="field-textarea" placeholder="작업 내용 / 확인 사항 / 다음 단계..."></textarea>
+          <textarea class="field-textarea" placeholder="처리/진행 내용을 입력하세요..." style="margin-bottom:7px">사후 점검 — 24시간 안정성 모니터링.</textarea>
+          <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:7px">
+            <button style="background:#fff;color:var(--primary);border:1.5px solid var(--primary);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700">📷 사진 추가</button>
+            <button style="background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700">📎 파일</button>
           </div>
-          <div class="field" style="margin-bottom:8px">
-            <div class="field-label">📷 사진</div>
-            <div class="photo-grid-lg">
-              <div class="photo-lg add camera"><span class="icon">📷</span><span>촬영</span></div>
-              <div class="photo-lg add"><span class="plus">＋</span><span>파일</span></div>
-            </div>
+          <label style="display:flex;align-items:center;gap:6px;padding:7px 11px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;cursor:pointer;margin-bottom:8px">
+            <input type="checkbox" checked style="accent-color:var(--line);margin:0">
+            <span style="font-size:11.5px;color:#06A647;font-weight:800">📡 이 기록 등록 후 LINE 발송</span>
+          </label>
+          <div style="display:flex;gap:6px">
+            <button class="btn-big" style="flex:1;padding:11px;background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300);border-radius:8px;font-weight:700">취소</button>
+            <button class="btn-big" style="flex:2;padding:11px;background:#DC2626;color:#fff;border:none;border-radius:8px;font-weight:800">＋ 기록 추가</button>
           </div>
-          <label class="line-check" style="margin-top:4px"><input type="checkbox" checked> 📡 등록 후 LINE 발송</label>
-          <button class="btn-submit" style="margin-top:8px">기록 저장</button>
         </div>
-
       </div>
     </div>
   </div>
-  <div class="device-title">③ Thread 상세 — 요청접수 / 진행 / 완료 + 새 기록</div>
+  <div class="device-title">② thread 상세 — 요청접수→진행→완료 + 단계별 📡 LINE 발송</div>
 </div>
 
 </div>
 
-<h2>📋 시나리오 · 원칙</h2>
-<p class="lead">
-  현장에서 한 손으로 AS 처리 완결 — 리스트에서 카드 탭 → 풀폼 등록 → thread 누적 기록 → 각 단계 LINE 발송.
-  데스크톱 영구 숨김 처리된 AS 접수 정보 패널을 모바일에선 상단에 다시 노출해 1차 입력 진입점을 회복.
-</p>
+<h2>🗂️ 시나리오</h2>
+<div class="card" style="background:#fff;padding:14px;font-size:12.5px;line-height:1.85">
+  <b>⓪ 홈</b>에서 🔧 AS 탭 → <b>⓪ⓑ AS 진입</b>(위: 새 AS 접수 서브 카테고리 / 아래: 진행 중 AS 카드 — 탭 시 수정) → <b>① AS 등록·편집 풀폼</b>(AS 접수 정보 패널 + 투입 장비 체크리스트) → <b>② thread 상세</b>에서 진행/완료 기록마다 📡 LINE 발송. 신규(newjob) 모바일과 동일한 4 화면 패턴.
+</div>
 
 </body>
 </html>

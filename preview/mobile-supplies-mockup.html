@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>🛒 소모품판매 모바일 — newJobModal(supplies) 기반</title>
+<title>🛒 소모품판매 모바일 — newJobModal(supplies) 1:1 이식</title>
 <style>
   :root {
     --primary:#2563EB; --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
     --gray-300:#D1D5DB; --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-600:#4B5563;
     --gray-700:#374151; --gray-800:#1F2937; --gray-900:#111827;
     --line:#06C755; --line-light:#06C7551A;
-    --danger:#EF4444; --warn:#F59E0B; --success:#10B981; --supplies:#8B5CF6;
+    --danger:#EF4444; --warn:#F59E0B; --success:#10B981;
+    --supplies:#F59E0B; --supplies-bg:#FEF3C7; --supplies-text:#92400E; --supplies-border:#FCD34D;
   }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent }
   body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans KR',sans-serif; background:#F0F2F5; margin:0; padding:18px; color:var(--gray-800); font-size:13px; line-height:1.5 }
@@ -19,154 +20,165 @@
   .lead { font-size:12px; color:var(--gray-500); margin-bottom:14px }
 
   .frames { display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:18px; align-items:start }
-  .device { background:#1F2937; border-radius:34px; padding:8px; box-shadow:0 12px 36px rgba(0,0,0,.18); width:380px; max-width:100%; justify-self:center; }
+  .device { background:#1F2937; border-radius:34px; padding:8px; box-shadow:0 12px 36px rgba(0,0,0,.18); width:380px; max-width:100%; justify-self:center }
   .notch { width:130px; height:24px; background:#1F2937; margin:-2px auto 0; border-radius:0 0 14px 14px; position:relative; z-index:5 }
   .screen { background:#F0F2F5; border-radius:28px; overflow:hidden; height:760px; position:relative; display:flex; flex-direction:column }
   .device-title { text-align:center; font-size:11px; color:var(--gray-500); margin-top:6px; font-weight:600 }
 
   .statusbar { background:#fff; padding:5px 18px 0; display:flex; align-items:center; justify-content:space-between; font-size:11.5px; font-weight:700; color:var(--gray-800); height:24px }
   .statusbar .icons { display:flex; gap:4px; font-size:10px }
-
   .appbar { background:#fff; padding:12px 16px 10px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--gray-200) }
-  .appbar .back { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--gray-700); cursor:pointer }
+  .appbar .back { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--gray-700) }
   .appbar .title { flex:1; font-weight:800; font-size:15px }
-  .appbar .ctx-badge { background:#EDE9FE; color:#5B21B6; border-radius:11px; padding:3px 9px; font-size:10.5px; font-weight:800 }
+  .appbar .badge { background:#FEF3C7; color:#92400E; border-radius:11px; padding:2px 8px; font-size:10.5px; font-weight:800 }
 
-  .body { flex:1; overflow-y:auto; padding:12px 14px 92px; background:#F0F2F5 }
-  .body.no-tabbar { padding-bottom:14px }
+  .body { flex:1; overflow-y:auto; padding:12px 14px 90px; background:#F0F2F5 }
 
-  /* ── Hub: stats 4종 ── */
-  .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px }
-  .stat-card { background:#fff; border-radius:11px; padding:11px 12px; box-shadow:0 1px 2px rgba(0,0,0,.04); border-left:4px solid var(--gray-300); position:relative; overflow:hidden }
-  .stat-card.sales { border-left-color:var(--success) }
-  .stat-card.ar    { border-left-color:var(--danger) }
-  .stat-card.ship  { border-left-color:#06B6D4 }
-  .stat-card.total { border-left-color:var(--primary) }
-  .stat-card .lbl { font-size:10.5px; color:var(--gray-500); font-weight:700 }
-  .stat-card .val { font-size:19px; font-weight:900; margin-top:3px; color:var(--gray-900) }
-  .stat-card .val .u { font-size:11px; font-weight:700; color:var(--gray-500); margin-left:3px }
-  .stat-card.ar .val { color:var(--danger) }
-  .stat-card .sub { font-size:10.5px; color:var(--gray-600); margin-top:2px }
+  /* 펄스 */
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.12); opacity: 0.85; }
+  }
 
-  /* ── Filter chips (전체/미수/완료) + 검색 ── */
-  .hub-actbar { background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:8px 10px; margin-bottom:10px; display:flex; flex-direction:column; gap:6px }
-  .hub-filters { display:flex; gap:5px; flex-wrap:wrap }
-  .hub-filter { padding:6px 12px; border-radius:14px; background:#fff; border:1.5px solid var(--gray-200); font-size:12px; font-weight:700; color:var(--gray-600); white-space:nowrap; cursor:pointer }
-  .hub-filter .cnt { background:var(--gray-200); color:var(--gray-700); border-radius:9px; padding:0 6px; font-size:10px; margin-left:3px; font-weight:800 }
-  .hub-filter.active { background:var(--primary); color:#fff; border-color:var(--primary) }
-  .hub-filter.active .cnt { background:rgba(255,255,255,.3); color:#fff }
-  .hub-search { width:100%; padding:7px 10px; border:1px solid var(--gray-200); border-radius:7px; font-size:12px; font-family:inherit }
+  /* 하단 네비 */
+  .bottom-nav { position:absolute; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--gray-200); display:flex; justify-content:space-around; padding:6px 0 10px }
+  .nav-item { flex:1; text-align:center; padding:6px 0; font-size:10.5px; font-weight:700; color:var(--gray-500); display:flex; flex-direction:column; gap:3px; align-items:center }
+  .nav-item .icn { font-size:21px; line-height:1 }
+  .nav-item.active { color:var(--supplies) }
 
-  /* ── 매장 카드 (supplieshub 리스트) ── */
-  .card { background:#fff; border-radius:12px; padding:12px 13px; margin-bottom:9px; box-shadow:0 1px 2px rgba(0,0,0,.04); border-left:4px solid var(--supplies) }
-  .card.ar    { border-left-color:var(--danger) }
-  .card.done  { border-left-color:var(--success) }
-  .card .topline { display:flex; align-items:center; gap:6px; margin-bottom:5px; flex-wrap:wrap }
+  /* List card */
+  .card { background:#fff; border-radius:12px; padding:13px 14px; margin-bottom:10px; box-shadow:0 1px 2px rgba(0,0,0,.04) }
+  .card.wait { border-left:4px solid #3B82F6 }
+  .card.sent { border-left:4px solid #F59E0B }
+  .card.done { border-left:4px solid #10B981 }
+  .card.ar   { border-left:4px solid #EF4444 }
+  .card .topline { display:flex; align-items:center; gap:6px; margin-bottom:6px }
   .card .nm { font-weight:800; font-size:14px; flex:1 }
-  .pill { display:inline-block; padding:2px 8px; border-radius:11px; font-size:10px; font-weight:800; white-space:nowrap }
-  .pill.supplies { background:#EDE9FE; color:#5B21B6 }
-  .pill.prog { background:#FEF3C7; color:#92400E }
+  .pill { display:inline-block; padding:2px 8px; border-radius:11px; font-size:10px; font-weight:800 }
+  .pill.wait { background:#DBEAFE; color:#1e40af }
+  .pill.sent { background:#FEF3C7; color:#92400E }
   .pill.done { background:#DCFCE7; color:#15803d }
-  .pill.ar   { background:#FEE2E2; color:#991B1B }
+  .pill.ar   { background:#FEE2E2; color:#991B1B; animation:pulse 1.6s infinite }
   .pill.line { background:var(--line-light); color:#04A047 }
-  .card .meta { font-size:11px; color:var(--gray-500); margin-bottom:3px }
-  .card .summary { font-size:12.5px; color:var(--gray-700); margin-top:4px }
-  .card .summary b.amt { color:var(--gray-900) }
-  .card .summary b.amt.ar { color:var(--danger) }
+  .card .meta { font-size:11px; color:var(--gray-500); margin-bottom:4px }
+  .card .summary { font-size:12.5px; color:var(--gray-700); margin-bottom:6px }
+  .amt { color:var(--gray-800); font-weight:800 }
+  .amt.ar { color:var(--danger) }
 
-  /* ── 폼 ── */
-  .section-h { font-size:11.5px; font-weight:800; color:var(--gray-500); text-transform:uppercase; letter-spacing:.4px; margin:14px 0 7px; padding-left:2px; display:flex; align-items:center; gap:5px }
-  .section-h:first-child { margin-top:2px }
-  .section-h .hint { text-transform:none; letter-spacing:0; color:var(--gray-400); font-size:10px; font-weight:600; margin-left:auto }
+  /* Form */
+  .field { margin-bottom:10px }
+  .field-label { font-size:11.5px; font-weight:700; color:var(--gray-600); margin-bottom:4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap }
+  .field-label .hint { font-size:10px; color:var(--gray-400); font-weight:500 }
+  .field-input, .field-select, .field-textarea {
+    width:100%; padding:10px 12px; border:1.5px solid var(--gray-300); border-radius:9px;
+    font-size:13.5px; font-family:inherit; background:#fff;
+  }
+  .field-textarea { min-height:62px; resize:vertical }
 
-  .field { margin-bottom:9px }
-  .field-label { font-size:11px; font-weight:700; color:var(--gray-600); margin-bottom:4px; display:flex; align-items:center; gap:5px; flex-wrap:wrap }
-  .field-label .opt { font-size:10px; color:var(--gray-400); font-weight:500 }
-  .field-input, .field-select, .field-textarea { width:100%; padding:10px 11px; border:1.5px solid var(--gray-300); border-radius:8px; font-size:13.5px; font-family:inherit; background:#fff }
-  .field-textarea { min-height:58px; resize:vertical }
-  .row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px }
-  .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:7px }
-  .mini-lbl { font-size:10px; color:var(--gray-500); margin-bottom:3px; font-weight:700 }
-  .scope-radios { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:5px }
-  .scope-radios label { display:inline-flex; align-items:center; gap:3px; padding:3px 8px; background:#fff; border:1px solid var(--gray-200); border-radius:13px; font-size:10.5px; font-weight:600; color:var(--gray-600) }
-  .scope-radios label.on { background:var(--primary); color:#fff; border-color:var(--primary) }
-  .scope-radios input { display:none }
+  .sec { background:#fff; border-radius:11px; padding:12px 13px; margin-bottom:11px; border:1px solid var(--gray-200) }
+  .sec-h { font-size:12px; font-weight:800; color:var(--gray-700); margin-bottom:9px; display:flex; align-items:center; gap:6px; flex-wrap:wrap }
+  .sec-h .hint { font-size:10px; font-weight:500; color:var(--gray-400) }
+  .sec-h .right { margin-left:auto }
 
-  .unreg-toggle { float:right; background:#fff; border:1px solid var(--gray-300); color:var(--gray-500); font-size:10px; padding:2px 7px; border-radius:5px; font-weight:700 }
-  .unreg-notice { margin-top:5px; padding:6px 9px; background:#FEF3C7; border:1px solid #FCD34D; border-radius:5px; font-size:10.5px; color:#92400E }
-  .picked-info { margin-top:5px; padding:5px 9px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:5px; font-size:10.5px; color:#065F46; display:flex; justify-content:space-between; gap:5px; flex-wrap:wrap }
-  .picked-info code { background:#fff; padding:1px 5px; border-radius:3px; font-family:monospace; font-size:10px }
+  .radio-row { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:7px }
+  .radio-chip { display:inline-flex; align-items:center; gap:4px; padding:5px 10px; background:#fff; border:1px solid var(--gray-200); border-radius:14px; font-size:11.5px; font-weight:600; color:var(--gray-700) }
+  .radio-chip input { margin:0; accent-color:var(--supplies) }
+  .radio-chip.on { background:#FEF3C7; border-color:#FCD34D; color:#92400E }
 
-  /* ── 매장 주요 일정 (js-non-as) ── */
-  .schedule-box { background:#fff; border:1.5px solid var(--gray-200); border-radius:9px; padding:9px 10px }
+  .search-wrap { position:relative }
+  .search-wrap .ico { position:absolute; right:11px; top:50%; transform:translateY(-50%); color:var(--gray-400); font-size:13px }
+  .search-results { margin-top:5px; background:#fff; border:1px solid var(--gray-200); border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.06); max-height:140px; overflow:hidden }
+  .sr-row { padding:8px 11px; border-bottom:1px solid var(--gray-100); font-size:12.5px; display:flex; gap:8px; align-items:center }
+  .sr-row:last-child { border-bottom:none }
+  .sr-row .nm { font-weight:700; flex:1 }
+  .sr-row .biz { font-size:10.5px; color:var(--gray-500); font-family:monospace }
 
-  /* ── 요청사항·처리기록 thread placeholder ── */
-  .thread-box { background:#fff; border:1px solid var(--gray-200); border-radius:9px; padding:0; overflow:hidden }
-  .thread-empty { padding:14px 12px; text-align:center; color:var(--gray-400); font-size:12px; background:repeating-linear-gradient(45deg,#FAFAFA,#FAFAFA 6px,#F3F4F6 6px,#F3F4F6 12px); border-bottom:1px solid var(--gray-200) }
-  .thread-add { padding:9px 11px; display:flex; align-items:center; gap:7px; font-size:12px; color:var(--primary); font-weight:800; cursor:pointer }
-  .thread-add .plus { width:22px; height:22px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800 }
-  .thread-group { border-bottom:1px solid var(--gray-200); padding:9px 11px }
-  .thread-group:last-child { border-bottom:none }
-  .thread-row { display:flex; gap:8px; padding:5px 0; align-items:flex-start; font-size:12px }
-  .thread-row .stage { font-size:10px; font-weight:800; padding:2px 7px; border-radius:9px; white-space:nowrap; flex-shrink:0 }
-  .thread-row .stage.req  { background:#DBEAFE; color:#1e40af }
-  .thread-row .stage.prog { background:#FEF3C7; color:#92400E }
-  .thread-row .stage.done { background:#DCFCE7; color:#15803d }
-  .thread-row .txt { flex:1; color:var(--gray-700); line-height:1.45 }
-  .thread-row .when { font-size:10px; color:var(--gray-400) }
+  .picked { margin-top:6px; padding:6px 10px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:6px; font-size:11px; color:#065F46; display:flex; gap:6px; justify-content:space-between; flex-wrap:wrap }
+  .picked code { background:#fff; padding:1px 6px; border-radius:3px; font-family:monospace; font-size:10.5px }
 
-  /* ── 투입 장비 (카탈로그 + 행 추가) ── */
-  .equip-box { background:var(--gray-50); border:1px solid var(--gray-200); border-radius:10px; padding:9px 10px }
-  .equip-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px }
-  .equip-head .h { font-size:12px; font-weight:800; color:var(--gray-700) }
-  .equip-head .add-row { background:#fff; border:1.5px solid var(--gray-300); color:var(--gray-600); border-radius:6px; padding:4px 9px; font-size:10.5px; font-weight:800; cursor:pointer }
-  .equip-row { background:#fff; border:1px solid var(--gray-200); border-radius:8px; padding:9px 10px; margin-bottom:6px }
-  .equip-row .nm-row { display:flex; align-items:center; gap:6px; margin-bottom:6px }
-  .equip-row .nm { font-size:12.5px; font-weight:700; color:var(--gray-800); flex:1 }
-  .equip-row .lock { font-size:9.5px; background:var(--gray-100); color:var(--gray-500); padding:1px 6px; border-radius:9px; font-weight:700 }
-  .equip-row .variant-row { font-size:11px; color:var(--gray-600); margin-bottom:5px }
-  .equip-row .variant-row select { padding:3px 5px; border:1px solid var(--gray-300); border-radius:5px; font-size:11px; background:#fff }
-  .equip-row .grid { display:grid; grid-template-columns:60px 1fr 1fr; gap:6px; align-items:end }
-  .equip-row .grid .lbl { font-size:9.5px; color:var(--gray-500); font-weight:700; margin-bottom:2px }
-  .equip-row .grid input { width:100%; padding:5px 6px; border:1px solid var(--gray-300); border-radius:5px; font-size:11.5px; text-align:right; background:#fff; font-family:inherit }
-  .equip-row .sum { font-size:11px; color:var(--gray-500); margin-top:4px; text-align:right }
-  .equip-row .sum b { color:var(--primary); font-weight:800 }
-  .equip-row.custom .nm { color:var(--primary) }
-  .equip-row.custom input.cust-name { text-align:left; flex:1; padding:5px 7px; border:1px solid var(--gray-300); border-radius:5px; font-size:12px; background:#fff; font-family:inherit; font-weight:700; color:var(--gray-800) }
-  .equip-row .x { color:var(--gray-400); cursor:pointer; font-size:14px }
-  .equip-total { display:flex; justify-content:space-between; padding:8px 9px; background:#fff; border:1px solid var(--gray-200); border-radius:7px; margin-top:5px; font-size:12px; font-weight:800 }
-  .equip-total b { color:var(--primary); font-size:14px }
-  .equip-hint { font-size:10px; color:var(--gray-400); margin-top:5px; line-height:1.4 }
+  .sched-grid { display:grid; grid-template-columns:1fr; gap:7px }
+  .sched-grid .field { margin:0 }
 
-  /* ── 첨부 ── */
+  /* Thread */
+  .thread { background:var(--gray-50); border:1px dashed var(--gray-300); border-radius:10px; padding:11px }
+  .thread .empty { text-align:center; color:var(--gray-400); font-size:11.5px; padding:14px 0 }
+  .thread-item { background:#fff; border:1px solid var(--gray-200); border-radius:9px; padding:9px 11px; margin-bottom:6px }
+  .thread-item.req { border-left:4px solid #3B82F6 }
+  .thread-item.ship { border-left:4px solid #F59E0B }
+  .thread-item.deliv { border-left:4px solid #06B6D4 }
+  .thread-item.paid { border-left:4px solid #10B981 }
+  .thread-item .head { display:flex; gap:6px; align-items:center; margin-bottom:4px }
+  .thread-item .head .who { font-size:10.5px; color:var(--gray-500) }
+  .thread-item .body-t { font-size:12.5px; color:var(--gray-700) }
+  .thread-add { width:100%; margin-top:7px; padding:9px 0; background:#fff; border:1.5px dashed var(--supplies); color:var(--supplies-text); border-radius:8px; font-weight:800; font-size:12px }
+
+  /* Supplies catalog rows (모바일 1줄당 1카드) */
+  .equip-search { position:relative; margin-bottom:7px }
+  .equip-search input { width:100%; padding:9px 12px 9px 32px; border:1.5px solid var(--gray-300); border-radius:8px; font-size:12.5px; background:#fff }
+  .equip-search .ico { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--gray-400); font-size:13px }
+  .equip-card { background:#fff; border:1px solid var(--gray-200); border-radius:9px; padding:9px 11px; margin-bottom:6px }
+  .equip-card.on { border-color:#FCD34D; background:#FFFBEB }
+  .equip-card .top { display:flex; gap:8px; align-items:center; margin-bottom:6px }
+  .equip-ico { width:32px; height:32px; border-radius:7px; background:#F3F4F6; display:flex; align-items:center; justify-content:center; font-size:16px }
+  .equip-nm { font-weight:700; font-size:12.5px; flex:1 }
+  .equip-sub { font-size:10.5px; color:var(--gray-500) }
+  .equip-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px }
+  .equip-grid .field-label-sm { font-size:10px; color:var(--gray-500); font-weight:700; margin-bottom:2px }
+  .equip-grid input { padding:6px 8px; font-size:12px; border:1.5px solid var(--gray-300); border-radius:6px; width:100%; text-align:right }
+  .equip-row-x { background:none; border:none; color:var(--gray-400); font-size:14px; padding:0 4px }
+  .equip-add-btn { width:100%; margin-top:5px; padding:9px 0; background:#fff; border:1.5px dashed var(--gray-400); color:var(--gray-600); border-radius:8px; font-weight:700; font-size:12px }
+
+  /* Attachment */
   .photo-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px }
-  .photo { aspect-ratio:1; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5); position:relative }
-  .photo.img1 { background:linear-gradient(135deg,#3B82F6,#1E3A8A) }
-  .photo.img2 { background:linear-gradient(135deg,#10B981,#065F46) }
-  .photo.img3 { background:linear-gradient(135deg,#F59E0B,#92400E) }
-  .photo.pdf  { background:#DC2626 }
-  .photo .x   { position:absolute; top:-5px; right:-5px; background:#EF4444; color:#fff; width:18px; height:18px; border-radius:50%; font-size:11px; line-height:18px; text-align:center; font-weight:800; border:2px solid #fff }
-  .photo.add { background:#fff; border:2px dashed var(--gray-300); color:var(--gray-500); text-shadow:none; flex-direction:column; gap:1px; font-size:9px; font-weight:700 }
-  .photo.add .plus { font-size:22px; line-height:1 }
-  .photo.add.camera { border-color:var(--primary); color:var(--primary); background:#EFF6FF }
+  .photo-lg { aspect-ratio:1; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:9.5px; color:#fff; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.5); position:relative }
+  .photo-lg.add { background:#fff; border:2px dashed var(--gray-400); color:var(--gray-500); text-shadow:none; flex-direction:column; gap:1px }
+  .photo-lg.add .plus { font-size:22px; line-height:1 }
+  .photo-lg.add.camera { border-color:var(--supplies); color:var(--supplies-text); background:#FFFBEB }
+  .photo-lg .x { position:absolute; top:-5px; right:-5px; background:#EF4444; color:#fff; width:18px; height:18px; border-radius:50%; font-size:11px; line-height:18px; text-align:center; font-weight:800; border:2px solid #fff }
 
-  /* ── 푸터 (sticky) ── */
-  .sticky-footer { position:absolute; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--gray-200); padding:9px 12px 12px; display:flex; flex-direction:column; gap:7px; box-shadow:0 -2px 8px rgba(0,0,0,.05) }
-  .sticky-footer .line-toggle { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:13px; font-size:11.5px; font-weight:700; color:#06A647; align-self:flex-start }
-  .sticky-footer .line-toggle input { accent-color:var(--line); margin:0; width:14px; height:14px }
-  .sticky-footer .btns { display:flex; gap:6px }
-  .sticky-footer .btn-out { flex:0 0 80px; padding:11px 0; border-radius:9px; font-size:13px; font-weight:800; background:#fff; color:var(--gray-700); border:1.5px solid var(--gray-300); text-align:center }
-  .sticky-footer .btn-pri { flex:1; padding:11px 0; border-radius:9px; font-size:13.5px; font-weight:800; background:var(--primary); color:#fff; text-align:center; border:none }
+  /* Sticky footer */
+  .sticky-footer {
+    position:absolute; left:0; right:0; bottom:0;
+    background:#fff; border-top:1px solid var(--gray-200);
+    padding:10px 12px 12px;
+    display:flex; flex-direction:column; gap:7px;
+  }
+  .line-check { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:14px; font-size:11.5px; font-weight:700; color:#06A647; align-self:flex-start }
+  .line-check input { accent-color:#06C755; margin:0 }
+  .btn-big { width:100%; padding:13px 0; border-radius:10px; font-size:14px; font-weight:800; border:none; background:var(--supplies); color:#fff }
+  .btn-row { display:flex; gap:7px }
+  .btn-row .btn-big { flex:1 }
+  .btn-big.ghost { background:#fff; color:var(--gray-700); border:1.5px solid var(--gray-300) }
 
-  /* ── nav ── */
-  .mockup-nav { position:sticky; top:0; z-index:50; background:rgba(255,255,255,0.96); backdrop-filter:blur(8px); border-bottom:1px solid #E5E7EB; padding:10px 18px; margin:-18px -18px 18px; display:flex; gap:6px; flex-wrap:wrap; align-items:center }
-  .mockup-nav .label { font-size:11px; font-weight:800; color:#6B7280; margin-right:4px; letter-spacing:.3px }
-  .mockup-nav a { padding:6px 12px; border-radius:18px; background:#F3F4F6; color:#4B5563; font-size:12px; font-weight:700; text-decoration:none; border:1px solid transparent }
-  .mockup-nav a:hover { background:#E5E7EB; color:#1F2937 }
-  .mockup-nav a.active { background:#2563EB; color:#fff; border-color:#2563EB; box-shadow:0 2px 6px rgba(37,99,235,.3) }
+  /* Stats 4-up compact (hub 상단) */
+  .stats4 { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-bottom:12px }
+  .stat-c { background:#fff; border-radius:9px; padding:7px 6px; box-shadow:0 1px 2px rgba(0,0,0,.04); border-top:3px solid var(--gray-300); text-align:center }
+  .stat-c.sales { border-top-color:var(--success) }
+  .stat-c.ar { border-top-color:var(--danger) }
+  .stat-c.ship { border-top-color:#06B6D4 }
+  .stat-c.total { border-top-color:var(--primary) }
+  .stat-c .lbl { font-size:9.5px; color:var(--gray-500); font-weight:700; line-height:1.2 }
+  .stat-c .val { font-size:13px; font-weight:900; margin-top:3px; color:var(--gray-900); line-height:1.1 }
+  .stat-c .val .u { font-size:9px; font-weight:700; color:var(--gray-500); margin-left:1px }
+  .stat-c.ar .val { color:var(--danger) }
+  .stat-c .sub { font-size:9px; color:var(--gray-600); margin-top:1px }
 
-  .annot { font-size:11px; color:var(--gray-600); padding:7px 10px; background:#FFFBEB; border-left:3px solid #FCD34D; border-radius:5px; margin:14px 0 0; line-height:1.5 }
   code { background:#F3F4F6; padding:1px 5px; border-radius:3px; font-size:11.5px }
+
+  /* Mockup nav */
+  .mockup-nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(255,255,255,0.96); backdrop-filter: blur(8px);
+    border-bottom: 1px solid #E5E7EB;
+    padding: 10px 18px; margin: -18px -18px 18px;
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  }
+  .mockup-nav .label { font-size: 11px; font-weight: 800; color: #6B7280; margin-right: 4px; letter-spacing: 0.3px }
+  .mockup-nav a { padding: 6px 12px; border-radius: 18px; background: #F3F4F6; color: #4B5563; font-size: 12px; font-weight: 700; text-decoration: none; border: 1px solid transparent }
+  .mockup-nav a:hover { background: #E5E7EB; color: #1F2937 }
+  .mockup-nav a.active { background: var(--supplies); color: #fff; border-color: var(--supplies); box-shadow: 0 2px 6px rgba(245,158,11,.3) }
+
+  .toggle-btn { background:none; border:1px solid var(--gray-300); color:var(--gray-500); font-size:10px; padding:2px 8px; border-radius:6px; font-weight:700 }
 </style>
 </head>
 <body>
@@ -181,464 +193,583 @@
   <a href="mockup-debug.html#supplies" style="margin-left:auto;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D">📝 메모</a>
 </nav>
 
-<h1>🛒 소모품판매 모바일 — newJobModal(supplies) 컨텍스트 기반</h1>
-<p class="lead">
-  데스크톱 <code>newJobModal</code> + <code>applyJobFormContext('supplies')</code> 분기와 <code>screen-supplieshub</code> UI 를 모바일 풀폼으로 1:1 변환.
-  필드 순서·라벨·동작은 데스크톱 모달과 동일 (jobType=장비 추가/신규, 매장 주요 일정·투입 장비는 js-non-as 로 표시).
-</p>
+<h1>📱 소모품판매 모바일 — 데스크톱 <code>newJobModal(supplies)</code> 1:1 이식</h1>
+<p class="lead">신규 모바일 목업과 동일한 4 화면 진입 패턴. 홈 → 소모품 hub → 등록/편집 풀폼 → thread 상세.</p>
 
 <div class="frames">
 
-<!-- ═══════════════════════════════════════════════ -->
-<!-- ① 소모품 hub (통계 4 + 필터 + 검색 + 리스트)     -->
-<!-- ═══════════════════════════════════════════════ -->
+<!-- ⓪ 메인 홈 — 5개 카테고리 아이콘 2 줄 (소모품 active) -->
 <div>
   <div class="device">
     <div class="notch"></div>
     <div class="screen">
-      <div class="statusbar"><span>09:42</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="statusbar"><span>09:40</span><span class="icons">📶 📡 🔋</span></div>
       <div class="appbar">
-        <div style="font-size:21px">🛒</div>
-        <div class="title">🏷️ 소모품판매</div>
-        <span class="ctx-badge">supplies</span>
+        <div style="font-size:21px">🏠</div>
+        <div class="title">NeoRetail</div>
+        <span class="badge" style="background:#FEE2E2;color:#991B1B">미수 3</span>
       </div>
+      <div class="body" style="padding:14px 14px 90px;background:linear-gradient(180deg,#fff,#F0F2F5 50%)">
 
-      <div class="body">
-        <!-- 통계 4종 (screen-supplieshub 그대로) -->
-        <div class="stats-grid">
-          <div class="stat-card sales">
-            <div class="lbl">💰 이번달 매출</div>
-            <div class="val">3,850,000<span class="u">원</span></div>
-            <div class="sub">42건 · 전월 +12%</div>
-          </div>
-          <div class="stat-card ar">
-            <div class="lbl">📌 미수금</div>
-            <div class="val">1,240,000<span class="u">원</span></div>
-            <div class="sub">8건 · 내역보기 →</div>
-          </div>
-          <div class="stat-card ship">
-            <div class="lbl">🚚 발송 대기</div>
-            <div class="val">5<span class="u">건</span></div>
-            <div class="sub">미발송 건수</div>
-          </div>
-          <div class="stat-card total">
-            <div class="lbl">📊 전체 거래</div>
-            <div class="val">128<span class="u">건</span></div>
-            <div class="sub">누적</div>
-          </div>
+        <div style="font-size:13px;color:var(--gray-600);margin-bottom:6px">안녕하세요, 이헌상님 👋</div>
+        <div style="font-size:18px;font-weight:800;color:var(--gray-800);margin-bottom:14px">오늘 처리할 업무를 선택하세요</div>
+
+        <!-- 5개 카테고리 아이콘 (2줄: 3 + 2) — 소모품 active -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #BFDBFE;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(59,130,246,.08);position:relative">
+            <div style="font-size:32px">🆕</div>
+            <div style="font-size:12.5px;font-weight:800;color:#1E40AF">신규</div>
+            <div style="font-size:10px;color:var(--gray-500)">6건 진행</div>
+            <span style="position:absolute;top:6px;right:6px;background:#EF4444;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px">D-2</span>
+          </a>
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #FCA5A5;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(239,68,68,.08);position:relative">
+            <div style="font-size:32px">🔧</div>
+            <div style="font-size:12.5px;font-weight:800;color:#991B1B">AS</div>
+            <div style="font-size:10px;color:var(--gray-500)">3건 긴급</div>
+            <span style="position:absolute;top:6px;right:6px;background:#EF4444;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px;animation:pulse 1.4s infinite">긴급</span>
+          </a>
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #DDD6FE;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(124,58,237,.08);position:relative">
+            <div style="font-size:32px">💳</div>
+            <div style="font-size:12.5px;font-weight:800;color:#5B21B6">VAN</div>
+            <div style="font-size:10px;color:var(--gray-500)">4건 · 📑 2</div>
+            <span style="position:absolute;top:6px;right:6px;background:#7C3AED;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px">📑 2</span>
+          </a>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <!-- 소모품 active 강조 -->
+          <a href="#" style="text-decoration:none;background:#FFFBEB;border:2.5px solid var(--supplies);border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(245,158,11,.28);position:relative">
+            <div style="font-size:32px">🛒</div>
+            <div style="font-size:12.5px;font-weight:800;color:#92400E">소모품판매</div>
+            <div style="font-size:10px;color:#92400E;font-weight:700">미수 3건 · 발송 2</div>
+            <span style="position:absolute;top:6px;right:6px;background:#EF4444;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px;animation:pulse 1.6s infinite">미수 3</span>
+          </a>
+          <a href="#" style="text-decoration:none;background:#fff;border:1.5px solid #A7F3D0;border-radius:14px;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(16,185,129,.08);position:relative">
+            <div style="font-size:32px">📦</div>
+            <div style="font-size:12.5px;font-weight:800;color:#065F46">재고조사</div>
+            <div style="font-size:10px;color:var(--gray-500)">2건 진행</div>
+            <span style="position:absolute;top:6px;right:6px;background:#10B981;color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:9px">2</span>
+          </a>
         </div>
 
-        <!-- 필터 (전체/미수/완료) + 검색 + 등록 -->
-        <div class="hub-actbar">
-          <div class="hub-filters">
-            <span class="hub-filter active">전체 <span class="cnt">15</span></span>
-            <span class="hub-filter">미수 <span class="cnt">8</span></span>
-            <span class="hub-filter">완료 <span class="cnt">12</span></span>
-          </div>
-          <input class="hub-search" placeholder="🔍 매장명 검색...">
+        <div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:9px;padding:9px 11px;font-size:11px;color:#92400E;line-height:1.55;margin-bottom:12px">
+          💡 <b>🛒 소모품판매</b> 탭 → 서브 카테고리(장비추가/신규) 또는 진행 중 거래 카드 선택 → 풀폼 등록/편집.
         </div>
 
-        <!-- 매장 카드 리스트 -->
-        <div class="card ar">
-          <div class="topline">
-            <span class="pill supplies">🏷️ 소모품</span>
-            <span class="pill ar">미수</span>
-            <span class="nm">정이가마트</span>
-            <span class="meta" style="margin:0">2/15 발송</span>
+        <!-- 빠른 진입: 최근 소모품 매장 -->
+        <div style="font-size:11px;font-weight:800;color:var(--gray-600);margin-bottom:6px;text-transform:uppercase">최근 소모품 매장</div>
+        <div style="background:#fff;border-radius:10px;padding:9px 12px;margin-bottom:5px;display:flex;align-items:center;gap:8px">
+          <div style="width:32px;height:32px;background:#FEE2E2;color:#991B1B;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px">🏪</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:12.5px">정이가마트</div>
+            <div style="font-size:10.5px;color:var(--gray-500)">🛒 소모품 · 미수 280,000원 (32일)</div>
           </div>
-          <div class="meta">사업자 <code style="background:#F3F4F6;padding:1px 4px;border-radius:3px">123-45-67890</code> · 담당 김기사</div>
-          <div class="summary">영수증용지 ×20 + 잉크리본 ×3 · <b class="amt ar">미수 280,000원</b></div>
+          <span style="font-size:11px;color:var(--gray-400)">›</span>
         </div>
-
-        <div class="card">
-          <div class="topline">
-            <span class="pill supplies">🏷️ 소모품</span>
-            <span class="pill prog">발송대기</span>
-            <span class="nm">다봄(주)</span>
-            <span class="meta" style="margin:0">오늘 출고</span>
+        <div style="background:#fff;border-radius:10px;padding:9px 12px;margin-bottom:5px;display:flex;align-items:center;gap:8px">
+          <div style="width:32px;height:32px;background:#FEF3C7;color:#92400E;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px">🏪</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:12.5px">스시히로(서초)</div>
+            <div style="font-size:10.5px;color:var(--gray-500)">🛒 영수증용지 ×30 · 발송 완료</div>
           </div>
-          <div class="meta">사업자 <code style="background:#F3F4F6;padding:1px 4px;border-radius:3px">456-78-12345</code> · 담당 박기사</div>
-          <div class="summary">라벨용지 ×10 + 영수증용지 ×15 · <b class="amt">175,000원</b></div>
-        </div>
-
-        <div class="card done">
-          <div class="topline">
-            <span class="pill supplies">🏷️ 소모품</span>
-            <span class="pill done">완료</span>
-            <span class="nm">명동교자(1호점)</span>
-            <span class="meta" style="margin:0">5/15</span>
-          </div>
-          <div class="meta">사업자 <code style="background:#F3F4F6;padding:1px 4px;border-radius:3px">789-01-23456</code> · 담당 이기사</div>
-          <div class="summary">영수증용지 ×30 · <b class="amt">150,000원</b> · 계좌이체 수금완료</div>
-        </div>
-
-        <div class="card">
-          <div class="topline">
-            <span class="pill supplies">🏷️ 소모품</span>
-            <span class="pill prog">진행</span>
-            <span class="nm">샐러디 강남점</span>
-          </div>
-          <div class="meta">담당 김기사 · 설치예정 5/22</div>
-          <div class="summary">POS 부속(영수증커터) ×2 + 잉크리본 ×5 · <b class="amt">92,000원</b></div>
-        </div>
-
-        <div class="card done">
-          <div class="topline">
-            <span class="pill supplies">🏷️ 소모품</span>
-            <span class="pill done">완료</span>
-            <span class="nm">버블헌터</span>
-          </div>
-          <div class="meta">담당 박기사 · 4/30 발송</div>
-          <div class="summary">라벨용지 ×8 · <b class="amt">64,000원</b></div>
+          <span style="font-size:11px;color:var(--gray-400)">›</span>
         </div>
       </div>
 
-      <!-- + 소모품 등록 (hub 의 우상단 버튼) -->
-      <div style="position:absolute;right:14px;bottom:18px;background:var(--primary);color:#fff;border-radius:25px;padding:10px 16px;font-size:13px;font-weight:800;box-shadow:0 4px 14px rgba(37,99,235,.4)">＋ 소모품 등록</div>
+      <div class="bottom-nav">
+        <div class="nav-item active"><div class="icn">🏠</div>홈</div>
+        <div class="nav-item"><div class="icn">📅</div>일정</div>
+        <div class="nav-item"><div class="icn">🏪</div>매장</div>
+        <div class="nav-item"><div class="icn">📡</div>LINE</div>
+        <div class="nav-item"><div class="icn">⚙️</div>설정</div>
+      </div>
     </div>
   </div>
-  <div class="device-title">① 🏷️ 소모품 hub — 통계 4종 + 필터(전체/미수/완료) + 검색 + 카드 리스트</div>
+  <div class="device-title">⓪ 메인 홈 — 5개 업무 아이콘 · 소모품 active 강조</div>
 </div>
 
-<!-- ═══════════════════════════════════════════════ -->
-<!-- ② 등록 풀폼 (newJobModal supplies 순서대로)      -->
-<!-- ═══════════════════════════════════════════════ -->
+<!-- ⓪ⓑ 소모품 진입 페이지 — 통계 4 + 새 등록 서브 카테고리 + 진행 중 리스트 -->
 <div>
   <div class="device">
     <div class="notch"></div>
     <div class="screen">
-      <div class="statusbar"><span>09:50</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="statusbar"><span>09:41</span><span class="icons">📶 📡 🔋</span></div>
       <div class="appbar">
         <div class="back">‹</div>
-        <div class="title">새 작업 등록</div>
-        <span class="ctx-badge">🏷️ supplies</span>
+        <div class="title">🛒 소모품판매</div>
+        <span class="badge" style="background:#FEE2E2;color:#991B1B">미수 3</span>
       </div>
 
-      <div class="body">
+      <div class="body" style="padding:12px 14px 80px;background:#F0F2F5">
 
-        <!-- ── 점포명 검색 + 미등록 토글 ── -->
-        <div class="section-h">🏪 점포명 <span class="hint">🔍 검색</span></div>
-        <div class="field">
-          <div class="field-label" style="justify-content:space-between">
-            <span>검색 범위</span>
-            <span class="unreg-toggle">＋ 미등록 가맹점</span>
+        <!-- 상단: 통계 카드 4종 콤팩트 -->
+        <div class="stats4">
+          <div class="stat-c sales">
+            <div class="lbl">이번달 매출</div>
+            <div class="val">1,840<span class="u">k</span></div>
+            <div class="sub">5월 누적</div>
           </div>
-          <div class="scope-radios">
-            <label class="on">상호·사업자</label>
-            <label>대표자</label>
-            <label>주소</label>
+          <div class="stat-c ar">
+            <div class="lbl">미수금</div>
+            <div class="val">472<span class="u">k</span></div>
+            <div class="sub">3건</div>
           </div>
-          <input class="field-input" placeholder="검색어를 입력하세요..." value="정이가마트">
-          <div class="picked-info">
+          <div class="stat-c ship">
+            <div class="lbl">발송 대기</div>
+            <div class="val">2<span class="u">건</span></div>
+            <div class="sub">오늘 출고</div>
+          </div>
+          <div class="stat-c total">
+            <div class="lbl">전체 거래</div>
+            <div class="val">28<span class="u">건</span></div>
+            <div class="sub">YTD</div>
+          </div>
+        </div>
+
+        <!-- 위: 새 소모품 등록 (서브 카테고리) -->
+        <div style="background:#fff;border-radius:11px;padding:13px 13px 14px;margin-bottom:12px;border:1px solid var(--gray-200)">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:9px">
+            <div style="font-size:12px;font-weight:800;color:var(--supplies-text);text-transform:uppercase;letter-spacing:0.5px">＋ 새 소모품 등록</div>
+            <span style="font-size:10.5px;color:var(--gray-500)">— 서브 카테고리</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <a href="#" style="text-decoration:none;background:#fff;border:2px solid var(--supplies-border);border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:11px">
+              <div style="font-size:26px">📦</div>
+              <div style="flex:1">
+                <div style="font-size:13.5px;font-weight:800;color:var(--supplies-text)">장비 추가</div>
+                <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">기존 매장에 영수증용지·잉크리본 등 추가 출고 <b>(가장 흔함)</b></div>
+              </div>
+              <span style="font-size:18px;color:var(--supplies-text)">›</span>
+            </a>
+            <a href="#" style="text-decoration:none;background:#fff;border:2px solid var(--gray-200);border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:11px">
+              <div style="font-size:26px">🆕</div>
+              <div style="flex:1">
+                <div style="font-size:13.5px;font-weight:800;color:var(--gray-800)">신규</div>
+                <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">신규 소모품 거래 매장 등록 + 1차 출고</div>
+              </div>
+              <span style="font-size:18px;color:var(--gray-400)">›</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- 아래: 진행 중 소모품 거래 -->
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:9px">
+          <div style="font-size:12px;font-weight:800;color:var(--supplies-text);text-transform:uppercase;letter-spacing:0.5px">📋 진행 중 소모품 거래 (5)</div>
+          <span style="font-size:10.5px;color:var(--gray-500)">— 카드 탭 시 수정</span>
+        </div>
+
+        <a href="#" class="card ar" style="display:block;text-decoration:none;color:inherit">
+          <div class="topline">
+            <span class="pill ar">미수 32일</span>
+            <span style="margin-left:auto" class="pill line">📡 3</span>
+          </div>
+          <div class="nm">정이가마트</div>
+          <div class="meta">장비추가 · 출고 4/16 · 배송 4/17</div>
+          <div class="summary">영수증용지 ×20 + 잉크리본 ×3 · <b class="amt ar">미수 280,000원</b></div>
+        </a>
+
+        <a href="#" class="card sent" style="display:block;text-decoration:none;color:inherit">
+          <div class="topline">
+            <span class="pill sent">발송완료</span>
+            <span style="margin-left:auto" class="pill line">📡 2</span>
+          </div>
+          <div class="nm">스시히로(서초)</div>
+          <div class="meta">장비추가 · 출고 5/16 · 수금 대기</div>
+          <div class="summary">라벨용지 ×10 + 영수증용지 ×15 · <b class="amt">175,000원</b></div>
+        </a>
+
+        <a href="#" class="card wait" style="display:block;text-decoration:none;color:inherit">
+          <div class="topline">
+            <span class="pill wait">발송대기</span>
+            <span style="margin-left:auto" class="pill line">📡 1</span>
+          </div>
+          <div class="nm">카페모리(역삼점)</div>
+          <div class="meta">장비추가 · 요청 5/18 · 출고 예정 5/19</div>
+          <div class="summary">POS부속(영수증커터) ×2 + 잉크리본 ×5 · <b class="amt">92,000원</b></div>
+        </a>
+
+        <a href="#" class="card done" style="display:block;text-decoration:none;color:inherit">
+          <div class="topline">
+            <span class="pill done">완료(수금)</span>
+            <span style="margin-left:auto" class="pill line">📡 4</span>
+          </div>
+          <div class="nm">본가찜닭(잠실)</div>
+          <div class="meta">장비추가 · 5/8 출고 · 5/14 수금</div>
+          <div class="summary">영수증용지 ×30 · <b class="amt">150,000원</b> · 계좌이체</div>
+        </a>
+
+        <a href="#" class="card wait" style="display:block;text-decoration:none;color:inherit">
+          <div class="topline">
+            <span class="pill wait">발송대기</span>
+            <span style="margin-left:auto" class="pill line">📡 1</span>
+          </div>
+          <div class="nm">더분식(왕십리)</div>
+          <div class="meta">장비추가 · 요청 5/18</div>
+          <div class="summary">라벨용지 ×8 · <b class="amt">64,000원</b></div>
+        </a>
+
+        <div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:9px;padding:9px 11px;font-size:11px;color:#92400E;line-height:1.55;margin-top:6px">
+          💡 카드를 탭하면 해당 거래의 <b>등록 풀폼이 편집 모드로 열립니다</b> — 품목·수량·금액·thread 모두 수정 가능.
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-item"><div class="icn">🏠</div>홈</div>
+        <div class="nav-item"><div class="icn">🆕</div>신규</div>
+        <div class="nav-item"><div class="icn">🔧</div>AS</div>
+        <div class="nav-item"><div class="icn">💳</div>VAN</div>
+        <div class="nav-item active"><div class="icn">🛒</div>소모품</div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title">⓪ⓑ 소모품 진입 — 통계 4종 + 서브 카테고리 + 진행 중 리스트</div>
+</div>
+
+<!-- ① 등록/편집 풀폼 -->
+<div>
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:12</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar">
+        <div class="back">‹</div>
+        <div class="title">🛒 소모품 등록</div>
+        <span class="badge">장비추가</span>
+      </div>
+      <div class="body" style="padding-bottom:160px">
+
+        <!-- 점포명 검색 -->
+        <div class="sec">
+          <div class="sec-h">🏪 점포명
+            <span class="hint">🔍 검색</span>
+            <button class="toggle-btn right">+ 미등록 가맹점</button>
+          </div>
+          <div class="radio-row">
+            <label class="radio-chip on"><input type="radio" name="scope" checked>상호·사업자</label>
+            <label class="radio-chip"><input type="radio" name="scope">대표자</label>
+            <label class="radio-chip"><input type="radio" name="scope">주소</label>
+          </div>
+          <div class="search-wrap">
+            <input class="field-input" type="text" placeholder="검색어를 입력하세요..." value="정이가">
+            <span class="ico">🔍</span>
+          </div>
+          <div class="search-results">
+            <div class="sr-row">
+              <div>
+                <div class="nm">정이가마트</div>
+                <div class="biz">123-45-67890 · 정인석</div>
+              </div>
+            </div>
+          </div>
+          <div class="picked">
             <span><b>✓ 선택됨</b> · 사업자 <code>123-45-67890</code></span>
-            <span>대표 정인석</span>
+            <span>정인석</span>
           </div>
         </div>
 
-        <!-- ── 작업 유형 (supplies → '장비 추가' / '신규' 만 노출) ── -->
-        <div class="section-h">⚙️ 작업 유형 <span class="hint">🏷️ supplies — 장비 추가/신규만</span></div>
-        <div class="field">
+        <!-- 작업 유형 — supplies 컨텍스트: 장비추가/신규만 -->
+        <div class="sec">
+          <div class="sec-h">📂 작업 유형
+            <span class="hint right" style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:10px;font-weight:800">🛒 소모품 메뉴 진입</span>
+          </div>
+          <div class="radio-row">
+            <label class="radio-chip on"><input type="radio" name="m_jobtype" checked>📦 장비 추가</label>
+            <label class="radio-chip"><input type="radio" name="m_jobtype">🆕 신규</label>
+          </div>
+          <div style="font-size:10.5px;color:var(--gray-500);margin-top:4px">※ 신규/AS/VAN/재고조사는 각 메뉴에서 진입 — 작업 유형 혼선 방지</div>
+        </div>
+
+        <!-- 담당 엔지니어 -->
+        <div class="sec">
+          <div class="sec-h">🛠 담당 엔지니어 <span class="hint">· 등록 직원만</span></div>
           <select class="field-select">
-            <option selected>장비 추가</option>
-            <option>신규</option>
-            <!-- 나머지 옵션 (상담/신규가맹/VAN사 변경/SW 변경/당사매장 인수/POS 교체/AS 처리) 은 hidden -->
+            <option>이헌상 (본인)</option>
+            <option>김기사</option>
+            <option>박엔지니어</option>
           </select>
         </div>
 
-        <!-- ── 담당 엔지니어 ── -->
-        <div class="section-h">👷 담당 엔지니어 <span class="hint">등록 직원만</span></div>
-        <div class="field">
-          <select class="field-select">
-            <option>담당자 선택...</option>
-            <option selected>김기사</option>
-            <option>박기사</option>
-            <option>이기사</option>
-          </select>
-        </div>
-
-        <!-- ── 매장 주요 일정 (js-non-as — supplies 도 해당) ── -->
-        <div class="section-h">📌 매장 주요 일정 <span class="hint">미정이면 비워두기</span></div>
-        <div class="schedule-box">
-          <div class="row-3">
-            <div>
-              <div class="mini-lbl">🔧 설치 예정일</div>
-              <input class="field-input" type="date" value="2026-05-22" style="padding:7px 8px;font-size:12px">
+        <!-- 매장 주요 일정 (supplies 도 non-AS 라 표시) -->
+        <div class="sec">
+          <div class="sec-h">📌 매장 주요 일정 <span class="hint">미정이면 비워두세요</span></div>
+          <div class="sched-grid">
+            <div class="field">
+              <div class="field-label">🔧 설치 예정일</div>
+              <input class="field-input" type="date">
             </div>
-            <div>
-              <div class="mini-lbl">🌅 가오픈일</div>
-              <input class="field-input" type="date" style="padding:7px 8px;font-size:12px">
+            <div class="field">
+              <div class="field-label">🌅 가오픈일</div>
+              <input class="field-input" type="date">
             </div>
-            <div>
-              <div class="mini-lbl">🎉 오픈일</div>
-              <input class="field-input" type="date" style="padding:7px 8px;font-size:12px">
+            <div class="field">
+              <div class="field-label">🎉 오픈일</div>
+              <input class="field-input" type="date">
             </div>
           </div>
         </div>
 
-        <!-- ── 주소 ── -->
-        <div class="section-h">📍 주소 <span class="hint">🎙 음성 입력 가능</span></div>
-        <div class="field">
-          <input class="field-input" placeholder="도로명 주소" value="서울 강남구 테헤란로 123">
-        </div>
-
-        <!-- ── 👤 매장 담당자 ── -->
-        <div class="section-h">👤 매장 담당자 <span class="hint">미정이면 비워두기</span></div>
-        <div class="field">
-          <div class="row-3">
-            <div>
-              <div class="mini-lbl">이름</div>
-              <input class="field-input" placeholder="예: 홍길동" value="정인석" style="padding:7px 8px;font-size:12px">
-            </div>
-            <div>
-              <div class="mini-lbl">직책</div>
-              <input class="field-input" placeholder="점장/사장/매니저" value="사장" style="padding:7px 8px;font-size:12px">
-            </div>
-            <div>
-              <div class="mini-lbl">연락처</div>
-              <input class="field-input" placeholder="010-0000-0000" value="010-1234-5678" style="padding:7px 8px;font-size:12px">
-            </div>
+        <!-- 매장 담당자 -->
+        <div class="sec">
+          <div class="sec-h">👤 매장 담당자 <span class="hint">미정이면 비워두세요</span></div>
+          <div class="field">
+            <div class="field-label">이름</div>
+            <input class="field-input" placeholder="예: 홍길동" value="정인석">
+          </div>
+          <div class="field">
+            <div class="field-label">직책</div>
+            <input class="field-input" placeholder="예: 점장 / 사장 / 매니저" value="사장">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <div class="field-label">연락처</div>
+            <input class="field-input" type="tel" placeholder="010-0000-0000" value="010-9876-5432" inputmode="tel">
           </div>
         </div>
 
-        <!-- ── 📋 요청사항·처리기록 thread placeholder ── -->
-        <div class="section-h">📋 요청사항 · 처리기록 <span class="hint">요청접수 → 진행 → 완료</span></div>
-        <div class="thread-box">
-          <div class="thread-group">
-            <div class="thread-row">
-              <span class="stage req">📥 요청접수</span>
-              <span class="txt">영수증용지 20개 + 잉크리본 3개 발송 요청<br><span class="when">5/15 09:30 · 정인석 사장</span></span>
+        <!-- thread placeholder -->
+        <div class="sec">
+          <div class="sec-h">📋 요청사항 · 처리기록</div>
+          <div class="thread">
+            <div class="thread-item req">
+              <div class="head">
+                <span class="pill wait">요청접수</span>
+                <span class="who">5/15 09:30 · 정인석 사장</span>
+              </div>
+              <div class="body-t">영수증용지 20개 + 잉크리본 3개 발송 요청</div>
             </div>
-            <div class="thread-row">
-              <span class="stage prog">🔄 진행</span>
-              <span class="txt">5/16 출고 예정 — CJ대한통운<br><span class="when">5/15 14:20 · 김기사</span></span>
+            <div class="thread-item ship">
+              <div class="head">
+                <span class="pill sent">출고</span>
+                <span class="who">4/16 11:00 · 이헌상</span>
+              </div>
+              <div class="body-t">택배 출고 완료 (CJ 송장 #1234-5678)</div>
+            </div>
+            <button class="thread-add">＋ 새 요청 / 출고 / 배송 / 수금 기록</button>
+          </div>
+        </div>
+
+        <!-- 투입 장비 — supplies 카탈로그: 검색 + 행 추가 카드 (수량·단가) -->
+        <div class="sec">
+          <div class="sec-h">📦 투입 품목
+            <span class="hint right">※ 영수증용지 / 잉크리본 / 라벨용지 / POS부속</span>
+          </div>
+
+          <!-- 카탈로그 검색 -->
+          <div class="equip-search">
+            <span class="ico">🔍</span>
+            <input type="text" placeholder="품목 검색: 영수증용지 / 잉크리본 / 라벨...">
+          </div>
+
+          <!-- 추가된 행 1: 영수증용지 -->
+          <div class="equip-card on">
+            <div class="top">
+              <div class="equip-ico">🧾</div>
+              <div style="flex:1">
+                <div class="equip-nm">영수증용지 (80×80)</div>
+                <div class="equip-sub">RP-8080 · 박스(50롤)</div>
+              </div>
+              <button class="equip-row-x">×</button>
+            </div>
+            <div class="equip-grid">
+              <div>
+                <div class="field-label-sm">수량</div>
+                <input type="number" value="20" min="0">
+              </div>
+              <div>
+                <div class="field-label-sm">단가</div>
+                <input type="number" value="9000" min="0">
+              </div>
+              <div>
+                <div class="field-label-sm">소계</div>
+                <input type="number" value="180000" readonly style="background:#FFFBEB;font-weight:800">
+              </div>
             </div>
           </div>
-          <div class="thread-add">
-            <span class="plus">＋</span>
-            <span>새 요청 접수</span>
+
+          <!-- 추가된 행 2: 잉크리본 -->
+          <div class="equip-card on">
+            <div class="top">
+              <div class="equip-ico">🎞️</div>
+              <div style="flex:1">
+                <div class="equip-nm">잉크리본 (도트 ERC-30)</div>
+                <div class="equip-sub">IR-ERC30 · 개당</div>
+              </div>
+              <button class="equip-row-x">×</button>
+            </div>
+            <div class="equip-grid">
+              <div>
+                <div class="field-label-sm">수량</div>
+                <input type="number" value="3" min="0">
+              </div>
+              <div>
+                <div class="field-label-sm">단가</div>
+                <input type="number" value="3500" min="0">
+              </div>
+              <div>
+                <div class="field-label-sm">소계</div>
+                <input type="number" value="10500" readonly style="background:#FFFBEB;font-weight:800">
+              </div>
+            </div>
+          </div>
+
+          <!-- 비활성 카탈로그 행: 라벨용지 -->
+          <div class="equip-card">
+            <div class="top">
+              <div class="equip-ico">🏷️</div>
+              <div style="flex:1">
+                <div class="equip-nm">라벨용지 (40×30)</div>
+                <div class="equip-sub">LB-4030 · 롤</div>
+              </div>
+              <button class="equip-row-x" style="color:var(--supplies-text);font-weight:800">＋</button>
+            </div>
+          </div>
+
+          <!-- 비활성 카탈로그 행: POS부속 -->
+          <div class="equip-card">
+            <div class="top">
+              <div class="equip-ico">⚙️</div>
+              <div style="flex:1">
+                <div class="equip-nm">POS부속 (영수증커터)</div>
+                <div class="equip-sub">PA-CUT01 · 개당</div>
+              </div>
+              <button class="equip-row-x" style="color:var(--supplies-text);font-weight:800">＋</button>
+            </div>
+          </div>
+
+          <button class="equip-add-btn">＋ 커스텀 품목 행 추가</button>
+
+          <!-- 합계 -->
+          <div style="margin-top:8px;padding:8px 11px;background:#FFFBEB;border:1px solid var(--supplies-border);border-radius:7px;display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:var(--supplies-text);font-weight:700">합계</span>
+            <span style="color:var(--supplies-text);font-weight:800">2종 23 nea · 190,500원</span>
           </div>
         </div>
 
-        <!-- ── 📦 투입 장비 (카탈로그 + 행 추가, js-non-as) ── -->
-        <div class="section-h">📦 투입 장비 <span class="hint">카탈로그 + ＋행 추가</span></div>
-        <div class="equip-box">
-          <div class="equip-head">
-            <div class="h">고정 카탈로그 + 커스텀 행</div>
-            <span class="add-row">＋ 행 추가</span>
-          </div>
-
-          <!-- 카탈로그 row 1 -->
-          <div class="equip-row">
-            <div class="nm-row">
-              <span class="nm">영수증용지</span>
-              <span class="lock">🔒 고정</span>
-            </div>
-            <div class="grid">
-              <div><div class="lbl">수량</div><input value="20"></div>
-              <div><div class="lbl">입고가</div><input value="2,500"></div>
-              <div><div class="lbl">판매가</div><input value="4,000"></div>
-            </div>
-            <div class="sum">합계 (판매가×수량): <b>80,000원</b></div>
-          </div>
-
-          <!-- 카탈로그 row 2 -->
-          <div class="equip-row">
-            <div class="nm-row">
-              <span class="nm">잉크리본</span>
-              <span class="lock">🔒 고정</span>
-            </div>
-            <div class="grid">
-              <div><div class="lbl">수량</div><input value="3"></div>
-              <div><div class="lbl">입고가</div><input value="3,200"></div>
-              <div><div class="lbl">판매가</div><input value="5,500"></div>
-            </div>
-            <div class="sum">합계: <b>16,500원</b></div>
-          </div>
-
-          <!-- 카탈로그 row 3 — variant 있는 품목 -->
-          <div class="equip-row">
-            <div class="nm-row">
-              <span class="nm">라벨용지</span>
-              <span class="lock">🔒 고정</span>
-            </div>
-            <div class="variant-row">
-              분류: <select><option>40×30</option><option>50×30</option><option>80×40</option></select>
-            </div>
-            <div class="grid">
-              <div><div class="lbl">수량</div><input value="0" style="color:var(--gray-400)"></div>
-              <div><div class="lbl">입고가</div><input value="0"></div>
-              <div><div class="lbl">판매가</div><input value="0"></div>
-            </div>
-            <div class="sum" style="color:var(--gray-400)">수량 0 = 미투입</div>
-          </div>
-
-          <!-- 카탈로그 row 4 — POS 부속 (variant) -->
-          <div class="equip-row">
-            <div class="nm-row">
-              <span class="nm">POS 부속</span>
-              <span class="lock">🔒 고정</span>
-            </div>
-            <div class="variant-row">
-              분류: <select><option>영수증커터</option><option>프린터헤드</option><option>전원어댑터</option></select>
-            </div>
-            <div class="grid">
-              <div><div class="lbl">수량</div><input value="0" style="color:var(--gray-400)"></div>
-              <div><div class="lbl">입고가</div><input value="0"></div>
-              <div><div class="lbl">판매가</div><input value="0"></div>
-            </div>
-            <div class="sum" style="color:var(--gray-400)">수량 0 = 미투입</div>
-          </div>
-
-          <!-- 커스텀 행 (＋ 행 추가) -->
-          <div class="equip-row custom">
-            <div class="nm-row">
-              <input class="cust-name" value="택배비(CJ)" placeholder="품목명 입력">
-              <span class="x">✕</span>
-            </div>
-            <div class="grid">
-              <div><div class="lbl">수량</div><input value="1"></div>
-              <div><div class="lbl">입고가</div><input value="0"></div>
-              <div><div class="lbl">판매가</div><input value="3,500"></div>
-            </div>
-            <div class="sum">합계: <b>3,500원</b></div>
-          </div>
-
-          <div class="equip-total">
-            <span>합계 (판매가 × 수량)</span>
-            <b>100,000원</b>
-          </div>
-          <div class="equip-hint">🔒 고정 품목은 수량 0이면 미투입 · 분류 옵션 있는 품목은 드롭다운 · 추가 품목은 "＋ 행 추가"로 무제한</div>
+        <!-- 메모 -->
+        <div class="sec">
+          <div class="sec-h">📝 비고 / 특이사항</div>
+          <textarea class="field-textarea" placeholder="배송 요청사항, 결제 조건 등...">전월 미수금 합산 청구. 택배 수령 가능 시간 14~18시.</textarea>
         </div>
 
-        <!-- ── 📝 메모 ── -->
-        <div class="section-h">📝 비고 / 특이사항</div>
-        <div class="field">
-          <textarea class="field-textarea" placeholder="VAN사 변경 사항, 고객 요청, 현장 특이사항 등...">CJ 택배 별도 청구 · 가게 휴무 (월) 피해서 화요일 도착 요청</textarea>
-        </div>
-
-        <!-- ── 📷📎 첨부 (newJobUploader) ── -->
-        <div class="section-h">📷📎 첨부 <span class="hint">매장 사진·계약서·장비 명세</span></div>
-        <div class="photo-grid">
-          <div class="photo img1">매장<span class="x">✕</span></div>
-          <div class="photo img2">송장<span class="x">✕</span></div>
-          <div class="photo pdf">📄PDF<span class="x">✕</span></div>
-          <div class="photo add camera">
-            <div class="plus">＋</div>
-            <div>📷</div>
+        <!-- 첨부 -->
+        <div class="sec" style="margin-bottom:0">
+          <div class="sec-h">📷📎 첨부 <span class="hint">송장·거래명세서·입금증</span></div>
+          <div class="photo-grid">
+            <div class="photo-lg" style="background:linear-gradient(135deg,#F59E0B,#92400E);flex-direction:column;font-size:9px">📄<span style="font-size:8px">송장.pdf</span><span class="x">×</span></div>
+            <div class="photo-lg add camera"><span class="plus">📸</span><span>촬영</span></div>
+            <div class="photo-lg add"><span class="plus">＋</span><span>파일</span></div>
+            <div class="photo-lg add"><span class="plus">＋</span><span>파일</span></div>
           </div>
         </div>
+
       </div>
 
-      <!-- ── sticky footer: 📡 LINE + [작업 등록] ── -->
+      <!-- 하단 sticky 푸터 -->
       <div class="sticky-footer">
-        <label class="line-toggle">
+        <label class="line-check">
           <input type="checkbox" checked> 📡 등록 후 LINE 발송
         </label>
-        <div class="btns">
-          <div class="btn-out">취소</div>
-          <div class="btn-pri">작업 등록</div>
+        <div class="btn-row">
+          <button class="btn-big ghost">취소</button>
+          <button class="btn-big">작업 등록</button>
         </div>
       </div>
     </div>
   </div>
-  <div class="device-title">② 등록 풀폼 (스크롤) — newJobModal supplies 순서: 점포→유형→엔지니어→일정→주소→담당자→스레드→투입장비→메모→첨부</div>
+  <div class="device-title">① 등록/편집 풀폼 — 데스크톱 newJobModal(supplies) 1:1</div>
 </div>
 
-<!-- ═══════════════════════════════════════════════ -->
-<!-- ③ thread 상세 (요청접수 → 발송 → 수금)            -->
-<!-- ═══════════════════════════════════════════════ -->
+<!-- ② thread 상세 — 요청접수→출고→배송→수금 -->
 <div>
   <div class="device">
     <div class="notch"></div>
     <div class="screen">
-      <div class="statusbar"><span>10:05</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="statusbar"><span>15:22</span><span class="icons">📶 📡 🔋</span></div>
       <div class="appbar">
         <div class="back">‹</div>
-        <div class="title">📋 정이가마트</div>
-        <span class="ctx-badge">🏷️ supplies</span>
+        <div class="title">📋 요청사항 · 처리기록</div>
+        <span class="badge">4</span>
       </div>
-
-      <div class="body no-tabbar">
-        <!-- 매장 요약 -->
-        <div class="card ar" style="margin-bottom:14px">
-          <div class="topline">
-            <span class="pill supplies">🏷️ 소모품</span>
-            <span class="pill ar">미수</span>
-            <span class="nm" style="font-size:15px">정이가마트</span>
-          </div>
-          <div class="meta">사업자 <code style="background:#F3F4F6;padding:1px 4px;border-radius:3px">123-45-67890</code> · 정인석 사장 · 010-1234-5678</div>
-          <div class="summary">영수증용지 ×20 + 잉크리본 ×3 · <b class="amt ar">미수 280,000원</b></div>
+      <div class="body" style="padding-bottom:90px">
+        <div style="background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:10px">
+          <div style="font-weight:800;font-size:14px">정이가마트</div>
+          <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">장비추가 · 123-45-67890 · 정인석 · <b style="color:var(--danger)">미수 280,000원 (32일)</b></div>
         </div>
 
-        <!-- 요청사항·처리기록 thread (확장) -->
-        <div class="section-h" style="margin-top:0">📋 요청사항 · 처리기록</div>
-        <div class="thread-box">
-          <div class="thread-group">
-            <div class="thread-row">
-              <span class="stage req">📥 요청접수</span>
-              <span class="txt">
-                영수증용지 20개 + 잉크리본 3개 발송 요청<br>
-                <span class="when">5/15 09:30 · 정인석 사장 (전화)</span>
-              </span>
-            </div>
-            <div class="thread-row">
-              <span class="stage prog">🔄 진행</span>
-              <span class="txt">
-                5/16 출고 — CJ대한통운 송장 <code>123456789012</code><br>
-                <span class="when">5/16 14:20 · 김기사</span>
-              </span>
-            </div>
-            <div class="thread-row">
-              <span class="stage prog">🔄 진행</span>
-              <span class="txt">
-                도착 확인 · 수금 안내 발송 (계좌이체 280,000원)<br>
-                <span class="when">5/17 11:10 · 김기사 · 📡 LINE 발송</span>
-              </span>
-            </div>
-            <div class="thread-row">
-              <span class="stage" style="background:#FEE2E2;color:#991B1B">⏰ 미수</span>
-              <span class="txt">
-                결제 미입금 — 매장 측 결제 보류 요청<br>
-                <span class="when">5/20 09:00 · 자동 알림</span>
-              </span>
-            </div>
+        <div class="thread-item req" style="margin-bottom:8px">
+          <div class="head">
+            <span class="pill wait">요청접수</span>
+            <span class="who">4/15 09:30 · 정인석 사장</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
           </div>
-
-          <div class="thread-add">
-            <span class="plus">＋</span>
-            <span>새 처리 기록 추가</span>
-          </div>
+          <div class="body-t">영수증용지 20개 + 잉크리본 3개 발송 요청. 입금은 월말 정산.</div>
         </div>
 
-        <!-- 첨부 미리보기 -->
-        <div class="section-h">📷📎 첨부</div>
-        <div class="photo-grid">
-          <div class="photo img1">매장</div>
-          <div class="photo img2">송장</div>
-          <div class="photo pdf">📄PDF</div>
+        <div class="thread-item ship" style="margin-bottom:8px">
+          <div class="head">
+            <span class="pill sent">출고</span>
+            <span class="who">4/16 11:00 · 이헌상</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
+          </div>
+          <div class="body-t">택배 출고 완료 (CJ 송장 #1234-5678) · 청구 280,000원</div>
         </div>
-      </div>
 
-      <!-- sticky footer -->
-      <div class="sticky-footer">
-        <label class="line-toggle">
-          <input type="checkbox"> 📡 진행 추가 시 LINE 발송
-        </label>
-        <div class="btns">
-          <div class="btn-out">닫기</div>
-          <div class="btn-pri">＋ 처리 기록 추가</div>
+        <div class="thread-item deliv" style="margin-bottom:8px">
+          <div class="head">
+            <span class="pill" style="background:#CFFAFE;color:#0E7490">배송완료</span>
+            <span class="who">4/17 14:20 · 자동</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
+          </div>
+          <div class="body-t">수령 확인 (정인석 사장님 서명). 거래명세서 동봉.</div>
+        </div>
+
+        <div class="thread-item" style="margin-bottom:8px;border-left:4px solid #EF4444">
+          <div class="head">
+            <span class="pill ar">미수 32일</span>
+            <span class="who">5/19 09:00 · 자동 알림</span>
+            <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
+          </div>
+          <div class="body-t">미수 30일 초과. LINE 자동 독촉 발송 (1차).</div>
+        </div>
+
+        <!-- + 새 기록 추가 폼 -->
+        <div style="background:#FFFBEB;border:1.5px solid var(--supplies-border);border-radius:10px;padding:11px 12px;margin-top:8px">
+          <div style="font-size:11.5px;font-weight:800;color:var(--supplies-text);margin-bottom:8px">＋ 새 기록 추가</div>
+          <div class="radio-row">
+            <label class="radio-chip"><input type="radio" name="m_st">📥 요청접수</label>
+            <label class="radio-chip"><input type="radio" name="m_st">🚚 출고</label>
+            <label class="radio-chip"><input type="radio" name="m_st">📦 배송</label>
+            <label class="radio-chip on"><input type="radio" name="m_st" checked>💰 수금</label>
+          </div>
+          <textarea class="field-textarea" placeholder="처리/진행 내용을 입력하세요..." style="margin-bottom:7px">계좌이체 수금 완료 (신한 110-XXX-XXX). 280,000원 정산.</textarea>
+          <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:7px">
+            <button style="background:#fff;color:var(--supplies-text);border:1.5px solid var(--supplies);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700">📷 입금증 첨부</button>
+            <button style="background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700">📎 파일</button>
+          </div>
+          <!-- 📡 LINE 발송 체크 -->
+          <label style="display:flex;align-items:center;gap:6px;padding:7px 11px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;cursor:pointer;margin-bottom:8px">
+            <input type="checkbox" checked style="accent-color:var(--line);margin:0">
+            <span style="font-size:11.5px;color:#06A647;font-weight:800">📡 이 수금 완료 기록 후 LINE 발송</span>
+          </label>
+          <div style="display:flex;gap:6px">
+            <button class="btn-big ghost" style="flex:1;padding:11px;border-radius:8px;font-weight:700">취소</button>
+            <button class="btn-big" style="flex:2;padding:11px;border-radius:8px;font-weight:800">＋ 기록 추가</button>
+          </div>
         </div>
       </div>
     </div>
   </div>
-  <div class="device-title">③ thread 상세 — 요청접수 → 진행(발송) → 진행(수금안내) → 미수 카드</div>
+  <div class="device-title">② thread 상세 — 요청접수→출고→배송→수금 + 단계별 📡 LINE</div>
 </div>
 
 </div>
 
-<div class="annot">
-  데스크톱 <code>newJobModal</code> 의 supplies 컨텍스트(<code>applyJobFormContext('supplies')</code>) 분기 그대로 — jobType은 "장비 추가/신규"만 노출, 매장 주요 일정·투입 장비는 <code>js-non-as</code> 로 표시됨.
-  투입 장비는 영수증용지·잉크리본·라벨용지·POS부속 카탈로그 + 커스텀 행 추가 (행별 수량·입고가·판매가).
+<h2>🗂️ 시나리오</h2>
+<div class="card" style="background:#fff;padding:14px;font-size:12.5px;line-height:1.85">
+  <b>⓪ 홈</b> → <b>🛒 소모품판매</b> 탭 → <b>⓪ⓑ 진입 페이지</b>: 상단 통계 4종 확인 → 서브 카테고리(📦 장비 추가 / 🆕 신규)로 <b>① 풀폼 신규 등록</b> 또는 진행 중 카드 탭 → <b>① 풀폼 편집</b> → <b>② thread</b>에서 출고/배송/수금 단계마다 📡 LINE 발송.
+</div>
+
+<h2>📝 메모</h2>
+<div class="card" style="background:#FEF3C7;border:1px solid #FCD34D;padding:14px;font-size:12px;line-height:1.85;color:#92400E">
+  신규 모바일 목업과 4 화면 패턴 동일 (홈 → hub → 풀폼 → thread). supplies 카탈로그(영수증용지·잉크리본·라벨용지·POS부속)는 검색 + 행 카드(수량·단가·소계) 유지. OCR·30/60/90 시각화·빠른 LINE·품목 즐겨찾기는 실제 모달에 없어 제외.
 </div>
 
 </body>
