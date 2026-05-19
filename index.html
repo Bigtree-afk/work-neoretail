@@ -549,6 +549,21 @@
   }
   .filter-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
+  /* ── STOCKTAKE STAGE CHIPS (재고조사 진행 단계 인터페이스) ── */
+  .st-stage-chip {
+    padding: 7px 13px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
+    cursor: pointer; border: 1.5px solid var(--gray-200); background: #fff; color: var(--gray-500);
+    transition: all .15s; display:inline-flex; align-items:center; gap:4px; line-height:1;
+  }
+  .st-stage-chip:hover { border-color: var(--gray-400); color: var(--gray-700); }
+  .st-stage-chip.past { background:#ECFDF5; border-color:#A7F3D0; color:#047857; }
+  .st-stage-chip.past::before { content:"✓ "; font-weight:900; }
+  .st-stage-chip.current[data-stage="상담"]     { background:#EFF6FF; border-color:#3B82F6; color:#1E40AF; box-shadow:0 0 0 2px #BFDBFE inset; }
+  .st-stage-chip.current[data-stage="일정확정"] { background:#F5F3FF; border-color:#7C3AED; color:#5B21B6; box-shadow:0 0 0 2px #DDD6FE inset; }
+  .st-stage-chip.current[data-stage="조사완료"] { background:#ECFDF5; border-color:#10B981; color:#065F46; box-shadow:0 0 0 2px #A7F3D0 inset; }
+  .st-stage-chip.current[data-stage="정산"]     { background:#FFFBEB; border-color:#F59E0B; color:#92400E; box-shadow:0 0 0 2px #FDE68A inset; }
+  .st-stage-chip.current[data-stage="마감"]     { background:#374151; border-color:#1F2937; color:#fff; }
+
   /* ── QUOTE BUILDER ── */
   .quote-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
   .quote-item-name { flex: 1; font-size: 13.5px; font-weight: 600; }
@@ -4379,16 +4394,17 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </div>
         </div>
       </div>
-      <!-- 상태 -->
+      <!-- 상태 — 단계 chip 인터페이스 (클릭으로 단계 진행) -->
       <div style="margin-bottom:10px">
-        <label style="font-size:11.5px;color:var(--gray-600);font-weight:600">상태</label>
-        <select id="stEditorStatus" style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-200);border-radius:7px;font-size:13px">
-          <option value="상담">상담</option>
-          <option value="일정확정">일정확정</option>
-          <option value="조사완료">조사완료</option>
-          <option value="정산">정산</option>
-          <option value="마감">마감</option>
-        </select>
+        <label style="font-size:11.5px;color:var(--gray-600);font-weight:600;display:flex;align-items:center;gap:6px">진행 단계 <span style="font-size:10.5px;color:var(--gray-400);font-weight:500">— 클릭해서 단계 변경</span></label>
+        <input type="hidden" id="stEditorStatus" value="상담">
+        <div id="stEditorStatusChips" class="st-stage-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          <button type="button" class="st-stage-chip" data-stage="상담"     onclick="window._stEditorSetStage('상담')">📞 상담</button>
+          <button type="button" class="st-stage-chip" data-stage="일정확정" onclick="window._stEditorSetStage('일정확정')">📅 일정확정</button>
+          <button type="button" class="st-stage-chip" data-stage="조사완료" onclick="window._stEditorSetStage('조사완료')">✅ 조사완료</button>
+          <button type="button" class="st-stage-chip" data-stage="정산"     onclick="window._stEditorSetStage('정산')">💰 정산</button>
+          <button type="button" class="st-stage-chip" data-stage="마감"     onclick="window._stEditorSetStage('마감')">🔒 마감</button>
+        </div>
       </div>
 
       <!-- 👥 담당자 정보 — 우리쪽 담당 + 거래처 담당 -->
@@ -6411,6 +6427,23 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     window._stocktakeOpenEditor(id, false);
   };
 
+  /* ── 단계 chip 인터페이스 — 클릭으로 현재 단계 설정, 시각적으로 past/current/future 표시 ── */
+  window._ST_STAGES = ['상담','일정확정','조사완료','정산','마감'];
+  window._stEditorSetStage = function(stage) {
+    const stages = window._ST_STAGES;
+    if (!stages.includes(stage)) stage = '상담';
+    const hidden = document.getElementById('stEditorStatus');
+    if (hidden) hidden.value = stage;
+    const idx = stages.indexOf(stage);
+    document.querySelectorAll('#stEditorStatusChips .st-stage-chip').forEach(chip => {
+      const s = chip.getAttribute('data-stage');
+      const i = stages.indexOf(s);
+      chip.classList.remove('past','current');
+      if (i < idx) chip.classList.add('past');
+      else if (i === idx) chip.classList.add('current');
+    });
+  };
+
   /* ── Editor 로직 ── */
   window._stocktakeOpenEditor = function(id, readonly) {
     readonly = !!readonly;
@@ -6437,7 +6470,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         if (s) _stocktakePickStore(s);
       }
     } catch(e){}
-    document.getElementById('stEditorStatus').value = rec.status || '상담';
+    window._stEditorSetStage(rec.status || '상담');
     // 상담일 기본값 — 신규 등록 시 오늘 (KST), 수정 시 기존 값 유지
     const todayKst = (function(){
       const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset() + 9*60);
