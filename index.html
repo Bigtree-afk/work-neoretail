@@ -12839,12 +12839,77 @@ ${text.slice(0, 4000)}`;
     try { return JSON.parse(localStorage.getItem('ns_jobs') || '[]'); } catch { return []; }
   }
   function saveJobs(arr) {
-    localStorage.setItem('ns_jobs', JSON.stringify(arr));
+    // 🛡 id 기준 dedup — 중복 등록 사고 방어 (어디서든 같은 id 가 두 번 들어가면 첫 항목만 유지)
+    let safe = arr;
+    if (Array.isArray(arr)) {
+      const seenIds = new Set();
+      safe = [];
+      let dupes = 0;
+      for (const j of arr) {
+        if (!j) continue;
+        const id = j.id;
+        if (id && seenIds.has(id)) { dupes++; continue; }
+        if (id) seenIds.add(id);
+        safe.push(j);
+      }
+      if (dupes > 0) console.warn('[saveJobs] 동일 id job', dupes, '건 dedup');
+    }
+    localStorage.setItem('ns_jobs', JSON.stringify(safe));
     scheduleAutoBackup();
     schedulePushJobsToCloud();
   }
   // 동일 id 의 로컬/클라우드 job 을 thread/memos/equipment 단위로 합집합 머지
   // — 데이터 손실 방지: cloud 가 stale 해서 thread ROOT 가 줄어드는 사고 차단
+  /* ════════════════════════════════════════════════════════════════════════
+   * 🪦 TOMBSTONE 시스템 — 삭제된 항목이 클라우드 유니온 머지로 부활하는 사고 차단
+   *
+   * 문제: syncJobsFromCloud() 는 cloud + local 의 union 머지 (id 기준 byId Map +
+   *      _mergeJobRecord 의 thread union). 사용자가 로컬에서 항목을 삭제해도
+   *      다른 PC/탭의 stale cloud 가 그대로 가지고 있으면 다음 sync 에서 부활.
+   *
+   * 해결: ns_tombstones 에 삭제 기록 (jobId / threadId) 을 30일간 유지.
+   *      _mergeJobRecord / syncJobsFromCloud 에서 tombstone 항목을 항상 차단.
+   *
+   * 사용:
+   *   _addTombstone('thread', threadId, jobId)   // thread 노드 삭제
+   *   _addTombstone('thread-children', rootId, jobId)  // ROOT 의 모든 자식까지 삭제
+   *   _addTombstone('job', jobId)                // job 자체 삭제
+   *   _isTombstoned('thread', threadId, jobId)
+   * ════════════════════════════════════════════════════════════════════════ */
+  function _addTombstone(type, id, jobId) {
+    if (!type || !id) return;
+    try {
+      const key = 'ns_tombstones';
+      const list = JSON.parse(localStorage.getItem(key) || '[]');
+      list.push({ type, id, jobId: jobId || null, ts: Date.now() });
+      // 30 일 이상된 항목 자동 정리 (cloud 측에서도 그 사이 정합성이 맞춰졌을 가능성)
+      const cutoff = Date.now() - 30*24*3600*1000;
+      const fresh = list.filter(t => (t.ts||0) >= cutoff);
+      localStorage.setItem(key, JSON.stringify(fresh));
+    } catch(e) { console.warn('[_addTombstone]', e); }
+  }
+  function _getTombstones() {
+    try { return JSON.parse(localStorage.getItem('ns_tombstones') || '[]'); }
+    catch { return []; }
+  }
+  function _isTombstoned(type, id, jobId) {
+    if (!type || !id) return false;
+    const list = _getTombstones();
+    return list.some(t => t.type === type && t.id === id && (jobId == null || t.jobId == null || t.jobId === jobId));
+  }
+  function _isJobTombstoned(jobId) { return _isTombstoned('job', jobId); }
+  function _isThreadTombstoned(threadId, jobId) {
+    if (_isTombstoned('thread', threadId, jobId)) return true;
+    // ROOT 가 삭제된 경우 (thread-children 으로 자식까지 차단) — 자식인지 판단은 호출부에서 처리
+    return false;
+  }
+  function _isThreadChildOfTombstonedRoot(parentId, jobId) {
+    if (!parentId) return false;
+    return _isTombstoned('thread-children', parentId, jobId);
+  }
+  window._addTombstone = _addTombstone;
+  window._isTombstoned = _isTombstoned;
+
   function _mergeJobRecord(localJob, cloudJob) {
     if (!localJob) return cloudJob;
     if (!cloudJob) return localJob;
@@ -12878,7 +12943,16 @@ ${text.slice(0, 4000)}`;
     };
     (cloudJob.thread || []).forEach(addEntry);
     (localJob.thread || []).forEach(addEntry);
-    merged.thread = [...seen.values(), ...noKey].sort((a,b) => String(a.ts||'').localeCompare(String(b.ts||'')));
+    let _merged = [...seen.values(), ...noKey];
+    // 🪦 tombstone 적용 — 삭제된 thread / ROOT 자식 차단
+    const jobIdForTomb = (localJob && localJob.id) || (cloudJob && cloudJob.id) || null;
+    _merged = _merged.filter(e => {
+      if (!e) return false;
+      if (e.threadId && _isThreadTombstoned(e.threadId, jobIdForTomb)) return false;
+      if (e.parentId && _isThreadChildOfTombstonedRoot(e.parentId, jobIdForTomb)) return false;
+      return true;
+    });
+    merged.thread = _merged.sort((a,b) => String(a.ts||'').localeCompare(String(b.ts||'')));
     // ── memos: at+text union
     const mSeen = new Map();
     [...(cloudJob.memos||[]), ...(localJob.memos||[])].forEach(m => {
@@ -12926,15 +13000,25 @@ ${text.slice(0, 4000)}`;
       // 로컬과 머지: id 기준 합집합 — 같은 id 는 thread/memos union 으로 안전 머지
       // (이전 정책: cloud 가 무조건 우선 → stale cloud 가 로컬 thread 를 지우는 사고 발생)
       const byId = new Map();
-      local.forEach(j => { if (j && j.id) byId.set(j.id, j); });
+      // 🪦 로컬에 이미 tombstone 된 job 은 skip — stale cloud 부활 차단
+      local.forEach(j => { if (j && j.id && !_isJobTombstoned(j.id)) byId.set(j.id, j); });
       let mergedCount = 0;
       cloud.forEach(j => {
         if (!j || !j.id) return;
+        if (_isJobTombstoned(j.id)) return; // 🪦 cloud 에 살아있어도 로컬에서 삭제 처리된 job 차단
         const existing = byId.get(j.id);
         if (existing) mergedCount++;
         byId.set(j.id, _mergeJobRecord(existing, j));
       });
-      const merged = Array.from(byId.values());
+      // byId 자체가 id 기준 dedup 이지만, 방어적으로 한 번 더 정리 (혹시 모를 동일 id 다중 값 보호)
+      const dedupSeen = new Set();
+      const merged = [];
+      for (const j of byId.values()) {
+        if (!j || !j.id) continue;
+        if (dedupSeen.has(j.id)) continue;
+        dedupSeen.add(j.id);
+        merged.push(j);
+      }
       localStorage.setItem('ns_jobs', JSON.stringify(merged));
       // 로컬이 클라우드보다 많거나, 머지 결과 thread/memos 가 cloud 와 다르면 즉시 푸시
       // → 다른 PC 의 stale cloud 가 다시 덮어쓰지 못하게 빠르게 재동기화
@@ -14551,8 +14635,14 @@ ${text.slice(0, 4000)}`;
       mergedStores++;
     });
 
-    // 인덱스 내림차순으로 삭제 (안전)
-    [...toRemove].sort((a,b)=>b-a).forEach(i => jobs.splice(i, 1));
+    // 인덱스 내림차순으로 삭제 (안전) — 🪦 tombstone 등록으로 cloud union 부활 차단
+    [...toRemove].sort((a,b)=>b-a).forEach(i => {
+      const removedJob = jobs[i];
+      if (removedJob && removedJob.id && typeof _addTombstone === 'function') {
+        _addTombstone('job', removedJob.id);
+      }
+      jobs.splice(i, 1);
+    });
 
     // v2 — AS 분류이고 + 명시적 AS 시그널 (lineCategory 가 AS 토큰) 인 경우만 type 정규화
     // classifyJobCategory 의 fallthrough(=default 'as') 로 신규 작업이 잘못 잡혀
@@ -18884,8 +18974,8 @@ ${text.slice(0, 4000)}`;
     if (!draftMode && jobId) {
       try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
     }
-    try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
-    try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
+    // 모든 hub/대시보드 자동 갱신 — 단순 hydrateNewopen 만 호출하면 다른 카테고리는 stale
+    try { if (typeof _refreshAllHubsAfterThread === 'function') _refreshAllHubsAfterThread(); } catch(e){}
   }
 
   // 컨테이너별 maxRoots 설정 보존 — 첫 렌더에서 지정된 값을 재렌더 시에도 사용
@@ -19310,8 +19400,19 @@ ${text.slice(0, 4000)}`;
     } else {
       arr = arr.filter(e => e.threadId !== nodeId);
     }
+    // 🪦 클라우드 유니온 머지로 부활하는 사고 방지 — tombstone 등록
+    //    draftMode (저장 전 임시) 에서는 tombstone 등록 X (실제 저장된 적 없음)
+    if (!draftMode && jobId) {
+      if (isRoot) {
+        _addTombstone('thread', nodeId, jobId);
+        _addTombstone('thread-children', nodeId, jobId); // 자식들도 union 부활 차단
+      } else {
+        _addTombstone('thread', nodeId, jobId);
+      }
+    }
     _setThreadFor(jobId, draftMode, arr, containerId);
     _rerenderThread(containerId, jobId, draftMode);
+    _refreshAllHubsAfterThread();
   };
 
   // 구버전 호환 wrapper — 기존 호출자(있다면) 보호
@@ -19866,10 +19967,14 @@ ${text.slice(0, 4000)}`;
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const idx = jobs.findIndex(x => x.id === jobId);
     if (idx < 0) return;
+    // 🪦 클라우드 부활 차단 — 삭제 전에 tombstone 등록 + 즉시 cloud 푸시
+    if (typeof _addTombstone === 'function') _addTombstone('job', jobId);
     jobs.splice(idx, 1);
     saveJobs(jobs);
+    try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
     if (typeof showToast === 'function') showToast('🗑 삭제됨');
     try { hydrateConsult('lost'); } catch(e){}
+    try { _refreshAllHubsAfterThread(); } catch(e){}
   }
   window.deleteConsult = deleteConsult;
   function editNewopen(id) {
