@@ -896,7 +896,9 @@ function doStoreSearch(){
     return false;
   }).slice(0, 8);
   if (!hits.length) {
-    results.innerHTML = `<div class="sr-row" style="color:var(--gray-500);text-align:center;cursor:default">'${esc(q)}' 에 일치하는 매장 없음 (총 ${stores.length}개 등록)</div>`;
+    results.innerHTML = `
+      <div class="sr-row" style="color:var(--gray-500);text-align:center;cursor:default">'${esc(q)}' 에 일치하는 매장 없음 (총 ${stores.length}개 등록)</div>
+      <div class="sr-row" style="background:#F0FDF4;color:#15803d;font-weight:800;text-align:center" onclick="onRegisterStoreFromSearch()">⭐ '${esc(q)}' 정식 매장으로 등록</div>`;
     results.style.display = 'block';
     return;
   }
@@ -916,6 +918,17 @@ window.pickStore = function(s){
   $('fStoreResults').style.display = 'none';
   showPicked(s);
   checkMergeTarget();
+};
+
+// 매장 검색 0건 → 정식 등록 모달 (m-core promptRegisterStore)
+window.onRegisterStoreFromSearch = async function(){
+  const q = ($('fStoreSearch').value || '').trim();
+  if (typeof window.promptRegisterStore !== 'function') { showToast('⚠ 등록 기능 사용 불가'); return; }
+  const store = await window.promptRegisterStore(q);
+  if (!store) return;
+  // 등록된 매장 자동 선택
+  pickStore({ id: store.id, name: store.name, bizNo: store.biz || store.bizNo || '', code: store.code || '' });
+  $('fStoreResults').style.display = 'none';
 };
 function showPicked(s){
   if (!s) { $('fStorePicked').style.display='none'; return; }

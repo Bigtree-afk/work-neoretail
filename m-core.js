@@ -172,6 +172,89 @@
     return { ok:true, store:newStore };
   }
 
+  // 매장 검색에서 0건일 때 부르는 공용 모달 — 이름 prefill 후 사업자번호·주소 입력받아 즉시 정식 등록.
+  // 호출: const store = await promptRegisterStore('카페모리'); store 가 null 이면 취소
+  function promptRegisterStore(prefilledName) {
+    return new Promise((resolve) => {
+      // 모달 DOM (이미 있으면 재사용)
+      let m = document.getElementById('mcPromptRegStore');
+      if (!m) {
+        m = document.createElement('div');
+        m.id = 'mcPromptRegStore';
+        m.innerHTML = `
+          <div style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center" id="prsBack">
+            <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:480px;padding:18px 18px calc(18px + env(safe-area-inset-bottom));font-family:-apple-system,'Pretendard Variable','Pretendard',sans-serif">
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:13px">
+                <div style="font-size:21px">⭐</div>
+                <div style="font-size:16px;font-weight:800;color:#1F2937">새 매장 정식 등록</div>
+                <button id="prsClose" style="margin-left:auto;background:transparent;border:none;font-size:22px;color:#9CA3AF;cursor:pointer">✕</button>
+              </div>
+              <div style="margin-bottom:9px">
+                <label style="font-size:11.5px;font-weight:700;color:#4B5563;margin-bottom:4px;display:block">상호명 <span style="color:#DC2626">*</span></label>
+                <input id="prsName" type="text" style="width:100%;padding:11px 12px;border:1.5px solid #D1D5DB;border-radius:9px;font-size:16px;font-family:inherit" placeholder="매장명">
+              </div>
+              <div style="margin-bottom:9px">
+                <label style="font-size:11.5px;font-weight:700;color:#4B5563;margin-bottom:4px;display:block">사업자번호</label>
+                <input id="prsBiz" type="text" inputmode="numeric" style="width:100%;padding:11px 12px;border:1.5px solid #D1D5DB;border-radius:9px;font-size:16px;font-family:inherit" placeholder="000-00-00000">
+              </div>
+              <div style="margin-bottom:9px">
+                <label style="font-size:11.5px;font-weight:700;color:#4B5563;margin-bottom:4px;display:block">주소</label>
+                <input id="prsAddr" type="text" style="width:100%;padding:11px 12px;border:1.5px solid #D1D5DB;border-radius:9px;font-size:16px;font-family:inherit" placeholder="서울특별시 ...">
+              </div>
+              <div style="margin-bottom:9px">
+                <label style="font-size:11.5px;font-weight:700;color:#4B5563;margin-bottom:4px;display:block">대표자</label>
+                <input id="prsCeo" type="text" style="width:100%;padding:11px 12px;border:1.5px solid #D1D5DB;border-radius:9px;font-size:16px;font-family:inherit" placeholder="(선택)">
+              </div>
+              <div style="margin-bottom:14px">
+                <label style="font-size:11.5px;font-weight:700;color:#4B5563;margin-bottom:4px;display:block">매장 전화</label>
+                <input id="prsTel" type="tel" inputmode="tel" style="width:100%;padding:11px 12px;border:1.5px solid #D1D5DB;border-radius:9px;font-size:16px;font-family:inherit" placeholder="(선택)">
+              </div>
+              <div id="prsMsg" style="font-size:11.5px;color:#92400E;margin-bottom:10px;display:none"></div>
+              <div style="display:flex;gap:8px">
+                <button id="prsCancel" style="flex:1;padding:13px;background:#fff;color:#4B5563;border:1.5px solid #D1D5DB;border-radius:10px;font-size:14.5px;font-weight:800;cursor:pointer">취소</button>
+                <button id="prsSubmit" style="flex:2;padding:13px;background:#16A34A;color:#fff;border:none;border-radius:10px;font-size:14.5px;font-weight:800;cursor:pointer">⭐ 정식 등록</button>
+              </div>
+            </div>
+          </div>`;
+        document.body.appendChild(m);
+      }
+      const $ = id => m.querySelector('#'+id);
+      $('prsName').value = prefilledName || '';
+      $('prsBiz').value = ''; $('prsAddr').value = ''; $('prsCeo').value = ''; $('prsTel').value = '';
+      $('prsMsg').style.display = 'none';
+      m.style.display = 'block';
+      const close = (val) => { m.style.display = 'none'; resolve(val); };
+      $('prsClose').onclick = $('prsCancel').onclick = () => close(null);
+      $('prsBack').onclick = (e) => { if (e.target.id === 'prsBack') close(null); };
+      $('prsSubmit').onclick = async () => {
+        const name = ($('prsName').value || '').trim();
+        if (!name) { $('prsMsg').textContent = '⚠ 매장명을 입력하세요'; $('prsMsg').style.display='block'; $('prsName').focus(); return; }
+        const sub = $('prsSubmit');
+        sub.disabled = true; sub.textContent = '⏳ 등록 중...';
+        const res = await registerStoreAsOfficial({
+          name,
+          biz:  ($('prsBiz').value || '').trim(),
+          addr: ($('prsAddr').value || '').trim(),
+          ceo:  ($('prsCeo').value || '').trim(),
+          tel:  ($('prsTel').value || '').trim(),
+        });
+        sub.disabled = false; sub.textContent = '⭐ 정식 등록';
+        if (res.ok) {
+          showToast(`⭐ ${name} 정식 등록 완료`);
+          close(res.store);
+        } else if (res.store) {
+          $('prsMsg').textContent = 'ℹ️ ' + (res.error || '이미 등록된 매장') + ' — 자동 선택됩니다';
+          $('prsMsg').style.display='block';
+          setTimeout(() => close(res.store), 600);
+        } else {
+          $('prsMsg').textContent = '⚠ ' + (res.error || '등록 실패');
+          $('prsMsg').style.display='block';
+        }
+      };
+      setTimeout(() => $('prsName').focus(), 50);
+    });
+  }
+
   // ── STOCKTAKE — index.html L5923 (키: ns_stocktake 단수) ────
   function getStocktakes() {
     try { return JSON.parse(localStorage.getItem('ns_stocktake') || '[]'); } catch { return []; }
@@ -888,6 +971,7 @@
   global.saveStores = saveStores;
   global.syncStoresFromCloud = syncStoresFromCloud;
   global.registerStoreAsOfficial = registerStoreAsOfficial;
+  global.promptRegisterStore = promptRegisterStore;
   global.getUsers = getUsers;
   global.scheduleAutoBackup = scheduleAutoBackup;
 

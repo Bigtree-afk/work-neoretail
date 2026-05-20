@@ -434,7 +434,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-4"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-5"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -814,7 +814,9 @@ function doStoreSearch(){
     return false;
   }).slice(0, 8);
   if (!hits.length) {
-    results.innerHTML = `<div class="sr-row" style="color:var(--gray-500);text-align:center;cursor:default">'${esc(q)}' 에 일치하는 매장 없음 (총 ${stores.length}개 등록)</div>`;
+    results.innerHTML = `
+      <div class="sr-row" style="color:var(--gray-500);text-align:center;cursor:default">'${esc(q)}' 에 일치하는 매장 없음 (총 ${stores.length}개 등록)</div>
+      <div class="sr-row" style="background:#F0FDF4;color:#15803d;font-weight:800;text-align:center" onclick="onRegisterStoreFromSearch()">⭐ '${esc(q)}' 정식 매장으로 등록</div>`;
     results.style.display = 'block';
     return;
   }
@@ -833,6 +835,14 @@ window.pickStore = function(s){
   $('fStoreSearch').value = s.name;
   $('fStoreResults').style.display = 'none';
   showPicked(s);
+};
+window.onRegisterStoreFromSearch = async function(){
+  const q = ($('fStoreSearch').value || '').trim();
+  if (typeof window.promptRegisterStore !== 'function') { showToast('⚠ 등록 기능 사용 불가'); return; }
+  const store = await window.promptRegisterStore(q);
+  if (!store) return;
+  pickStore({ id: store.id, name: store.name, bizNo: store.biz || store.bizNo || '', code: store.code || '' });
+  $('fStoreResults').style.display = 'none';
 };
 function showPicked(s){
   if (!s) { $('fStorePicked').style.display='none'; return; }
