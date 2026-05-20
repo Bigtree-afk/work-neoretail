@@ -428,9 +428,26 @@
     <div class="new-root-box">
       <div class="sec-h">📥 새 요청접수</div>
       <textarea class="field-textarea" id="thNewRoot" placeholder="요청 사항 입력..."></textarea>
-      <div class="tg-btn-row" style="margin-top:7px;display:flex;gap:7px;align-items:center">
+      <div class="tg-btn-row" style="margin-top:7px;display:flex;gap:7px;align-items:center;flex-wrap:wrap">
         <label class="line-mini" style="margin-right:auto;font-size:11.5px"><input type="checkbox" id="thNewRootLine"> 📡 추가 후 LINE 발송</label>
+        <button type="button" class="btn btn-outline" style="flex:0;padding:9px 12px;font-size:12.5px" onclick="toggleAddEqPanel()">🖥 장비 추가</button>
         <button class="btn btn-primary" style="flex:0;padding:9px 16px;font-size:13px" onclick="onAddRoot()">등록</button>
+      </div>
+      <!-- 🖥 장비 추가 인라인 패널 — 기본 접힘 -->
+      <div id="addEqPanel" style="display:none;margin-top:10px;padding:11px;background:#F9FAFB;border:1px solid var(--gray-200);border-radius:9px">
+        <div style="font-size:12px;font-weight:800;color:var(--gray-700);margin-bottom:8px">🖥 추가 장비 선택</div>
+        <div class="cond-row" id="addEqCondRow">
+          <label class="cond-chip on" data-c="new"><input type="radio" name="addEqCond" value="new" checked>🆕 신품</label>
+          <label class="cond-chip" data-c="used"><input type="radio" name="addEqCond" value="used">♻️ 중고</label>
+        </div>
+        <div class="eq-list" id="addEqList"></div>
+        <div style="display:flex;gap:6px;margin-top:9px;justify-content:flex-end">
+          <button type="button" class="btn btn-outline" style="flex:0;padding:7px 13px;font-size:12px" onclick="toggleAddEqPanel(false)">취소</button>
+          <button type="button" class="btn btn-primary" style="flex:0;padding:7px 13px;font-size:12px" onclick="onAddEquipmentToJob()">＋ 추가</button>
+        </div>
+        <div style="font-size:10.5px;color:var(--gray-500);margin-top:7px;line-height:1.45">
+          ※ 추가하면 ① 요청접수 thread 카드로 등록 + ② 설치 요청 장비 목록에 반영됩니다.
+        </div>
       </div>
     </div>
 
@@ -450,7 +467,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-12"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-13"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1268,6 +1285,131 @@ function renderThreadGroupsMobile(j){
 function _newThreadId(){
   return 'TR-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
 }
+
+// ════════════════════════════════════════════════════════════
+// 🖥 장비 추가 — thread 진행 중 장비 보강 (요청접수 카드 + job.equipment 머지)
+// ════════════════════════════════════════════════════════════
+let _addEqState = { cond: 'new', counts: {} }; // 추가 패널의 현재 입력 상태
+
+function _addEqBuildList(){
+  const host = document.getElementById('addEqList');
+  if (!host) return;
+  host.innerHTML = EQUIPMENT.map(eq => {
+    if (Array.isArray(eq.dual)) {
+      const ctls = eq.dual.map(sub => `
+        <div class="dual-grp">${sub.label}
+          <div class="eq-ctl">
+            <button class="eq-btn" onclick="_addEqInc('${sub.key}', -1)">−</button>
+            <span class="eq-cnt" id="add-eq-cnt-${sub.key}">0</span>
+            <button class="eq-btn" onclick="_addEqInc('${sub.key}', 1)">+</button>
+          </div>
+        </div>`).join('');
+      return `<div class="eq-row dual">
+        <div style="font-size:18px">${eq.icon}</div>
+        <div class="nm">${eq.name}</div>
+        <div style="flex:1"></div>
+        ${ctls}
+      </div>`;
+    }
+    return `<div class="eq-row">
+      <div style="font-size:18px">${eq.icon}</div>
+      <div class="nm">${eq.name}</div>
+      <div class="eq-ctl">
+        <button class="eq-btn" onclick="_addEqInc('${eq.key}', -1)">−</button>
+        <span class="eq-cnt" id="add-eq-cnt-${eq.key}">0</span>
+        <button class="eq-btn" onclick="_addEqInc('${eq.key}', 1)">+</button>
+      </div>
+    </div>`;
+  }).join('');
+  // condition 라디오 이벤트
+  document.querySelectorAll('#addEqCondRow .cond-chip').forEach(lb => {
+    const rd = lb.querySelector('input');
+    if (!rd) return;
+    rd.addEventListener('change', () => {
+      _addEqState.cond = rd.value === 'used' ? 'used' : 'new';
+      document.querySelectorAll('#addEqCondRow .cond-chip').forEach(x => x.classList.remove('on'));
+      lb.classList.add('on');
+    });
+  });
+}
+window._addEqInc = function(key, delta){
+  _addEqState.counts[key] = Math.max(0, (_addEqState.counts[key] || 0) + delta);
+  const el = document.getElementById('add-eq-cnt-' + key);
+  if (el) el.textContent = String(_addEqState.counts[key] || 0);
+};
+window.toggleAddEqPanel = function(show){
+  const panel = document.getElementById('addEqPanel');
+  if (!panel) return;
+  const wantShow = (show === undefined) ? (panel.style.display === 'none') : !!show;
+  if (wantShow) {
+    _addEqState = { cond: 'new', counts: {} };
+    _addEqBuildList();
+    document.querySelectorAll('#addEqCondRow .cond-chip').forEach(x => x.classList.toggle('on', x.dataset.c === 'new'));
+    const rdNew = document.querySelector('#addEqCondRow input[value="new"]');
+    if (rdNew) rdNew.checked = true;
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
+};
+
+window.onAddEquipmentToJob = function(){
+  const total = Object.values(_addEqState.counts).reduce((s,v) => s + (Number(v)||0), 0);
+  if (total === 0) { showToast('⚠ 추가할 장비 수량을 입력하세요'); return; }
+  const jobs = getJobs();
+  const ix = jobs.findIndex(x => x.id === _currentJobId);
+  if (ix < 0) return;
+  const j = jobs[ix];
+  const cond = _addEqState.cond === 'used' ? 'used' : 'new';
+  const condLabel = cond === 'used' ? '♻️ 중고' : '🆕 신품';
+  // job.equipment 머지
+  j.equipment = Object.assign({}, j.equipment || {});
+  Object.entries(_addEqState.counts).forEach(([k,v]) => {
+    const add = Number(v) || 0;
+    if (add > 0) j.equipment[k] = (Number(j.equipment[k])||0) + add;
+  });
+  // condition 도 마지막 추가 기준으로 업데이트 (mixed 인 경우 사용자가 인지)
+  if (cond === 'used') j.equipCondition = 'used';
+  else if (!j.equipCondition) j.equipCondition = 'new';
+  // 자동 텍스트 생성
+  const allKeys = _eqAllKeys();
+  const lines = [];
+  allKeys.forEach(k => {
+    const c = Number(_addEqState.counts[k.key]) || 0;
+    if (c > 0) lines.push(`• ${k.name} ${c}대`);
+  });
+  const userText = ($('thNewRoot').value || '').trim();
+  const eqBlock = `🖥 추가 장비 (${condLabel})\n${lines.join('\n')}`;
+  const text = userText ? (userText + '\n\n' + eqBlock) : eqBlock;
+  // thread root entry 등록
+  const ts = (window._kstNow && window._kstNow()) || new Date().toISOString().slice(0,16).replace('T',' ');
+  const author = (window._currentAuthName && window._currentAuthName()) || '담당자';
+  const entry = {
+    ts, author, status:'요청접수', text,
+    threadId: _newThreadId(),
+    parentId: null,
+    addedEquipment: Object.fromEntries(Object.entries(_addEqState.counts).filter(([,v]) => Number(v)>0)),
+    addedEquipCondition: cond,
+  };
+  j.thread = Array.isArray(j.thread) ? j.thread : [];
+  j.thread.push(entry);
+  j.thread = window._threadMigrate(j.thread);
+  j.updatedAt = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  try { window.pushJobsToCloud(); } catch(_){}
+
+  // LINE 발송 (thNewRootLine 체크박스 따름)
+  if ($('thNewRootLine').checked) {
+    try { window._openLineForJob(j, { entry, extraPrefix: eqBlock }); } catch(_){}
+  }
+  showToast('🖥 장비 추가 완료');
+  // 입력 정리
+  $('thNewRoot').value = '';
+  $('thNewRootLine').checked = false;
+  toggleAddEqPanel(false);
+  renderThread(_currentJobId);
+};
 
 window.onAddRoot = function(){
   const text = ($('thNewRoot').value || '').trim();
