@@ -104,6 +104,7 @@
   }
 
   // 매장 클라우드 풀 (모바일 첫 진입 시 PC 데이터 받기 위함) — index.html L4895 syncFromCloud
+  function _isStoreTombstoned(storeId) { return _isTombstoned('store', storeId); }
   async function syncStoresFromCloud() {
     try {
       const res = await fetch('/api/stores', { cache: 'no-store' });
@@ -112,12 +113,23 @@
       const remote = Array.isArray(data && data.stores) ? data.stores : [];
       if (remote.length === 0) return;
       const local = getStores() || [];
-      // 간단 머지: id 기준 union, 같은 id 면 remote 우선 (PC 가 최신 master)
       const byId = new Map();
-      local.forEach(s => { if (s && s.id) byId.set(s.id, s); });
-      remote.forEach(s => { if (s && s.id) byId.set(s.id, s); });
-      // id 없는 항목 (legacy) 은 그대로 보존
-      const noId = [...local.filter(s => !s.id), ...remote.filter(s => !s.id)];
+      // 로컬 우선 등록 (tombstone 된 매장은 skip)
+      local.forEach(s => {
+        if (!s || !s.id) return;
+        if (_isStoreTombstoned(s.id)) return;
+        byId.set(s.id, s);
+      });
+      // 클라우드 매장 추가 — tombstone 필터 적용 (삭제된 매장이 살아돌아오는 것 방지)
+      remote.forEach(s => {
+        if (!s || !s.id) return;
+        if (_isStoreTombstoned(s.id)) return;
+        byId.set(s.id, s); // 같은 id 면 remote 우선 (PC master 가정)
+      });
+      const noId = [
+        ...local.filter(s => s && !s.id),
+        ...remote.filter(s => s && !s.id),
+      ];
       const merged = [...byId.values(), ...noId];
       saveStores(merged);
     } catch(e) { /* 네트워크 실패 무시 */ }
@@ -1087,6 +1099,7 @@
   global._isTombstoned = _isTombstoned;
   global._isJobTombstoned = _isJobTombstoned;
   global._isThreadTombstoned = _isThreadTombstoned;
+  global._isStoreTombstoned = _isStoreTombstoned;
   global._isThreadChildOfTombstonedRoot = _isThreadChildOfTombstonedRoot;
 
   // 분류 / 정규화
