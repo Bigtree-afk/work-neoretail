@@ -1,0 +1,5 @@
+# Cloudflare Pages routing
+# /m/ 와 모든 하위 경로를 m.html 로 매핑 (모바일 SPA 진입점)
+/m       /m.html  200
+/m/      /m.html  200
+/m/*     /m.html  200
