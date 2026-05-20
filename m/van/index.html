@@ -533,6 +533,9 @@ function appBack(){
   else location.hash = '#home';
 }
 function renderCurrentView(){
+  // 폼을 떠나면 다음번 폼 진입 시 초기화되도록 키 리셋
+  const r0 = parseHash();
+  if (r0.view !== 'form') _formInitKey = '';
   const r = parseHash();
   setView(r.view);
   if (r.view === 'home')   renderHome();
@@ -659,6 +662,7 @@ function renderEntry(){
 let _formStore = null;
 let _editingJob = null;
 let _vandocsDraft = null;  // { vans: {KOCES:{status,tid,serial}, ...}, easy:{enabled,status,tid}, kakao:{enabled,status,tid} }
+let _formInitKey = '';     // 마지막으로 렌더한 폼 키 (중복 렌더 방지)
 
 function emptyVandocsDraft(){
   const d = { vans:{}, easy:{enabled:false,status:'접수',tid:''}, kakao:{enabled:false,status:'접수',tid:''} };
@@ -669,6 +673,10 @@ function emptyVandocsDraft(){
 }
 
 function renderForm(r){
+  // 같은 폼이 이미 그려져 있으면 재실행 X — 입력 중 폴링·캐시 코드 방어
+  const key = (r && r.jobId) ? ('edit:' + r.jobId) : ('new:' + (r && r.sub || ''));
+  if (_formInitKey === key) return;
+  _formInitKey = key;
   _formStore = null;
   _editingJob = null;
   _vandocsDraft = emptyVandocsDraft();

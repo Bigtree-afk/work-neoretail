@@ -551,6 +551,9 @@ function appBack(){
   else location.hash = '#home';
 }
 function renderCurrentView(){
+  // 폼을 떠나면 다음번 폼 진입 시 초기화되도록 키 리셋
+  const r0 = parseHash();
+  if (r0.view !== 'form') _formInitKey = '';
   const r = parseHash();
   setView(r.view);
   if (r.view === 'home')   renderHome();
@@ -674,6 +677,7 @@ let _formEquipment = {};   // { key: count }
 let _formEquipCondition = 'new'; // 'new' | 'used' — 모든 투입 장비 공통 조건
 let _editingJob = null;    // 편집 job
 let _mergeTargetJob = null; // 머지 대상 (등록 매장 + 진행 중 AS)
+let _formInitKey = '';     // 마지막으로 렌더한 폼 키 (중복 렌더 방지)
 
 // 장비 섹션 펼치기/접기 (기본 접힘)
 window.toggleEqSec = function(){
@@ -694,6 +698,10 @@ function bindCondRow(){
 }
 
 function renderForm(r){
+  // 같은 폼이 이미 그려져 있으면 재실행 X — 입력 중 폴링·캐시 코드 방어
+  const key = (r && r.jobId) ? ('edit:' + r.jobId) : ('new:' + (r && r.sub || ''));
+  if (_formInitKey === key) return;
+  _formInitKey = key;
   _formStore = null;
   _formEquipment = {};
   _formEquipCondition = 'new';
