@@ -255,6 +255,96 @@
     });
   }
 
+  // ── 첨부 (사진 + 파일) 업로드 — POST /api/upload (multipart) ────
+  async function uploadAttachment(file, opts) {
+    opts = opts || {};
+    const fd = new FormData();
+    fd.append('file', file);
+    if (opts.kind)     fd.append('kind', opts.kind);
+    if (opts.name)     fd.append('name', opts.name || file.name);
+    if (opts.jobId)    fd.append('jobId', opts.jobId);
+    if (opts.category) fd.append('category', opts.category);
+    if (opts.threadId) fd.append('threadId', opts.threadId);
+    const res = await fetch('/api/upload', { method:'POST', body:fd });
+    if (!res.ok) {
+      const txt = await res.text().catch(()=> '');
+      throw new Error('upload_failed_' + res.status + (txt ? ':' + txt.slice(0,80) : ''));
+    }
+    return await res.json();
+  }
+
+  // ── 모바일 첨부 picker UI — 호스트 element 에 마운트 ────
+  // opts: { jobId?, category?, threadId?, onChange? }
+  // 반환: { get(): [], clear(), destroy() }
+  // 다중 인스턴스 지원 — window._atpRegistry 로 onclick 라우팅
+  const _atpRegistry = window._atpRegistry = window._atpRegistry || {};
+  window._atpRemove = function(id, idx) {
+    const r = _atpRegistry[id];
+    if (!r) return;
+    r.state.splice(idx, 1);
+    r.render();
+    if (r.onChange) r.onChange(r.state);
+  };
+  function mountAttachPicker(host, opts) {
+    if (!host) return null;
+    opts = opts || {};
+    const id = 'atp-' + Math.random().toString(36).slice(2, 8);
+    const state = [];
+    host.innerHTML = `
+      <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
+        <input type="file" id="${id}-img" accept="image/*" capture="environment" style="display:none">
+        <input type="file" id="${id}-file" style="display:none" multiple>
+        <button type="button" onclick="document.getElementById('${id}-img').click()"
+          style="padding:6px 10px;font-size:11.5px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1E40AF;border-radius:7px;font-weight:700;cursor:pointer">📷 사진</button>
+        <button type="button" onclick="document.getElementById('${id}-file').click()"
+          style="padding:6px 10px;font-size:11.5px;background:#F3F4F6;border:1px solid #D1D5DB;color:#4B5563;border-radius:7px;font-weight:700;cursor:pointer">📎 파일</button>
+        <span id="${id}-busy" style="font-size:11px;color:#9CA3AF;display:none">⏳ 업로드 중...</span>
+      </div>
+      <div id="${id}-grid" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px"></div>
+    `;
+    const gridEl = host.querySelector('#' + id + '-grid');
+    const busyEl = host.querySelector('#' + id + '-busy');
+    function render() {
+      gridEl.innerHTML = state.map((a, i) => {
+        if (a.kind === 'image' && a.url) {
+          return `<div style="position:relative;width:54px;height:54px;border-radius:7px;background:#fff;border:1px solid #E5E7EB;overflow:hidden">
+            <img src="${a.url}" style="width:100%;height:100%;object-fit:cover" alt="">
+            <button type="button" onclick="window._atpRemove('${id}', ${i})" style="position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:#EF4444;color:#fff;border:2px solid #fff;font-size:10px;cursor:pointer;padding:0;line-height:1">×</button>
+          </div>`;
+        }
+        const nm = String(a.name || a.key || 'file').replace(/^.*\//, '').slice(0, 16);
+        return `<div style="position:relative;display:inline-flex;align-items:center;gap:5px;padding:5px 8px;background:#F3F4F6;border:1px solid #E5E7EB;border-radius:7px;font-size:11px;color:#4B5563">
+          <span>📄 ${nm}</span>
+          <button type="button" onclick="window._atpRemove('${id}', ${i})" style="background:transparent;border:none;color:#9CA3AF;cursor:pointer;font-size:13px;padding:0">×</button>
+        </div>`;
+      }).join('');
+    }
+    async function handleFiles(fileList, kind) {
+      if (!fileList || fileList.length === 0) return;
+      busyEl.style.display = 'inline';
+      for (const f of fileList) {
+        try {
+          const res = await uploadAttachment(f, { kind, jobId: opts.jobId, category: opts.category, threadId: opts.threadId, name: f.name });
+          if (res && res.ok) state.push(res);
+        } catch(e) {
+          showToast('⚠ 업로드 실패: ' + (e.message || e));
+        }
+      }
+      busyEl.style.display = 'none';
+      render();
+      if (opts.onChange) opts.onChange(state);
+    }
+    host.querySelector('#' + id + '-img').addEventListener('change', e => { handleFiles(e.target.files, 'image'); e.target.value = ''; });
+    host.querySelector('#' + id + '-file').addEventListener('change', e => { handleFiles(e.target.files, 'file'); e.target.value = ''; });
+    _atpRegistry[id] = { state, render, onChange: opts.onChange };
+    return {
+      id,
+      get: () => state.slice(),
+      clear: () => { state.length = 0; render(); },
+      destroy: () => { delete _atpRegistry[id]; host.innerHTML = ''; },
+    };
+  }
+
   // ── STOCKTAKE — index.html L5923 (키: ns_stocktake 단수) ────
   function getStocktakes() {
     try { return JSON.parse(localStorage.getItem('ns_stocktake') || '[]'); } catch { return []; }
@@ -972,6 +1062,8 @@
   global.syncStoresFromCloud = syncStoresFromCloud;
   global.registerStoreAsOfficial = registerStoreAsOfficial;
   global.promptRegisterStore = promptRegisterStore;
+  global.uploadAttachment = uploadAttachment;
+  global.mountAttachPicker = mountAttachPicker;
   global.getUsers = getUsers;
   global.scheduleAutoBackup = scheduleAutoBackup;
 

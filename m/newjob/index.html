@@ -428,6 +428,8 @@
     <div class="new-root-box">
       <div class="sec-h">📥 새 요청접수</div>
       <textarea class="field-textarea" id="thNewRoot" placeholder="요청 사항 입력..."></textarea>
+      <!-- 사진·파일 첨부 picker (m-core mountAttachPicker) -->
+      <div id="thNewRootAttach"></div>
       <div class="tg-btn-row" style="margin-top:7px;display:flex;gap:7px;align-items:center;flex-wrap:wrap">
         <label class="line-mini" style="margin-right:auto;font-size:11.5px"><input type="checkbox" id="thNewRootLine"> 📡 추가 후 LINE 발송</label>
         <button type="button" class="btn btn-outline" style="flex:0;padding:9px 12px;font-size:12.5px" onclick="toggleAddEqPanel()">🖥 장비 추가</button>
@@ -441,6 +443,8 @@
           <label class="cond-chip" data-c="used"><input type="radio" name="addEqCond" value="used">♻️ 중고</label>
         </div>
         <div class="eq-list" id="addEqList"></div>
+        <!-- 장비 추가 시 첨부 -->
+        <div id="addEqAttach" style="margin-top:7px"></div>
         <div style="display:flex;gap:6px;margin-top:9px;justify-content:flex-end">
           <button type="button" class="btn btn-outline" style="flex:0;padding:7px 13px;font-size:12px" onclick="toggleAddEqPanel(false)">취소</button>
           <button type="button" class="btn btn-primary" style="flex:0;padding:7px 13px;font-size:12px" onclick="onAddEquipmentToJob()">＋ 추가</button>
@@ -467,7 +471,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-13"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-14"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1132,9 +1136,18 @@ function renderThread(jobId){
   }
   $('thNewRoot').value = '';
   $('thNewRootLine').checked = false;
+  // 새 요청접수 첨부 picker — 매 렌더마다 재마운트
+  if (_thNewRootPicker) try { _thNewRootPicker.destroy(); } catch(_){}
+  _thNewRootPicker = (typeof window.mountAttachPicker === 'function')
+    ? window.mountAttachPicker(document.getElementById('thNewRootAttach'), { jobId: j.id, category:'newjob' })
+    : null;
   renderJobSummary(j);
   renderThreadGroupsMobile(j);
 }
+
+let _thNewRootPicker = null;
+let _addEqPicker = null;
+const _childPickers = new Map(); // rootId → picker
 
 // 등록 정보 요약 — 일정·연락처·장비·메모
 function renderJobSummary(j){
@@ -1239,6 +1252,7 @@ function renderThreadGroupsMobile(j){
             <button class="del" style="font-size:13px;background:transparent;border:none;color:var(--gray-400);cursor:pointer" title="삭제" onclick="onDelChild('${esc(c.threadId)}')">✕</button>
           </div>
           <div class="txt" id="txt-${esc(c.threadId)}">${esc(c.text||'')}</div>
+          ${_renderEntryAttachments(c)}
         </div>
       `;
     }).join('');
@@ -1252,6 +1266,7 @@ function renderThreadGroupsMobile(j){
         </div>
         <div class="tg-root" id="txt-${esc(r.threadId)}">${esc(r.text||'')}</div>
         <div class="tg-author">— ${esc(r.author||'담당자')}</div>
+        ${_renderEntryAttachments(r)}
         ${childHtml}
         ${gs !== '완료' ? `
         <div class="tg-form">
@@ -1260,6 +1275,7 @@ function renderThreadGroupsMobile(j){
             <label class="radio-chip"><input type="radio" name="ch_${r.threadId}" value="완료"> ✅ 완료</label>
           </div>
           <textarea class="field-textarea" id="ch_text_${r.threadId}" placeholder="처리 내용 입력..."></textarea>
+          <div id="ch_attach_${esc(r.threadId)}"></div>
           <div class="tg-btn-row">
             <label class="line-mini"><input type="checkbox" id="ch_line_${r.threadId}"> 📡 추가 후 LINE 발송</label>
             <button class="btn btn-primary" onclick="onAddChild('${esc(r.threadId)}')">추가</button>
@@ -1280,6 +1296,31 @@ function renderThreadGroupsMobile(j){
       });
     });
   });
+  // child entry attach picker — 미완료 그룹마다 마운트
+  _childPickers.forEach((p) => { try { p.destroy(); } catch(_){} });
+  _childPickers.clear();
+  if (typeof window.mountAttachPicker === 'function') {
+    roots.forEach(r => {
+      if (rootGroupStatus.get(r.threadId) === '완료') return;
+      const host = document.getElementById('ch_attach_' + r.threadId);
+      if (!host) return;
+      const p = window.mountAttachPicker(host, { jobId: j.id, category:'newjob', threadId: r.threadId });
+      if (p) _childPickers.set(r.threadId, p);
+    });
+  }
+}
+
+// thread entry 의 attachments 를 카드 내부에 작은 썸네일/파일 칩으로 표시
+function _renderEntryAttachments(e) {
+  if (!e || !Array.isArray(e.attachments) || e.attachments.length === 0) return '';
+  const items = e.attachments.map(a => {
+    if (a.kind === 'image' && a.url) {
+      return `<a href="${esc(a.url)}" target="_blank" style="display:inline-block;text-decoration:none"><img src="${esc(a.url)}" style="width:54px;height:54px;object-fit:cover;border-radius:6px;border:1px solid #E5E7EB" alt=""></a>`;
+    }
+    const nm = String(a.name || a.key || 'file').replace(/^.*\//,'');
+    return `<a href="${esc(a.url||'#')}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;font-size:11px;color:#4B5563;text-decoration:none">📄 ${esc(nm.slice(0,20))}</a>`;
+  }).join('');
+  return `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">${items}</div>`;
 }
 
 function _newThreadId(){
@@ -1347,6 +1388,11 @@ window.toggleAddEqPanel = function(show){
     document.querySelectorAll('#addEqCondRow .cond-chip').forEach(x => x.classList.toggle('on', x.dataset.c === 'new'));
     const rdNew = document.querySelector('#addEqCondRow input[value="new"]');
     if (rdNew) rdNew.checked = true;
+    // attach picker — 장비 사진 함께 첨부 가능
+    if (_addEqPicker) try { _addEqPicker.destroy(); } catch(_){}
+    _addEqPicker = (typeof window.mountAttachPicker === 'function')
+      ? window.mountAttachPicker(document.getElementById('addEqAttach'), { jobId: _currentJobId, category:'newjob' })
+      : null;
     panel.style.display = 'block';
   } else {
     panel.style.display = 'none';
@@ -1384,10 +1430,12 @@ window.onAddEquipmentToJob = function(){
   // thread root entry 등록
   const ts = (window._kstNow && window._kstNow()) || new Date().toISOString().slice(0,16).replace('T',' ');
   const author = (window._currentAuthName && window._currentAuthName()) || '담당자';
+  const attachments = (_addEqPicker && _addEqPicker.get()) || [];
   const entry = {
     ts, author, status:'요청접수', text,
     threadId: _newThreadId(),
     parentId: null,
+    attachments,
     addedEquipment: Object.fromEntries(Object.entries(_addEqState.counts).filter(([,v]) => Number(v)>0)),
     addedEquipCondition: cond,
   };
@@ -1418,6 +1466,7 @@ window.onAddRoot = function(){
   const ix = jobs.findIndex(x => x.id === _currentJobId);
   if (ix < 0) return;
   const j = jobs[ix];
+  const attachments = (_thNewRootPicker && _thNewRootPicker.get()) || [];
   const entry = {
     ts: window._kstNow(),
     author: window._currentAuthName() || '담당자',
@@ -1425,6 +1474,7 @@ window.onAddRoot = function(){
     text,
     threadId: _newThreadId(),
     parentId: null,
+    attachments,
   };
   j.thread = Array.isArray(j.thread) ? j.thread : [];
   j.thread.push(entry);
@@ -1448,6 +1498,8 @@ window.onAddChild = function(rootId){
   const ix = jobs.findIndex(x => x.id === _currentJobId);
   if (ix < 0) return;
   const j = jobs[ix];
+  const childPicker = _childPickers.get(rootId);
+  const attachments = (childPicker && childPicker.get()) || [];
   const entry = {
     ts: window._kstNow(),
     author: window._currentAuthName() || '담당자',
@@ -1455,6 +1507,7 @@ window.onAddChild = function(rootId){
     text,
     threadId: _newThreadId(),
     parentId: rootId,
+    attachments,
   };
   j.thread = Array.isArray(j.thread) ? j.thread : [];
   j.thread.push(entry);
