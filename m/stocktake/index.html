@@ -1420,7 +1420,7 @@ window.onLineSendRec = function(){
   $('fStoreSearch').addEventListener('input', onStoreSearchInput);
   $('fStoreSearch').addEventListener('focus', onStoreSearchInput);
 
-  try { await Promise.all([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud && window.syncJobsFromCloud()]); } catch(_){}
+  try { await Promise.allSettled([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud && window.syncJobsFromCloud()]); } catch(_){}
 
   if (!location.hash) location.hash = '#home';
   renderCurrentView();
@@ -1428,7 +1428,7 @@ window.onLineSendRec = function(){
   // 30초 polling
   setInterval(async () => {
     if (document.visibilityState !== 'visible') return;
-    try { await Promise.all([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud && window.syncJobsFromCloud()]); } catch(_){}
+    try { await Promise.allSettled([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud && window.syncJobsFromCloud()]); } catch(_){}
     renderCurrentView();
   }, 30000);
 

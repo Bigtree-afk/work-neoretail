@@ -1344,12 +1344,12 @@ window.onLineSendJob = function(){
 (async function init(){
   $('fStoreSearch').addEventListener('input', onStoreSearchInput);
   $('fStoreSearch').addEventListener('focus', onStoreSearchInput);
-  try { await Promise.all([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
+  try { await Promise.allSettled([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
   if (!location.hash) location.hash = '#entry'; // VAN 진입은 entry 직행
   renderCurrentView();
   setInterval(async () => {
     if (document.visibilityState !== 'visible') return;
-    try { await Promise.all([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
+    try { await Promise.allSettled([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
     renderCurrentView();
   }, 30000);
   window.addEventListener('storage', e => {

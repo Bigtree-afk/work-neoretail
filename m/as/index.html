@@ -1442,12 +1442,12 @@ window.onLineSendJob = function(){
   $('fStoreSearch').addEventListener('input', onStoreSearchInput);
   $('fStoreSearch').addEventListener('focus', onStoreSearchInput);
   // 클라우드에서 점포·작업 데이터 동시 풀 — 모바일 첫 진입 시 매장 검색 0건 사고 방지
-  try { await Promise.all([window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
+  try { await Promise.allSettled([window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
   if (!location.hash) location.hash = '#home';
   renderCurrentView();
   setInterval(async () => {
     if (document.visibilityState !== 'visible') return;
-    try { await Promise.all([window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
+    try { await Promise.allSettled([window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
     renderCurrentView();
   }, 30000);
   window.addEventListener('storage', e => {

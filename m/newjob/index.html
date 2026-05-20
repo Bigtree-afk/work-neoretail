@@ -1031,14 +1031,14 @@ window.onLineSendJob = function(){
   $('fStoreSearch').addEventListener('input', onStoreSearchInput);
   $('fStoreSearch').addEventListener('focus', onStoreSearchInput);
   // cloud sync
-  try { await Promise.all([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
+  try { await Promise.allSettled([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
   // 라우팅
   if (!location.hash) location.hash = '#home';
   renderCurrentView();
   // 데이터 변경 자동 갱신 (다른 탭/PC 와 동기화 — 30초 polling)
   setInterval(async () => {
     if (document.visibilityState !== 'visible') return;
-    try { await Promise.all([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
+    try { await Promise.allSettled([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
     renderCurrentView();
   }, 30000);
   // 다른 탭 storage 이벤트
