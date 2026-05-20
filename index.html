@@ -20033,7 +20033,50 @@ ${text.slice(0, 4000)}`;
       }
     }
 
-    const eq = Array.isArray(j.equipment) ? j.equipment : [];
+    // 🔧 PC↔모바일 equipment 호환 — j.equipment 가 hybrid 객체일 수도 있음
+    //   - PC 가 array 로 저장: [{name,qty,...}, ...]
+    //   - 모바일이 simple count 로 저장: {server:2, kiosk:1, ...}
+    //   - 두 형식이 누적된 hybrid object: {"0":{...}, "1":{...}, "server":2, ...}
+    // 캐노니컬 array 로 normalize — detailed 우선, simple count 는 placeholder row 로 추가
+    const _MOBILE_EQ_NAMES_PC = { pc:'PC', server:'서버', pos:'포스', kiosk:'키오스크', fixedScan:'고정스캐너', handyTerm:'핸디터미널', labelPrint:'라벨프린터', posDaiL:'포스다이 좌타', posDaiR:'포스다이 우타', checker:'체크기', handyScan:'핸디스캐너' };
+    const _PC_ALIAS = { client:'pc', fscanner:'fixedScan', posdai:'posDaiR' };
+    const eq = (() => {
+      const src = j.equipment;
+      if (!src) return [];
+      if (Array.isArray(src)) return src;
+      if (typeof src !== 'object') return [];
+      const detailed = [];
+      const counts = {};
+      Object.entries(src).forEach(([k,v]) => {
+        if (v && typeof v === 'object') {
+          if ((Number(v.qty)||0) > 0) detailed.push(v);
+        } else {
+          const n = Number(v)||0;
+          if (n > 0) {
+            const mk = _PC_ALIAS[k] || k;
+            counts[mk] = (counts[mk]||0) + n;
+          }
+        }
+      });
+      // detailed 의 fixedKey 와 mobile alias 가 겹치면 simple count 에서 제외 — 중복 방지
+      detailed.forEach(d => {
+        const k = d.fixedKey || '';
+        const mk = _PC_ALIAS[k] || k;
+        if (mk in counts) delete counts[mk];
+      });
+      // simple count → placeholder row (모바일에서 추가한 설치 carry-in)
+      Object.entries(counts).forEach(([k,n]) => {
+        detailed.push({
+          name: _MOBILE_EQ_NAMES_PC[k] || k,
+          fixedKey: k,
+          qty: n,
+          condition: j.equipCondition === 'used' ? 'used' : 'new',
+          costPrice: 0, salePrice: 0, subtotal: 0,
+          _fromMobileCount: true,  // 추적용 — placeholder 인지 식별
+        });
+      });
+      return detailed;
+    })();
     const checked = j.equipmentChecked || {};
     const totalQty = eq.reduce((s, e) => s + (Number(e.qty) || 0), 0);
     const installedQty = eq.reduce((s, e, i) => s + (checked[i] ? (Number(e.qty) || 0) : 0), 0);
