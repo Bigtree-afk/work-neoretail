@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#DC2626">
+<title>🔧 AS — NeoRetail 모바일</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{
+    --primary:#2563EB; --primary-dark:#1D4ED8;
+    --as:#DC2626; --as-dark:#991B1B; --as-light:#FEE2E2; --as-border:#FCA5A5;
+    --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
+    --gray-300:#D1D5DB; --gray-400:#9CA3AF; --gray-500:#6B7280;
+    --gray-600:#4B5563; --gray-700:#374151; --gray-800:#1F2937;
+    --line:#06C755; --line-light:#06C7551A;
+    --danger:#EF4444; --warn:#F59E0B; --success:#10B981;
+  }
+  html,body{height:100%;background:#F0F2F5}
+  body{font-family:'Pretendard Variable','Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;color:var(--gray-800);font-size:14px;-webkit-font-smoothing:antialiased;padding-bottom:env(safe-area-inset-bottom)}
+
+  /* 상단 appbar */
+  .appbar{background:#fff;padding:11px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--gray-200);position:sticky;top:0;z-index:10;padding-top:calc(11px + env(safe-area-inset-top))}
+  .appbar .back{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--gray-700);background:transparent;border:none;cursor:pointer;border-radius:6px}
+  .appbar .back:active{background:var(--gray-100)}
+  .appbar .title{flex:1;font-weight:800;font-size:16px}
+  .appbar .pc{font-size:10.5px;color:var(--gray-500);background:var(--gray-100);padding:6px 9px;border-radius:7px;text-decoration:none;font-weight:700;border:1px solid var(--gray-200)}
+  .appbar .badge{background:var(--as-light);color:var(--as-dark);border-radius:11px;padding:2px 8px;font-size:10.5px;font-weight:800}
+
+  /* 본문 */
+  .wrap{max-width:480px;margin:0 auto;padding:14px 14px 96px}
+
+  /* 홈 카테고리 아이콘 */
+  .hello{font-size:13px;color:var(--gray-600);margin-bottom:4px}
+  .h1{font-size:18px;font-weight:800;margin-bottom:14px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+  .ico{position:relative;background:#fff;border-radius:14px;padding:18px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;text-decoration:none;color:inherit;border:1.5px solid var(--gray-200);box-shadow:0 2px 6px rgba(0,0,0,.04);transition:transform .1s}
+  .ico:active{transform:scale(.97)}
+  .ico .em{font-size:32px}
+  .ico .nm{font-size:13px;font-weight:800}
+  .ico .sub{font-size:10px;color:var(--gray-500)}
+  .ico.newjob{border-color:#BFDBFE} .ico.newjob .nm{color:#1E40AF}
+  .ico.as{border-color:#FCA5A5} .ico.as .nm{color:#991B1B}
+  .ico.as.active{border-width:2.5px;border-color:#EF4444;box-shadow:0 6px 16px rgba(239,68,68,.30)}
+  .ico.van{border-color:#DDD6FE} .ico.van .nm{color:#5B21B6}
+  .ico.supply{border-color:#FCD34D} .ico.supply .nm{color:#92400E}
+  .ico.stock{border-color:#A7F3D0} .ico.stock .nm{color:#065F46}
+  .ibadge{position:absolute;top:-7px;right:-7px;min-width:24px;height:24px;padding:0 6px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+  .ibadge.newjob{background:#2563EB}
+  .ibadge.as{background:#EF4444;animation:pulse 1.4s infinite}
+  .ibadge.van{background:#7C3AED}
+  .ibadge.supply{background:#F59E0B}
+  .ibadge.stock{background:#10B981}
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.12);opacity:.85}}
+
+  /* sub-category chips */
+  .sub-chips{display:flex;gap:7px;overflow-x:auto;padding-bottom:6px;margin-bottom:14px;-webkit-overflow-scrolling:touch}
+  .sub-chip{flex-shrink:0;padding:9px 14px;border-radius:18px;background:#fff;border:1.5px solid var(--gray-300);font-size:12.5px;font-weight:700;color:var(--gray-700);cursor:pointer;text-decoration:none}
+  .sub-chip:active{background:var(--as-light);border-color:var(--as-border);color:var(--as-dark)}
+  .sub-chip.as{border-color:var(--as-border);color:var(--as-dark)}
+
+  /* 목록 카드 */
+  .card{background:#fff;border-radius:12px;padding:13px 14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.04);cursor:pointer}
+  .card.req{border-left:4px solid #3B82F6}
+  .card.prog{border-left:4px solid #F59E0B}
+  .card.done{border-left:4px solid #10B981}
+  .card.soon{border-left:4px solid #F59E0B;background:linear-gradient(90deg,#FFFBEB 0%,#fff 35%)}
+  .card.urgent{border-left:4px solid var(--danger);background:linear-gradient(90deg,#FEF2F2 0%,#fff 35%)}
+  .card .topline{display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap}
+  .card .nm{font-weight:800;font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pill{display:inline-block;padding:2px 8px;border-radius:11px;font-size:10px;font-weight:800}
+  .pill.req{background:#DBEAFE;color:#1e40af}
+  .pill.prog{background:#FEF3C7;color:#92400E}
+  .pill.done{background:#DCFCE7;color:#15803d}
+  .pill.soon{background:#FEF3C7;color:#92400E}
+  .pill.urgent{background:#FEE2E2;color:#991B1B;animation:pulse 1.4s infinite}
+  .pill.line{background:var(--line-light);color:#04A047}
+  .pill.dev{background:var(--gray-100);color:var(--gray-700);border:1px solid var(--gray-200)}
+  .card .meta{font-size:11px;color:var(--gray-500);margin-bottom:3px}
+  .card .summary{font-size:12.5px;color:var(--gray-700)}
+
+  .empty{text-align:center;padding:50px 20px;color:var(--gray-500);font-size:13px}
+
+  /* 폼 */
+  .field{margin-bottom:11px}
+  .field-label{font-size:11.5px;font-weight:700;color:var(--gray-600);margin-bottom:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .field-label .hint{font-size:10px;color:var(--gray-400);font-weight:500}
+  .field-input,.field-select,.field-textarea{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:9px;font-size:16px;font-family:inherit;background:#fff;color:var(--gray-800)}
+  .field-input:focus,.field-textarea:focus,.field-select:focus{outline:none;border-color:var(--as);box-shadow:0 0 0 3px rgba(220,38,38,.12)}
+  .field-textarea{min-height:70px;resize:vertical;line-height:1.5}
+
+  .sec{background:#fff;border-radius:11px;padding:12px 13px;margin-bottom:11px;border:1px solid var(--gray-200)}
+  .sec.as-info{border-color:var(--as-border);background:#FEF7F7}
+  .sec-h{font-size:12px;font-weight:800;color:var(--gray-700);margin-bottom:9px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .sec-h.as{color:var(--as-dark)}
+  .sec-h .hint{font-size:10px;font-weight:500;color:var(--gray-400)}
+  .sec-h .req-pill{background:#fff;color:var(--as-dark);padding:2px 8px;border-radius:10px;font-weight:800;border:1px solid var(--as-border);font-size:10px;margin-left:auto}
+
+  /* Radio chip */
+  .radio-row{display:flex;gap:6px;flex-wrap:wrap}
+  .radio-chip{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:14px;font-size:12px;font-weight:600;color:var(--gray-700);cursor:pointer}
+  .radio-chip input{margin:0;accent-color:var(--as)}
+  .radio-chip.on{background:var(--as-light);border-color:var(--as-border);color:var(--as-dark)}
+
+  /* 검색 결과 */
+  .search-results{margin-top:6px;background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.06);max-height:200px;overflow-y:auto}
+  .sr-row{padding:9px 12px;border-bottom:1px solid var(--gray-100);font-size:13px;cursor:pointer}
+  .sr-row:last-child{border-bottom:none}
+  .sr-row:active{background:var(--gray-50)}
+  .sr-row .nm{font-weight:700}
+  .sr-row .biz{font-size:10.5px;color:var(--gray-500);font-family:monospace}
+
+  .picked{margin-top:6px;padding:8px 11px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:7px;font-size:11.5px;color:#065F46}
+
+  /* AS 기존 매장 머지 안내 */
+  .merge-notice{margin-top:8px;padding:9px 11px;background:#FEF3C7;border:1.5px dashed #F59E0B;border-radius:9px;font-size:11.5px;color:#78350F;line-height:1.55}
+  .merge-notice b{color:#92400E}
+
+  /* Unreg 노란 박스 */
+  .unreg{margin-top:8px;padding:11px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:9px}
+  .unreg .hd{font-size:11.5px;color:#92400E;font-weight:800;margin-bottom:8px}
+  .unreg .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .unreg .field-input{padding:9px 10px;font-size:14px;background:#fff;border:1px solid #FCD34D}
+
+  /* AS 일정 grid */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .grid-cb{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+
+  /* 장비 카운터 */
+  .eq-list{display:flex;flex-direction:column;gap:7px}
+  .eq-row{display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--gray-50);border-radius:8px;border:1px solid var(--gray-200)}
+  .eq-row .nm{flex:1;font-size:13px;font-weight:600;color:var(--gray-700)}
+  .eq-ctl{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--gray-300);border-radius:18px;padding:2px 4px}
+  .eq-btn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;font-size:18px;font-weight:700;color:var(--as);cursor:pointer;border-radius:50%}
+  .eq-btn:active{background:var(--as-light)}
+  .eq-btn:disabled{color:var(--gray-300)}
+  .eq-cnt{min-width:22px;text-align:center;font-weight:800;font-size:14px}
+
+  /* LINE 체크박스 */
+  .line-check{display:flex;align-items:center;gap:8px;padding:11px 13px;background:var(--line-light);border:1.5px solid #BBF7D0;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;color:#04A047}
+  .line-check input{accent-color:var(--line);width:18px;height:18px;margin:0}
+
+  /* 액션 버튼 */
+  .actions{display:flex;gap:8px;margin-top:14px}
+  .btn{flex:1;padding:13px;border-radius:10px;font-size:14.5px;font-weight:800;border:none;cursor:pointer;font-family:inherit}
+  .btn-primary{background:var(--as);color:#fff}
+  .btn-primary:active{background:var(--as-dark)}
+  .btn-outline{background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300)}
+  .btn-danger{background:#fff;color:var(--danger);border:1.5px solid #FCA5A5}
+
+  /* Thread */
+  .thread-group{background:#fff;border-radius:12px;padding:12px 13px;margin-bottom:11px;border:1px solid var(--gray-200)}
+  .tg-h{display:flex;align-items:center;gap:7px;margin-bottom:10px;flex-wrap:wrap}
+  .tg-h .stt{font-size:11px;font-weight:800;padding:3px 9px;border-radius:11px}
+  .tg-h .stt.req{background:#DBEAFE;color:#1e40af}
+  .tg-h .stt.prog{background:#FEF3C7;color:#92400E}
+  .tg-h .stt.done{background:#DCFCE7;color:#15803d}
+  .tg-h .when{font-size:11px;color:var(--gray-500);margin-left:auto}
+  .tg-h .del{background:transparent;border:none;color:var(--danger);font-size:14px;cursor:pointer;padding:4px}
+  .tg-root{font-size:13px;color:var(--gray-800);line-height:1.55;margin-bottom:9px;white-space:pre-wrap;word-break:break-word}
+  .tg-author{font-size:10.5px;color:var(--gray-500);margin-top:-5px;margin-bottom:8px}
+  .tg-child{padding:8px 10px;background:var(--gray-50);border-radius:8px;margin-bottom:6px;border-left:3px solid var(--gray-300)}
+  .tg-child.prog{border-left-color:#F59E0B}
+  .tg-child.done{border-left-color:#10B981}
+  .tg-child .hdr{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--gray-500);margin-bottom:4px}
+  .tg-child .txt{font-size:12.5px;color:var(--gray-700);line-height:1.55;white-space:pre-wrap;word-break:break-word}
+
+  .tg-form{margin-top:9px;padding-top:10px;border-top:1px dashed var(--gray-200)}
+  .tg-form .radio-row{margin-bottom:7px}
+  .tg-form textarea{min-height:54px;font-size:14px;padding:8px 10px}
+  .tg-form .tg-btn-row{display:flex;gap:7px;margin-top:7px;align-items:center}
+  .tg-form .tg-btn-row .btn{flex:1;padding:9px;font-size:13px}
+  .tg-form .line-mini{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#04A047}
+  .tg-form .line-mini input{accent-color:var(--line);margin:0}
+
+  .new-root-box{background:#FEF2F2;border:1.5px dashed var(--as-border);border-radius:11px;padding:11px;margin-bottom:11px}
+  .new-root-box .sec-h{color:var(--as-dark);margin-bottom:7px}
+  .new-root-box textarea{background:#fff}
+
+  /* bottom nav */
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--gray-200);display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:9}
+  .bottom-nav .item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;color:var(--gray-500);padding:5px 0;text-decoration:none;font-weight:600;cursor:pointer;background:transparent;border:none;font-family:inherit}
+  .bottom-nav .item.active{color:var(--as)}
+  .bottom-nav .icn{font-size:19px}
+
+  /* 모바일 우선 */
+  @media (max-width:640px){
+    .wrap{padding:13px 12px 96px}
+    .h1{font-size:17px}
+  }
+
+  /* 뷰 토글 */
+  .view{display:none}
+  .view.active{display:block}
+
+  /* AS 진입 페이지 sub-card chips (큰 카드형) */
+  .as-sub-list{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+  .as-sub-card{text-decoration:none;background:#fff;border:1.5px solid var(--gray-200);border-radius:11px;padding:11px 14px;display:flex;align-items:center;gap:11px;color:inherit;cursor:pointer}
+  .as-sub-card.featured{border-color:var(--as-border)}
+  .as-sub-card .e{font-size:24px}
+  .as-sub-card .l{flex:1}
+  .as-sub-card .l .t{font-size:13.5px;font-weight:800;color:var(--gray-800)}
+  .as-sub-card.featured .l .t{color:var(--as-dark)}
+  .as-sub-card .l .d{font-size:10.5px;color:var(--gray-500);margin-top:1px}
+  .as-sub-card .arr{font-size:18px;color:var(--gray-400)}
+  .as-sub-card.featured .arr{color:var(--as-dark)}
+</style>
+</head>
+<body>
+
+<!-- APPBAR -->
+<header class="appbar" id="appbar">
+  <button id="backBtn" class="back" onclick="appBack()">←</button>
+  <div class="title" id="appTitle">🔧 AS 업무</div>
+  <span class="badge" id="appBadge"></span>
+  <a class="pc" href="/?desktop=1" title="PC 버전으로 이동">💻 PC</a>
+</header>
+
+<!-- VIEW: HOME -->
+<section class="view" id="view-home">
+  <div class="wrap">
+    <div class="hello">안녕하세요 👋</div>
+    <div class="h1">오늘 처리할 업무를 선택하세요</div>
+    <div class="row3">
+      <a href="/m/newjob/#entry" class="ico newjob">
+        <div class="em">🆕</div><div class="nm">신규</div>
+        <div class="sub" id="cnt-sub-new">로딩…</div>
+        <span class="ibadge newjob" id="cnt-bdg-new" style="display:none">0</span>
+      </a>
+      <a href="#entry" class="ico as active">
+        <div class="em">🔧</div><div class="nm">AS</div>
+        <div class="sub" id="cnt-sub-as">로딩…</div>
+        <span class="ibadge as" id="cnt-bdg-as" style="display:none">0</span>
+      </a>
+      <a href="/preview/mobile-van-mockup.html" class="ico van">
+        <div class="em">💳</div><div class="nm">VAN</div>
+        <div class="sub" id="cnt-sub-van">로딩…</div>
+        <span class="ibadge van" id="cnt-bdg-van" style="display:none">0</span>
+      </a>
+    </div>
+    <div class="row2">
+      <a href="/preview/mobile-supplies-mockup.html" class="ico supply">
+        <div class="em">🛒</div><div class="nm">소모품판매</div>
+        <div class="sub" id="cnt-sub-sup">로딩…</div>
+        <span class="ibadge supply" id="cnt-bdg-sup" style="display:none">0</span>
+      </a>
+      <a href="/preview/mobile-stocktake-mockup.html" class="ico stock">
+        <div class="em">📦</div><div class="nm">재고조사</div>
+        <div class="sub" id="cnt-sub-stk">로딩…</div>
+        <span class="ibadge stock" id="cnt-bdg-stk" style="display:none">0</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- VIEW: ENTRY -->
+<section class="view" id="view-entry">
+  <div class="wrap">
+    <div style="font-size:11px;font-weight:800;color:var(--as-dark);letter-spacing:.4px;margin-bottom:8px;text-transform:uppercase">＋ 새 AS 접수 — 대상 장비를 선택하세요</div>
+    <div class="as-sub-list">
+      <a class="as-sub-card featured" href="#form?sub=AS/VAN">
+        <div class="e">💳</div><div class="l"><div class="t">AS/VAN</div><div class="d">단말 통신 · 결제 오류</div></div><div class="arr">›</div>
+      </a>
+      <a class="as-sub-card" href="#form?sub=AS/POS">
+        <div class="e">🖥</div><div class="l"><div class="t">AS/POS</div><div class="d">영수증 · 결제 오류</div></div><div class="arr">›</div>
+      </a>
+      <a class="as-sub-card" href="#form?sub=AS/키오스크">
+        <div class="e">📟</div><div class="l"><div class="t">AS/키오스크</div><div class="d">화면 · 터치 · 결제 오류</div></div><div class="arr">›</div>
+      </a>
+      <a class="as-sub-card" href="#form?sub=AS/기타">
+        <div class="e">📦</div><div class="l"><div class="t">AS/기타</div><div class="d">주변기기 · 스캐너 · 프린터</div></div><div class="arr">›</div>
+      </a>
+    </div>
+    <div style="font-size:11px;font-weight:800;color:var(--as-dark);letter-spacing:.4px;margin-bottom:6px;text-transform:uppercase">📋 진행 중 AS — 카드 탭 시 수정</div>
+    <div id="entryJobList"></div>
+  </div>
+</section>
+
+<!-- VIEW: FORM -->
+<section class="view" id="view-form">
+  <div class="wrap">
+    <!-- 작업 유형 (AS sub) -->
+    <div class="sec">
+      <div class="sec-h">📂 작업 유형 <span class="req-pill">🔧 AS</span></div>
+      <div class="radio-row" id="fTypeRow">
+        <label class="radio-chip"><input type="radio" name="fType" value="AS/VAN"> 💳 AS/VAN</label>
+        <label class="radio-chip"><input type="radio" name="fType" value="AS/POS"> 🖥 AS/POS</label>
+        <label class="radio-chip"><input type="radio" name="fType" value="AS/키오스크"> 📟 AS/키오스크</label>
+        <label class="radio-chip"><input type="radio" name="fType" value="AS/기타"> 📦 AS/기타</label>
+      </div>
+    </div>
+
+    <!-- 매장 검색 -->
+    <div class="sec">
+      <div class="sec-h">🏪 매장 선택</div>
+      <input class="field-input" id="fStoreSearch" type="text" placeholder="매장명 / 사업자번호 / 거래처코드 검색" autocomplete="off">
+      <div id="fStoreResults" class="search-results" style="display:none"></div>
+      <div id="fStorePicked" class="picked" style="display:none"></div>
+      <div id="fMergeNotice" class="merge-notice" style="display:none"></div>
+      <label style="margin-top:7px;display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--gray-600);cursor:pointer">
+        <input type="checkbox" id="fUnregMode" onchange="onUnregToggle()" style="accent-color:var(--as);margin:0">
+        ❓ 미등록 가맹점 (임시 정보로 등록)
+      </label>
+      <div id="fUnregBox" class="unreg" style="display:none">
+        <div class="hd">📝 임시 매장 정보</div>
+        <div class="grid2">
+          <div>
+            <div class="field-label" style="font-size:10px;color:#92400E;margin-bottom:3px">상호명</div>
+            <input class="field-input" id="fUnregName" type="text" placeholder="매장명">
+          </div>
+          <div>
+            <div class="field-label" style="font-size:10px;color:#92400E;margin-bottom:3px">사업자번호</div>
+            <input class="field-input" id="fUnregBiz" type="text" placeholder="000-00-00000">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AS 접수 정보 -->
+    <div class="sec as-info">
+      <div class="sec-h as">🔧 AS 접수 정보 <span class="req-pill">필수</span></div>
+      <div class="field">
+        <div class="field-label">📥 접수일시 <span class="hint">· 자동</span></div>
+        <input class="field-input" id="fAsReceivedAt" type="text" placeholder="YYYY-MM-DD HH:MM" style="background:#F9FAFB">
+      </div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div class="field" style="margin:0">
+          <div class="field-label">📅 처리예정일</div>
+          <input class="field-input" id="fAsDueDate" type="date">
+        </div>
+        <div class="field" style="margin:0">
+          <div class="field-label">⏰ 처리예정시각</div>
+          <input class="field-input" id="fAsDueTime" type="time">
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">🎯 대상 장비 <span class="hint">· 복수 선택</span></div>
+        <div class="grid-cb">
+          <label class="radio-chip" style="justify-content:flex-start;padding:8px 10px"><input type="checkbox" id="fAsTargetVAN"> 💳 VAN(단말)</label>
+          <label class="radio-chip" style="justify-content:flex-start;padding:8px 10px"><input type="checkbox" id="fAsTargetPOS"> 🖥 POS</label>
+          <label class="radio-chip" style="justify-content:flex-start;padding:8px 10px"><input type="checkbox" id="fAsTargetKIO"> 📟 키오스크</label>
+          <label class="radio-chip" style="justify-content:flex-start;padding:8px 10px"><input type="checkbox" id="fAsTargetETC"> 📦 기타</label>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <div class="field-label">📝 AS 요청내용 <span class="hint">· 증상 / 발생시점 / 영향</span></div>
+        <textarea class="field-textarea" id="fAsRequest" placeholder="증상 / 발생시점 / 영향 범위..."></textarea>
+      </div>
+    </div>
+
+    <!-- 매장 담당자 -->
+    <div class="sec">
+      <div class="sec-h">👤 매장 담당자 <span class="hint">현장 연락처</span></div>
+      <div class="grid2">
+        <div class="field">
+          <div class="field-label">이름</div>
+          <input class="field-input" id="fContactName" type="text" placeholder="예: 홍길동">
+        </div>
+        <div class="field">
+          <div class="field-label">직책</div>
+          <input class="field-input" id="fContactRole" type="text" placeholder="예: 점장 / 사장">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <div class="field-label">연락처</div>
+        <input class="field-input" id="fContactPhone" type="tel" placeholder="010-0000-0000" inputmode="tel">
+      </div>
+    </div>
+
+    <!-- 장비 체크리스트 -->
+    <div class="sec">
+      <div class="sec-h">📦 AS 투입 장비 <span class="hint">· 수량 입력</span></div>
+      <div class="eq-list" id="fEqList"></div>
+    </div>
+
+    <!-- 메모 -->
+    <div class="sec">
+      <div class="sec-h">📝 추가 메모</div>
+      <textarea class="field-textarea" id="fMemo" placeholder="추가 요청사항 / 현장 특이사항 등"></textarea>
+    </div>
+
+    <!-- LINE 체크 -->
+    <label class="line-check">
+      <input type="checkbox" id="fLineSend">
+      📡 저장 후 LINE 메시지 발송
+    </label>
+
+    <div class="actions">
+      <button class="btn btn-outline" onclick="location.hash='#entry'">취소</button>
+      <button class="btn btn-danger" id="fDeleteBtn" onclick="onDeleteJob()" style="display:none;flex:0 0 70px">삭제</button>
+      <button class="btn btn-primary" onclick="onSaveForm()">AS 접수</button>
+    </div>
+  </div>
+</section>
+
+<!-- VIEW: THREAD -->
+<section class="view" id="view-thread">
+  <div class="wrap">
+    <div class="sec" id="thHeader" style="background:#FEF7F7;border-color:var(--as-border)">
+      <div style="font-size:11.5px;color:var(--gray-600);font-weight:700;margin-bottom:3px">매장</div>
+      <div id="thStoreName" style="font-size:16px;font-weight:800;color:var(--as-dark)">—</div>
+      <div id="thType" style="font-size:11.5px;color:var(--gray-600);margin-top:5px"></div>
+      <div id="thDueBadge" style="margin-top:6px"></div>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-outline" style="flex:0;padding:7px 11px;font-size:12px" onclick="onEditJobFromThread()">✏️ 수정</button>
+        <button class="btn btn-outline" style="flex:0;padding:7px 11px;font-size:12px;color:var(--line)" onclick="onLineSendJob()">📡 LINE 발송</button>
+      </div>
+    </div>
+
+    <div class="new-root-box">
+      <div class="sec-h">📥 새 요청접수</div>
+      <textarea class="field-textarea" id="thNewRoot" placeholder="요청 사항 입력..."></textarea>
+      <div class="tg-btn-row" style="margin-top:7px;display:flex;gap:7px;align-items:center">
+        <label class="line-mini" style="margin-right:auto;font-size:11.5px"><input type="checkbox" id="thNewRootLine"> 📡 LINE</label>
+        <button class="btn btn-primary" style="flex:0;padding:9px 16px;font-size:13px" onclick="onAddRoot()">등록</button>
+      </div>
+    </div>
+
+    <div id="thGroups"></div>
+  </div>
+</section>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav" id="bottomNav">
+  <a class="item" href="/m/"><span class="icn">🏠</span>홈</a>
+  <a href="/m/newjob/" class="item"><span class="icn">🆕</span>신규</a>
+  <button class="item active" onclick="location.hash='#entry'"><span class="icn">🔧</span>AS</button>
+  <a href="/preview/mobile-van-mockup.html" class="item"><span class="icn">💳</span>VAN</a>
+  <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
+</nav>
+
+<script src="/m-core.js?v=2026-05-20-as"></script>
+<script>
+/* ════════════════════════════════════════════════════════════
+   상수
+═══════════════════════════════════════════════════════════ */
+const EQUIPMENT = [
+  { key:'server',     name:'서버',          icon:'🖥️' },
+  { key:'pc',         name:'PC',            icon:'💻' },
+  { key:'pos',        name:'포스',          icon:'📟' },
+  { key:'kiosk',      name:'키오스크',      icon:'🪙' },
+  { key:'fixedScan',  name:'고정스캐너',    icon:'📡' },
+  { key:'handyTerm',  name:'핸디터미널',    icon:'📱' },
+  { key:'labelPrint', name:'라벨프린터',    icon:'🏷️' },
+  { key:'posDaiL',    name:'포스다이좌타',  icon:'🔧' },
+  { key:'posDaiR',    name:'포스다이우타',  icon:'🔧' },
+  { key:'checker',    name:'체크기',        icon:'✅' },
+  { key:'handyScan',  name:'핸디스캐너',    icon:'🛒' },
+];
+
+const AS_SUBS = ['AS/VAN','AS/POS','AS/키오스크','AS/기타'];
+
+/* ════════════════════════════════════════════════════════════
+   유틸
+═══════════════════════════════════════════════════════════ */
+const esc = window.esc || (s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]));
+function $(id){ return document.getElementById(id); }
+function fmtDate(d){ if (!d) return ''; return String(d).slice(0, 10); }
+
+/* 처리예정일까지 남은 일수 (음수면 지연) — KST 기준 */
+function _daysUntil(dateStr){
+  if (!dateStr) return null;
+  const today = new Date();
+  // KST 보정 — getTime 은 절대값이므로 일수 계산에 그대로 사용 가능
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const parts = String(dateStr).slice(0,10).split('-').map(Number);
+  if (parts.length < 3 || isNaN(parts[0])) return null;
+  const t1 = new Date(parts[0], parts[1]-1, parts[2]).getTime();
+  return Math.round((t1 - t0) / 86400000);
+}
+
+/* AS 긴급도 — { cls, label }: urgent (D-0 이하) / soon (D-1) / warn (D-3) / null */
+function _asUrgency(j){
+  const d = _daysUntil(j.asDueDate);
+  if (d === null) return null;
+  if (d <= 0) return { cls:'urgent', label: d < 0 ? `⚠ 지연 D${d}` : '⚠ 긴급 D-0' };
+  if (d === 1) return { cls:'soon', label:'임박 D-1' };
+  if (d <= 3) return { cls:'soon', label:`D-${d}` };
+  return { cls:null, label:`D-${d}` };
+}
+
+/* ROOT 의 status 텍스트 — 카드 마지막 status */
+function _lastEntryStatus(j){
+  const t = (Array.isArray(j.thread) ? j.thread : []).slice().sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||'')));
+  return (t[0] && t[0].status) || j.status || '진행중';
+}
+function _lineCount(j){
+  if (typeof j.lineSent === 'number') return j.lineSent;
+  if (Array.isArray(j.lineLog)) return j.lineLog.length;
+  return 0;
+}
+
+/* ════════════════════════════════════════════════════════════
+   라우팅 (hash)
+═══════════════════════════════════════════════════════════ */
+let _currentJobId = null;
+function parseHash(){
+  const h = (location.hash || '').replace(/^#/,'');
+  if (!h || h === 'home') return { view:'home' };
+  if (h.startsWith('entry')) return { view:'entry' };
+  if (h.startsWith('form/edit/')) return { view:'form', jobId:h.slice('form/edit/'.length) };
+  if (h.startsWith('form')) {
+    const q = h.split('?')[1] || '';
+    const params = new URLSearchParams(q);
+    return { view:'form', sub: params.get('sub') || '' };
+  }
+  if (h.startsWith('thread/')) return { view:'thread', jobId:h.slice('thread/'.length) };
+  return { view:'home' };
+}
+function setView(name){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const el = $('view-' + name);
+  if (el) el.classList.add('active');
+  $('bottomNav').style.display = (name === 'home') ? 'flex' : 'none';
+  $('backBtn').style.display = (name === 'home') ? 'none' : 'flex';
+  const titles = { home:'🏪 NeoRetail', entry:'🔧 AS 업무', form:'🔧 새 AS 접수', thread:'📋 AS 처리 thread' };
+  $('appTitle').textContent = titles[name] || 'NeoRetail';
+  $('appBadge').style.display = 'none';
+}
+function appBack(){
+  const r = parseHash();
+  if (r.view === 'thread' || r.view === 'form') location.hash = '#entry';
+  else location.hash = '#home';
+}
+function renderCurrentView(){
+  const r = parseHash();
+  setView(r.view);
+  if (r.view === 'home')   renderHome();
+  if (r.view === 'entry')  renderEntry();
+  if (r.view === 'form')   renderForm(r);
+  if (r.view === 'thread') renderThread(r.jobId);
+}
+window.addEventListener('hashchange', renderCurrentView);
+
+/* ════════════════════════════════════════════════════════════
+   HOME
+═══════════════════════════════════════════════════════════ */
+function renderHome(){
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const stk  = (typeof getStocktakes === 'function') ? (getStocktakes() || []) : [];
+  const isDone = window._isJobDone || (j => j && (j.status === '완료' || j.completed));
+  const cat = window.classifyJobCategory || (j => 'new');
+  const cnt = { new:0, as:0, van:0, supplies:0, stock:0 };
+  jobs.forEach(j => {
+    if (isDone(j)) return;
+    const c = cat(j);
+    if (c === 'new')       cnt.new++;
+    else if (c === 'as')   cnt.as++;
+    else if (c === 'van')  cnt.van++;
+    else if (c === 'supplies') cnt.supplies++;
+  });
+  stk.forEach(r => {
+    const s = String(r.status||'');
+    if (s !== '완료' && s !== '처리완료') cnt.stock++;
+  });
+  function paint(sub, bdg, n){
+    $(sub).textContent = n > 0 ? (n + '건 진행') : '진행 중 없음';
+    const b = $(bdg);
+    if (n > 0) { b.textContent = String(n); b.style.display = 'flex'; }
+    else b.style.display = 'none';
+  }
+  paint('cnt-sub-new', 'cnt-bdg-new', cnt.new);
+  paint('cnt-sub-as',  'cnt-bdg-as',  cnt.as);
+  paint('cnt-sub-van', 'cnt-bdg-van', cnt.van);
+  paint('cnt-sub-sup', 'cnt-bdg-sup', cnt.supplies);
+  paint('cnt-sub-stk', 'cnt-bdg-stk', cnt.stock);
+}
+
+/* ════════════════════════════════════════════════════════════
+   ENTRY — 진행 중 AS 목록
+═══════════════════════════════════════════════════════════ */
+function renderEntry(){
+  const list = $('entryJobList');
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const cat = window.classifyJobCategory || (j => 'new');
+  const isDone = window._isJobDone || (j => j && (j.status === '완료' || j.completed));
+  const filtered = jobs.filter(j => cat(j) === 'as' && !isDone(j));
+  // 처리예정일 임박순 (없는 건 뒤로)
+  filtered.sort((a,b) => {
+    const da = _daysUntil(a.asDueDate);
+    const db = _daysUntil(b.asDueDate);
+    if (da === null && db === null) return (b.createdAt||0) - (a.createdAt||0);
+    if (da === null) return 1;
+    if (db === null) return -1;
+    return da - db;
+  });
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty">진행 중인 AS 업무가 없습니다.<br>위에서 새 AS 접수를 시작하세요.</div>';
+    $('appBadge').style.display = 'none';
+    return;
+  }
+  $('appBadge').textContent = filtered.length + '건';
+  $('appBadge').style.display = 'inline-block';
+
+  list.innerHTML = filtered.map(j => {
+    const u = _asUrgency(j);
+    let cls = 'prog';
+    let urgentPill = '';
+    if (u) {
+      if (u.cls === 'urgent') { cls = 'urgent'; urgentPill = `<span class="pill urgent">${esc(u.label)}</span>`; }
+      else if (u.cls === 'soon') { cls = 'soon'; urgentPill = `<span class="pill soon">${esc(u.label)}</span>`; }
+      else { urgentPill = `<span class="pill prog">${esc(u.label)}</span>`; }
+    } else {
+      const st = _lastEntryStatus(j);
+      if (st === '요청접수' || st === '접수') { cls = 'req'; urgentPill = `<span class="pill req">${esc(st)}</span>`; }
+      else urgentPill = `<span class="pill prog">${esc(st)}</span>`;
+    }
+    const sub = (j.type && /^AS\//.test(j.type)) ? j.type : 'AS';
+    const subIco = sub.includes('VAN') ? '💳 VAN' : sub.includes('POS') ? '🖥 POS' : sub.includes('키오') ? '📟 KIO' : '📦 기타';
+    const lineCnt = _lineCount(j);
+    const linePill = lineCnt > 0 ? `<span class="pill line" style="margin-left:auto">📡 ${lineCnt}</span>` : '';
+    const dueStr = j.asDueDate ? `처리예정 ${fmtDate(j.asDueDate)}${j.asDueTime?' '+j.asDueTime:''}` : '';
+    const lastThread = Array.isArray(j.thread) && j.thread.length
+                      ? j.thread.slice().sort((a,b)=>(b.ts||'').localeCompare(a.ts||''))[0]
+                      : null;
+    const summary = (lastThread && lastThread.text) || j.asRequest || j.memo || j.notes || '';
+    return `
+    <div class="card ${cls}" onclick="location.hash='#form/edit/${esc(j.id)}'">
+      <div class="topline">
+        ${urgentPill}
+        <span class="pill dev">${esc(subIco)}</span>
+        ${linePill}
+      </div>
+      <div class="nm">${esc(j.storeName || j.store || '(미지정)')}</div>
+      <div class="meta">${esc(sub)}${dueStr ? ' · ' + esc(dueStr) : ''}</div>
+      <div class="summary">${esc((summary||'').slice(0,80))}</div>
+    </div>
+    `;
+  }).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   FORM — AS 등록/편집
+═══════════════════════════════════════════════════════════ */
+let _formStore = null;     // 선택된 매장
+let _formEquipment = {};   // { key: count }
+let _editingJob = null;    // 편집 job
+let _mergeTargetJob = null; // 머지 대상 (등록 매장 + 진행 중 AS)
+
+function renderForm(r){
+  _formStore = null;
+  _formEquipment = {};
+  _editingJob = null;
+  _mergeTargetJob = null;
+  buildEqList();
+
+  // 초기화
+  ['fStoreSearch','fContactName','fContactRole','fContactPhone','fUnregName','fUnregBiz',
+   'fAsReceivedAt','fAsDueDate','fAsDueTime','fAsRequest','fMemo'].forEach(id => { const e=$(id); if (e) e.value=''; });
+  ['fAsTargetVAN','fAsTargetPOS','fAsTargetKIO','fAsTargetETC'].forEach(id => { const e=$(id); if (e) e.checked=false; });
+  $('fUnregMode').checked = false;
+  $('fUnregBox').style.display = 'none';
+  $('fStorePicked').style.display = 'none';
+  $('fStoreResults').style.display = 'none';
+  $('fMergeNotice').style.display = 'none';
+  $('fLineSend').checked = true; // AS 는 기본 ON (신규 등록 시)
+  $('fDeleteBtn').style.display = 'none';
+  document.querySelectorAll('input[name="fType"]').forEach(rd => { rd.checked = false; });
+  refreshTypeChips();
+  refreshAsTargetChips();
+
+  // 자동 접수일시
+  try { $('fAsReceivedAt').value = (window._kstDateTimeStr ? window._kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' ')); } catch(_){}
+
+  // sub 사전 선택
+  if (r.sub) {
+    const rd = document.querySelector(`input[name="fType"][value="${r.sub}"]`);
+    if (rd) { rd.checked = true; refreshTypeChips(); }
+    // sub 와 매칭되는 대상장비 자동 체크
+    if (r.sub === 'AS/VAN') { $('fAsTargetVAN').checked = true; }
+    else if (r.sub === 'AS/POS') { $('fAsTargetPOS').checked = true; }
+    else if (r.sub === 'AS/키오스크') { $('fAsTargetKIO').checked = true; }
+    else if (r.sub === 'AS/기타') { $('fAsTargetETC').checked = true; }
+    refreshAsTargetChips();
+  }
+
+  // edit 모드
+  if (r.jobId) {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const j = jobs.find(x => x.id === r.jobId);
+    if (j) {
+      _editingJob = j;
+      $('appTitle').textContent = '🔧 AS 수정';
+      $('fDeleteBtn').style.display = 'block';
+      $('fLineSend').checked = false; // 편집은 기본 OFF
+
+      $('fStoreSearch').value = j.storeName || j.store || '';
+      _formStore = { id:j.storeId, name:j.storeName || j.store, bizNo:j.bizNo };
+      if (j.storeId) showPicked(_formStore);
+      $('fContactName').value = j.contactName || '';
+      $('fContactRole').value = j.contactRole || '';
+      $('fContactPhone').value = j.contactPhone || '';
+      $('fAsReceivedAt').value = j.asReceivedAt || '';
+      $('fAsDueDate').value = fmtDate(j.asDueDate);
+      $('fAsDueTime').value = j.asDueTime || '';
+      $('fAsRequest').value = j.asRequest || '';
+      $('fMemo').value = j.memo || j.notes || '';
+      const targets = Array.isArray(j.asTargets) ? j.asTargets : [];
+      $('fAsTargetVAN').checked = targets.includes('VAN');
+      $('fAsTargetPOS').checked = targets.includes('POS');
+      $('fAsTargetKIO').checked = targets.includes('키오스크');
+      $('fAsTargetETC').checked = targets.includes('기타');
+      refreshAsTargetChips();
+
+      const tv = j.type || '';
+      let typeRdEl = document.querySelector(`input[name="fType"][value="${tv}"]`);
+      if (!typeRdEl && /AS/i.test(tv)) {
+        // 'AS 처리' 또는 기타 → 대상장비로 추론
+        const guess = targets.includes('VAN') ? 'AS/VAN'
+                    : targets.includes('POS') ? 'AS/POS'
+                    : targets.includes('키오스크') ? 'AS/키오스크'
+                    : 'AS/기타';
+        typeRdEl = document.querySelector(`input[name="fType"][value="${guess}"]`);
+      }
+      if (typeRdEl) typeRdEl.checked = true;
+      refreshTypeChips();
+
+      // 장비 — fixed catalog 매핑
+      if (Array.isArray(j.equipment)) {
+        j.equipment.forEach(eq => {
+          const key = eq.fixedKey || (EQUIPMENT.find(x => x.name === eq.name) || {}).key;
+          if (key) _formEquipment[key] = (_formEquipment[key] || 0) + (Number(eq.qty)||0);
+        });
+        renderEqCounts();
+      } else if (j.equipment && typeof j.equipment === 'object') {
+        Object.assign(_formEquipment, j.equipment);
+        renderEqCounts();
+      }
+    }
+  }
+}
+
+function buildEqList(){
+  $('fEqList').innerHTML = EQUIPMENT.map(eq => `
+    <div class="eq-row">
+      <div style="font-size:18px">${eq.icon}</div>
+      <div class="nm">${eq.name}</div>
+      <div class="eq-ctl">
+        <button class="eq-btn" onclick="eqDec('${eq.key}')">−</button>
+        <span class="eq-cnt" id="eq-cnt-${eq.key}">0</span>
+        <button class="eq-btn" onclick="eqInc('${eq.key}')">+</button>
+      </div>
+    </div>
+  `).join('');
+  renderEqCounts();
+}
+function renderEqCounts(){
+  EQUIPMENT.forEach(eq => {
+    const el = $('eq-cnt-' + eq.key);
+    if (el) el.textContent = String(_formEquipment[eq.key] || 0);
+  });
+}
+window.eqInc = function(key){ _formEquipment[key] = (_formEquipment[key]||0) + 1; renderEqCounts(); };
+window.eqDec = function(key){ _formEquipment[key] = Math.max(0, (_formEquipment[key]||0) - 1); renderEqCounts(); };
+
+function refreshTypeChips(){
+  document.querySelectorAll('#fTypeRow .radio-chip').forEach(lb => {
+    const rd = lb.querySelector('input');
+    lb.classList.toggle('on', !!(rd && rd.checked));
+  });
+}
+function refreshAsTargetChips(){
+  document.querySelectorAll('.sec.as-info .grid-cb .radio-chip').forEach(lb => {
+    const cb = lb.querySelector('input[type="checkbox"]');
+    lb.classList.toggle('on', !!(cb && cb.checked));
+  });
+}
+document.addEventListener('change', e => {
+  if (e.target && e.target.name === 'fType') refreshTypeChips();
+  if (e.target && e.target.id && /^fAsTarget/.test(e.target.id)) refreshAsTargetChips();
+});
+
+/* 매장 검색 */
+let _storeSearchTimer = null;
+function onStoreSearchInput(){
+  clearTimeout(_storeSearchTimer);
+  _storeSearchTimer = setTimeout(doStoreSearch, 180);
+}
+function doStoreSearch(){
+  const q = ($('fStoreSearch').value || '').trim();
+  const results = $('fStoreResults');
+  if (q.length < 1) { results.style.display='none'; return; }
+  const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+  const norm = window._normalizeSearch || (s => String(s||'').toLowerCase());
+  const qn = norm(q);
+  const hits = stores.filter(s => {
+    const nm = norm(s.name || s.storeName || '');
+    const al = (Array.isArray(s.aliases) ? s.aliases : []).map(norm).join(' ');
+    const bz = String(s.bizNo || '').replace(/\D/g,'');
+    const cd = norm(s.code || '');
+    return nm.includes(qn) || al.includes(qn) || bz.includes(q.replace(/\D/g,'')) || cd.includes(qn);
+  }).slice(0, 8);
+  if (!hits.length) { results.style.display='none'; return; }
+  results.innerHTML = hits.map(s => `
+    <div class="sr-row" onclick='pickStore(${JSON.stringify({id:s.id, name:s.name||s.storeName||"", bizNo:s.bizNo||"", code:s.code||""}).replace(/'/g,"&#39;")})'>
+      <div class="nm">${esc(s.name || s.storeName || '')}</div>
+      <div class="biz">${esc(s.bizNo || '')}${s.code?' · '+esc(s.code):''}</div>
+    </div>
+  `).join('');
+  results.style.display = 'block';
+}
+window.pickStore = function(s){
+  _formStore = s;
+  $('fStoreSearch').value = s.name;
+  $('fStoreResults').style.display = 'none';
+  showPicked(s);
+  checkMergeTarget();
+};
+function showPicked(s){
+  if (!s) { $('fStorePicked').style.display='none'; return; }
+  $('fStorePicked').innerHTML = `✓ <b>${esc(s.name||'')}</b>${s.bizNo?` <span style="color:#15803d;font-family:monospace">${esc(s.bizNo)}</span>`:''}`;
+  $('fStorePicked').style.display = 'block';
+}
+window.onUnregToggle = function(){
+  const on = $('fUnregMode').checked;
+  $('fUnregBox').style.display = on ? 'block' : 'none';
+  if (on) {
+    _formStore = null;
+    _mergeTargetJob = null;
+    $('fStorePicked').style.display='none';
+    $('fMergeNotice').style.display='none';
+  }
+};
+
+/* 머지 대상 체크 — 같은 매장의 진행 중 AS 가 있으면 안내 표시 */
+function checkMergeTarget(){
+  _mergeTargetJob = null;
+  $('fMergeNotice').style.display = 'none';
+  if (_editingJob) return; // 편집 모드는 머지 안함
+  if (!_formStore || !_formStore.id) return;
+  if ($('fUnregMode').checked) return;
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const cat = window.classifyJobCategory || (() => null);
+  const isDone = window._isJobDone || (() => false);
+  const cand = jobs.filter(j => cat(j) === 'as' && j.storeId === _formStore.id && !isDone(j));
+  if (cand.length) {
+    cand.sort((a,b) => (b.updatedAt||b.createdAt||0) - (a.updatedAt||a.createdAt||0));
+    _mergeTargetJob = cand[0];
+    const dueStr = _mergeTargetJob.asDueDate ? ` · 처리예정 ${fmtDate(_mergeTargetJob.asDueDate)}` : '';
+    $('fMergeNotice').innerHTML = `🔁 <b>기존 AS 업무에 자동 머지</b> — 이 매장의 진행 중 AS (${esc(_mergeTargetJob.type||'AS')}${esc(dueStr)}) 의 thread 에 새 요청접수가 추가됩니다.`;
+    $('fMergeNotice').style.display = 'block';
+  }
+}
+
+/* 저장 — AS 자동 머지 로직 포함 */
+window.onSaveForm = async function(){
+  const unreg = $('fUnregMode').checked;
+  let storeName = '', storeId = '', bizNo = '';
+  if (unreg) {
+    storeName = ($('fUnregName').value || '').trim();
+    bizNo = ($('fUnregBiz').value || '').trim();
+    if (!storeName) { showToast('⚠ 매장명을 입력하세요'); return; }
+  } else if (_formStore) {
+    storeName = _formStore.name;
+    storeId = _formStore.id || '';
+    bizNo = _formStore.bizNo || '';
+  } else {
+    const typedName = ($('fStoreSearch').value || '').trim();
+    if (typedName) {
+      storeName = typedName;
+    } else {
+      showToast('⚠ 매장을 선택하거나 미등록 가맹점 모드를 사용하세요');
+      return;
+    }
+  }
+  const typeRd = document.querySelector('input[name="fType"]:checked');
+  if (!typeRd) { showToast('⚠ 작업 유형(AS sub-category)을 선택하세요'); return; }
+  const type = typeRd.value;
+  const asRequest = ($('fAsRequest').value || '').trim();
+  if (!_editingJob && !asRequest) { showToast('⚠ AS 요청내용을 입력하세요'); return; }
+
+  const asInfo = {
+    receivedAt: ($('fAsReceivedAt').value || '').trim(),
+    dueDate:    $('fAsDueDate').value || '',
+    dueTime:    $('fAsDueTime').value || '',
+    request:    asRequest,
+    targets:    [
+      $('fAsTargetVAN').checked ? 'VAN' : null,
+      $('fAsTargetPOS').checked ? 'POS' : null,
+      $('fAsTargetKIO').checked ? '키오스크' : null,
+      $('fAsTargetETC').checked ? '기타' : null,
+    ].filter(Boolean),
+  };
+  const memo = ($('fMemo').value || '').trim();
+  const contactName = ($('fContactName').value || '').trim();
+  const contactRole = ($('fContactRole').value || '').trim();
+  const contactPhone = ($('fContactPhone').value || '').trim();
+  // 장비 — fixed catalog → equipment row 배열로 변환
+  const equipment = EQUIPMENT
+    .filter(eq => (_formEquipment[eq.key] || 0) > 0)
+    .map(eq => ({
+      name: eq.name,
+      fixed: true,
+      fixedKey: eq.key,
+      condition: 'new',
+      qty: Number(_formEquipment[eq.key]) || 0,
+      costPrice: 0,
+      salePrice: 0,
+      subtotal: 0,
+    }));
+
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  let savedJob = null;
+
+  // ────────── 편집 모드 ──────────
+  if (_editingJob) {
+    const ix = jobs.findIndex(x => x.id === _editingJob.id);
+    if (ix < 0) { showToast('⚠ 해당 업무를 찾을 수 없습니다'); return; }
+    const j = jobs[ix];
+    j.storeName = storeName;
+    j.store = storeName;
+    if (storeId) j.storeId = storeId;
+    if (bizNo)   j.bizNo = bizNo;
+    j.type = type;
+    j.category = 'as';
+    j.lineCategory = j.lineCategory || 'pos_as';
+    j.contactName  = contactName;
+    j.contactRole  = contactRole;
+    j.contactPhone = contactPhone;
+    j.asReceivedAt = asInfo.receivedAt;
+    j.asDueDate    = asInfo.dueDate;
+    j.asDueTime    = asInfo.dueTime;
+    j.asTargets    = asInfo.targets;
+    j.asRequest    = asInfo.request;
+    j.memo = memo;
+    j.notes = asInfo.request || memo;
+    j.equipment = equipment;
+    j.updatedAt = Date.now();
+    jobs[ix] = j;
+    savedJob = j;
+    saveJobs(jobs);
+    showToast('✓ 수정 완료');
+    try { window.pushJobsToCloud(); } catch(_){}
+    if ($('fLineSend').checked) {
+      try { window._openLineForJob(savedJob); } catch(e){ console.warn(e); }
+    }
+    location.hash = '#thread/' + savedJob.id;
+    return;
+  }
+
+  // ────────── 신규 저장 — AS 머지 시도 ──────────
+  const isDone = window._isJobDone || (() => false);
+  const classify = window.classifyJobCategory || (() => null);
+  const norm = window._normalizeSearch || (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+  let mergedExisting = null;
+
+  if (!unreg) {
+    // PC 로직과 동일 — 같은 매장(storeId 우선, 없으면 정규화 매장명)의 AS 후보 중 진행 중 우선
+    const target = norm(storeName);
+    const candIdxs = [];
+    jobs.forEach((j, idx) => {
+      if (classify(j) !== 'as') return;
+      if (storeId && j.storeId && j.storeId === storeId) { candIdxs.push(idx); return; }
+      const sn = (j.storeName || j.store || '').trim();
+      if (!sn) return;
+      if (norm(sn) === target) candIdxs.push(idx);
+    });
+    let existingIdx = candIdxs.find(i => !isDone(jobs[i]));
+    if (existingIdx === undefined && candIdxs.length > 0) {
+      candIdxs.sort((a,b) => (jobs[b].createdAt||0) - (jobs[a].createdAt||0));
+      existingIdx = candIdxs[0];
+    }
+    if (existingIdx !== undefined && existingIdx >= 0) {
+      const existing = jobs[existingIdx];
+      const ts = (window._kstDateTimeStr ? window._kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' '));
+      const author = (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자';
+      const newRoot = {
+        ts, author, status:'요청접수',
+        text: asInfo.request || memo || '(요청 내용 없음)',
+        threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+        parentId: null,
+      };
+      const existingThread = Array.isArray(existing.thread) ? existing.thread.slice() : [];
+      existingThread.push(newRoot);
+      existing.thread = (window._threadMigrate ? window._threadMigrate(existingThread) : existingThread);
+      // AS 메타 — 신값이 있으면 덮어쓰기
+      if (asInfo.receivedAt) existing.asReceivedAt = asInfo.receivedAt;
+      if (asInfo.dueDate)    existing.asDueDate    = asInfo.dueDate;
+      if (asInfo.dueTime)    existing.asDueTime    = asInfo.dueTime;
+      if (Array.isArray(asInfo.targets) && asInfo.targets.length) {
+        const cur = Array.isArray(existing.asTargets) ? existing.asTargets : [];
+        existing.asTargets = Array.from(new Set(cur.concat(asInfo.targets)));
+      }
+      // 담당자 — 비어있을 때만 채움
+      if (contactName && !existing.contactName) existing.contactName = contactName;
+      if (contactRole && !existing.contactRole) existing.contactRole = contactRole;
+      if (contactPhone && !existing.contactPhone) existing.contactPhone = contactPhone;
+      // 장비 — append
+      if (equipment.length) {
+        existing.equipment = (Array.isArray(existing.equipment) ? existing.equipment : []).concat(equipment);
+      }
+      // 메모
+      if (memo) {
+        existing.memo = (existing.memo ? existing.memo + '\n---\n' : '') + memo;
+      }
+      // 완료였으면 진행중 환원
+      if (existing.completed || existing.status === '완료' || existing.status === '처리완료') {
+        existing.completed = false;
+        existing.status = '진행중';
+        existing.doneAt = '';
+      }
+      // type 정규화 — AS 면 그대로, 아니면 'AS 처리'
+      if (!/AS|에이에스/i.test(existing.type || '')) {
+        if (!existing._originalType) existing._originalType = existing.type || '';
+        existing.type = 'AS 처리';
+      }
+      existing.category = 'as';
+      existing.lineCategory = existing.lineCategory || 'pos_as';
+      existing.updatedAt = Date.now();
+      jobs[existingIdx] = existing;
+      mergedExisting = existing;
+    }
+  }
+
+  if (mergedExisting) {
+    savedJob = mergedExisting;
+    saveJobs(jobs);
+    showToast(`✅ ${storeName} — 기존 AS 업무에 새 요청이 추가됨`);
+  } else {
+    // 새 job 생성
+    const ts = (window._kstDateTimeStr ? window._kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' '));
+    const author = (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자';
+    const seedThread = asInfo.request ? [{
+      ts, author, status:'요청접수', text: asInfo.request,
+      threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+      parentId: null,
+    }] : [];
+    const newJob = {
+      id: 'JOB-' + Date.now().toString(36).toUpperCase(),
+      type: 'AS 처리',
+      _originalType: type, // 사용자가 고른 AS/POS 등의 sub
+      category: 'as',
+      lineCategory: 'pos_as',
+      storeName,
+      store: storeName,
+      storeId: storeId || '',
+      bizNo: bizNo || '',
+      unregistered: unreg || !storeId,
+      contactName, contactRole, contactPhone,
+      asReceivedAt: asInfo.receivedAt,
+      asDueDate:    asInfo.dueDate,
+      asDueTime:    asInfo.dueTime,
+      asTargets:    asInfo.targets,
+      asRequest:    asInfo.request,
+      notes: asInfo.request || memo,
+      memo,
+      equipment,
+      equipTotal: 0,
+      thread: (window._threadMigrate ? window._threadMigrate(seedThread) : seedThread),
+      status: '접수',
+      completed: false,
+      attachments: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      createdBy: author,
+    };
+    // type 을 사용자가 고른 sub 그대로 저장 (PC 와 호환되도록 AS/* 또는 AS 처리)
+    // PC 머지 로직은 /AS|에이에스/ 로 판정하므로 'AS/POS' 도 인식됨
+    newJob.type = type;
+    jobs.unshift(newJob);
+    savedJob = newJob;
+    saveJobs(jobs);
+    showToast(`✅ ${storeName} AS 접수 완료${unreg?' (미등록)':''}`);
+  }
+  try { window.pushJobsToCloud(); } catch(_){}
+
+  if ($('fLineSend').checked && savedJob) {
+    try { window._openLineForJob(savedJob); } catch(e){ console.warn(e); }
+  }
+  location.hash = '#thread/' + savedJob.id;
+};
+
+window.onDeleteJob = function(){
+  if (!_editingJob) return;
+  if (!confirm('이 AS 업무를 삭제하시겠습니까?\n클라우드의 다른 기기에서도 사라집니다.')) return;
+  const jobs = ((typeof getJobs === 'function') ? (getJobs() || []) : []).filter(j => j.id !== _editingJob.id);
+  if (window._addTombstone) window._addTombstone('job', _editingJob.id);
+  saveJobs(jobs);
+  try { window.pushJobsToCloud(); } catch(_){}
+  showToast('🗑 삭제됨');
+  location.hash = '#entry';
+};
+
+/* ════════════════════════════════════════════════════════════
+   THREAD
+═══════════════════════════════════════════════════════════ */
+function renderThread(jobId){
+  _currentJobId = jobId;
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const j = jobs.find(x => x.id === jobId);
+  if (!j) {
+    $('thStoreName').textContent = '(작업을 찾을 수 없음)';
+    $('thType').textContent = '';
+    $('thDueBadge').innerHTML = '';
+    $('thGroups').innerHTML = '<div class="empty">존재하지 않거나 삭제된 작업입니다.</div>';
+    return;
+  }
+  $('thStoreName').textContent = j.storeName || j.store || '(미지정)';
+  const sub = (j.type && /^AS\//.test(j.type)) ? j.type : (j._originalType || j.type || 'AS');
+  const dueStr = j.asDueDate ? `처리예정 ${fmtDate(j.asDueDate)}${j.asDueTime?' '+j.asDueTime:''}` : '';
+  $('thType').textContent = sub + (dueStr ? ' · ' + dueStr : '');
+  const u = _asUrgency(j);
+  if (u) {
+    const cls = u.cls === 'urgent' ? 'urgent' : u.cls === 'soon' ? 'soon' : 'prog';
+    $('thDueBadge').innerHTML = `<span class="pill ${cls}">${esc(u.label)}</span>`;
+  } else {
+    $('thDueBadge').innerHTML = '';
+  }
+  $('thNewRoot').value = '';
+  $('thNewRootLine').checked = false;
+  renderThreadGroups(j);
+}
+
+function renderThreadGroups(j){
+  const thread = (window._threadMigrate ? window._threadMigrate(Array.isArray(j.thread) ? j.thread.slice() : []) : (j.thread || []));
+  const roots = thread.filter(e => e.parentId === null);
+  const childrenByRoot = new Map();
+  for (const e of thread) {
+    if (e.parentId) {
+      if (!childrenByRoot.has(e.parentId)) childrenByRoot.set(e.parentId, []);
+      childrenByRoot.get(e.parentId).push(e);
+    }
+  }
+  childrenByRoot.forEach(arr => arr.sort((a,b) => String(a.ts||'').localeCompare(String(b.ts||''))));
+  const groupStatus = window._groupStatus || ((root, kids) => {
+    if (!kids || !kids.length) return '요청접수';
+    const hasDone = kids.some(c => c.status === '완료');
+    if (hasDone) return '완료';
+    return '진행';
+  });
+  const rootGroupStatus = new Map();
+  roots.forEach(r => {
+    rootGroupStatus.set(r.threadId, groupStatus(r, childrenByRoot.get(r.threadId) || []));
+  });
+  roots.sort((a,b) => {
+    const aDone = rootGroupStatus.get(a.threadId) === '완료' ? 1 : 0;
+    const bDone = rootGroupStatus.get(b.threadId) === '완료' ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;
+    return String(b.ts||'').localeCompare(String(a.ts||''));
+  });
+
+  const out = roots.map(r => {
+    const gs = rootGroupStatus.get(r.threadId);
+    const cls = gs === '완료' ? 'done' : gs === '진행' ? 'prog' : 'req';
+    const stIcon = gs === '완료' ? '✅' : gs === '진행' ? '🔄' : '📥';
+    const children = childrenByRoot.get(r.threadId) || [];
+    const childHtml = children.map(c => {
+      const cc = c.status === '완료' ? 'done' : c.status === '진행' ? 'prog' : '';
+      const cIcon = c.status === '완료' ? '✅' : c.status === '진행' ? '🔄' : '📥';
+      return `
+        <div class="tg-child ${cc}">
+          <div class="hdr">${cIcon} <b>${esc(c.status||'')}</b> · ${esc(c.author||'담당자')} · ${esc(c.ts||'')}
+            <button class="del" style="margin-left:auto;font-size:13px;background:transparent;border:none;color:var(--gray-400);cursor:pointer" title="삭제" onclick="onDelChild('${esc(c.threadId)}')">✕</button>
+          </div>
+          <div class="txt">${esc(c.text||'')}</div>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="thread-group">
+        <div class="tg-h">
+          <span class="stt ${cls}">${stIcon} ${esc(gs)}</span>
+          <span class="when">${esc(r.ts||'')}</span>
+          <button class="del" title="이 그룹 전체 삭제" onclick="onDelRoot('${esc(r.threadId)}')">✕</button>
+        </div>
+        <div class="tg-root">${esc(r.text||'')}</div>
+        <div class="tg-author">— ${esc(r.author||'담당자')}</div>
+        ${childHtml}
+        ${gs !== '완료' ? `
+        <div class="tg-form">
+          <div class="radio-row">
+            <label class="radio-chip"><input type="radio" name="ch_${r.threadId}" value="진행"> 🔄 진행</label>
+            <label class="radio-chip"><input type="radio" name="ch_${r.threadId}" value="완료"> ✅ 완료</label>
+          </div>
+          <textarea class="field-textarea" id="ch_text_${r.threadId}" placeholder="처리 내용 입력..."></textarea>
+          <div class="tg-btn-row">
+            <label class="line-mini"><input type="checkbox" id="ch_line_${r.threadId}"> 📡 LINE</label>
+            <button class="btn btn-primary" onclick="onAddChild('${esc(r.threadId)}')">추가</button>
+          </div>
+        </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+  $('thGroups').innerHTML = out || '<div class="empty">아직 등록된 요청이 없습니다.<br>위에서 새 요청을 등록하세요.</div>';
+
+  document.querySelectorAll('#thGroups input[type="radio"]').forEach(rd => {
+    rd.addEventListener('change', () => {
+      const grp = rd.name;
+      document.querySelectorAll(`#thGroups input[name="${grp}"]`).forEach(r2 => {
+        r2.closest('.radio-chip').classList.toggle('on', r2.checked);
+      });
+    });
+  });
+}
+
+function _newThreadId(){
+  return 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7);
+}
+
+window.onAddRoot = function(){
+  const text = ($('thNewRoot').value || '').trim();
+  if (!text) { showToast('⚠ 요청 내용을 입력하세요'); return; }
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const ix = jobs.findIndex(x => x.id === _currentJobId);
+  if (ix < 0) return;
+  const j = jobs[ix];
+  const entry = {
+    ts: (window._kstNow ? window._kstNow() : new Date().toISOString().slice(0,16).replace('T',' ')),
+    author: (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자',
+    status: '요청접수',
+    text,
+    threadId: _newThreadId(),
+    parentId: null,
+  };
+  j.thread = Array.isArray(j.thread) ? j.thread : [];
+  j.thread.push(entry);
+  j.thread = window._threadMigrate ? window._threadMigrate(j.thread) : j.thread;
+  // 완료였으면 진행중 환원
+  if (j.completed || j.status === '완료' || j.status === '처리완료') {
+    j.completed = false;
+    j.status = '진행중';
+  }
+  j.updatedAt = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  if ($('thNewRootLine').checked) {
+    try { window._openLineForJob(j, { entry }); } catch(_){}
+  }
+  showToast('✓ 등록');
+  try { window.pushJobsToCloud(); } catch(_){}
+  renderThread(_currentJobId);
+};
+
+window.onAddChild = function(rootId){
+  const text = ($('ch_text_' + rootId).value || '').trim();
+  if (!text) { showToast('⚠ 내용을 입력하세요'); return; }
+  const status = (document.querySelector(`input[name="ch_${rootId}"]:checked`) || {}).value || '진행';
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const ix = jobs.findIndex(x => x.id === _currentJobId);
+  if (ix < 0) return;
+  const j = jobs[ix];
+  const entry = {
+    ts: (window._kstNow ? window._kstNow() : new Date().toISOString().slice(0,16).replace('T',' ')),
+    author: (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자',
+    status,
+    text,
+    threadId: _newThreadId(),
+    parentId: rootId,
+  };
+  j.thread = Array.isArray(j.thread) ? j.thread : [];
+  j.thread.push(entry);
+  j.thread = window._threadMigrate ? window._threadMigrate(j.thread) : j.thread;
+  if (status === '완료') {
+    const groupStatus = window._groupStatus || ((root, kids) => {
+      if (!kids || !kids.length) return '요청접수';
+      if (kids.some(c => c.status === '완료')) return '완료';
+      return '진행';
+    });
+    const roots = j.thread.filter(e => e.parentId === null);
+    const childrenByRoot = new Map();
+    for (const e of j.thread) if (e.parentId) {
+      if (!childrenByRoot.has(e.parentId)) childrenByRoot.set(e.parentId, []);
+      childrenByRoot.get(e.parentId).push(e);
+    }
+    const allDone = roots.every(r => groupStatus(r, childrenByRoot.get(r.threadId)||[]) === '완료');
+    if (allDone) {
+      j.status = '완료';
+      j.completed = true;
+      j.doneAt = (new Date()).toISOString();
+    }
+  } else {
+    j.status = '진행중';
+    j.completed = false;
+  }
+  j.updatedAt = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  if ($('ch_line_' + rootId).checked) {
+    try { window._openLineForJob(j, { entry }); } catch(_){}
+  }
+  showToast('✓ 추가');
+  try { window.pushJobsToCloud(); } catch(_){}
+  renderThread(_currentJobId);
+};
+
+window.onDelChild = function(threadId){
+  if (!confirm('이 처리 기록을 삭제하시겠습니까?')) return;
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const ix = jobs.findIndex(x => x.id === _currentJobId);
+  if (ix < 0) return;
+  const j = jobs[ix];
+  j.thread = (j.thread || []).filter(e => e.threadId !== threadId);
+  if (window._addTombstone) window._addTombstone('thread', threadId, _currentJobId);
+  j.updatedAt = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  try { window.pushJobsToCloud(); } catch(_){}
+  renderThread(_currentJobId);
+};
+
+window.onDelRoot = function(rootId){
+  if (!confirm('이 요청 그룹(자식 처리기록 포함)을 모두 삭제하시겠습니까?')) return;
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const ix = jobs.findIndex(x => x.id === _currentJobId);
+  if (ix < 0) return;
+  const j = jobs[ix];
+  j.thread = (j.thread || []).filter(e => e.threadId !== rootId && e.parentId !== rootId);
+  if (window._addTombstone) {
+    window._addTombstone('thread', rootId, _currentJobId);
+    window._addTombstone('thread-children', rootId, _currentJobId);
+  }
+  j.updatedAt = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  try { window.pushJobsToCloud(); } catch(_){}
+  renderThread(_currentJobId);
+};
+
+window.onEditJobFromThread = function(){
+  if (_currentJobId) location.hash = '#form/edit/' + _currentJobId;
+};
+window.onLineSendJob = function(){
+  if (!_currentJobId) return;
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const j = jobs.find(x => x.id === _currentJobId);
+  if (j) window._openLineForJob(j);
+};
+
+/* ════════════════════════════════════════════════════════════
+   초기 로드
+═══════════════════════════════════════════════════════════ */
+(async function init(){
+  $('fStoreSearch').addEventListener('input', onStoreSearchInput);
+  $('fStoreSearch').addEventListener('focus', onStoreSearchInput);
+  try { await window.syncJobsFromCloud(); } catch(_){}
+  if (!location.hash) location.hash = '#home';
+  renderCurrentView();
+  setInterval(async () => {
+    if (document.visibilityState !== 'visible') return;
+    try { await window.syncJobsFromCloud(); } catch(_){}
+    renderCurrentView();
+  }, 30000);
+  window.addEventListener('storage', e => {
+    if (e.key === 'ns_jobs' || e.key === 'ns_stores') renderCurrentView();
+  });
+})();
+</script>
+</body>
+</html>
