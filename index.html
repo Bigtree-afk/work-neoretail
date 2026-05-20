@@ -4,27 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>작업관리 — NeoSolution</title>
-<!-- 📱 모바일 자동 리다이렉트 — 무거운 CDN 로드 전에 실행 -->
+<!-- 📱 모바일 자동 리다이렉트 — 일단 OFF (모바일 SPA 완성 전까지 PC 반응형 유지)
+     재활성화 시 아래 IIFE 의 if(false) 만 풀면 됨. /m/ 경로 직접 접속은 계속 가능. -->
 <script>
   (function(){
-    try {
-      var url = new URL(location.href);
-      var p = url.pathname || '/';
-      // 이미 모바일 경로면 통과
-      if (p === '/m' || p === '/m.html' || p.indexOf('/m/') === 0) return;
-      // 데스크톱 강제 (?desktop=1) 또는 localStorage 플래그
-      if (url.searchParams.get('desktop') === '1') {
-        try { localStorage.setItem('force_desktop', '1'); } catch(e) {}
-        return;
-      }
-      try { if (localStorage.getItem('force_desktop') === '1') return; } catch(e) {}
-      // 모바일 판정: viewport ≤ 640 OR mobile UA
-      var ua = navigator.userAgent || '';
-      var isMobile = (window.innerWidth <= 640) || /Mobi|Android|iPhone|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-      if (isMobile) {
-        location.replace('/m/' + (url.search || '') + (url.hash || ''));
-      }
-    } catch(e) {}
+    if (false) {
+      try {
+        var url = new URL(location.href);
+        var p = url.pathname || '/';
+        if (p === '/m' || p === '/m.html' || p.indexOf('/m/') === 0) return;
+        if (url.searchParams.get('desktop') === '1') {
+          try { localStorage.setItem('force_desktop', '1'); } catch(e) {}
+          return;
+        }
+        try { if (localStorage.getItem('force_desktop') === '1') return; } catch(e) {}
+        var ua = navigator.userAgent || '';
+        var isMobile = (window.innerWidth <= 640) || /Mobi|Android|iPhone|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+        if (isMobile) {
+          location.replace('/m/' + (url.search || '') + (url.hash || ''));
+        }
+      } catch(e) {}
+    }
   })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
