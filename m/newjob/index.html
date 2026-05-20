@@ -447,7 +447,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-8"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-9"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1089,6 +1089,19 @@ function renderJobSummary(j){
   if (j.openDate)     schedRows.push(`<span style="color:var(--gray-500)">🎉 정식오픈</span> <b>${esc(fmtDate(j.openDate))}</b>`);
   if (schedRows.length) {
     parts.push(`<div style="margin-bottom:9px"><div style="font-size:10.5px;font-weight:800;color:var(--gray-600);margin-bottom:4px">📅 일정</div><div style="display:flex;flex-wrap:wrap;gap:8px 14px;font-size:12.5px">${schedRows.join('')}</div></div>`);
+  }
+
+  // 📥 최초 요청접수 — 첫 요청접수 ROOT 의 라이브 텍스트 우선, 없으면 initialRequest
+  let initReq = '';
+  if (Array.isArray(j.thread)) {
+    const firstRoot = j.thread
+      .filter(e => e && e.parentId === null && (e.status === '요청접수' || e.status === '접수'))
+      .sort((a,b) => String(a.ts||'').localeCompare(String(b.ts||'')))[0];
+    if (firstRoot) initReq = (firstRoot.text || '').trim();
+  }
+  if (!initReq) initReq = (j.initialRequest || '').trim();
+  if (initReq) {
+    parts.push(`<div style="margin-bottom:9px;background:#fff;border-left:3px solid #3B82F6;border-radius:6px;padding:8px 10px;font-size:12.5px;color:var(--gray-700);line-height:1.5"><b style="color:#1E40AF;font-size:11px">📥 최초 요청접수</b><br>${esc(initReq).replace(/\n/g,'<br>')}</div>`);
   }
 
   // 연락처
