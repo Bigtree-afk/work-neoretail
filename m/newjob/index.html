@@ -379,7 +379,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-2"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -632,31 +632,69 @@ document.addEventListener('change', e => {
 
 /* 매장 검색 */
 let _storeSearchTimer = null;
+let _storeSyncInFlight = false;
+
+// 매장 검색 input focus 또는 첫 입력 시 stores 가 비어있으면 즉시 sync (lazy)
+async function _ensureStoresLoaded(){
+  if (_storeSyncInFlight) return;
+  const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+  if (stores.length > 0) return;
+  if (typeof window.syncStoresFromCloud !== 'function') return;
+  _storeSyncInFlight = true;
+  const results = $('fStoreResults');
+  if (results) {
+    results.innerHTML = '<div class="sr-row" style="color:var(--gray-500);text-align:center;cursor:default">⏳ 매장 데이터 동기화 중...</div>';
+    results.style.display = 'block';
+  }
+  try { await window.syncStoresFromCloud(); } catch(_){}
+  _storeSyncInFlight = false;
+  if (($('fStoreSearch').value || '').trim()) doStoreSearch();
+  else if (results) results.style.display = 'none';
+}
+
 function onStoreSearchInput(){
   clearTimeout(_storeSearchTimer);
+  _ensureStoresLoaded();
   _storeSearchTimer = setTimeout(doStoreSearch, 180);
 }
 function doStoreSearch(){
   const q = ($('fStoreSearch').value || '').trim();
   const results = $('fStoreResults');
   if (q.length < 1) { results.style.display='none'; return; }
-  const stores = getStores ? (getStores() || []) : [];
+  const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+  if (stores.length === 0) {
+    if (!_storeSyncInFlight) {
+      results.innerHTML = '<div class="sr-row" style="color:var(--gray-500);text-align:center;cursor:default">매장 데이터가 비어있습니다. 잠시 후 다시 검색하세요.</div>';
+      results.style.display = 'block';
+    }
+    return;
+  }
   const norm = window._normalizeSearch || (s => String(s||'').toLowerCase());
   const qn = norm(q);
+  const qDigits = q.replace(/\D/g,'');
   const hits = stores.filter(s => {
     const nm = norm(s.name || s.storeName || '');
     const al = (Array.isArray(s.aliases) ? s.aliases : []).map(norm).join(' ');
-    const bz = String(s.bizNo || '').replace(/\D/g,'');
+    // API 가 biz 로 보내고 PC 일부 코드는 bizNo/bizno 사용 — 모두 지원
+    const bz = String(s.biz || s.bizNo || s.bizno || '').replace(/\D/g,'');
     const cd = norm(s.code || '');
-    return nm.includes(qn) || al.includes(qn) || bz.includes(q.replace(/\D/g,'')) || cd.includes(qn);
+    if (nm.includes(qn) || al.includes(qn) || cd.includes(qn)) return true;
+    if (qDigits.length >= 3 && bz.includes(qDigits)) return true;
+    return false;
   }).slice(0, 8);
-  if (!hits.length) { results.style.display='none'; return; }
-  results.innerHTML = hits.map(s => `
-    <div class="sr-row" onclick='pickStore(${JSON.stringify({id:s.id, name:s.name||s.storeName||"", bizNo:s.bizNo||"", code:s.code||""}).replace(/'/g,"&#39;")})'>
+  if (!hits.length) {
+    results.innerHTML = `<div class="sr-row" style="color:var(--gray-500);text-align:center;cursor:default">'${esc(q)}' 에 일치하는 매장 없음 (총 ${stores.length}개 등록)</div>`;
+    results.style.display = 'block';
+    return;
+  }
+  results.innerHTML = hits.map(s => {
+    const biz = String(s.biz || s.bizNo || s.bizno || '');
+    return `
+    <div class="sr-row" onclick='pickStore(${JSON.stringify({id:s.id, name:s.name||s.storeName||"", bizNo:biz, code:s.code||""}).replace(/'/g,"&#39;")})'>
       <div class="nm">${esc(s.name || s.storeName || '')}</div>
-      <div class="biz">${esc(s.bizNo || '')}${s.code?' · '+esc(s.code):''}</div>
-    </div>
-  `).join('');
+      <div class="biz">${esc(biz)}${s.code?' · '+esc(s.code):''}</div>
+    </div>`;
+  }).join('');
   results.style.display = 'block';
 }
 window.pickStore = function(s){
