@@ -18964,11 +18964,31 @@ ${text.slice(0, 4000)}`;
     });
     const anyProg = norm.some(e => e.status === '진행');
     if (allRootsDone) {
-      jobs[i].completed = true;
-      const ts = norm.filter(e => e.status==='완료').slice(-1)[0]?.ts || '';
-      jobs[i].doneAt = ts;
-      jobs[i].completedAt = jobs[i].completedAt || new Date().toISOString();
-      jobs[i].status = '완료';
+      // 🛡 신규 작업은 openDate 가 미래/오늘이면 자동 완료 차단 — 모바일 m/newjob 와 동일 규칙
+      //   예) 5/21 에 모든 thread 완료 처리해도 openDate=5/28 이면 진행 중 유지
+      //   정식 오픈일이 master clock 역할
+      let blockAutoDone = false;
+      try {
+        const cat = (typeof window.classifyJobCategory === 'function')
+          ? window.classifyJobCategory(jobs[i]) : '';
+        if (cat === 'new') {
+          const todayStr = (typeof _kstNow === 'function')
+            ? String(_kstNow()||'').slice(0,10)
+            : new Date().toISOString().slice(0,10);
+          const od = String(jobs[i].openDate||'').slice(0,10);
+          if (od && od >= todayStr) blockAutoDone = true;
+        }
+      } catch(_){}
+      if (blockAutoDone) {
+        jobs[i].completed = false;
+        jobs[i].status = '진행중';
+      } else {
+        jobs[i].completed = true;
+        const ts = norm.filter(e => e.status==='완료').slice(-1)[0]?.ts || '';
+        jobs[i].doneAt = ts;
+        jobs[i].completedAt = jobs[i].completedAt || new Date().toISOString();
+        jobs[i].status = '완료';
+      }
     } else {
       jobs[i].completed = false;
       jobs[i].status = anyProg ? '진행중' : (jobs[i].status === '완료' ? '진행중' : (jobs[i].status || '진행중'));
