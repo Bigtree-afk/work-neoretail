@@ -404,6 +404,12 @@
       </div>
     </div>
 
+    <!-- 요청접수 — 신규 등록 시 매장 요청사항. 저장 시 thread 첫 ROOT 로 시드 + LINE 메시지 prefix 로 포함 -->
+    <div class="sec">
+      <div class="sec-h">📥 요청접수 <span class="hint">· 매장에서 요청한 사항</span></div>
+      <textarea class="field-textarea" id="fRequest" placeholder="조사 일정·범위·인원 등 요청 사항"></textarea>
+    </div>
+
     <!-- 면적·인원 -->
     <div class="sec">
       <div class="sec-h">📐 면적 · 인원</div>
@@ -461,10 +467,10 @@
       </div>
     </div>
 
-    <!-- 메모 -->
+    <!-- 매장 특이사항 -->
     <div class="sec">
-      <div class="sec-h">📝 메모</div>
-      <textarea class="field-textarea" id="fMemo" placeholder="추가 요청사항 / 현장 특이사항 등"></textarea>
+      <div class="sec-h">🏪 매장 특이사항 <span class="hint">· 메모</span></div>
+      <textarea class="field-textarea" id="fMemo" placeholder="현장 특이사항 / 추가 메모"></textarea>
     </div>
 
     <!-- LINE -->
@@ -517,7 +523,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-stocktake-4"></script>
+<script src="/m-core.js?v=2026-05-20-stocktake-5"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수 & 헬퍼
@@ -779,12 +785,12 @@ function renderForm(r){
   // 입력 초기화
   ['fStoreSearch','fUnregName','fUnregBiz','fUnregAddr','fContactName','fContactRole','fContactPhone',
    'fConsultDate','fScheduleDate','fDoneDate','fArea','fHeadcount',
-   'fExpected','fActual','fFee','fCollected','fMemo'].forEach(id => { const e = $(id); if (e) e.value = ''; });
+   'fExpected','fActual','fFee','fCollected','fMemo','fRequest'].forEach(id => { const e = $(id); if (e) e.value = ''; });
   $('fUnregMode').checked = false;
   $('fUnregBox').style.display = 'none';
   $('fStorePicked').style.display = 'none';
   $('fStoreResults').style.display = 'none';
-  $('fLineSend').checked = false;
+  $('fLineSend').checked = true; // 신규 등록 기본 ON (요청접수 + 일정 자동 발송)
   $('fDeleteBtn').style.display = 'none';
 
   // 결제 방식 — 현금 기본
@@ -829,6 +835,9 @@ function renderForm(r){
       setMoney($('fFee'),       rec.fee);
       setMoney($('fCollected'), rec.collected);
       $('fMemo').value = rec.memo || '';
+      // 요청접수 원문 — thread 첫 ROOT 시드된 값. 편집은 thread 에서만
+      $('fRequest').value = rec.initialRequest || '';
+      $('fLineSend').checked = false; // 편집 모드 기본 OFF
       const pm = rec.paymentMethod || '현금';
       document.querySelectorAll('input[name="fPaymentMethod"]').forEach(rd => { rd.checked = (rd.value === pm); });
       refreshPaymentChips();
@@ -1161,6 +1170,22 @@ window.onSaveForm = async function(){
   rec.memo           = ($('fMemo').value || '').trim();
   rec.updatedAt      = Date.now();
 
+  const requestText = ($('fRequest').value || '').trim();
+  // 신규 등록 시 요청접수 원문 보존
+  if (!_editingRec && requestText) rec.initialRequest = requestText;
+
+  // 신규 등록 + 요청접수 텍스트 → thread 첫 ROOT 시드
+  if (!_editingRec && requestText && (!Array.isArray(rec.thread) || rec.thread.length === 0)) {
+    const ts = new Date().toISOString();
+    const author = (typeof getCurrentUser === 'function' && getCurrentUser()) || rec.owner || '';
+    rec.thread = [{
+      id: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+      ts, author, status:'요청접수', text: requestText,
+      threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+      parentId: null,
+    }];
+  }
+
   // 상태별 자동 보정
   if ((rec.status === '조사완료' || rec.status === '정산' || rec.status === '마감') && !rec.doneDate) {
     rec.doneDate = todayKst();
@@ -1172,9 +1197,24 @@ window.onSaveForm = async function(){
   else arr.push(rec);
   saveStocktakes(arr);
 
-  // LINE 발송
+  // LINE 발송 — 신규 등록 시 요청접수 + 일정·면적·금액 요약을 prefix 로 포함
   if ($('fLineSend').checked) {
-    openStocktakeLine(rec);
+    let extraPrefix = '';
+    if (!_editingRec && requestText) {
+      extraPrefix += `📥 요청접수\n${requestText}\n\n`;
+    }
+    const schedLines = [];
+    if (rec.consultDate)  schedLines.push(`· 상담: ${rec.consultDate}`);
+    if (rec.scheduleDate) schedLines.push(`· 조사예정: ${rec.scheduleDate}`);
+    const areaPeople = [];
+    if (rec.area)      areaPeople.push(`면적: ${rec.area}평`);
+    if (rec.headcount) areaPeople.push(`인원: ${rec.headcount}명`);
+    if (areaPeople.length) schedLines.push(`· ${areaPeople.join(' · ')}`);
+    if (rec.expectedAmount) schedLines.push(`· 예상 수수료: ${Number(rec.expectedAmount).toLocaleString('ko-KR')} 원`);
+    if (schedLines.length) {
+      extraPrefix += `📦 재고조사 일정\n${schedLines.join('\n')}\n`;
+    }
+    openStocktakeLine(rec, { extraPrefix });
   }
   showToast(_editingRec ? '✓ 수정 완료' : '✓ 등록 완료');
   location.hash = '#thread/' + rec.id;
@@ -1244,6 +1284,10 @@ function openStocktakeLine(rec, opts){
   } else {
     defaultText = `${rec.storeName} : ${processDate} ; ${headContent}`;
   }
+
+  // 요청접수 + 일정 요약 prefix 합성
+  const extraPrefix = (opts && opts.extraPrefix) ? String(opts.extraPrefix) : '';
+  if (extraPrefix) defaultText = extraPrefix + '\n' + defaultText;
 
   if (typeof window._openLineSendComposer !== 'function') {
     showToast('⚠ LINE 컴포저 컴포넌트가 로드되지 않았습니다');
