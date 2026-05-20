@@ -434,7 +434,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-5"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-6"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -959,7 +959,9 @@ window.onSaveForm = async function(){
   job.contactPhone = ($('fContactPhone').value || '').trim();
   // 상담일은 폼에 노출 X — 신규 등록 시 오늘 자동 기록 (수정 시 기존 값 보존)
   if (!_editingJob && !job.consultDate) {
-    job.consultDate = (window._kstNow ? window._kstNow().toISOString() : new Date().toISOString()).slice(0,10);
+    // _kstNow() 는 'YYYY-MM-DD HH:MM' 문자열 — 앞 10자만 슬라이스
+    const kstStr = (window._kstNow && window._kstNow()) || '';
+    job.consultDate = kstStr ? kstStr.slice(0,10) : new Date().toISOString().slice(0,10);
   } else {
     job.consultDate = $('fConsultDate').value || job.consultDate || '';
   }
