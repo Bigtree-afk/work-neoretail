@@ -139,6 +139,20 @@
   .eq-btn:active{background:var(--as-light)}
   .eq-btn:disabled{color:var(--gray-300)}
   .eq-cnt{min-width:22px;text-align:center;font-weight:800;font-size:14px}
+  /* 접기/펼치기 — sec.collapsible */
+  .sec.collapsible > .sec-h{cursor:pointer;user-select:none;margin-bottom:0;padding:2px 0}
+  .sec.collapsible > .sec-h .chev{margin-left:auto;font-size:13px;color:var(--gray-400);transition:transform .15s}
+  .sec.collapsible.open > .sec-h .chev{transform:rotate(180deg)}
+  .sec.collapsible > .sec-body{display:none;margin-top:10px}
+  .sec.collapsible.open > .sec-body{display:block}
+  .sec.collapsible > .sec-h .summary{margin-left:auto;font-size:11px;color:var(--gray-500);font-weight:600;background:var(--gray-100);padding:2px 8px;border-radius:10px}
+  .sec.collapsible.open > .sec-h .summary{display:none}
+  /* 신품/중고 라디오 큰 토글 */
+  .cond-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px}
+  .cond-chip{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:10px;font-size:13.5px;font-weight:700;color:var(--gray-600);cursor:pointer}
+  .cond-chip input{display:none}
+  .cond-chip.on[data-c="new"]{background:#EFF6FF;border-color:#3B82F6;color:#1E40AF}
+  .cond-chip.on[data-c="used"]{background:#FFFBEB;border-color:#F59E0B;color:#92400E}
 
   /* LINE 체크박스 */
   .line-check{display:flex;align-items:center;gap:8px;padding:11px 13px;background:var(--line-light);border:1.5px solid #BBF7D0;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;color:#04A047}
@@ -358,10 +372,22 @@
       </div>
     </div>
 
-    <!-- 장비 체크리스트 -->
-    <div class="sec">
-      <div class="sec-h">📦 AS 투입 장비 <span class="hint">· 수량 입력</span></div>
-      <div class="eq-list" id="fEqList"></div>
+    <!-- 장비 체크리스트 — 평상시 접힘, 헤더 탭하면 펼침 -->
+    <div class="sec collapsible" id="fEqSec">
+      <div class="sec-h" onclick="toggleEqSec()">
+        📦 AS 투입 장비
+        <span class="hint">· 필요할 때만 펼치기</span>
+        <span class="summary" id="fEqSummary">없음</span>
+        <span class="chev">▼</span>
+      </div>
+      <div class="sec-body">
+        <!-- 신품 / 중고 토글 -->
+        <div class="cond-row" id="fCondRow">
+          <label class="cond-chip on" data-c="new"><input type="radio" name="fCond" value="new" checked>🆕 신품</label>
+          <label class="cond-chip" data-c="used"><input type="radio" name="fCond" value="used">♻️ 중고</label>
+        </div>
+        <div class="eq-list" id="fEqList"></div>
+      </div>
     </div>
 
     <!-- 메모 -->
@@ -420,7 +446,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-as-2"></script>
+<script src="/m-core.js?v=2026-05-20-as-3"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -625,15 +651,43 @@ function renderEntry(){
 ═══════════════════════════════════════════════════════════ */
 let _formStore = null;     // 선택된 매장
 let _formEquipment = {};   // { key: count }
+let _formEquipCondition = 'new'; // 'new' | 'used' — 모든 투입 장비 공통 조건
 let _editingJob = null;    // 편집 job
 let _mergeTargetJob = null; // 머지 대상 (등록 매장 + 진행 중 AS)
+
+// 장비 섹션 펼치기/접기 (기본 접힘)
+window.toggleEqSec = function(){
+  const sec = document.getElementById('fEqSec');
+  if (sec) sec.classList.toggle('open');
+};
+// 신품/중고 라디오 변경
+function bindCondRow(){
+  document.querySelectorAll('#fCondRow .cond-chip').forEach(lb => {
+    const rd = lb.querySelector('input');
+    if (!rd) return;
+    rd.addEventListener('change', () => {
+      _formEquipCondition = rd.value === 'used' ? 'used' : 'new';
+      document.querySelectorAll('#fCondRow .cond-chip').forEach(x => x.classList.remove('on'));
+      lb.classList.add('on');
+    });
+  });
+}
 
 function renderForm(r){
   _formStore = null;
   _formEquipment = {};
+  _formEquipCondition = 'new';
   _editingJob = null;
   _mergeTargetJob = null;
   buildEqList();
+  bindCondRow();
+  // 장비 섹션 — 기본 접힘
+  const eqSec = document.getElementById('fEqSec');
+  if (eqSec) eqSec.classList.remove('open');
+  // 신품/중고 — 기본 신품
+  const rdNew = document.querySelector('#fCondRow input[value="new"]');
+  if (rdNew) rdNew.checked = true;
+  document.querySelectorAll('#fCondRow .cond-chip').forEach(x => x.classList.toggle('on', x.dataset.c === 'new'));
 
   // 초기화
   ['fStoreSearch','fContactName','fContactRole','fContactPhone','fUnregName','fUnregBiz',
@@ -706,17 +760,25 @@ function renderForm(r){
       if (typeRdEl) typeRdEl.checked = true;
       refreshTypeChips();
 
-      // 장비 — fixed catalog 매핑
+      // 장비 — fixed catalog 매핑 + condition 복원 (마지막 항목의 condition 우선)
       if (Array.isArray(j.equipment)) {
         j.equipment.forEach(eq => {
           const key = eq.fixedKey || (EQUIPMENT.find(x => x.name === eq.name) || {}).key;
           if (key) _formEquipment[key] = (_formEquipment[key] || 0) + (Number(eq.qty)||0);
+          if (eq.condition === 'used' || eq.condition === 'new') _formEquipCondition = eq.condition;
         });
         renderEqCounts();
       } else if (j.equipment && typeof j.equipment === 'object') {
         Object.assign(_formEquipment, j.equipment);
         renderEqCounts();
       }
+      // condition 라디오 시각 반영
+      document.querySelectorAll('#fCondRow .cond-chip').forEach(x => x.classList.toggle('on', x.dataset.c === _formEquipCondition));
+      const rd = document.querySelector(`#fCondRow input[value="${_formEquipCondition}"]`);
+      if (rd) rd.checked = true;
+      // 편집 시 등록된 장비가 있으면 펼침 (사용자가 바로 볼 수 있게)
+      const totalCount = EQUIPMENT.reduce((s,e) => s + (_formEquipment[e.key]||0), 0);
+      if (totalCount > 0) document.getElementById('fEqSec').classList.add('open');
     }
   }
 }
@@ -736,10 +798,16 @@ function buildEqList(){
   renderEqCounts();
 }
 function renderEqCounts(){
+  let totalCount = 0;
   EQUIPMENT.forEach(eq => {
+    const c = _formEquipment[eq.key] || 0;
+    totalCount += c;
     const el = $('eq-cnt-' + eq.key);
-    if (el) el.textContent = String(_formEquipment[eq.key] || 0);
+    if (el) el.textContent = String(c);
   });
+  // 접힌 상태 헤더에 요약 표시
+  const summary = document.getElementById('fEqSummary');
+  if (summary) summary.textContent = totalCount > 0 ? `${totalCount}건` : '없음';
 }
 window.eqInc = function(key){ _formEquipment[key] = (_formEquipment[key]||0) + 1; renderEqCounts(); };
 window.eqDec = function(key){ _formEquipment[key] = Math.max(0, (_formEquipment[key]||0) - 1); renderEqCounts(); };
@@ -883,7 +951,7 @@ window.onSaveForm = async function(){
       name: eq.name,
       fixed: true,
       fixedKey: eq.key,
-      condition: 'new',
+      condition: _formEquipCondition || 'new',
       qty: Number(_formEquipment[eq.key]) || 0,
       costPrice: 0,
       salePrice: 0,
