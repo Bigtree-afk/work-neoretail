@@ -429,6 +429,8 @@
   .js-thread-mode { display: none !important; }
   body.new-mode .js-thread-mode,
   body.as-mode  .js-thread-mode { display: block !important; }
+  /* 신규 카테고리에서 숨길 필드 — 등록 폼의 비고/특이사항 등 (thread + memos 로 충분) */
+  body.new-mode .js-non-new { display: none !important; }
   /* 상담 등록 전용 필드 (상담일 등) */
   .js-consult-only { display: none !important; }
   body.consult-mode .js-consult-only { display: flex !important; }
@@ -3208,7 +3210,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div style="margin-top:6px;font-size:11px;color:var(--gray-400)">🔒 고정 품목은 수량 0으로 두면 미투입 처리 · 분류/사이즈 옵션 있는 품목은 드롭다운에서 선택 · 추가 품목은 "＋ 행 추가"로 무제한</div>
       </div>
 
-      <div class="form-group" style="margin-top:14px;margin-bottom:0">
+      <div class="form-group js-non-new" style="margin-top:14px;margin-bottom:0">
         <label>비고 / 특이사항</label>
         <textarea id="jobNotes" placeholder="VAN사 변경 사항, 고객 요청, 현장 특이사항 등..." style="min-height:52px"></textarea>
       </div>
