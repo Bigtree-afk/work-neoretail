@@ -408,6 +408,19 @@
       </div>
     </div>
 
+    <!-- 📋 등록 정보 요약 — 일정·연락처·장비·메모 (접기/펼치기) -->
+    <div class="sec collapsible open" id="thSummarySec">
+      <div class="sec-h" onclick="document.getElementById('thSummarySec').classList.toggle('open')">
+        📋 등록 정보
+        <span class="hint">· 일정·장비·연락처</span>
+        <span class="summary" id="thSummaryHint">탭하여 접기</span>
+        <span class="chev">▼</span>
+      </div>
+      <div class="sec-body" id="thSummaryBody">
+        <!-- renderThread 에서 채움 -->
+      </div>
+    </div>
+
     <!-- 새 ROOT (요청접수) 입력 -->
     <div class="new-root-box">
       <div class="sec-h">📥 새 요청접수</div>
@@ -434,7 +447,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-6"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-7"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1047,7 +1060,61 @@ function renderThread(jobId){
   $('thType').textContent = (j.type || '신규') + (sched ? ' · ' + fmtDate(sched) : '');
   $('thNewRoot').value = '';
   $('thNewRootLine').checked = false;
+  renderJobSummary(j);
   renderThreadGroupsMobile(j);
+}
+
+// 등록 정보 요약 — 일정·연락처·장비·메모
+function renderJobSummary(j){
+  const body = document.getElementById('thSummaryBody');
+  if (!body) return;
+  const parts = [];
+
+  // 일정
+  const schedRows = [];
+  if (j.consultDate)  schedRows.push(`<span style="color:var(--gray-500)">📞 상담</span> <b>${esc(fmtDate(j.consultDate))}</b>`);
+  if (j.installDate)  schedRows.push(`<span style="color:var(--gray-500)">🔧 설치</span> <b>${esc(fmtDate(j.installDate))}</b>`);
+  if (j.softOpenDate) schedRows.push(`<span style="color:var(--gray-500)">🚪 가오픈</span> <b>${esc(fmtDate(j.softOpenDate))}</b>`);
+  if (j.openDate)     schedRows.push(`<span style="color:var(--gray-500)">🎉 정식오픈</span> <b>${esc(fmtDate(j.openDate))}</b>`);
+  if (schedRows.length) {
+    parts.push(`<div style="margin-bottom:9px"><div style="font-size:10.5px;font-weight:800;color:var(--gray-600);margin-bottom:4px">📅 일정</div><div style="display:flex;flex-wrap:wrap;gap:8px 14px;font-size:12.5px">${schedRows.join('')}</div></div>`);
+  }
+
+  // 연락처
+  const contactRows = [];
+  if (j.contactName)  contactRows.push(`<span style="color:var(--gray-500)">👤</span> <b>${esc(j.contactName)}</b>${j.contactRole?` <span style="color:var(--gray-500)">(${esc(j.contactRole)})</span>`:''}`);
+  if (j.contactPhone) contactRows.push(`<span style="color:var(--gray-500)">📞</span> <a href="tel:${esc(j.contactPhone)}" style="color:#2563EB;text-decoration:none;font-weight:700">${esc(j.contactPhone)}</a>`);
+  if (contactRows.length) {
+    parts.push(`<div style="margin-bottom:9px"><div style="font-size:10.5px;font-weight:800;color:var(--gray-600);margin-bottom:4px">👤 매장 담당자</div><div style="display:flex;flex-wrap:wrap;gap:8px 14px;font-size:12.5px">${contactRows.join('')}</div></div>`);
+  }
+
+  // 장비 목록
+  const eq = j.equipment || {};
+  const eqLines = [];
+  // _eqAllKeys 는 form 컨텍스트에 정의 — 동일 EQUIPMENT 배열 사용 가능
+  const allKeys = (typeof _eqAllKeys === 'function') ? _eqAllKeys() :
+    EQUIPMENT.flatMap(e => Array.isArray(e.dual) ? e.dual.map(s => ({key:s.key, name:e.name+' '+s.label})) : [{key:e.key, name:e.name}]);
+  allKeys.forEach(k => {
+    const c = Number(eq[k.key]) || 0;
+    if (c > 0) eqLines.push(`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #DBEAFE"><span>${esc(k.name)}</span><b>${c} 대</b></div>`);
+  });
+  if (eqLines.length) {
+    const condLabel = j.equipCondition === 'used' ? '♻️ 중고' : '🆕 신품';
+    const total = eqLines.length;
+    parts.push(`<div style="margin-bottom:9px"><div style="font-size:10.5px;font-weight:800;color:var(--gray-600);margin-bottom:4px">🖥 설치 요청 장비 <span style="background:#DBEAFE;color:#1E40AF;padding:1px 7px;border-radius:9px;margin-left:4px">${condLabel}</span> <span style="color:var(--gray-400);font-weight:600;margin-left:3px">${total}품목</span></div><div style="font-size:12.5px">${eqLines.join('')}</div></div>`);
+    if (j.equipmentMemo) {
+      parts.push(`<div style="margin-bottom:9px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:7px;padding:8px 10px;font-size:12px;color:#92400E"><b>🛠 장비 추가 요청</b><br>${esc(j.equipmentMemo).replace(/\n/g,'<br>')}</div>`);
+    }
+  } else {
+    parts.push(`<div style="margin-bottom:9px;font-size:12px;color:var(--gray-500)">🖥 설치 요청 장비 — 등록 없음</div>`);
+  }
+
+  // 매장 특이사항
+  if (j.memo) {
+    parts.push(`<div style="background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:8px 10px;font-size:12px;color:var(--gray-700)"><b style="color:var(--gray-600)">🏪 매장 특이사항</b><br>${esc(j.memo).replace(/\n/g,'<br>')}</div>`);
+  }
+
+  body.innerHTML = parts.join('') || '<div style="font-size:12px;color:var(--gray-500)">등록된 추가 정보 없음 — ✏️ 수정 으로 보강하세요</div>';
 }
 
 function renderThreadGroupsMobile(j){
@@ -1081,11 +1148,12 @@ function renderThreadGroupsMobile(j){
       const cc = c.status === '완료' ? 'done' : c.status === '진행' ? 'prog' : '';
       const cIcon = c.status === '완료' ? '✅' : c.status === '진행' ? '🔄' : '📥';
       return `
-        <div class="tg-child ${cc}">
+        <div class="tg-child ${cc}" id="child-${esc(c.threadId)}">
           <div class="hdr">${cIcon} <b>${esc(c.status||'')}</b> · ${esc(c.author||'담당자')} · ${esc(c.ts||'')}
-            <button class="del" style="margin-left:auto;font-size:13px;background:transparent;border:none;color:var(--gray-400);cursor:pointer" title="삭제" onclick="onDelChild('${esc(c.threadId)}')">✕</button>
+            <button class="del" style="margin-left:auto;font-size:13px;background:transparent;border:none;color:#3B82F6;cursor:pointer;margin-right:6px" title="수정" onclick="onEditEntry('${esc(c.threadId)}', false)">✏️</button>
+            <button class="del" style="font-size:13px;background:transparent;border:none;color:var(--gray-400);cursor:pointer" title="삭제" onclick="onDelChild('${esc(c.threadId)}')">✕</button>
           </div>
-          <div class="txt">${esc(c.text||'')}</div>
+          <div class="txt" id="txt-${esc(c.threadId)}">${esc(c.text||'')}</div>
         </div>
       `;
     }).join('');
@@ -1094,9 +1162,10 @@ function renderThreadGroupsMobile(j){
         <div class="tg-h">
           <span class="stt ${cls}">${stIcon} ${esc(gs)}</span>
           <span class="when">${esc(r.ts||'')}</span>
+          <button class="del" title="이 그룹 텍스트 수정" onclick="onEditEntry('${esc(r.threadId)}', true)" style="color:#3B82F6;margin-right:6px">✏️</button>
           <button class="del" title="이 그룹 전체 삭제" onclick="onDelRoot('${esc(r.threadId)}')">✕</button>
         </div>
-        <div class="tg-root">${esc(r.text||'')}</div>
+        <div class="tg-root" id="txt-${esc(r.threadId)}">${esc(r.text||'')}</div>
         <div class="tg-author">— ${esc(r.author||'담당자')}</div>
         ${childHtml}
         ${gs !== '완료' ? `
@@ -1237,6 +1306,56 @@ window.onDelRoot = function(rootId){
   j.updatedAt = Date.now();
   jobs[ix] = j;
   saveJobs(jobs);
+  try { window.pushJobsToCloud(); } catch(_){}
+  renderThread(_currentJobId);
+};
+
+// thread entry 인라인 편집 — root 든 child 든 텍스트 영역 + 저장/취소 버튼으로 inline 교체
+window.onEditEntry = function(threadId, isRoot){
+  const txtEl = document.getElementById('txt-' + threadId);
+  if (!txtEl) return;
+  if (txtEl.dataset.editing === '1') return; // 이미 편집 중
+  txtEl.dataset.editing = '1';
+  const jobs = getJobs();
+  const j = jobs.find(x => x.id === _currentJobId);
+  if (!j || !Array.isArray(j.thread)) return;
+  const entry = j.thread.find(e => e.threadId === threadId);
+  if (!entry) return;
+  const orig = entry.text || '';
+  txtEl.innerHTML = `
+    <textarea class="field-textarea" id="ed-${threadId}" style="margin-bottom:7px">${esc(orig)}</textarea>
+    <div style="display:flex;gap:6px;justify-content:flex-end">
+      <button class="btn btn-outline" style="flex:0;padding:6px 13px;font-size:12px" onclick="onCancelEditEntry('${esc(threadId)}', ${JSON.stringify(orig).replace(/"/g,'&quot;')})">취소</button>
+      <button class="btn btn-primary" style="flex:0;padding:6px 13px;font-size:12px" onclick="onSaveEditEntry('${esc(threadId)}')">저장</button>
+    </div>
+  `;
+  const ta = document.getElementById('ed-' + threadId);
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+};
+window.onCancelEditEntry = function(threadId, origText){
+  const txtEl = document.getElementById('txt-' + threadId);
+  if (!txtEl) return;
+  txtEl.dataset.editing = '';
+  txtEl.innerHTML = esc(origText || '');
+};
+window.onSaveEditEntry = function(threadId){
+  const ta = document.getElementById('ed-' + threadId);
+  if (!ta) return;
+  const newText = (ta.value || '').trim();
+  if (!newText) { showToast('⚠ 내용을 입력하세요'); return; }
+  const jobs = getJobs();
+  const ix = jobs.findIndex(x => x.id === _currentJobId);
+  if (ix < 0) return;
+  const j = jobs[ix];
+  const e = (j.thread || []).find(x => x.threadId === threadId);
+  if (!e) return;
+  e.text = newText;
+  e.editedAt = (window._kstNow ? window._kstNow() : new Date().toISOString().slice(0,16).replace('T',' '));
+  e.editedBy = (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자';
+  j.updatedAt = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  showToast('✓ 수정 완료');
   try { window.pushJobsToCloud(); } catch(_){}
   renderThread(_currentJobId);
 };
