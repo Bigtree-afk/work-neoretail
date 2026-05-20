@@ -471,7 +471,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-16"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-17"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -672,7 +672,8 @@ function renderEntry(){
    FORM — 신규 등록 / 편집
 ═══════════════════════════════════════════════════════════ */
 let _formStore = null;     // 선택된 매장 객체 (or null)
-let _formEquipment = {};   // { key: count }
+let _formEquipment = {};   // { key: count } — 모바일이 편집하는 simple count
+let _formPreservedEq = {}; // PC 가 등록한 detailed 항목 (인덱스 키 "0".."N") — verbatim 보존, 모바일은 표시만
 let _formEquipCondition = 'new'; // 'new' | 'used' — 모든 장비 공통
 let _editingJob = null;    // 편집 모드면 job 객체
 let _formInitKey = '';     // 마지막으로 렌더한 폼 키 (중복 렌더 방지)
@@ -684,6 +685,7 @@ function renderForm(r){
   _formInitKey = key;
   _formStore = null;
   _formEquipment = {};
+  _formPreservedEq = {};
   _formEquipCondition = 'new';
   _editingJob = null;
   // 장비 행 그리기
@@ -739,8 +741,24 @@ function renderForm(r){
       const rd = document.querySelector(`input[name="fType"][value="${tv}"]`);
       if (rd) rd.checked = true;
       refreshTypeChips();
+      // 🔧 PC↔모바일 equipment 분리:
+      //   - 인덱스 키 "0".."N" 또는 값이 객체인 항목 → _formPreservedEq (PC detailed, verbatim 보존)
+      //   - 단순 카운트 키 (server/pc/kiosk/...) → _formEquipment (모바일 편집 가능)
+      // PC alias 키 (client/fscanner/posdai/monitor) 의 단순 카운트도 mobile 키로 흡수
       if (j.equipment && typeof j.equipment === 'object') {
-        Object.assign(_formEquipment, j.equipment);
+        _formPreservedEq = {};
+        Object.entries(j.equipment).forEach(([k,v]) => {
+          if (v && typeof v === 'object') {
+            // detailed 항목 — 그대로 보존
+            _formPreservedEq[k] = v;
+          } else {
+            // simple count — PC alias 흡수
+            const num = Number(v) || 0;
+            if (num <= 0) return;
+            const mobileKey = PC_KEY_ALIAS[k] || k;
+            _formEquipment[mobileKey] = (_formEquipment[mobileKey] || 0) + num;
+          }
+        });
         renderEqCounts();
       }
       // condition 복원 — job.equipCondition 또는 첫 equipment[*].condition
@@ -1039,7 +1057,17 @@ window.onSaveForm = async function(){
   job.softOpenDate = $('fSoftOpenDate').value || '';
   job.openDate     = $('fOpenDate').value || '';
   job.memo = memo;
-  job.equipment = Object.assign({}, _formEquipment);
+  // 🔧 equipment 합본 — PC detailed (인덱스 키) verbatim + 모바일 simple count
+  // 0 인 카운트는 저장하지 않아 KV 페이로드 축소
+  {
+    const out = {};
+    Object.entries(_formPreservedEq || {}).forEach(([k,v]) => { out[k] = v; });
+    Object.entries(_formEquipment || {}).forEach(([k,v]) => {
+      const n = Number(v) || 0;
+      if (n > 0) out[k] = n;
+    });
+    job.equipment = out;
+  }
   job.equipCondition = _formEquipCondition;
   job.equipmentMemo = eqMemo;
   if (!_editingJob && requestText) job.initialRequest = requestText;
@@ -1155,44 +1183,32 @@ const _childPickers = new Map(); // rootId → picker
 // 모바일이 저장하는 simple count map 둘 다 통합해서 표시용 항목 배열로 반환.
 // 반환: [{ name, qty, condition?, fixedKey? }]
 const PC_KEY_ALIAS = { client:'pc', fscanner:'fixedScan', posdai:'posDaiR' };
-function _normalizeEquipmentList(eq) {
-  if (!eq) return [];
-  const out = []; // 상세 객체 우선
-  const simpleCount = {}; // fixedKey 의 count map
-  const seenDetailedKeys = new Set();
-  function pushDetailed(item) {
-    const nm = item.name || item.label || '';
-    const qty = Number(item.qty) || 0;
-    if (qty <= 0) return;
-    out.push({
-      name: nm,
-      qty,
-      condition: item.condition || '',
-      fixedKey: item.fixedKey || '',
-      spec: item.spec || '',
-      variant: item.variant || '',
-    });
-    if (item.fixedKey) seenDetailedKeys.add(item.fixedKey);
-  }
+// 정규화: hybrid dict → { detailed: [...], counts: {mobileKey:n} }
+//   detailed = PC 가 저장하는 cost 라인아이템 (name/fixedKey/qty/condition/spec/variant/salePrice 등)
+//   counts   = 설치 요청 carry-in 단순 카운트 (mobile catalog key 기준, PC alias 흡수)
+// 두 그룹은 별개 개념이므로 합치지 않고 분리 반환 — 화면도 두 섹션으로 표시.
+function _normalizeEquipment(eq) {
+  const detailed = [];
+  const counts = {};
+  if (!eq) return { detailed, counts };
   if (Array.isArray(eq)) {
-    eq.forEach(pushDetailed);
-  } else if (typeof eq === 'object') {
-    Object.entries(eq).forEach(([k,v]) => {
-      if (v && typeof v === 'object') pushDetailed(v);
-      else simpleCount[k] = (Number(v) || 0);
+    eq.forEach(it => {
+      if (it && typeof it === 'object' && (Number(it.qty)||0) > 0) detailed.push(it);
     });
+    return { detailed, counts };
   }
-  // 모바일 카탈로그에서 simpleCount 표시 — 상세 객체로 이미 같은 fixedKey 가 있으면 skip
-  const allKeys = _eqAllKeys();
-  allKeys.forEach(k => {
-    if (seenDetailedKeys.has(k.key)) return;
-    // PC 별칭 키도 흡수 (client → pc, fscanner → fixedScan)
-    const aliasOfK = Object.entries(PC_KEY_ALIAS).filter(([,v]) => v === k.key).map(([pc]) => pc);
-    let total = Number(simpleCount[k.key]) || 0;
-    aliasOfK.forEach(pcKey => { total += Number(simpleCount[pcKey]) || 0; });
-    if (total > 0) out.push({ name: k.name, qty: total, fixedKey: k.key });
+  if (typeof eq !== 'object') return { detailed, counts };
+  Object.entries(eq).forEach(([k,v]) => {
+    if (v && typeof v === 'object') {
+      if ((Number(v.qty)||0) > 0) detailed.push(v);
+    } else {
+      const n = Number(v) || 0;
+      if (n <= 0) return;
+      const mobileKey = PC_KEY_ALIAS[k] || k;
+      counts[mobileKey] = (counts[mobileKey] || 0) + n;
+    }
   });
-  return out;
+  return { detailed, counts };
 }
 
 function renderJobSummary(j){
@@ -1231,27 +1247,49 @@ function renderJobSummary(j){
     parts.push(`<div style="margin-bottom:9px"><div style="font-size:10.5px;font-weight:800;color:var(--gray-600);margin-bottom:4px">👤 매장 담당자</div><div style="display:flex;flex-wrap:wrap;gap:8px 14px;font-size:12.5px">${contactRows.join('')}</div></div>`);
   }
 
-  // 장비 목록 — PC 의 hybrid dict + 모바일 simple count 모두 정규화
-  const eqList = _normalizeEquipmentList(j.equipment);
-  const eqLines = eqList.map(it => {
-    const cond = it.condition === 'used' ? ' <span style="font-size:10px;background:#FFFBEB;color:#92400E;padding:1px 5px;border-radius:8px">중고</span>'
-               : it.condition === 'new'  ? ' <span style="font-size:10px;background:#EFF6FF;color:#1E40AF;padding:1px 5px;border-radius:8px">신품</span>'
-               : '';
-    const meta = [it.variant, it.spec].filter(Boolean).join(' · ');
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #DBEAFE">
-      <span><span style="font-weight:600">${esc(it.name)}</span>${cond}${meta ? ` <span style="font-size:10px;color:var(--gray-500)">${esc(meta)}</span>` : ''}</span>
+  // 장비 — PC detailed(판매/구입) + 모바일 simple count(설치 carry-in) 두 섹션으로 분리
+  const { detailed, counts } = _normalizeEquipment(j.equipment);
+
+  // (1) PC 판매/구입 장비 — detailed 항목
+  if (detailed.length > 0) {
+    const detLines = detailed.map(it => {
+      const nm = it.name || it.label || '';
+      const qty = Number(it.qty) || 0;
+      const cond = it.condition === 'used' ? ' <span style="font-size:10px;background:#FFFBEB;color:#92400E;padding:1px 5px;border-radius:8px">중고</span>'
+                 : it.condition === 'new'  ? ' <span style="font-size:10px;background:#EFF6FF;color:#1E40AF;padding:1px 5px;border-radius:8px">신품</span>'
+                 : '';
+      const meta = [it.variant, it.size, it.spec].filter(Boolean).join(' · ');
+      const price = Number(it.salePrice) || 0;
+      const priceStr = price > 0 ? ` <span style="font-size:10px;color:var(--gray-500)">@${price.toLocaleString()}원</span>` : '';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #FCE7F3">
+        <span><span style="font-weight:600">${esc(nm)}</span>${cond}${meta ? ` <span style="font-size:10px;color:var(--gray-500)">${esc(meta)}</span>` : ''}${priceStr}</span>
+        <b>${qty} 대</b>
+      </div>`;
+    }).join('');
+    const eqTotal = Number(j.equipTotal) || 0;
+    const totalStr = eqTotal > 0 ? ` <span style="font-size:10.5px;color:#BE185D;margin-left:6px">합계 ${eqTotal.toLocaleString()}원</span>` : '';
+    parts.push(`<div style="margin-bottom:9px"><div style="font-size:10.5px;font-weight:800;color:var(--gray-600);margin-bottom:4px">🛒 판매·구입 장비 <span style="background:#FBCFE8;color:#9D174D;padding:1px 7px;border-radius:9px;margin-left:4px">PC 등록</span> <span style="color:var(--gray-400);font-weight:600;margin-left:3px">${detailed.length}품목</span>${totalStr}</div><div style="font-size:12.5px">${detLines}</div></div>`);
+  }
+
+  // (2) 설치 요청 (carry-in) — simple count
+  const countKeys = _eqAllKeys();
+  const carryLines = countKeys
+    .map(k => ({ name: k.name, qty: Number(counts[k.key]) || 0, fixedKey: k.key }))
+    .filter(it => it.qty > 0)
+    .map(it => `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #DBEAFE">
+      <span><span style="font-weight:600">${esc(it.name)}</span></span>
       <b>${it.qty} 대</b>
-    </div>`;
-  });
-  if (eqLines.length) {
+    </div>`);
+  if (carryLines.length > 0) {
     const condLabel = j.equipCondition === 'used' ? '♻️ 중고' : '🆕 신품';
-    const total = eqLines.length;
-    parts.push(`<div style="margin-bottom:9px"><div style="font-size:10.5px;font-weight:800;color:var(--gray-600);margin-bottom:4px">🖥 설치 요청 장비 <span style="background:#DBEAFE;color:#1E40AF;padding:1px 7px;border-radius:9px;margin-left:4px">${condLabel}</span> <span style="color:var(--gray-400);font-weight:600;margin-left:3px">${total}품목</span></div><div style="font-size:12.5px">${eqLines.join('')}</div></div>`);
-    if (j.equipmentMemo) {
-      parts.push(`<div style="margin-bottom:9px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:7px;padding:8px 10px;font-size:12px;color:#92400E"><b>🛠 장비 추가 요청</b><br>${esc(j.equipmentMemo).replace(/\n/g,'<br>')}</div>`);
-    }
-  } else {
-    parts.push(`<div style="margin-bottom:9px;font-size:12px;color:var(--gray-500)">🖥 설치 요청 장비 — 등록 없음</div>`);
+    parts.push(`<div style="margin-bottom:9px"><div style="font-size:10.5px;font-weight:800;color:var(--gray-600);margin-bottom:4px">🚚 설치 요청 장비 <span style="background:#DBEAFE;color:#1E40AF;padding:1px 7px;border-radius:9px;margin-left:4px">${condLabel}</span> <span style="color:var(--gray-400);font-weight:600;margin-left:3px">${carryLines.length}품목</span></div><div style="font-size:12.5px">${carryLines.join('')}</div></div>`);
+  }
+
+  if (j.equipmentMemo) {
+    parts.push(`<div style="margin-bottom:9px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:7px;padding:8px 10px;font-size:12px;color:#92400E"><b>🛠 장비 추가 요청</b><br>${esc(j.equipmentMemo).replace(/\n/g,'<br>')}</div>`);
+  }
+  if (detailed.length === 0 && carryLines.length === 0) {
+    parts.push(`<div style="margin-bottom:9px;font-size:12px;color:var(--gray-500)">🖥 등록 장비 — 없음</div>`);
   }
 
   // 📍 주소 (PC 가 등록한 address)

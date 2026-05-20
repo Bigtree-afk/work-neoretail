@@ -21468,17 +21468,39 @@ ${text.slice(0, 4000)}`;
           if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.replace('T',' ').slice(0,16);
           try { return new Date(s).toLocaleString('ko-KR'); } catch(e){ return s; }
         };
+        // 🔧 모바일↔PC 호환 — equipment 가 hybrid 객체 ({"0":{...}, "1":{...}, "server":2, ...}) 인 경우
+        //   기존: Array.isArray 만 검사 → 객체면 그냥 무시 → PC 에서 장비 안보임
+        //   변경: 객체에서 (a) 값이 object 인 항목 = detailed, (b) 값이 숫자 인 항목 = simple count 로 분리 후 함께 표시
+        const MOBILE_EQ_NAMES = { pc:'PC', server:'서버', pos:'포스', kiosk:'키오스크', fixedScan:'고정스캐너', handyTerm:'핸디터미널', labelPrint:'라벨프린터', posDaiL:'포스다이 좌타', posDaiR:'포스다이 우타', checker:'체크기', handyScan:'핸디스캐너', client:'클라이언트PC', fscanner:'고정스캐너', posdai:'포스다이', monitor:'모니터' };
+        const _normEqForPC = (eq) => {
+          const detailed = []; const counts = {};
+          if (!eq) return { detailed, counts };
+          if (Array.isArray(eq)) { eq.forEach(it => { if (it && (Number(it.qty)||0) > 0) detailed.push(it); }); return { detailed, counts }; }
+          if (typeof eq !== 'object') return { detailed, counts };
+          Object.entries(eq).forEach(([k,v]) => {
+            if (v && typeof v === 'object') { if ((Number(v.qty)||0) > 0) detailed.push(v); }
+            else { const n = Number(v)||0; if (n > 0) counts[k] = (counts[k]||0) + n; }
+          });
+          return { detailed, counts };
+        };
         const renderEquipList = (eq) => {
-          if (!Array.isArray(eq) || eq.length === 0) return '';
+          const { detailed, counts } = _normEqForPC(eq);
+          const countKeys = Object.keys(counts);
+          if (detailed.length === 0 && countKeys.length === 0) return '';
+          const detRows = detailed.map(e => {
+            const name = esc2(e.name||e.item||'장비');
+            const v = e.variant||e.option||e.options||'';
+            const q = e.qty ? ` ×${e.qty}` : '';
+            const cond = e.condition ? ` <span style="color:var(--gray-500)">[${esc2(e.condition)}]</span>` : '';
+            return `<div style="margin-top:2px">• ${name}${v?' <span style="color:var(--gray-500)">'+esc2(v)+'</span>':''}${q}${cond}</div>`;
+          }).join('');
+          const cntRows = countKeys.map(k => {
+            const nm = MOBILE_EQ_NAMES[k] || k;
+            return `<div style="margin-top:2px">• ${esc2(nm)} ×${counts[k]}</div>`;
+          }).join('');
           return `<div style="margin-top:6px;padding:6px 8px;background:#fff;border:1px dashed var(--gray-300);border-radius:6px;font-size:11px;color:var(--gray-700)">
-            <b style="font-size:10px;color:var(--gray-500)">📦 장비</b>
-            ${eq.map(e=>{
-              const name = esc2(e.name||e.item||'장비');
-              const v = e.variant||e.option||e.options||'';
-              const q = e.qty ? ` ×${e.qty}` : '';
-              const cond = e.condition ? ` <span style="color:var(--gray-500)">[${esc2(e.condition)}]</span>` : '';
-              return `<div style="margin-top:2px">• ${name}${v?' <span style="color:var(--gray-500)">'+esc2(v)+'</span>':''}${q}${cond}</div>`;
-            }).join('')}
+            ${detRows ? `<b style="font-size:10px;color:var(--gray-500)">📦 판매·구입 장비 (${detailed.length})</b>${detRows}` : ''}
+            ${cntRows ? `<div style="margin-top:${detRows?6:0}px"><b style="font-size:10px;color:var(--gray-500)">🚚 설치 요청 (${countKeys.length})</b>${cntRows}</div>` : ''}
           </div>`;
         };
         const renderThread = (j) => {
@@ -21573,7 +21595,7 @@ ${text.slice(0, 4000)}`;
             ${desc && !hasThread ? `<div style="margin-top:8px;font-size:12.5px;color:var(--gray-700);background:#F9FAFB;padding:8px 10px;border-radius:6px;white-space:pre-wrap;word-break:break-word">${esc2(desc)}</div>` : ''}
             ${renderThread(j)}
             ${renderVanDocs(j)}
-            ${(!hasThread && Array.isArray(j.equipment) && j.equipment.length) ? renderEquipList(j.equipment) : ''}
+            ${(!hasThread && j.equipment && (Array.isArray(j.equipment) ? j.equipment.length : Object.keys(j.equipment).length)) ? renderEquipList(j.equipment) : ''}
             ${renderMemos(j)}
           </div>`;
         }).join('') + `</div>`;
