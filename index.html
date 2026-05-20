@@ -4921,16 +4921,20 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       // (정책: window.STORE_FIELD_POLICY 에서 명시. 새 필드는 정책만 추가하면 됨)
       const mergeStore = (loc, rem) => mergeStoreObjects(loc, rem);
 
+      // 🪦 store tombstone 필터 — 삭제된 매장이 클라우드에서 부활 차단
+      const isStoreTomb = (s) => s && s.id && (typeof _isTombstoned === 'function') && _isTombstoned('store', s.id);
       const result = [];
       const seen = new Set();
-      // 1) 로컬 매장 순회 — 각각에 대응하는 KV 매장 찾아 머지
+      // 1) 로컬 매장 순회 — tombstone 된 매장은 skip, 나머지는 KV 매장과 머지
       for (const loc of local) {
+        if (isStoreTomb(loc)) continue;
         const rem = findIn(remoteIdx, loc);
         result.push(mergeStore(loc, rem));
         if (rem?.id) seen.add('id:' + rem.id);
       }
-      // 2) KV 에만 있는 매장 추가
+      // 2) KV 에만 있는 매장 추가 — tombstone 된 매장은 skip
       for (const rem of remote) {
+        if (isStoreTomb(rem)) continue;
         if (rem.id && seen.has('id:' + rem.id)) continue;
         if (findIn(localIdx, rem)) continue;
         result.push(rem);
