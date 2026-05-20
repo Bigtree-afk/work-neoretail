@@ -426,7 +426,7 @@
       <div class="sec-h">📥 새 요청접수</div>
       <textarea class="field-textarea" id="thNewRoot" placeholder="요청 사항 입력..."></textarea>
       <div class="tg-btn-row" style="margin-top:7px;display:flex;gap:7px;align-items:center">
-        <label class="line-mini" style="margin-right:auto;font-size:11.5px"><input type="checkbox" id="thNewRootLine"> 📡 LINE</label>
+        <label class="line-mini" style="margin-right:auto;font-size:11.5px"><input type="checkbox" id="thNewRootLine"> 📡 추가 후 LINE 발송</label>
         <button class="btn btn-primary" style="flex:0;padding:9px 16px;font-size:13px" onclick="onAddRoot()">등록</button>
       </div>
     </div>
@@ -447,7 +447,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-7"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-8"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -532,6 +532,17 @@ function refreshCurrentView(){
   if (r.view === 'form') return; // 입력 중 폼 리셋 방지
   const prs = document.getElementById('mcPromptRegStore');
   if (prs && prs.style.display !== 'none') return;
+  // thread 화면에서 입력 중인 textarea (새 요청접수·새 child·인라인 편집) 가 있으면 skip
+  if (r.view === 'thread') {
+    const nr = document.getElementById('thNewRoot');
+    if (nr && (nr.value || '').trim()) return;
+    // child 폼·인라인 편집 textarea (ch_text_* / ed-*)
+    const composing = document.querySelector('#view-thread textarea[id^="ch_text_"], #view-thread textarea[id^="ed-"]');
+    if (composing && (composing.value || '').trim()) return;
+    // 포커스가 thread 의 textarea 에 있으면 skip
+    const ae = document.activeElement;
+    if (ae && ae.tagName === 'TEXTAREA' && ae.closest && ae.closest('#view-thread')) return;
+  }
   renderCurrentView();
 }
 window.addEventListener('hashchange', renderCurrentView);
@@ -1176,7 +1187,7 @@ function renderThreadGroupsMobile(j){
           </div>
           <textarea class="field-textarea" id="ch_text_${r.threadId}" placeholder="처리 내용 입력..."></textarea>
           <div class="tg-btn-row">
-            <label class="line-mini"><input type="checkbox" id="ch_line_${r.threadId}"> 📡 LINE</label>
+            <label class="line-mini"><input type="checkbox" id="ch_line_${r.threadId}"> 📡 추가 후 LINE 발송</label>
             <button class="btn btn-primary" onclick="onAddChild('${esc(r.threadId)}')">추가</button>
           </div>
         </div>
