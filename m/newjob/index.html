@@ -471,7 +471,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-15"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-16"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1150,6 +1150,51 @@ let _addEqPicker = null;
 const _childPickers = new Map(); // rootId → picker
 
 // 등록 정보 요약 — 일정·연락처·장비·메모
+// PC ↔ 모바일 데이터 호환 — equipment 정규화
+// PC 가 저장하는 hybrid dict (인덱스키 + fixedKey 카운트 + 상세 객체) 와
+// 모바일이 저장하는 simple count map 둘 다 통합해서 표시용 항목 배열로 반환.
+// 반환: [{ name, qty, condition?, fixedKey? }]
+const PC_KEY_ALIAS = { client:'pc', fscanner:'fixedScan', posdai:'posDaiR' };
+function _normalizeEquipmentList(eq) {
+  if (!eq) return [];
+  const out = []; // 상세 객체 우선
+  const simpleCount = {}; // fixedKey 의 count map
+  const seenDetailedKeys = new Set();
+  function pushDetailed(item) {
+    const nm = item.name || item.label || '';
+    const qty = Number(item.qty) || 0;
+    if (qty <= 0) return;
+    out.push({
+      name: nm,
+      qty,
+      condition: item.condition || '',
+      fixedKey: item.fixedKey || '',
+      spec: item.spec || '',
+      variant: item.variant || '',
+    });
+    if (item.fixedKey) seenDetailedKeys.add(item.fixedKey);
+  }
+  if (Array.isArray(eq)) {
+    eq.forEach(pushDetailed);
+  } else if (typeof eq === 'object') {
+    Object.entries(eq).forEach(([k,v]) => {
+      if (v && typeof v === 'object') pushDetailed(v);
+      else simpleCount[k] = (Number(v) || 0);
+    });
+  }
+  // 모바일 카탈로그에서 simpleCount 표시 — 상세 객체로 이미 같은 fixedKey 가 있으면 skip
+  const allKeys = _eqAllKeys();
+  allKeys.forEach(k => {
+    if (seenDetailedKeys.has(k.key)) return;
+    // PC 별칭 키도 흡수 (client → pc, fscanner → fixedScan)
+    const aliasOfK = Object.entries(PC_KEY_ALIAS).filter(([,v]) => v === k.key).map(([pc]) => pc);
+    let total = Number(simpleCount[k.key]) || 0;
+    aliasOfK.forEach(pcKey => { total += Number(simpleCount[pcKey]) || 0; });
+    if (total > 0) out.push({ name: k.name, qty: total, fixedKey: k.key });
+  });
+  return out;
+}
+
 function renderJobSummary(j){
   const body = document.getElementById('thSummaryBody');
   if (!body) return;
@@ -1186,15 +1231,17 @@ function renderJobSummary(j){
     parts.push(`<div style="margin-bottom:9px"><div style="font-size:10.5px;font-weight:800;color:var(--gray-600);margin-bottom:4px">👤 매장 담당자</div><div style="display:flex;flex-wrap:wrap;gap:8px 14px;font-size:12.5px">${contactRows.join('')}</div></div>`);
   }
 
-  // 장비 목록
-  const eq = j.equipment || {};
-  const eqLines = [];
-  // _eqAllKeys 는 form 컨텍스트에 정의 — 동일 EQUIPMENT 배열 사용 가능
-  const allKeys = (typeof _eqAllKeys === 'function') ? _eqAllKeys() :
-    EQUIPMENT.flatMap(e => Array.isArray(e.dual) ? e.dual.map(s => ({key:s.key, name:e.name+' '+s.label})) : [{key:e.key, name:e.name}]);
-  allKeys.forEach(k => {
-    const c = Number(eq[k.key]) || 0;
-    if (c > 0) eqLines.push(`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #DBEAFE"><span>${esc(k.name)}</span><b>${c} 대</b></div>`);
+  // 장비 목록 — PC 의 hybrid dict + 모바일 simple count 모두 정규화
+  const eqList = _normalizeEquipmentList(j.equipment);
+  const eqLines = eqList.map(it => {
+    const cond = it.condition === 'used' ? ' <span style="font-size:10px;background:#FFFBEB;color:#92400E;padding:1px 5px;border-radius:8px">중고</span>'
+               : it.condition === 'new'  ? ' <span style="font-size:10px;background:#EFF6FF;color:#1E40AF;padding:1px 5px;border-radius:8px">신품</span>'
+               : '';
+    const meta = [it.variant, it.spec].filter(Boolean).join(' · ');
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #DBEAFE">
+      <span><span style="font-weight:600">${esc(it.name)}</span>${cond}${meta ? ` <span style="font-size:10px;color:var(--gray-500)">${esc(meta)}</span>` : ''}</span>
+      <b>${it.qty} 대</b>
+    </div>`;
   });
   if (eqLines.length) {
     const condLabel = j.equipCondition === 'used' ? '♻️ 중고' : '🆕 신품';
@@ -1207,9 +1254,51 @@ function renderJobSummary(j){
     parts.push(`<div style="margin-bottom:9px;font-size:12px;color:var(--gray-500)">🖥 설치 요청 장비 — 등록 없음</div>`);
   }
 
-  // 매장 특이사항
-  if (j.memo) {
-    parts.push(`<div style="background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:8px 10px;font-size:12px;color:var(--gray-700)"><b style="color:var(--gray-600)">🏪 매장 특이사항</b><br>${esc(j.memo).replace(/\n/g,'<br>')}</div>`);
+  // 📍 주소 (PC 가 등록한 address)
+  if (j.address) {
+    parts.push(`<div style="margin-bottom:9px;font-size:12px;color:var(--gray-700)"><b style="color:var(--gray-600);font-size:10.5px">📍 주소</b> <a href="https://map.kakao.com/?q=${encodeURIComponent(j.address)}" target="_blank" style="color:#2563EB;text-decoration:none">${esc(j.address)}</a></div>`);
+  }
+
+  // 매장 특이사항 (j.memo) + PC 의 notes (요청·메모 합본)
+  const memoText = j.memo || '';
+  const notesText = j.notes || '';
+  const combinedMemo = [memoText, notesText].filter(t => t && t !== memoText.trim() ? true : t).filter(Boolean).join('\n');
+  // 단순화: memo 와 notes 가 다르면 둘 다 표시
+  if (memoText) {
+    parts.push(`<div style="background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:8px 10px;font-size:12px;color:var(--gray-700);margin-bottom:7px"><b style="color:var(--gray-600)">🏪 매장 특이사항</b><br>${esc(memoText).replace(/\n/g,'<br>')}</div>`);
+  }
+  if (notesText && notesText !== memoText) {
+    parts.push(`<div style="background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:8px 10px;font-size:12px;color:var(--gray-700);margin-bottom:7px"><b style="color:var(--gray-600)">📝 비고 (PC)</b><br>${esc(notesText).replace(/\n/g,'<br>')}</div>`);
+  }
+
+  // 📋 PC 메모 타임라인 (j.memos 배열)
+  if (Array.isArray(j.memos) && j.memos.length > 0) {
+    const memoRows = j.memos.slice().reverse().map(mm => {
+      const at = mm.at || '';
+      const author = mm.author || '';
+      const tx = mm.text || '';
+      return `<div style="padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:11.5px">
+        <div style="color:var(--gray-500);font-weight:600;margin-bottom:2px">${esc(at)} · ${esc(author)}</div>
+        <div style="color:var(--gray-700)">${esc(tx).replace(/\n/g,'<br>')}</div>
+      </div>`;
+    }).join('');
+    parts.push(`<div style="margin-bottom:7px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:8px 10px"><b style="color:var(--gray-600);font-size:10.5px">📋 PC 메모 타임라인 (${j.memos.length}건)</b><div style="margin-top:4px">${memoRows}</div></div>`);
+  }
+
+  // 🔧 PC 워크플로 (j.workflow.steps) — 6단계 진행 표시
+  if (j.workflow && Array.isArray(j.workflow.steps) && j.workflow.steps.length > 0) {
+    const stepLabels = {
+      vanGam:'VAN 가맹', posAuth:'POS 인증', installPos:'POS 설치',
+      installVan:'VAN 설치', bizDate:'사업개시', openDate:'정식오픈',
+    };
+    const stepIcons = { pending:'⏳', done:'✅', skipped:'⏭️' };
+    const stepRows = j.workflow.steps.map(s => {
+      const lbl = stepLabels[s.key] || s.key;
+      const ic = stepIcons[s.status] || '⏳';
+      const color = s.status === 'done' ? '#15803d' : '#9CA3AF';
+      return `<span style="display:inline-block;padding:3px 8px;background:#fff;border:1px solid #E5E7EB;border-radius:6px;font-size:11px;color:${color};margin:2px 3px 0 0">${ic} ${esc(lbl)}</span>`;
+    }).join('');
+    parts.push(`<div style="margin-bottom:7px"><div style="font-size:10.5px;font-weight:800;color:var(--gray-600);margin-bottom:4px">🔧 PC 워크플로</div><div>${stepRows}</div></div>`);
   }
 
   body.innerHTML = parts.join('') || '<div style="font-size:12px;color:var(--gray-500)">등록된 추가 정보 없음 — ✏️ 수정 으로 보강하세요</div>';
