@@ -450,7 +450,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-11"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-12"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -553,18 +553,23 @@ window.addEventListener('hashchange', renderCurrentView);
 /* ════════════════════════════════════════════════════════════
    HOME — 카테고리 진행 건수
 ═══════════════════════════════════════════════════════════ */
-// 신규 작업 종료 판정 — 기본 _isJobDone (모든 그룹 완료 + j.completed) +
-//   추가 조건: 정식오픈일 (openDate) 가 오늘 이전이면 자동 종료로 간주
-//   예외: 사용자가 재개(🔄) 한 작업은 openDate 경과 무시 (job._reopened=true)
+// 신규 작업 종료 판정 (우선순위)
+//   1. j._reopened === true   → 진행 중 (재개 의지)
+//   2. j.manuallyClosed       → 종료 (사용자가 🏁 클릭)
+//   3. j.openDate 존재
+//      - openDate >= 오늘   → 진행 중 (그룹 모두 완료해도 오픈일까지 유지)
+//      - openDate < 오늘    → 자동 종료
+//   4. openDate 없음         → 기본 _isJobDone (모든 그룹 완료 + j.completed)
 function _isNewJobClosed(j) {
   if (!j) return false;
-  if (window._isJobDone && window._isJobDone(j)) return true;
-  if (j._reopened) return false; // 재개 후엔 openDate 자동 종료 X
+  if (j._reopened) return false;
+  if (j.manuallyClosed) return true;
   if (j.openDate) {
     const today = (window._kstNow && window._kstNow()) || new Date().toISOString();
     const t = String(today).slice(0,10);
-    if (String(j.openDate).slice(0,10) < t) return true;
+    return String(j.openDate).slice(0,10) < t;
   }
+  if (window._isJobDone && window._isJobDone(j)) return true;
   return false;
 }
 
@@ -1091,7 +1096,8 @@ function renderThread(jobId){
   $('thType').textContent = (j.type || '신규') + (sched ? ' · ' + fmtDate(sched) : '');
   // 완료 상태 배지 + 버튼 토글
   const isDone = _isNewJobClosed(j);
-  const isOpenPast = !j.completed && j.openDate && String(j.openDate).slice(0,10) < (((window._kstNow && window._kstNow()) || new Date().toISOString()).slice(0,10));
+  const todayStr = (((window._kstNow && window._kstNow()) || new Date().toISOString()).slice(0,10));
+  const isOpenPast = !j.manuallyClosed && j.openDate && String(j.openDate).slice(0,10) < todayStr;
   const doneBadge = $('thDoneBadge');
   if (isDone) {
     const dt = j.doneAt ? new Date(j.doneAt) : null;
@@ -1456,8 +1462,10 @@ window.onFinishJob = function(){
   });
   j.thread = window._threadMigrate(j.thread);
   j.completed = true;
+  j.manuallyClosed = true; // 명시적 🏁 종료 — openDate 무관하게 종료
   j.status = '완료';
   j.doneAt = (new Date()).toISOString();
+  j._reopened = false;
   j.updatedAt = Date.now();
   jobs[ix] = j;
   saveJobs(jobs);
@@ -1483,6 +1491,7 @@ window.onReopenJob = function(){
   if (ix < 0) return;
   const j = jobs[ix];
   j.completed = false;
+  j.manuallyClosed = false;
   j.status = '진행중';
   j.doneAt = '';
   j.reopenedAt = (new Date()).toISOString();
