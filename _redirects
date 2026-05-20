@@ -1,5 +1,9 @@
 # Cloudflare Pages routing
-# /m/ 와 모든 하위 경로를 m.html 로 매핑 (모바일 SPA 진입점)
+# 더 구체적인 규칙을 먼저 — /m/newjob 은 /m/* 보다 위에 둔다
+/m/newjob       /m/newjob.html  200
+/m/newjob/      /m/newjob.html  200
+/m/newjob/*     /m/newjob.html  200
+# 그 외 /m/ 와 모든 하위 경로는 모바일 진입점 m.html 로 매핑
 /m       /m.html  200
 /m/      /m.html  200
 /m/*     /m.html  200
