@@ -402,9 +402,12 @@
       <div style="font-size:11.5px;color:var(--gray-600);font-weight:700;margin-bottom:3px">매장</div>
       <div id="thStoreName" style="font-size:16px;font-weight:800;color:#1E40AF">—</div>
       <div id="thType" style="font-size:11.5px;color:var(--gray-600);margin-top:5px"></div>
+      <div id="thDoneBadge" style="display:none;margin-top:6px"></div>
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-outline" style="flex:0;padding:7px 11px;font-size:12px" onclick="onEditJobFromThread()">✏️ 수정</button>
         <button class="btn btn-outline" style="flex:0;padding:7px 11px;font-size:12px;color:var(--line)" onclick="onLineSendJob()">📡 LINE 발송</button>
+        <button id="thFinishBtn" class="btn btn-outline" style="flex:0;padding:7px 11px;font-size:12px;color:#15803d;border-color:#A7F3D0" onclick="onFinishJob()">🏁 작업 종료</button>
+        <button id="thReopenBtn" class="btn btn-outline" style="flex:0;padding:7px 11px;font-size:12px;color:#92400E;border-color:#FCD34D;display:none" onclick="onReopenJob()">🔄 재개</button>
       </div>
     </div>
 
@@ -447,7 +450,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-9"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-10"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1069,6 +1072,22 @@ function renderThread(jobId){
   $('thStoreName').textContent = j.storeName || j.store || '(미지정)';
   const sched = j.installDate || j.openDate || j.softOpenDate || '';
   $('thType').textContent = (j.type || '신규') + (sched ? ' · ' + fmtDate(sched) : '');
+  // 완료 상태 배지 + 버튼 토글
+  const isDone = window._isJobDone ? window._isJobDone(j) : !!j.completed;
+  const doneBadge = $('thDoneBadge');
+  if (isDone) {
+    const dt = j.doneAt ? new Date(j.doneAt) : null;
+    const dtStr = dt ? (dt.toISOString().slice(0,10) + ' ' + dt.toTimeString().slice(0,5)) : '';
+    doneBadge.style.display = 'block';
+    doneBadge.innerHTML = `<span style="display:inline-block;background:#DCFCE7;color:#15803d;padding:4px 10px;border-radius:14px;font-size:11px;font-weight:800">🏁 작업 종료${dtStr?` · ${esc(dtStr)}`:''}</span>`;
+    $('thFinishBtn').style.display = 'none';
+    $('thReopenBtn').style.display = 'block';
+  } else {
+    doneBadge.style.display = 'none';
+    doneBadge.innerHTML = '';
+    $('thFinishBtn').style.display = 'block';
+    $('thReopenBtn').style.display = 'none';
+  }
   $('thNewRoot').value = '';
   $('thNewRootLine').checked = false;
   renderJobSummary(j);
@@ -1381,6 +1400,78 @@ window.onSaveEditEntry = function(threadId){
   saveJobs(jobs);
   showToast('✓ 수정 완료');
   try { window.pushJobsToCloud(); } catch(_){}
+  renderThread(_currentJobId);
+};
+
+// 🏁 작업 종료 — 미완료 그룹에 자동 완료 child 추가 + job.completed=true
+window.onFinishJob = function(){
+  if (!_currentJobId) return;
+  const jobs = getJobs();
+  const ix = jobs.findIndex(x => x.id === _currentJobId);
+  if (ix < 0) return;
+  const j = jobs[ix];
+  // 미완료 그룹 개수 계산
+  const thread = Array.isArray(j.thread) ? j.thread : [];
+  const roots = thread.filter(e => e && e.parentId === null);
+  const childrenByRoot = new Map();
+  thread.forEach(e => { if (e && e.parentId) { (childrenByRoot.get(e.parentId) || childrenByRoot.set(e.parentId, []).get(e.parentId)).push(e); } });
+  const openRoots = roots.filter(r => window._groupStatus(r, childrenByRoot.get(r.threadId) || []) !== '완료');
+
+  let msg = '🏁 이 신규 작업을 완전 종료하시겠습니까?\n';
+  if (openRoots.length > 0) {
+    msg += `\n미완료 그룹 ${openRoots.length}개 에 자동으로 "완료" 처리 기록이 추가됩니다.`;
+  }
+  msg += '\n\n종료 후엔 진행 중 리스트에서 사라지고, 필요 시 "🔄 재개" 로 복귀할 수 있습니다.';
+  if (!confirm(msg)) return;
+
+  const lineSend = confirm('📡 LINE 으로 완료 안내 메시지를 발송할까요?\n\n• 확인 → 작업 종료 + LINE 발송\n• 취소 → 작업 종료만 (LINE 발송 X)');
+
+  // 미완료 그룹마다 자동 완료 child 추가
+  const ts = (window._kstNow && window._kstNow()) || new Date().toISOString().slice(0,16).replace('T',' ');
+  const author = (window._currentAuthName && window._currentAuthName()) || '담당자';
+  openRoots.forEach(r => {
+    j.thread.push({
+      ts, author, status:'완료', text:'(작업 종료 일괄 처리)',
+      threadId: _newThreadId(), parentId: r.threadId,
+    });
+  });
+  j.thread = window._threadMigrate(j.thread);
+  j.completed = true;
+  j.status = '완료';
+  j.doneAt = (new Date()).toISOString();
+  j.updatedAt = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  try { window.pushJobsToCloud(); } catch(_){}
+
+  if (lineSend) {
+    try {
+      const extraPrefix = `🏁 작업 완전 종료\n${j.storeName || ''} — ${j.type || '신규'}`;
+      window._openLineForJob(j, { extraPrefix });
+    } catch(_){}
+  }
+  showToast('🏁 작업 종료');
+  // entry 로 이동 (이미 완료라 리스트에서 사라짐)
+  location.hash = '#entry';
+};
+
+// 🔄 재개 — 완료된 작업 다시 진행중으로
+window.onReopenJob = function(){
+  if (!_currentJobId) return;
+  if (!confirm('🔄 종료된 작업을 다시 진행중으로 되돌리시겠습니까?')) return;
+  const jobs = getJobs();
+  const ix = jobs.findIndex(x => x.id === _currentJobId);
+  if (ix < 0) return;
+  const j = jobs[ix];
+  j.completed = false;
+  j.status = '진행중';
+  j.doneAt = '';
+  j.reopenedAt = (new Date()).toISOString();
+  j.updatedAt = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  try { window.pushJobsToCloud(); } catch(_){}
+  showToast('🔄 재개');
   renderThread(_currentJobId);
 };
 
