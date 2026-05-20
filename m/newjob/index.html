@@ -471,7 +471,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-14"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-15"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1523,9 +1523,18 @@ window.onAddChild = function(rootId){
     }
     const allDone = roots.every(r => window._groupStatus(r, childrenByRoot.get(r.threadId)||[]) === '완료');
     if (allDone) {
-      j.status = '완료';
-      j.completed = true;
-      j.doneAt = (new Date()).toISOString();
+      // openDate 가 미래/오늘이면 j.completed 는 false 유지 — 정식 오픈일이 master clock
+      const todayStr = (((window._kstNow && window._kstNow()) || new Date().toISOString()).slice(0,10));
+      const openIsFutureOrToday = j.openDate && String(j.openDate).slice(0,10) >= todayStr;
+      if (!openIsFutureOrToday) {
+        j.status = '완료';
+        j.completed = true;
+        j.doneAt = (new Date()).toISOString();
+      } else {
+        // 진행 중 유지 — PC 도 _isJobDone(j) 으로 보면 진행 중으로 인식
+        j.status = '진행중';
+        j.completed = false;
+      }
     }
   } else {
     j.status = '진행중';
@@ -1712,12 +1721,43 @@ window.onLineSendJob = function(){
 /* ════════════════════════════════════════════════════════════
    초기 로드: cloud sync → render → 이벤트 바인딩
 ═══════════════════════════════════════════════════════════ */
+// 데이터 보정 — 신규 카테고리 + openDate 가 미래/오늘이고 manuallyClosed 가 아니면
+// j.completed=true 를 false 로 되돌림 (모바일 onAddChild 가 잘못 세팅한 케이스).
+function _repairNewjobCompletedFlag() {
+  try {
+    const jobs = getJobs();
+    if (!Array.isArray(jobs) || jobs.length === 0) return;
+    const todayStr = (((window._kstNow && window._kstNow()) || new Date().toISOString()).slice(0,10));
+    let fixed = 0;
+    jobs.forEach(j => {
+      if (!j || j.manuallyClosed) return;
+      if (j.category !== 'new' && !/신규|개업|오픈/.test(String(j.type||''))) return;
+      if (!j.openDate) return;
+      if (String(j.openDate).slice(0,10) < todayStr) return; // openDate 지난 건 그대로
+      if (j.completed === true || j.status === '완료') {
+        j.completed = false;
+        j.status = '진행중';
+        j.doneAt = '';
+        j._repairedAt = Date.now();
+        fixed++;
+      }
+    });
+    if (fixed > 0) {
+      saveJobs(jobs);
+      try { window.pushJobsToCloud({ force:true }); } catch(_){}
+      console.log('[repair] newjob completed=true → false:', fixed, '건 (openDate 미래)');
+    }
+  } catch(e) { console.warn('[repair]', e); }
+}
+
 (async function init(){
   // 매장 검색 이벤트
   $('fStoreSearch').addEventListener('input', onStoreSearchInput);
   $('fStoreSearch').addEventListener('focus', onStoreSearchInput);
   // cloud sync
   try { await Promise.allSettled([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
+  // sync 이후 보정 (PC 가 만든 잘못된 완료 플래그도 함께 청소)
+  _repairNewjobCompletedFlag();
   // 라우팅
   if (!location.hash) location.hash = '#home';
   renderCurrentView();
