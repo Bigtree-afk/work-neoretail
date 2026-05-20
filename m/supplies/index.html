@@ -412,6 +412,12 @@
       </div>
     </div>
 
+    <!-- 요청접수 — 신규 등록 시 요구사항. 저장 시 thread 첫 ROOT 로 기록 + LINE 발송 가능 -->
+    <div class="sec">
+      <div class="sec-h">📥 요청접수 <span class="hint">· 사용자 요청 사항</span></div>
+      <textarea class="field-textarea" id="fRequest" placeholder="배송 시점·수량 변경 요청 등 추가 요청 사항"></textarea>
+    </div>
+
     <!-- 처리 구분 -->
     <div class="sec">
       <div class="sec-h">🎁 처리 구분 <span class="hint">— 무료 지원 vs 청구 판매</span></div>
@@ -440,10 +446,10 @@
       </div>
     </div>
 
-    <!-- 메모 -->
+    <!-- 매장 특이사항 -->
     <div class="sec">
-      <div class="sec-h">📝 비고 / 특이사항</div>
-      <textarea class="field-textarea" id="fMemo" placeholder="배송 요청사항, 결제 조건 등..."></textarea>
+      <div class="sec-h">🏪 매장 특이사항 <span class="hint">· 메모</span></div>
+      <textarea class="field-textarea" id="fMemo" placeholder="매장 위치·접근성·운영 시간·기타 특이사항"></textarea>
     </div>
 
     <!-- LINE -->
@@ -495,7 +501,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-supplies-4"></script>
+<script src="/m-core.js?v=2026-05-20-supplies-5"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    소모품 품목 카탈로그
@@ -674,12 +680,12 @@ function renderForm(r){
 
   // 입력 초기화
   ['fStoreSearch','fContactName','fContactRole','fContactPhone','fUnregName','fUnregBiz','fUnregAddr',
-   'fSupplyQty','fSupplyMemo','fMemo','fUnitPrice','fTotalAmount'].forEach(id => { const e=$(id); if (e) e.value=''; });
+   'fSupplyQty','fSupplyMemo','fMemo','fRequest','fUnitPrice','fTotalAmount'].forEach(id => { const e=$(id); if (e) e.value=''; });
   $('fUnregMode').checked = false;
   $('fUnregBox').style.display = 'none';
   $('fStorePicked').style.display = 'none';
   $('fStoreResults').style.display = 'none';
-  $('fLineSend').checked = false;
+  $('fLineSend').checked = true; // 신규 등록 기본 ON (요청접수 + 품목 메시지 자동 발송)
   $('fDeleteBtn').style.display = 'none';
   $('fUnitPrice').value = '0';
   $('fTotalAmount').value = '0';
@@ -718,6 +724,9 @@ function renderForm(r){
       $('fContactPhone').value = j.contactPhone || '';
       $('fSupplyMemo').value   = j.supplyMemo   || '';
       $('fMemo').value         = j.memo         || '';
+      // 요청접수 원문이 thread 첫 ROOT 에 시드된 경우 그대로 보여줌 (편집은 thread 에서만)
+      $('fRequest').value      = j.initialRequest || '';
+      $('fLineSend').checked   = false; // 편집 모드 기본 OFF
       $('fReceivedLabel').textContent = '📅 접수일: ' + (fmtDate(j.receivedAt) || todayKST()) + ' (자동)';
 
       // 품목 (편집은 j.supplyItem 우선)
@@ -973,8 +982,9 @@ window.onSaveForm = async function(){
   const unitPrice   = mode === '판매' ? (parseFloat($('fUnitPrice').value   || '0') || 0) : 0;
   const totalAmount = mode === '판매' ? (parseFloat($('fTotalAmount').value || '0') || 0) : 0;
 
-  const supplyMemo = ($('fSupplyMemo').value || '').trim();
-  const memo       = ($('fMemo').value || '').trim();
+  const supplyMemo  = ($('fSupplyMemo').value || '').trim();
+  const memo        = ($('fMemo').value || '').trim();
+  const requestText = ($('fRequest').value || '').trim();
 
   const jobs = getJobs();
   let job;
@@ -1007,8 +1017,21 @@ window.onSaveForm = async function(){
   job.unitPrice   = unitPrice;
   job.totalAmount = totalAmount;
   job.memo = memo;
+  if (!_editingJob && requestText) job.initialRequest = requestText;
   job.status = job.status || '요청접수';
   job.updatedAt = Date.now();
+
+  // 신규 등록 + 요청접수 텍스트 입력 → thread 첫 ROOT 시드
+  if (!_editingJob && requestText) {
+    const ts = window._kstDateTimeStr ? window._kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' ');
+    const author = (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자';
+    const root = {
+      ts, author, status:'요청접수', text: requestText,
+      threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+      parentId: null,
+    };
+    job.thread = (window._threadMigrate ? window._threadMigrate([root]) : [root]);
+  }
 
   if (!_editingJob) {
     jobs.push(job);
@@ -1020,7 +1043,17 @@ window.onSaveForm = async function(){
 
   if ($('fLineSend').checked) {
     try {
-      window._openLineForJob(job, { category: 'supplies' });
+      // LINE 발송 — 요청접수 + 품목/처리 요약을 메시지에 포함
+      let extraPrefix = '';
+      if (requestText) extraPrefix += `📥 요청접수\n${requestText}\n\n`;
+      const itemLine = `🛒 품목: ${_formItemKey}${supplyQty ? '  ' + supplyQty : ''}`;
+      let modeLine = `💳 처리: ${mode}`;
+      if (mode === '판매') {
+        const fmt = n => (Number(n)||0).toLocaleString('ko-KR');
+        modeLine += ` — 단가 ${fmt(unitPrice)}원 / 총액 ${fmt(totalAmount)}원`;
+      }
+      extraPrefix += `${itemLine}\n${modeLine}\n`;
+      window._openLineForJob(job, { category: 'supplies', extraPrefix });
     } catch(e){ console.warn(e); }
   }
   showToast(_editingJob ? '✓ 수정 완료' : '✓ 등록 완료');
