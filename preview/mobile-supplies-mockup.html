@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>🛒 소모품판매 모바일 — newJobModal(supplies) 1:1 이식</title>
+<title>🛒 소모품 모바일 — newJobModal(supplies) 1:1 이식</title>
 <style>
   :root {
     --primary:#2563EB; --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
@@ -193,7 +193,7 @@
   <a href="mockup-debug.html#supplies" style="margin-left:auto;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D">📝 메모</a>
 </nav>
 
-<h1>📱 소모품판매 모바일 — 데스크톱 <code>newJobModal(supplies)</code> 1:1 이식</h1>
+<h1>📱 소모품 모바일 — 데스크톱 <code>newJobModal(supplies)</code> 1:1 이식</h1>
 <p class="lead">신규 모바일 목업과 동일한 4 화면 진입 패턴. 홈 → 소모품 hub → 등록/편집 풀폼 → thread 상세.</p>
 
 <div class="frames">
@@ -238,7 +238,7 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;margin-top:6px">
           <a href="mobile-supplies-mockup.html" style="text-decoration:none;background:#fff;border:2.5px solid #F59E0B;border-radius:14px;padding:18px 8px 14px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 6px 16px rgba(245,158,11,.30);position:relative">
             <div style="font-size:32px">🛒</div>
-            <div style="font-size:12.5px;font-weight:800;color:#92400E">소모품판매</div>
+            <div style="font-size:12.5px;font-weight:800;color:#92400E">소모품</div>
             <div style="font-size:10px;color:var(--gray-500)">5건 미수</div>
             <span style="position:absolute;top:-8px;right:-8px;background:#F59E0B;color:#fff;font-size:12px;font-weight:900;min-width:24px;height:24px;padding:0 7px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 3px 8px rgba(245,158,11,.45),0 0 0 1px rgba(0,0,0,.04)">5</span>
           </a>
@@ -250,7 +250,7 @@
           </a>
         </div>
         <div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:9px;padding:9px 11px;font-size:11px;color:#92400E;line-height:1.55;margin-bottom:12px">
-          💡 <b>🛒 소모품판매</b> 탭 → 서브 카테고리(장비추가/신규) 또는 진행 중 거래 카드 선택 → 풀폼 등록/편집.
+          💡 <b>🛒 소모품</b> 탭 → 서브 카테고리(장비추가/신규) 또는 진행 중 거래 카드 선택 → 풀폼 등록/편집.
         </div>
 
         <!-- 빠른 진입: 최근 소모품 매장 -->
@@ -293,7 +293,7 @@
       <div class="statusbar"><span>09:41</span><span class="icons">📶 📡 🔋</span></div>
       <div class="appbar">
         <div class="back">‹</div>
-        <div class="title">🛒 소모품판매</div>
+        <div class="title">🛒 소모품</div>
         <span class="badge" style="background:#FEE2E2;color:#991B1B">미수 3</span>
       </div>
 
@@ -329,6 +329,42 @@
             <div style="font-size:12px;font-weight:800;color:var(--supplies-text);text-transform:uppercase;letter-spacing:0.5px">＋ 새 소모품 등록</div>
             <span style="font-size:10.5px;color:var(--gray-500)">— 서브 카테고리</span>
           </div>
+
+          <!-- ✨ NEW: 5개 품목 아이콘 그리드 (2행: 3+2) -->
+          <div style="border:1.5px dashed var(--supplies);border-radius:10px;padding:10px 9px 11px;margin-bottom:10px;background:#FFFEF7;position:relative">
+            <span style="position:absolute;top:-9px;left:11px;background:var(--supplies);color:#fff;font-size:9.5px;font-weight:900;padding:2px 7px;border-radius:8px;letter-spacing:0.3px">✨ NEW</span>
+            <div style="font-size:10.5px;font-weight:800;color:var(--supplies-text);margin-bottom:8px;padding-left:2px">품목 바로 선택 — 탭하면 등록 폼이 해당 품목으로 열림</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:7px">
+              <a href="#" style="text-decoration:none;background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:14px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">
+                <div style="font-size:30px;line-height:1">🧾</div>
+                <div style="font-size:13px;font-weight:800;color:var(--supplies-text);margin-top:3px">3"포스용지</div>
+                <div style="font-size:9.5px;color:var(--gray-500);line-height:1.3">감열지 80×80 · 박스</div>
+              </a>
+              <a href="#" style="text-decoration:none;background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:14px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">
+                <div style="font-size:30px;line-height:1">📃</div>
+                <div style="font-size:13px;font-weight:800;color:var(--supplies-text);margin-top:3px">2"단말용지</div>
+                <div style="font-size:9.5px;color:var(--gray-500);line-height:1.3">감열지 57×50 · 롤</div>
+              </a>
+              <a href="#" style="text-decoration:none;background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:14px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">
+                <div style="font-size:30px;line-height:1">🏷️</div>
+                <div style="font-size:13px;font-weight:800;color:var(--supplies-text);margin-top:3px">가격라벨</div>
+                <div style="font-size:9.5px;color:var(--gray-500);line-height:1.3">40×30 · 1,000매</div>
+              </a>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+              <a href="#" style="text-decoration:none;background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:14px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">
+                <div style="font-size:30px;line-height:1">🪪</div>
+                <div style="font-size:13px;font-weight:800;color:var(--supplies-text);margin-top:3px">프라이스텍</div>
+                <div style="font-size:9.5px;color:var(--gray-500);line-height:1.3">가격표시기용 · 1롤</div>
+              </a>
+              <a href="#" style="text-decoration:none;background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:14px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">
+                <div style="font-size:30px;line-height:1">⚖️</div>
+                <div style="font-size:13px;font-weight:800;color:var(--supplies-text);margin-top:3px">저울라벨</div>
+                <div style="font-size:9.5px;color:var(--gray-500);line-height:1.3">금성/CAS · 1,500매</div>
+              </a>
+            </div>
+          </div>
+
           <div style="display:flex;flex-direction:column;gap:7px">
             <a href="#" style="text-decoration:none;background:#fff;border:2px solid var(--supplies-border);border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:11px">
               <div style="font-size:26px">📦</div>
@@ -541,6 +577,66 @@
               <div class="body-t">택배 출고 완료 (CJ 송장 #1234-5678)</div>
             </div>
             <button class="thread-add">＋ 새 요청 / 출고 / 배송 / 수금 기록</button>
+          </div>
+        </div>
+
+        <!-- ✨ NEW: 품목 정보 + 처리 구분 토글 -->
+        <div class="sec" style="border:1.5px dashed var(--supplies);background:#FFFEF7;position:relative">
+          <span style="position:absolute;top:-9px;left:11px;background:var(--supplies);color:#fff;font-size:9.5px;font-weight:900;padding:2px 7px;border-radius:8px;letter-spacing:0.3px">✨ NEW</span>
+          <div class="sec-h">📋 품목 정보 <span class="hint">진입 페이지에서 선택한 품목</span></div>
+          <div class="field">
+            <div class="field-label">품목명</div>
+            <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:9px;font-size:13.5px;font-weight:800;color:var(--supplies-text)">
+              <span style="font-size:20px">🧾</span>
+              <span>3"포스용지</span>
+              <span style="margin-left:auto;font-size:10.5px;font-weight:700;background:var(--supplies);color:#fff;padding:2px 8px;border-radius:10px">selected</span>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">수량</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input class="field-input" type="number" value="5" min="1" style="flex:1;text-align:right;font-weight:800">
+              <span style="font-size:13px;font-weight:700;color:var(--gray-600);min-width:28px">롤</span>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">📝 상세 내역</div>
+            <textarea class="field-textarea" style="min-height:96px" placeholder="처리 상세를 입력하세요...">고객 매장 영수증 출고 — 일주일 사용량 분량
+정인석 사장님 요청 (5/18 오후 통화).
+다음 주 월요일 오전 배송 예정.
+영수증커터 마모 점검 함께 요청.
+잉크리본 재고 충분 — 다음 발주 시 동봉.</textarea>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <div class="field-label">🎁 처리 구분 <span class="hint">— 무료 지원 vs 청구 판매</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+              <label style="display:flex;align-items:center;justify-content:center;gap:7px;padding:14px 8px;background:var(--supplies);color:#fff;border:2px solid var(--supplies);border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 3px 8px rgba(245,158,11,.30)">
+                <input type="radio" name="m_dealtype" checked style="accent-color:#fff;margin:0">
+                <span style="font-size:18px">🤝</span>
+                <span>지원</span>
+              </label>
+              <label style="display:flex;align-items:center;justify-content:center;gap:7px;padding:14px 8px;background:#fff;color:var(--gray-500);border:2px solid var(--gray-300);border-radius:11px;font-size:14px;font-weight:700;cursor:pointer">
+                <input type="radio" name="m_dealtype" style="accent-color:var(--supplies);margin:0">
+                <span style="font-size:18px">💰</span>
+                <span>판매</span>
+              </label>
+            </div>
+            <!-- 가격 패널: 지원 선택 상태 → 비활성 -->
+            <div style="margin-top:10px;background:#F3F4F6;border:1px solid var(--gray-200);border-radius:9px;padding:10px 11px;opacity:.55">
+              <div style="font-size:10.5px;font-weight:800;color:var(--gray-500);margin-bottom:7px;display:flex;align-items:center;gap:6px">💵 가격 (판매 선택 시 활성화)
+                <span style="margin-left:auto;background:#E5E7EB;color:var(--gray-600);padding:1px 7px;border-radius:9px;font-size:9.5px">무료 지원</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                <div>
+                  <div style="font-size:10px;color:var(--gray-500);font-weight:700;margin-bottom:2px">단가</div>
+                  <input type="number" value="0" disabled style="width:100%;padding:7px 9px;font-size:12px;border:1.5px solid var(--gray-300);border-radius:6px;text-align:right;background:#fff;color:var(--gray-400)">
+                </div>
+                <div>
+                  <div style="font-size:10px;color:var(--gray-500);font-weight:700;margin-bottom:2px">총액</div>
+                  <input type="number" value="0" disabled style="width:100%;padding:7px 9px;font-size:12px;border:1.5px solid var(--gray-300);border-radius:6px;text-align:right;background:#fff;color:var(--gray-400);font-weight:800">
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -762,7 +858,7 @@
 
 <h2>🗂️ 시나리오</h2>
 <div class="card" style="background:#fff;padding:14px;font-size:12.5px;line-height:1.85">
-  <b>⓪ 홈</b> → <b>🛒 소모품판매</b> 탭 → <b>⓪ⓑ 진입 페이지</b>: 상단 통계 4종 확인 → 서브 카테고리(📦 장비 추가 / 🆕 신규)로 <b>① 풀폼 신규 등록</b> 또는 진행 중 카드 탭 → <b>① 풀폼 편집</b> → <b>② thread</b>에서 출고/배송/수금 단계마다 📡 LINE 발송.
+  <b>⓪ 홈</b> → <b>🛒 소모품</b> 탭 → <b>⓪ⓑ 진입 페이지</b>: 상단 통계 4종 확인 → 서브 카테고리(📦 장비 추가 / 🆕 신규)로 <b>① 풀폼 신규 등록</b> 또는 진행 중 카드 탭 → <b>① 풀폼 편집</b> → <b>② thread</b>에서 출고/배송/수금 단계마다 📡 LINE 발송.
 </div>
 
 <h2>📝 메모</h2>

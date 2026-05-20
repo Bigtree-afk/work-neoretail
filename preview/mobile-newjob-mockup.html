@@ -444,7 +444,7 @@
         <div class="sec">
           <div class="sec-h">🏪 점포명
             <span class="hint">🔍 검색</span>
-            <button class="toggle-btn right" onclick="document.getElementById('unregForm').style.display='block'">+ 미등록 가맹점</button>
+            <button class="toggle-btn right" style="background:#FEF3C7;border:1.5px dashed #F59E0B;color:#92400E;font-weight:800;padding:3px 9px" onclick="document.getElementById('unregForm').style.display='block'">✨ NEW · 🆕 미등록 가맹점</button>
           </div>
           <div class="radio-row">
             <label class="radio-chip on"><input type="radio" name="scope" checked>상호·사업자</label>
@@ -475,9 +475,13 @@
             <span>김지영</span>
           </div>
 
-          <!-- 미등록 가맹점 인라인 폼 (펼침 상태) -->
-          <div class="unreg" id="unregForm">
-            <div class="hd">⚠ 미등록 가맹점 모드</div>
+          <!-- ✨ NEW · 미등록 가맹점 인라인 폼 (펼침 상태) — 정식 가맹점 연결 기능 포함 -->
+          <div class="unreg" id="unregForm" style="border:2px dashed #F59E0B;background:#FEF3C7">
+            <div class="hd" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="background:#F59E0B;color:#fff;font-size:9.5px;padding:2px 6px;border-radius:9px;font-weight:900">✨ NEW</span>
+              ⚠ 미등록 가맹점 모드
+              <span style="font-size:10px;font-weight:600;color:#92400E;line-height:1.4">— 임시 정보로 진행, 나중에 정식 가맹점과 연결 가능</span>
+            </div>
             <div class="grid2">
               <div>
                 <div class="field-label-sm">점포명</div>
@@ -499,6 +503,13 @@
                 <div class="field-label-sm">주소</div>
                 <input class="field-input" placeholder="도로명 주소">
               </div>
+            </div>
+            <!-- 정식 가맹점 연결하기 (사이드 패널 트리거) -->
+            <button style="width:100%;margin-top:9px;padding:10px 12px;background:#fff;border:1.5px dashed #F59E0B;color:#92400E;border-radius:8px;font-weight:800;font-size:12.5px;display:flex;align-items:center;justify-content:center;gap:6px">
+              🔗 정식 가맹점과 연결하기
+            </button>
+            <div style="margin-top:6px;font-size:10.5px;color:#92400E;line-height:1.45;padding:0 2px">
+              ※ 정식 가맹점이 등록되면 이 임시 데이터를 그대로 옮길 수 있습니다 (사업자번호·일정·장비·thread 모두 마이그레이션).
             </div>
           </div>
         </div>
@@ -819,6 +830,15 @@
             <span style="color:#1E40AF;font-weight:700">선택 항목</span>
             <span style="color:#1E40AF;font-weight:800">4종 · 합 6 nea (서버 1 · 포스 2 · 키오스크 1 · 포스다이 좌 2)</span>
           </div>
+
+          <!-- ✨ NEW · LINE 자동 포함 안내 칩 -->
+          <div style="margin-top:8px;padding:10px 12px;background:#FEF3C7;border:2px dashed #F59E0B;border-radius:9px;display:flex;align-items:flex-start;gap:8px">
+            <span style="background:#F59E0B;color:#fff;font-size:9.5px;padding:2px 6px;border-radius:9px;font-weight:900;flex-shrink:0;margin-top:1px">✨ NEW</span>
+            <div style="flex:1">
+              <div style="font-size:11.5px;font-weight:800;color:#92400E;margin-bottom:2px">📡 LINE 메시지에 자동 포함</div>
+              <div style="font-size:10.5px;color:#92400E;line-height:1.5">선택한 장비가 요청접수·진행·완료 LINE 알림에 자동 첨부됩니다 (수량 포함).</div>
+            </div>
+          </div>
         </div>
 
         <!-- 메모 -->
@@ -855,6 +875,101 @@
   <div class="device-title">① 등록/편집 풀폼 — 신규 등록·기존 업무 수정 공용 (데스크톱 newJobModal 1:1)</div>
 </div>
 
+<!-- ✨ NEW · ①ⓑ 정식 가맹점 연결하기 모달 -->
+<div>
+  <div class="device" style="border:3px dashed #F59E0B;box-shadow:0 12px 36px rgba(245,158,11,.25)">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>10:18</span><span class="icons">📶 📡 🔋</span></div>
+      <div class="appbar" style="background:#FEF3C7">
+        <div class="back" style="color:#92400E">‹</div>
+        <div class="title" style="color:#92400E">🔗 정식 가맹점 연결</div>
+        <span class="badge" style="background:#F59E0B;color:#fff;font-weight:900">✨ NEW</span>
+      </div>
+      <div class="body" style="background:#FFFBEB;padding:14px 14px 90px">
+
+        <!-- 안내 박스 -->
+        <div style="background:#FEF3C7;border:2px dashed #F59E0B;border-radius:10px;padding:11px 12px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+            <span style="background:#F59E0B;color:#fff;font-size:9.5px;padding:2px 6px;border-radius:9px;font-weight:900">✨ NEW</span>
+            <span style="font-size:12px;font-weight:800;color:#92400E">임시 → 정식 마이그레이션</span>
+          </div>
+          <div style="font-size:11px;color:#92400E;line-height:1.55">미등록 모드로 진행 중인 작업을 정식 가맹점에 연결합니다. 일정·장비·thread·VAN 서류 모두 이전됩니다.</div>
+        </div>
+
+        <!-- 현재 임시 가맹점 카드 -->
+        <div style="background:#fff;border:1.5px solid #FCD34D;border-radius:10px;padding:11px 13px;margin-bottom:8px">
+          <div style="font-size:10.5px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:5px">임시 가맹점 (현재)</div>
+          <div style="font-weight:800;font-size:13.5px;color:var(--gray-800)">카페모리(역삼점) 임시</div>
+          <div style="font-size:11px;color:var(--gray-500);margin-top:2px;font-family:monospace">TEMP-2026-0510 · 010-2345-6789</div>
+        </div>
+
+        <!-- 화살표 -->
+        <div style="text-align:center;font-size:22px;color:#F59E0B;margin:4px 0;font-weight:900">↓</div>
+
+        <!-- 검색 입력 -->
+        <div style="background:#fff;border:1.5px solid var(--gray-300);border-radius:10px;padding:11px 13px;margin-bottom:8px">
+          <div style="font-size:11.5px;font-weight:800;color:var(--gray-700);margin-bottom:7px">새로 등록된 정식 가맹점 검색</div>
+          <div class="search-wrap">
+            <input class="field-input" type="text" placeholder="상호·사업자번호로 검색..." value="카페모리">
+            <span class="ico">🔍</span>
+          </div>
+          <div class="search-results" style="margin-top:6px">
+            <div class="sr-row" style="background:#F0FDF4;border-left:3px solid #10B981">
+              <div>
+                <div class="nm" style="color:#15803d">카페모리(역삼점) <span style="font-size:10px;color:#15803d;font-weight:700">· 정식 등록 완료</span></div>
+                <div class="biz">220-87-44912 · 김지영</div>
+              </div>
+              <span style="font-size:14px;color:#10B981;font-weight:900">✓</span>
+            </div>
+            <div class="sr-row">
+              <div>
+                <div class="nm">카페모리(강남점)</div>
+                <div class="biz">220-87-12356 · 박상우</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 연결 완료 미리보기 -->
+        <div style="background:#F0FDF4;border:2px solid #BBF7D0;border-radius:10px;padding:12px 13px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:#15803d;margin-bottom:8px">
+            ✅ 연결 완료 미리보기
+          </div>
+          <div style="font-size:11.5px;color:#065F46;line-height:1.7">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #BBF7D0">
+              <span>📋 thread 기록</span><span style="font-weight:800">3건 → 정식으로 이전</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #BBF7D0">
+              <span>📦 설치 장비</span><span style="font-weight:800">서버 1·포스 2·키오스크 1 유지</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #BBF7D0">
+              <span>📑 VAN 서류</span><span style="font-weight:800">KOCES·KSNET·카카오 유지</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0">
+              <span>🆔 사업자번호</span><span style="font-weight:800;font-family:monospace">→ 220-87-44912</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 경고 -->
+        <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:9px 11px;font-size:10.5px;color:#991B1B;line-height:1.55;margin-bottom:8px">
+          ⚠ 연결 후에는 되돌릴 수 없습니다. 임시 가맹점 레코드는 정식 가맹점에 흡수됩니다.
+        </div>
+      </div>
+
+      <!-- 하단 액션 -->
+      <div class="sticky-footer" style="background:#FFFBEB;border-top:1.5px dashed #F59E0B">
+        <div class="btn-row">
+          <button class="btn-big ghost">취소</button>
+          <button class="btn-big" style="background:#F59E0B;flex:2">🔗 연결 실행</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="device-title" style="color:#92400E;font-weight:800">✨ NEW · ①ⓑ 정식 가맹점 연결하기 — 임시 데이터 → 정식 데이터 마이그레이션</div>
+</div>
+
 <!-- ③ thread 상세 (선택) -->
 <div>
   <div class="device">
@@ -879,6 +994,14 @@
             <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
           </div>
           <div class="body-t">카페 신규 오픈, POS 2 + 키오스크 1 + KOCES 2단말 견적 요청. 5/20 오픈 희망.</div>
+          <!-- ✨ NEW · LINE 자동 첨부된 설치 예정 장비 블록 -->
+          <div style="margin-top:7px;padding:8px 10px;background:#FEF3C7;border:1.5px dashed #F59E0B;border-radius:7px;font-size:11px;line-height:1.55;color:#92400E">
+            <div style="display:flex;align-items:center;gap:5px;font-weight:800;margin-bottom:3px">
+              <span style="background:#F59E0B;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;font-weight:900">✨ NEW</span>
+              📦 설치 예정 장비 (LINE 자동 첨부)
+            </div>
+            <div style="font-family:monospace;font-size:10.5px;color:#7C2D12">• 서버 1, PC 2, 포스 3<br>• 키오스크 1, 라벨프린터 1</div>
+          </div>
         </div>
 
         <div class="thread-item prog" style="margin-bottom:8px">
@@ -888,6 +1011,14 @@
             <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
           </div>
           <div class="body-t">장비 반입 완료, 네트워크 구성 중. KOCES 2단말 시리얼 확인.</div>
+          <!-- ✨ NEW · LINE 자동 첨부된 설치 예정 장비 블록 -->
+          <div style="margin-top:7px;padding:8px 10px;background:#FEF3C7;border:1.5px dashed #F59E0B;border-radius:7px;font-size:11px;line-height:1.55;color:#92400E">
+            <div style="display:flex;align-items:center;gap:5px;font-weight:800;margin-bottom:3px">
+              <span style="background:#F59E0B;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;font-weight:900">✨ NEW</span>
+              📦 설치 예정 장비 (LINE 자동 첨부)
+            </div>
+            <div style="font-family:monospace;font-size:10.5px;color:#7C2D12">• 서버 1, PC 2, 포스 3<br>• 키오스크 1, 라벨프린터 1</div>
+          </div>
         </div>
 
         <div class="thread-item done" style="margin-bottom:8px">
@@ -897,6 +1028,14 @@
             <span style="margin-left:auto;font-size:11px;color:#04A047">📡 ✓</span>
           </div>
           <div class="body-t">설치 완료. POS×2 / KIOSK×1 / KOCES×2 정상 동작 확인. 가오픈 5/19 예정.</div>
+          <!-- ✨ NEW · LINE 자동 첨부된 설치 예정 장비 블록 -->
+          <div style="margin-top:7px;padding:8px 10px;background:#FEF3C7;border:1.5px dashed #F59E0B;border-radius:7px;font-size:11px;line-height:1.55;color:#92400E">
+            <div style="display:flex;align-items:center;gap:5px;font-weight:800;margin-bottom:3px">
+              <span style="background:#F59E0B;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;font-weight:900">✨ NEW</span>
+              📦 설치 예정 장비 (LINE 자동 첨부)
+            </div>
+            <div style="font-family:monospace;font-size:10.5px;color:#7C2D12">• 서버 1, PC 2, 포스 3<br>• 키오스크 1, 라벨프린터 1</div>
+          </div>
         </div>
 
         <!-- + 새 기록 추가 폼 (펼침 상태) — 단계별 LINE 발송 토글 -->
@@ -913,9 +1052,17 @@
             <button style="background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700">📎 파일</button>
           </div>
           <!-- 📡 LINE 발송 체크 — 이번 진행/완료 등록 후 즉시 발송 -->
-          <label style="display:flex;align-items:center;gap:6px;padding:7px 11px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;cursor:pointer;margin-bottom:8px">
+          <label style="display:flex;align-items:center;gap:6px;padding:7px 11px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;cursor:pointer;margin-bottom:6px">
             <input type="checkbox" checked style="accent-color:var(--line);margin:0">
             <span style="font-size:11.5px;color:#06A647;font-weight:800">📡 이 진행 기록 등록 후 LINE 발송</span>
+          </label>
+          <!-- ✨ NEW · 설치 예정 장비 자동 포함 체크 (기본 ON) -->
+          <label style="display:flex;align-items:center;gap:6px;padding:7px 11px;background:#FEF3C7;border:1.5px dashed #F59E0B;border-radius:8px;cursor:pointer;margin-bottom:8px">
+            <input type="checkbox" checked style="accent-color:#F59E0B;margin:0">
+            <span style="font-size:11.5px;color:#92400E;font-weight:800">
+              <span style="background:#F59E0B;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;font-weight:900;margin-right:4px">✨ NEW</span>
+              📦 장비 목록 자동 포함됨 ✓
+            </span>
           </label>
           <div style="display:flex;gap:6px">
             <button class="btn-big" style="flex:1;padding:11px;background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300);border-radius:8px;font-weight:700">취소</button>

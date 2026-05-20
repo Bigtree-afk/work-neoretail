@@ -18896,6 +18896,21 @@ ${text.slice(0, 4000)}`;
     window._renderThreadGroups(containerId, thread, { editable:true, jobId: jobId||null, draftMode: !!draftMode, maxRoots });
   }
 
+  // thread 저장(요청접수/진행/완료) 후 — 모달 뒤의 hub 리스트가 새 상태를 반영하도록 일괄 재렌더
+  // 모든 카테고리 hub 가 변경됐는지 알기 어렵고 cheap 한 호출이므로 모두 호출 (각 함수는 본인 컨테이너 없으면 no-op)
+  function _refreshAllHubsAfterThread() {
+    const safe = (fn) => { try { if (typeof fn === 'function') fn(); } catch(e) { console.warn('[refreshAllHubs]', e); } };
+    safe(window.renderNewHub);
+    safe(window.renderAsHub);
+    safe(window.renderVanHub);
+    safe(window.renderStocktakeHub);
+    safe(window.renderSupplyHub);
+    safe(window.hydrateDashboardJobs);
+    safe(window.hydrateAsMgmt);
+    safe(window.hydrateNewopen && (() => window.hydrateNewopen('all')));
+  }
+  window._refreshAllHubsAfterThread = _refreshAllHubsAfterThread;
+
   function _newThreadId() {
     return 'TR-' + Date.now() + '-' + Math.floor(Math.random()*1e9).toString(36);
   }
@@ -19144,6 +19159,7 @@ ${text.slice(0, 4000)}`;
         try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
         try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(e){}
         try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
+        try { _refreshAllHubsAfterThread(); } catch(e){}
         if (wantLine) { try { window._openLineForThreadEntry(containerId, newJob.id, entry); } catch(_){} }
         return;
       } catch(err) {
@@ -19162,6 +19178,7 @@ ${text.slice(0, 4000)}`;
     window[openKey]['__newroot__'] = false;
     window[openKey][entry.threadId] = true;
     _rerenderThread(containerId, jobId, draftMode);
+    _refreshAllHubsAfterThread();
     try { showToast('✅ 새 요청이 접수되었습니다'); } catch(e){}
     if (wantLine && jobId) { try { window._openLineForThreadEntry(containerId, jobId, entry); } catch(_){} }
   };
@@ -19232,6 +19249,7 @@ ${text.slice(0, 4000)}`;
       window[openKey][rootId] = false;
     }
     _rerenderThread(containerId, jobId, draftMode);
+    _refreshAllHubsAfterThread();
     try { showToast(st==='완료' ? '✅ 완료 처리되었습니다' : '🔄 진행 기록이 추가되었습니다'); } catch(e){}
     if (wantLine && jobId) { try { window._openLineForThreadEntry(containerId, jobId, entry); } catch(_){} }
   };
