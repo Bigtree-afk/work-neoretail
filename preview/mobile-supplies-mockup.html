@@ -250,7 +250,7 @@
           </a>
         </div>
         <div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:9px;padding:9px 11px;font-size:11px;color:#92400E;line-height:1.55;margin-bottom:12px">
-          💡 <b>🛒 소모품</b> 탭 → 서브 카테고리(장비추가/신규) 또는 진행 중 거래 카드 선택 → 풀폼 등록/편집.
+          💡 <b>🛒 소모품</b> 탭 → 품목 아이콘(또는 기타 소모품 추가) 또는 진행 중 거래 카드 선택 → 풀폼 등록/편집.
         </div>
 
         <!-- 빠른 진입: 최근 소모품 매장 -->
@@ -366,22 +366,14 @@
           </div>
 
           <div style="display:flex;flex-direction:column;gap:7px">
-            <a href="#" style="text-decoration:none;background:#fff;border:2px solid var(--supplies-border);border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:11px">
-              <div style="font-size:26px">📦</div>
+            <div style="background:#fff;border:2px solid var(--supplies-border);border-radius:11px;padding:12px 14px;display:flex;align-items:flex-start;gap:11px">
+              <div style="font-size:26px;line-height:1.1">📦</div>
               <div style="flex:1">
-                <div style="font-size:13.5px;font-weight:800;color:var(--supplies-text)">장비 추가</div>
-                <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">기존 매장에 영수증용지·잉크리본 등 추가 출고 <b>(가장 흔함)</b></div>
+                <div style="font-size:13.5px;font-weight:800;color:var(--supplies-text);margin-bottom:6px">기타 소모품 추가</div>
+                <div style="font-size:10.5px;color:var(--gray-500);margin-bottom:7px">위 5개 품목 외 기타 소모품 — 메모만 입력해 처리</div>
+                <textarea class="field-textarea" style="min-height:54px;font-size:12px" placeholder="예: 영수증커터 1개, 잉크리본 도트용 5개, ..."></textarea>
               </div>
-              <span style="font-size:18px;color:var(--supplies-text)">›</span>
-            </a>
-            <a href="#" style="text-decoration:none;background:#fff;border:2px solid var(--gray-200);border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:11px">
-              <div style="font-size:26px">🆕</div>
-              <div style="flex:1">
-                <div style="font-size:13.5px;font-weight:800;color:var(--gray-800)">신규</div>
-                <div style="font-size:10.5px;color:var(--gray-500);margin-top:1px">신규 소모품 거래 매장 등록 + 1차 출고</div>
-              </div>
-              <span style="font-size:18px;color:var(--gray-400)">›</span>
-            </a>
+            </div>
           </div>
         </div>
 
@@ -500,57 +492,21 @@
           </div>
         </div>
 
-        <!-- 작업 유형 — supplies 컨텍스트: 장비추가/신규만 -->
-        <div class="sec">
-          <div class="sec-h">📂 작업 유형
-            <span class="hint right" style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:10px;font-weight:800">🛒 소모품 메뉴 진입</span>
-          </div>
-          <div class="radio-row">
-            <label class="radio-chip on"><input type="radio" name="m_jobtype" checked>📦 장비 추가</label>
-            <label class="radio-chip"><input type="radio" name="m_jobtype">🆕 신규</label>
-          </div>
-          <div style="font-size:10.5px;color:var(--gray-500);margin-top:4px">※ 신규/AS/VAN/재고조사는 각 메뉴에서 진입 — 작업 유형 혼선 방지</div>
-        </div>
-
-        <!-- 담당 엔지니어 -->
-        <div class="sec">
-          <div class="sec-h">🛠 담당 엔지니어 <span class="hint">· 등록 직원만</span></div>
-          <select class="field-select">
-            <option>이헌상 (본인)</option>
-            <option>김기사</option>
-            <option>박엔지니어</option>
-          </select>
-        </div>
-
-        <!-- 매장 주요 일정 (supplies 도 non-AS 라 표시) -->
-        <div class="sec">
-          <div class="sec-h">📌 매장 주요 일정 <span class="hint">미정이면 비워두세요</span></div>
-          <div class="sched-grid">
-            <div class="field">
-              <div class="field-label">🔧 설치 예정일</div>
-              <input class="field-input" type="date">
-            </div>
-            <div class="field">
-              <div class="field-label">🌅 가오픈일</div>
-              <input class="field-input" type="date">
-            </div>
-            <div class="field">
-              <div class="field-label">🎉 오픈일</div>
-              <input class="field-input" type="date">
-            </div>
-          </div>
-        </div>
+        <!-- 접수일 자동 기록 라벨 -->
+        <div style="font-size:11.5px;color:var(--gray-500);margin:-4px 2px 10px 2px">📅 접수일: 2026-05-20 (자동)</div>
 
         <!-- 매장 담당자 -->
         <div class="sec">
           <div class="sec-h">👤 매장 담당자 <span class="hint">미정이면 비워두세요</span></div>
-          <div class="field">
-            <div class="field-label">이름</div>
-            <input class="field-input" placeholder="예: 홍길동" value="정인석">
-          </div>
-          <div class="field">
-            <div class="field-label">직책</div>
-            <input class="field-input" placeholder="예: 점장 / 사장 / 매니저" value="사장">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+            <div class="field" style="margin:0">
+              <div class="field-label">이름</div>
+              <input class="field-input" placeholder="예: 홍길동" value="정인석">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="field-label">직책</div>
+              <input class="field-input" placeholder="예: 점장 / 사장" value="사장">
+            </div>
           </div>
           <div class="field" style="margin-bottom:0">
             <div class="field-label">연락처</div>
