@@ -471,7 +471,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-17"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-18"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1074,16 +1074,27 @@ window.onSaveForm = async function(){
   job.status = job.status || '요청접수';
   job.updatedAt = Date.now();
 
-  // 신규 등록 + 요청접수 텍스트 입력 → thread 첫 ROOT 시드
-  if (!_editingJob && requestText) {
+  // 🔧 요청접수 텍스트 → 항상 thread 에 추가 (신규/편집 무관)
+  //   - 신규 등록: thread 첫 ROOT 로 시드
+  //   - 편집 모드: 기존 thread 보존하면서 새 ROOT 추가 (이전엔 silently drop → 데이터 유실)
+  let _newRootEntry = null;
+  if (requestText) {
     const ts = window._kstDateTimeStr ? window._kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' ');
     const author = (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자';
-    const root = {
+    _newRootEntry = {
       ts, author, status:'요청접수', text: requestText,
       threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
       parentId: null,
     };
-    job.thread = (window._threadMigrate ? window._threadMigrate([root]) : [root]);
+    if (!_editingJob) {
+      // 신규 — 첫 시드
+      job.thread = (window._threadMigrate ? window._threadMigrate([_newRootEntry]) : [_newRootEntry]);
+    } else {
+      // 편집 — 기존 thread 보존 + 새 ROOT 추가
+      const existing = Array.isArray(job.thread) ? job.thread.slice() : [];
+      existing.push(_newRootEntry);
+      job.thread = (window._threadMigrate ? window._threadMigrate(existing) : existing);
+    }
   }
 
   if (!_editingJob) {
@@ -1096,10 +1107,9 @@ window.onSaveForm = async function(){
   showToast(_editingJob ? '✓ 수정 완료' : '✓ 등록 완료');
   try { window.pushJobsToCloud(); } catch(_){}
 
-  // LINE 발송 — 신규 등록 시 요청접수 + 설치 장비 목록을 메시지에 포함
+  // LINE 발송 — 신규 등록 / 편집 모두 요청접수 + 설치 장비 목록 포함
   if ($('fLineSend').checked) {
     try {
-      // _openLineForJob 의 opts 로 전달할 추가 prefix 텍스트 빌드
       const eqLines = [];
       _eqAllKeys().forEach(k => {
         const c = _formEquipment[k.key] || 0;
@@ -1108,9 +1118,9 @@ window.onSaveForm = async function(){
       const condLabel = _formEquipCondition === 'used' ? '♻️ 중고' : '🆕 신품';
       let extraPrefix = '';
       if (requestText)  extraPrefix += `📥 요청접수\n${requestText}\n\n`;
-      if (eqLines.length) extraPrefix += `🖥 설치 요청 장비 (${condLabel})\n${eqLines.join('\n')}\n`;
+      if (!_editingJob && eqLines.length) extraPrefix += `🖥 설치 요청 장비 (${condLabel})\n${eqLines.join('\n')}\n`;
       if (eqMemo)       extraPrefix += (eqLines.length ? '' : '\n') + `🛠 장비 추가 요청: ${eqMemo}\n`;
-      window._openLineForJob(job, { extraPrefix });
+      window._openLineForJob(job, { extraPrefix, entry: _newRootEntry || undefined });
     } catch(e){ console.warn(e); }
   }
   location.hash = '#thread/' + job.id;
