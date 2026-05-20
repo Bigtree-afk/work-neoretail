@@ -563,6 +563,13 @@ function renderCurrentView(){
   if (r.view === 'form')   renderForm(r);
   if (r.view === 'thread') renderThread(r.jobId);
 }
+function refreshCurrentView(){
+  const r = parseHash();
+  if (r.view === 'form') return; // 입력 중 폼 리셋 방지
+  const prs = document.getElementById('mcPromptRegStore');
+  if (prs && prs.style.display !== 'none') return;
+  renderCurrentView();
+}
 window.addEventListener('hashchange', renderCurrentView);
 
 /* ════════════════════════════════════════════════════════════
@@ -1262,11 +1269,11 @@ window.onLineSendJob = function(){
   setInterval(async () => {
     if (document.visibilityState !== 'visible') return;
     try { await Promise.allSettled([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
-    renderCurrentView();
+    refreshCurrentView();
   }, 30000);
   window.addEventListener('storage', e => {
     if (e.key === 'ns_jobs' || e.key === 'ns_stores') {
-      renderCurrentView();
+      refreshCurrentView();
     }
   });
 })();
