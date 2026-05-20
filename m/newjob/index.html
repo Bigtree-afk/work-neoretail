@@ -450,7 +450,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-10"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-11"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -553,6 +553,21 @@ window.addEventListener('hashchange', renderCurrentView);
 /* ════════════════════════════════════════════════════════════
    HOME — 카테고리 진행 건수
 ═══════════════════════════════════════════════════════════ */
+// 신규 작업 종료 판정 — 기본 _isJobDone (모든 그룹 완료 + j.completed) +
+//   추가 조건: 정식오픈일 (openDate) 가 오늘 이전이면 자동 종료로 간주
+//   예외: 사용자가 재개(🔄) 한 작업은 openDate 경과 무시 (job._reopened=true)
+function _isNewJobClosed(j) {
+  if (!j) return false;
+  if (window._isJobDone && window._isJobDone(j)) return true;
+  if (j._reopened) return false; // 재개 후엔 openDate 자동 종료 X
+  if (j.openDate) {
+    const today = (window._kstNow && window._kstNow()) || new Date().toISOString();
+    const t = String(today).slice(0,10);
+    if (String(j.openDate).slice(0,10) < t) return true;
+  }
+  return false;
+}
+
 function renderHome(){
   const jobs = getJobs();
   const stk  = getStocktakes ? (getStocktakes() || []) : [];
@@ -560,8 +575,10 @@ function renderHome(){
   const cat = window.classifyJobCategory;
   const cnt = { new:0, as:0, van:0, supplies:0, stock:0 };
   jobs.forEach(j => {
-    if (isDone(j)) return;
+    // 신규 카테고리는 openDate 경과도 종료로 간주
     const c = cat(j);
+    if (c === 'new' && _isNewJobClosed(j)) return;
+    if (c !== 'new' && isDone(j)) return;
     if (c === 'new')       cnt.new++;
     else if (c === 'as')   cnt.as++;
     else if (c === 'van')  cnt.van++;
@@ -592,7 +609,7 @@ function renderEntry(){
   const jobs = getJobs();
   const cat = window.classifyJobCategory;
   const isDone = window._isJobDone;
-  const filtered = jobs.filter(j => cat(j) === 'new' && !isDone(j));
+  const filtered = jobs.filter(j => cat(j) === 'new' && !_isNewJobClosed(j));
   filtered.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
   if (!filtered.length) {
     list.innerHTML = '<div class="empty">진행 중인 신규 업무가 없습니다.<br>위 카테고리에서 새 업무를 등록해보세요.</div>';
@@ -1073,13 +1090,15 @@ function renderThread(jobId){
   const sched = j.installDate || j.openDate || j.softOpenDate || '';
   $('thType').textContent = (j.type || '신규') + (sched ? ' · ' + fmtDate(sched) : '');
   // 완료 상태 배지 + 버튼 토글
-  const isDone = window._isJobDone ? window._isJobDone(j) : !!j.completed;
+  const isDone = _isNewJobClosed(j);
+  const isOpenPast = !j.completed && j.openDate && String(j.openDate).slice(0,10) < (((window._kstNow && window._kstNow()) || new Date().toISOString()).slice(0,10));
   const doneBadge = $('thDoneBadge');
   if (isDone) {
     const dt = j.doneAt ? new Date(j.doneAt) : null;
     const dtStr = dt ? (dt.toISOString().slice(0,10) + ' ' + dt.toTimeString().slice(0,5)) : '';
+    const reason = isOpenPast ? `오픈일(${esc(fmtDate(j.openDate))}) 경과` : `작업 종료${dtStr?` · ${esc(dtStr)}`:''}`;
     doneBadge.style.display = 'block';
-    doneBadge.innerHTML = `<span style="display:inline-block;background:#DCFCE7;color:#15803d;padding:4px 10px;border-radius:14px;font-size:11px;font-weight:800">🏁 작업 종료${dtStr?` · ${esc(dtStr)}`:''}</span>`;
+    doneBadge.innerHTML = `<span style="display:inline-block;background:#DCFCE7;color:#15803d;padding:4px 10px;border-radius:14px;font-size:11px;font-weight:800">🏁 ${reason}</span>`;
     $('thFinishBtn').style.display = 'none';
     $('thReopenBtn').style.display = 'block';
   } else {
@@ -1467,6 +1486,7 @@ window.onReopenJob = function(){
   j.status = '진행중';
   j.doneAt = '';
   j.reopenedAt = (new Date()).toISOString();
+  j._reopened = true; // openDate 경과 자동 종료 무시
   j.updatedAt = Date.now();
   jobs[ix] = j;
   saveJobs(jobs);
