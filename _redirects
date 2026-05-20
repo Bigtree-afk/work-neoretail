@@ -1,9 +1,6 @@
 # Cloudflare Pages routing
-# 더 구체적인 규칙을 먼저 — /m/newjob 은 /m/* 보다 위에 둔다
-/m/newjob       /m/newjob.html  200
-/m/newjob/      /m/newjob.html  200
-/m/newjob/*     /m/newjob.html  200
-# 그 외 /m/ 와 모든 하위 경로는 모바일 진입점 m.html 로 매핑
-/m       /m.html  200
-/m/      /m.html  200
-/m/*     /m.html  200
+# 모바일 진입점은 디렉토리 구조로 처리:
+#   /m/         → m/index.html
+#   /m/newjob/  → m/newjob/index.html
+# Cloudflare 가 디렉토리 + index.html 자동 매핑 + trailing-slash 자동 처리하므로
+# _redirects 에 별도 규칙이 필요 없음.
