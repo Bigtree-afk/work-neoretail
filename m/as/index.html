@@ -320,35 +320,22 @@
       </div>
     </div>
 
-    <!-- AS 접수 정보 -->
-    <div class="sec as-info">
-      <div class="sec-h as">🔧 AS 접수 정보 <span class="req-pill">필수</span></div>
-      <div class="field">
-        <div class="field-label">📥 접수일시 <span class="hint">· 자동</span></div>
-        <input class="field-input" id="fAsReceivedAt" type="text" placeholder="YYYY-MM-DD HH:MM" style="background:#F9FAFB">
-      </div>
-      <div class="grid2" style="margin-bottom:10px">
-        <div class="field" style="margin:0">
-          <div class="field-label">📅 처리예정일</div>
-          <input class="field-input" id="fAsDueDate" type="date">
-        </div>
-        <div class="field" style="margin:0">
-          <div class="field-label">⏰ 처리예정시각</div>
-          <input class="field-input" id="fAsDueTime" type="time">
-        </div>
-      </div>
-      <div class="field">
-        <div class="field-label">🎯 대상 장비 <span class="hint">· 복수 선택</span></div>
-        <div class="grid-cb">
-          <label class="radio-chip" style="justify-content:flex-start;padding:8px 10px"><input type="checkbox" id="fAsTargetVAN"> 💳 VAN(단말)</label>
-          <label class="radio-chip" style="justify-content:flex-start;padding:8px 10px"><input type="checkbox" id="fAsTargetPOS"> 🖥 POS</label>
-          <label class="radio-chip" style="justify-content:flex-start;padding:8px 10px"><input type="checkbox" id="fAsTargetKIO"> 📟 키오스크</label>
-          <label class="radio-chip" style="justify-content:flex-start;padding:8px 10px"><input type="checkbox" id="fAsTargetETC"> 📦 기타</label>
-        </div>
-      </div>
-      <div class="field" style="margin-bottom:0">
-        <div class="field-label">📝 AS 요청내용 <span class="hint">· 증상 / 발생시점 / 영향</span></div>
-        <textarea class="field-textarea" id="fAsRequest" placeholder="증상 / 발생시점 / 영향 범위..."></textarea>
+    <!-- AS 접수 정보 → 제거됨. 모든 요청 내용·처리 단계·LINE 알림은 thread (요청접수→진행→완료) 로 통일.
+         (호환용 hidden 필드 — savedJob.asInfo* 에 빈 값으로 들어감) -->
+    <input type="hidden" id="fAsReceivedAt" value="">
+    <input type="hidden" id="fAsDueDate" value="">
+    <input type="hidden" id="fAsDueTime" value="">
+    <input type="hidden" id="fAsTargetVAN">
+    <input type="hidden" id="fAsTargetPOS">
+    <input type="hidden" id="fAsTargetKIO">
+    <input type="hidden" id="fAsTargetETC">
+    <textarea id="fAsRequest" style="display:none"></textarea>
+
+    <!-- 안내 — 등록 후 thread 에서 요청접수·진행·완료 단계마다 LINE 발송 -->
+    <div class="sec" style="background:#FEF3C7;border-color:#FCD34D">
+      <div style="font-size:12.5px;color:#92400E;line-height:1.55">
+        💡 등록 후 <b>요청접수 → 진행 → 완료</b> 단계로 처리됩니다.<br>
+        각 단계마다 <b>📡 LINE 발송</b> 으로 작업자·고객에게 알림 보낼 수 있습니다.
       </div>
     </div>
 
@@ -433,7 +420,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-as"></script>
+<script src="/m-core.js?v=2026-05-20-as-2"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -870,8 +857,8 @@ window.onSaveForm = async function(){
   const typeRd = document.querySelector('input[name="fType"]:checked');
   if (!typeRd) { showToast('⚠ 작업 유형(AS sub-category)을 선택하세요'); return; }
   const type = typeRd.value;
-  const asRequest = ($('fAsRequest').value || '').trim();
-  if (!_editingJob && !asRequest) { showToast('⚠ AS 요청내용을 입력하세요'); return; }
+  // AS 요청내용은 등록 후 thread '요청접수' 카드에서 입력 — 폼에서는 더 이상 필수 아님
+  const asRequest = '';
 
   const asInfo = {
     receivedAt: ($('fAsReceivedAt').value || '').trim(),
@@ -1068,8 +1055,10 @@ window.onSaveForm = async function(){
   }
   try { window.pushJobsToCloud(); } catch(_){}
 
-  if ($('fLineSend').checked && savedJob) {
-    try { window._openLineForJob(savedJob); } catch(e){ console.warn(e); }
+  // 등록 직후엔 LINE 발송 호출 X — thread 화면에서 '요청접수' 카드 저장 시점에 발송하도록 위임
+  // (fLineSend 체크 상태는 thread 첫 entry 의 lineSend 칸 기본값으로 전달)
+  if ($('fLineSend').checked) {
+    try { window._pendingLineSendForJob = savedJob.id; } catch(_){}
   }
   location.hash = '#thread/' + savedJob.id;
 };
@@ -1111,7 +1100,13 @@ function renderThread(jobId){
     $('thDueBadge').innerHTML = '';
   }
   $('thNewRoot').value = '';
-  $('thNewRootLine').checked = false;
+  // 폼 등록 직후 LINE 발송 옵션 켰던 경우 → 첫 요청접수 카드에 자동 체크 (한 번만)
+  const wantLine = (window._pendingLineSendForJob === jobId);
+  $('thNewRootLine').checked = wantLine;
+  if (wantLine) {
+    try { delete window._pendingLineSendForJob; } catch(_){}
+    setTimeout(() => { try { $('thNewRoot').focus(); } catch(_){} }, 100);
+  }
   renderThreadGroups(j);
 }
 
@@ -1337,12 +1332,13 @@ window.onLineSendJob = function(){
 (async function init(){
   $('fStoreSearch').addEventListener('input', onStoreSearchInput);
   $('fStoreSearch').addEventListener('focus', onStoreSearchInput);
-  try { await window.syncJobsFromCloud(); } catch(_){}
+  // 클라우드에서 점포·작업 데이터 동시 풀 — 모바일 첫 진입 시 매장 검색 0건 사고 방지
+  try { await Promise.all([window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
   if (!location.hash) location.hash = '#home';
   renderCurrentView();
   setInterval(async () => {
     if (document.visibilityState !== 'visible') return;
-    try { await window.syncJobsFromCloud(); } catch(_){}
+    try { await Promise.all([window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
     renderCurrentView();
   }, 30000);
   window.addEventListener('storage', e => {

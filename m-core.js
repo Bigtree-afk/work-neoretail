@@ -103,6 +103,26 @@
     localStorage.setItem('ns_stores', JSON.stringify(arr));
   }
 
+  // 매장 클라우드 풀 (모바일 첫 진입 시 PC 데이터 받기 위함) — index.html L4895 syncFromCloud
+  async function syncStoresFromCloud() {
+    try {
+      const res = await fetch('/api/stores', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const remote = Array.isArray(data && data.stores) ? data.stores : [];
+      if (remote.length === 0) return;
+      const local = getStores() || [];
+      // 간단 머지: id 기준 union, 같은 id 면 remote 우선 (PC 가 최신 master)
+      const byId = new Map();
+      local.forEach(s => { if (s && s.id) byId.set(s.id, s); });
+      remote.forEach(s => { if (s && s.id) byId.set(s.id, s); });
+      // id 없는 항목 (legacy) 은 그대로 보존
+      const noId = [...local.filter(s => !s.id), ...remote.filter(s => !s.id)];
+      const merged = [...byId.values(), ...noId];
+      saveStores(merged);
+    } catch(e) { /* 네트워크 실패 무시 */ }
+  }
+
   // ── STOCKTAKE — index.html L5923 (키: ns_stocktake 단수) ────
   function getStocktakes() {
     try { return JSON.parse(localStorage.getItem('ns_stocktake') || '[]'); } catch { return []; }
@@ -813,6 +833,7 @@
   global.saveStocktakes = saveStocktakes;
   global.getStores = getStores;
   global.saveStores = saveStores;
+  global.syncStoresFromCloud = syncStoresFromCloud;
   global.getUsers = getUsers;
   global.scheduleAutoBackup = scheduleAutoBackup;
 
