@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#2563EB">
-<title>🆕 신규 — NeoRetail 모바일</title>
+<meta name="theme-color" content="#7C3AED">
+<title>💳 VAN — NeoRetail 모바일</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
@@ -12,6 +12,7 @@
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   :root{
     --primary:#2563EB; --primary-dark:#1D4ED8;
+    --van:#7C3AED; --van-dark:#5B21B6; --van-light:#F5F3FF; --van-border:#DDD6FE;
     --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
     --gray-300:#D1D5DB; --gray-400:#9CA3AF; --gray-500:#6B7280;
     --gray-600:#4B5563; --gray-700:#374151; --gray-800:#1F2937;
@@ -27,7 +28,7 @@
   .appbar .back:active{background:var(--gray-100)}
   .appbar .title{flex:1;font-weight:800;font-size:16px}
   .appbar .pc{font-size:10.5px;color:var(--gray-500);background:var(--gray-100);padding:6px 9px;border-radius:7px;text-decoration:none;font-weight:700;border:1px solid var(--gray-200)}
-  .appbar .badge{background:var(--line-light);color:#04A047;border-radius:11px;padding:2px 8px;font-size:10.5px;font-weight:800}
+  .appbar .badge{background:var(--van-light);color:var(--van-dark);border-radius:11px;padding:2px 8px;font-size:10.5px;font-weight:800}
 
   /* 본문 */
   .wrap{max-width:480px;margin:0 auto;padding:14px 14px 96px}
@@ -44,26 +45,40 @@
   .ico .sub{font-size:10px;color:var(--gray-500)}
   .ico.newjob{border-color:#BFDBFE} .ico.newjob .nm{color:#1E40AF}
   .ico.as{border-color:#FCA5A5} .ico.as .nm{color:#991B1B}
-  .ico.van{border-color:#DDD6FE} .ico.van .nm{color:#5B21B6}
+  .ico.van{border-color:#DDD6FE} .ico.van .nm{color:var(--van-dark)}
+  .ico.van.active{border-width:2.5px;border-color:var(--van);box-shadow:0 6px 16px rgba(124,58,237,.30)}
   .ico.supply{border-color:#FCD34D} .ico.supply .nm{color:#92400E}
   .ico.stock{border-color:#A7F3D0} .ico.stock .nm{color:#065F46}
   .ibadge{position:absolute;top:-7px;right:-7px;min-width:24px;height:24px;padding:0 6px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.18)}
   .ibadge.newjob{background:#2563EB}
   .ibadge.as{background:#EF4444}
-  .ibadge.van{background:#7C3AED}
+  .ibadge.van{background:var(--van)}
   .ibadge.supply{background:#F59E0B}
   .ibadge.stock{background:#10B981}
+
+  /* Vandocs panel — 진입 페이지 상단 */
+  .vandocs-panel{background:#fff;border-radius:13px;padding:13px 13px 11px;margin-bottom:13px;border:1.5px solid var(--van-border);box-shadow:0 2px 6px rgba(124,58,237,.06)}
+  .vandocs-panel .vp-h{font-size:12px;font-weight:800;color:var(--van-dark);margin-bottom:9px;display:flex;align-items:center;gap:6px}
+  .vandocs-panel .vp-btns{display:flex;gap:7px;margin-bottom:9px}
+  .vandocs-panel .vp-btn{flex:1;padding:10px;border-radius:9px;border:none;font-size:12.5px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;font-family:inherit}
+  .vandocs-panel .vp-btn.primary{background:var(--van);color:#fff}
+  .vandocs-panel .vp-btn.primary:active{background:var(--van-dark)}
+  .vandocs-panel .vp-btn.success{background:#10B981;color:#fff}
+  .vandocs-panel .vp-btn.success:active{background:#059669}
+  .vandocs-panel .vp-hint{font-size:10.5px;color:var(--gray-500);line-height:1.55;padding:7px 9px;background:var(--van-light);border-radius:7px}
+  .vandocs-panel .vp-list{margin-top:9px;padding-top:9px;border-top:1px dashed var(--gray-200);font-size:11.5px;color:var(--gray-500);text-align:center}
 
   /* sub-category chips */
   .sub-chips{display:flex;gap:7px;overflow-x:auto;padding-bottom:6px;margin-bottom:14px;-webkit-overflow-scrolling:touch}
   .sub-chip{flex-shrink:0;padding:9px 14px;border-radius:18px;background:#fff;border:1.5px solid var(--gray-300);font-size:12.5px;font-weight:700;color:var(--gray-700);cursor:pointer;text-decoration:none}
-  .sub-chip:active{background:#EFF6FF;border-color:#BFDBFE;color:#1E40AF}
+  .sub-chip:active{background:var(--van-light);border-color:var(--van-border);color:var(--van-dark)}
 
   /* 목록 카드 */
   .card{background:#fff;border-radius:12px;padding:13px 14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.04);cursor:pointer}
   .card.req{border-left:4px solid #3B82F6}
   .card.prog{border-left:4px solid #F59E0B}
   .card.done{border-left:4px solid #10B981}
+  .card.van{border-left:4px solid var(--van)}
   .card .topline{display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap}
   .card .nm{font-weight:800;font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pill{display:inline-block;padding:2px 8px;border-radius:11px;font-size:10px;font-weight:800}
@@ -71,8 +86,15 @@
   .pill.prog{background:#FEF3C7;color:#92400E}
   .pill.done{background:#DCFCE7;color:#15803d}
   .pill.line{background:var(--line-light);color:#04A047}
+  .pill.van{background:var(--van-light);color:var(--van)}
+  .pill.cat-new{background:#EDE9FE;color:#5B21B6}
+  .pill.cat-re{background:#DDD6FE;color:#4C1D95}
+  .pill.cat-settle{background:#DCFCE7;color:#15803d}
+  .pill.cat-contract{background:#E0E7FF;color:#3730a3}
+  .pill.cat-change{background:#FCE7F3;color:#9d174d}
   .card .meta{font-size:11px;color:var(--gray-500);margin-bottom:3px}
   .card .summary{font-size:12.5px;color:var(--gray-700)}
+  .strip{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
 
   .empty{text-align:center;padding:50px 20px;color:var(--gray-500);font-size:13px}
 
@@ -81,7 +103,7 @@
   .field-label{font-size:11.5px;font-weight:700;color:var(--gray-600);margin-bottom:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .field-label .hint{font-size:10px;color:var(--gray-400);font-weight:500}
   .field-input,.field-select,.field-textarea{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:9px;font-size:16px;font-family:inherit;background:#fff;color:var(--gray-800)}
-  .field-input:focus,.field-textarea:focus,.field-select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+  .field-input:focus,.field-textarea:focus,.field-select:focus{outline:none;border-color:var(--van);box-shadow:0 0 0 3px rgba(124,58,237,.12)}
   .field-textarea{min-height:70px;resize:vertical;line-height:1.5}
 
   .sec{background:#fff;border-radius:11px;padding:12px 13px;margin-bottom:11px;border:1px solid var(--gray-200)}
@@ -91,8 +113,8 @@
   /* Radio chip */
   .radio-row{display:flex;gap:6px;flex-wrap:wrap}
   .radio-chip{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;background:#fff;border:1.5px solid var(--gray-200);border-radius:14px;font-size:12px;font-weight:600;color:var(--gray-700);cursor:pointer}
-  .radio-chip input{margin:0;accent-color:var(--primary)}
-  .radio-chip.on{background:#EFF6FF;border-color:#BFDBFE;color:#1d4ed8}
+  .radio-chip input{margin:0;accent-color:var(--van)}
+  .radio-chip.on{background:var(--van-light);border-color:var(--van-border);color:var(--van-dark)}
 
   /* 검색 결과 */
   .search-results{margin-top:6px;background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.06);max-height:200px;overflow-y:auto}
@@ -110,18 +132,36 @@
   .unreg .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .unreg .field-input{padding:9px 10px;font-size:14px;background:#fff;border:1px solid #FCD34D}
 
-  /* 일정 */
-  .sched{display:grid;grid-template-columns:1fr;gap:7px}
+  /* VAN 4사 카드 */
+  .van-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:10px;padding:11px 12px;margin-bottom:9px;transition:border-color .15s, background .15s}
+  .van-card.on{background:var(--van-light);border-color:var(--van-border)}
+  .van-card .vh{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .van-card .vh .em{font-size:18px}
+  .van-card .vh .nm{flex:1;font-size:13px;font-weight:800;color:var(--gray-800)}
+  .van-card.on .vh .nm{color:var(--van-dark)}
+  .van-card .vh .status-pill{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:11px;background:var(--gray-100);color:var(--gray-600)}
+  .van-card .vh .status-pill.req{background:#DBEAFE;color:#1e40af}
+  .van-card .vh .status-pill.prog{background:#FEF3C7;color:#92400E}
+  .van-card .vh .status-pill.done{background:#DCFCE7;color:#15803d}
+  .van-card .vfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .van-card .vfields.one{grid-template-columns:1fr}
+  .van-card .vfield-lbl{font-size:10.5px;color:var(--gray-600);font-weight:700;margin-bottom:3px}
+  .van-card .vfield-inp{width:100%;padding:8px 10px;border:1px solid var(--gray-300);border-radius:7px;font-size:14px;font-family:'SF Mono','Menlo',monospace;background:#fff}
+  .van-card .vfield-inp:focus{outline:none;border-color:var(--van);box-shadow:0 0 0 2px rgba(124,58,237,.12)}
+  .van-card .vstatus-row{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap}
+  .vsb{padding:5px 11px;border-radius:14px;font-size:11px;font-weight:700;border:1px solid var(--gray-200);background:#fff;color:var(--gray-700);cursor:pointer;font-family:inherit}
+  .vsb.on{background:var(--van);color:#fff;border-color:var(--van)}
+  .vsb.on.req{background:#3B82F6;border-color:#3B82F6}
+  .vsb.on.prog{background:#F59E0B;border-color:#F59E0B}
+  .vsb.on.done{background:#10B981;border-color:#10B981}
 
-  /* 장비 카운터 */
-  .eq-list{display:flex;flex-direction:column;gap:7px}
-  .eq-row{display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--gray-50);border-radius:8px;border:1px solid var(--gray-200)}
-  .eq-row .nm{flex:1;font-size:13px;font-weight:600;color:var(--gray-700)}
-  .eq-ctl{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--gray-300);border-radius:18px;padding:2px 4px}
-  .eq-btn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;font-size:18px;font-weight:700;color:var(--primary);cursor:pointer;border-radius:50%}
-  .eq-btn:active{background:#EFF6FF}
-  .eq-btn:disabled{color:var(--gray-300)}
-  .eq-cnt{min-width:22px;text-align:center;font-weight:800;font-size:14px}
+  /* 간편결제 / 카카오페이 */
+  .pay-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:10px;padding:11px 12px;margin-bottom:9px}
+  .pay-card.on{background:#FFFBEB;border-color:#FCD34D}
+  .pay-card .ph{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .pay-card .ph .em{font-size:18px}
+  .pay-card .ph .nm{flex:1;font-size:13px;font-weight:800;color:var(--gray-800)}
+  .pay-card .pfields{display:grid;grid-template-columns:1fr;gap:8px}
 
   /* LINE 체크박스 */
   .line-check{display:flex;align-items:center;gap:8px;padding:11px 13px;background:var(--line-light);border:1.5px solid #BBF7D0;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;color:#04A047}
@@ -130,8 +170,8 @@
   /* 액션 버튼 */
   .actions{display:flex;gap:8px;margin-top:14px}
   .btn{flex:1;padding:13px;border-radius:10px;font-size:14.5px;font-weight:800;border:none;cursor:pointer;font-family:inherit}
-  .btn-primary{background:var(--primary);color:#fff}
-  .btn-primary:active{background:var(--primary-dark)}
+  .btn-primary{background:var(--van);color:#fff}
+  .btn-primary:active{background:var(--van-dark)}
   .btn-outline{background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300)}
   .btn-danger{background:#fff;color:var(--danger);border:1.5px solid #FCA5A5}
 
@@ -160,14 +200,14 @@
   .tg-form .line-mini{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#04A047}
   .tg-form .line-mini input{accent-color:var(--line);margin:0}
 
-  .new-root-box{background:#EFF6FF;border:1.5px dashed #BFDBFE;border-radius:11px;padding:11px;margin-bottom:11px}
-  .new-root-box .sec-h{color:#1E40AF;margin-bottom:7px}
+  .new-root-box{background:var(--van-light);border:1.5px dashed var(--van-border);border-radius:11px;padding:11px;margin-bottom:11px}
+  .new-root-box .sec-h{color:var(--van-dark);margin-bottom:7px}
   .new-root-box textarea{background:#fff}
 
   /* bottom nav */
   .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--gray-200);display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:9}
   .bottom-nav .item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;color:var(--gray-500);padding:5px 0;text-decoration:none;font-weight:600;cursor:pointer;background:transparent;border:none;font-family:inherit}
-  .bottom-nav .item.active{color:var(--primary)}
+  .bottom-nav .item.active{color:var(--van)}
   .bottom-nav .icn{font-size:19px}
 
   /* 모바일 우선 */
@@ -188,30 +228,30 @@
 ─────────────────────────────────────────────────── -->
 <header class="appbar" id="appbar">
   <button id="backBtn" class="back" onclick="appBack()">←</button>
-  <div class="title" id="appTitle">🆕 신규 업무</div>
+  <div class="title" id="appTitle">💳 VAN 업무</div>
   <span class="badge" id="appBadge"></span>
   <a class="pc" href="/?desktop=1" title="PC 버전으로 이동">💻 PC</a>
 </header>
 
 <!-- ────────────────────────────────────────────────
-     VIEW: HOME — 5 카테고리 아이콘 + 최근 매장
+     VIEW: HOME — 5 카테고리 아이콘
 ─────────────────────────────────────────────────── -->
 <section class="view" id="view-home">
   <div class="wrap">
     <div class="hello">안녕하세요 👋</div>
     <div class="h1">오늘 처리할 업무를 선택하세요</div>
     <div class="row3">
-      <a href="#entry" class="ico newjob">
+      <a href="/m/newjob/" class="ico newjob">
         <div class="em">🆕</div><div class="nm">신규</div>
         <div class="sub" id="cnt-sub-new">로딩…</div>
         <span class="ibadge newjob" id="cnt-bdg-new" style="display:none">0</span>
       </a>
-      <a href="/preview/mobile-as-mockup.html" class="ico as">
+      <a href="/m/as/" class="ico as">
         <div class="em">🔧</div><div class="nm">AS</div>
         <div class="sub" id="cnt-sub-as">로딩…</div>
         <span class="ibadge as" id="cnt-bdg-as" style="display:none">0</span>
       </a>
-      <a href="/preview/mobile-van-mockup.html" class="ico van">
+      <a href="#entry" class="ico van active">
         <div class="em">💳</div><div class="nm">VAN</div>
         <div class="sub" id="cnt-sub-van">로딩…</div>
         <span class="ibadge van" id="cnt-bdg-van" style="display:none">0</span>
@@ -233,23 +273,41 @@
 </section>
 
 <!-- ────────────────────────────────────────────────
-     VIEW: ENTRY (⓪ⓑ 진입) — 신규 sub-categories + 진행 목록
+     VIEW: ENTRY (⓪ⓑ 진입) — vandocs 패널 + sub-category + 진행 목록
 ─────────────────────────────────────────────────── -->
 <section class="view" id="view-entry">
   <div class="wrap">
-    <div class="sub-chips" id="subChips">
-      <a class="sub-chip" href="#form?sub=신규/오픈">신규/오픈</a>
-      <a class="sub-chip" href="#form?sub=신규/프로그램교체">프로그램 교체</a>
-      <a class="sub-chip" href="#form?sub=신규/VAN변경">VAN 변경</a>
+
+    <!-- 접수서류 확인 패널 -->
+    <div class="vandocs-panel">
+      <div class="vp-h">📑 접수서류 확인</div>
+      <div class="vp-btns">
+        <button class="vp-btn success" onclick="onCopyVandocsUrl()">🔗 URL 복사</button>
+        <button class="vp-btn primary" onclick="onBulkDownload()">📥 일괄 다운로드</button>
+      </div>
+      <div class="vp-hint">
+        매장에 <b>/vandocs.html</b> URL 발송 → 매장이 사업자등록증·통장사본 업로드 → 접수 큐에 누적
+      </div>
+      <div class="vp-list" id="vandocsList">접수 0건 — 구현 예정</div>
     </div>
-    <div style="font-size:11px;font-weight:800;color:var(--gray-600);letter-spacing:.4px;margin-bottom:6px">진행 중 신규 업무</div>
+
+    <!-- sub-category chips -->
+    <div class="sub-chips" id="subChips">
+      <a class="sub-chip" href="#form?sub=VAN/신규등록">💳 신규등록</a>
+      <a class="sub-chip" href="#form?sub=VAN/재신고">🔁 재신고</a>
+      <a class="sub-chip" href="#form?sub=VAN/정산">💰 정산</a>
+      <a class="sub-chip" href="#form?sub=VAN/계약">📜 계약</a>
+      <a class="sub-chip" href="#form?sub=VAN/변경">✏️ 변경</a>
+    </div>
+
+    <div style="font-size:11px;font-weight:800;color:var(--gray-600);letter-spacing:.4px;margin-bottom:6px">진행 중 VAN 업무</div>
     <div id="entryJobList"></div>
-    <button class="btn btn-primary" style="margin-top:6px" onclick="location.hash='#form'">+ 새 신규 업무 등록</button>
+    <button class="btn btn-primary" style="margin-top:6px" onclick="location.hash='#form'">+ 새 VAN 업무 등록</button>
   </div>
 </section>
 
 <!-- ────────────────────────────────────────────────
-     VIEW: FORM (① 풀폼) — 신규 작업 등록/편집
+     VIEW: FORM (① 풀폼) — VAN 작업 등록/편집
 ─────────────────────────────────────────────────── -->
 <section class="view" id="view-form">
   <div class="wrap">
@@ -260,7 +318,7 @@
       <div id="fStoreResults" class="search-results" style="display:none"></div>
       <div id="fStorePicked" class="picked" style="display:none"></div>
       <label style="margin-top:7px;display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--gray-600);cursor:pointer">
-        <input type="checkbox" id="fUnregMode" onchange="onUnregToggle()" style="accent-color:var(--primary);margin:0">
+        <input type="checkbox" id="fUnregMode" onchange="onUnregToggle()" style="accent-color:var(--van);margin:0">
         ❓ 미등록 가맹점 (임시 정보로 등록)
       </label>
       <div id="fUnregBox" class="unreg" style="display:none">
@@ -278,50 +336,59 @@
       </div>
     </div>
 
-    <!-- 담당자 -->
+    <!-- 작업 유형 (VAN sub-category) -->
     <div class="sec">
-      <div class="sec-h">👤 담당자 정보 <span class="hint">(현장 연락처)</span></div>
-      <div class="field">
-        <div class="field-label">담당자 이름</div>
-        <input class="field-input" id="fContactName" type="text" placeholder="홍길동 사장님">
+      <div class="sec-h">🏷️ 작업 유형</div>
+      <div class="radio-row" id="fTypeRow">
+        <label class="radio-chip"><input type="radio" name="fType" value="VAN/신규등록"> 💳 신규등록</label>
+        <label class="radio-chip"><input type="radio" name="fType" value="VAN/재신고"> 🔁 재신고</label>
+        <label class="radio-chip"><input type="radio" name="fType" value="VAN/정산"> 💰 정산</label>
+        <label class="radio-chip"><input type="radio" name="fType" value="VAN/계약"> 📜 계약</label>
+        <label class="radio-chip"><input type="radio" name="fType" value="VAN/변경"> ✏️ 변경</label>
       </div>
-      <div class="field">
+    </div>
+
+    <!-- 가맹신청일 -->
+    <div class="sec">
+      <div class="sec-h">📅 가맹신청일 <span class="hint">기본 오늘</span></div>
+      <input class="field-input" id="fApplyDate" type="date">
+    </div>
+
+    <!-- 거래처 담당자 -->
+    <div class="sec">
+      <div class="sec-h">📇 거래처 담당자 <span class="hint">현장 연락처</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="field"><div class="field-label">이름</div><input class="field-input" id="fContactName" type="text" placeholder="예: 박과장"></div>
+        <div class="field"><div class="field-label">직책</div><input class="field-input" id="fContactRole" type="text" placeholder="예: 점장 / 사장"></div>
+      </div>
+      <div class="field" style="margin-bottom:0">
         <div class="field-label">연락처</div>
         <input class="field-input" id="fContactPhone" type="tel" placeholder="010-0000-0000">
       </div>
     </div>
 
-    <!-- 작업 유형 -->
+    <!-- VAN 서류 진행 (4사) -->
     <div class="sec">
-      <div class="sec-h">🏷️ 작업 유형</div>
-      <div class="radio-row" id="fTypeRow">
-        <label class="radio-chip"><input type="radio" name="fType" value="신규/오픈"> 신규/오픈</label>
-        <label class="radio-chip"><input type="radio" name="fType" value="신규/프로그램교체"> 프로그램 교체</label>
-        <label class="radio-chip"><input type="radio" name="fType" value="신규/VAN변경"> VAN 변경</label>
-      </div>
+      <div class="sec-h">📡 VAN사 서류 진행 <span class="hint">4사 — 접수/진행/완료</span></div>
+      <div id="vanCardList"></div>
     </div>
 
-    <!-- 일정 -->
+    <!-- 간편결제 / 카카오페이 -->
     <div class="sec">
-      <div class="sec-h">📅 일정</div>
-      <div class="sched">
-        <div class="field"><div class="field-label">상담일</div><input class="field-input" id="fConsultDate" type="date"></div>
-        <div class="field"><div class="field-label">설치일</div><input class="field-input" id="fInstallDate" type="date"></div>
-        <div class="field"><div class="field-label">소프트오픈</div><input class="field-input" id="fSoftOpenDate" type="date"></div>
-        <div class="field"><div class="field-label">정식오픈</div><input class="field-input" id="fOpenDate" type="date"></div>
-      </div>
+      <div class="sec-h">📱 간편결제 · 카카오페이</div>
+      <div id="payCardList"></div>
     </div>
 
-    <!-- 장비 체크리스트 -->
+    <!-- 주소 -->
     <div class="sec">
-      <div class="sec-h">🖥️ 장비 체크리스트 <span class="hint">(수량 입력)</span></div>
-      <div class="eq-list" id="fEqList"></div>
+      <div class="sec-h">📍 주소</div>
+      <input class="field-input" id="fAddress" type="text" placeholder="가맹점 주소 (선택)">
     </div>
 
     <!-- 메모 -->
     <div class="sec">
-      <div class="sec-h">📝 메모</div>
-      <textarea class="field-textarea" id="fMemo" placeholder="추가 요청사항 / 현장 특이사항 등"></textarea>
+      <div class="sec-h">📝 비고</div>
+      <textarea class="field-textarea" id="fMemo" placeholder="특이사항·단말 위치·카드사 메모 등"></textarea>
     </div>
 
     <!-- LINE 체크 -->
@@ -343,9 +410,9 @@
 ─────────────────────────────────────────────────── -->
 <section class="view" id="view-thread">
   <div class="wrap">
-    <div class="sec" id="thHeader" style="background:#EFF6FF;border-color:#BFDBFE">
+    <div class="sec" id="thHeader" style="background:var(--van-light);border-color:var(--van-border)">
       <div style="font-size:11.5px;color:var(--gray-600);font-weight:700;margin-bottom:3px">매장</div>
-      <div id="thStoreName" style="font-size:16px;font-weight:800;color:#1E40AF">—</div>
+      <div id="thStoreName" style="font-size:16px;font-weight:800;color:var(--van-dark)">—</div>
       <div id="thType" style="font-size:11.5px;color:var(--gray-600);margin-top:5px"></div>
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-outline" style="flex:0;padding:7px 11px;font-size:12px" onclick="onEditJobFromThread()">✏️ 수정</button>
@@ -372,40 +439,53 @@
      BOTTOM NAV — 홈에서만 표시
 ─────────────────────────────────────────────────── -->
 <nav class="bottom-nav" id="bottomNav">
-  <button class="item active" onclick="location.hash='#home'"><span class="icn">🏠</span>홈</button>
+  <button class="item" onclick="location.hash='#home'"><span class="icn">🏠</span>홈</button>
   <a href="/?desktop=1" class="item"><span class="icn">📅</span>일정</a>
   <a href="/?desktop=1" class="item"><span class="icn">🏪</span>매장</a>
   <a href="/?desktop=1" class="item"><span class="icn">📡</span>LINE</a>
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js"></script>
+<script src="/m-core.js?v=2026-05-20-van"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
 ═══════════════════════════════════════════════════════════ */
-const EQUIPMENT = [
-  { key:'server',     name:'서버',          icon:'🖥️' },
-  { key:'pc',         name:'PC',            icon:'💻' },
-  { key:'pos',        name:'포스',          icon:'📟' },
-  { key:'kiosk',      name:'키오스크',      icon:'🪙' },
-  { key:'fixedScan',  name:'고정스캐너',    icon:'📡' },
-  { key:'handyTerm',  name:'핸디터미널',    icon:'📱' },
-  { key:'labelPrint', name:'라벨프린터',    icon:'🏷️' },
-  { key:'posDaiL',    name:'포스다이좌타',  icon:'🔧' },
-  { key:'posDaiR',    name:'포스다이우타',  icon:'🔧' },
-  { key:'checker',    name:'체크기',        icon:'✅' },
-  { key:'handyScan',  name:'핸디스캐너',    icon:'🛒' },
+const VAN_BRANDS = [
+  { key:'KOCES', name:'KOCES', em:'🅺', hasSerial:true  },
+  { key:'NICE',  name:'NICE',  em:'🅽', hasSerial:false },
+  { key:'KIS',   name:'KIS',   em:'🅸', hasSerial:false },
+  { key:'KSNET', name:'KSNET', em:'🆂', hasSerial:false },
 ];
+const PAY_BRANDS = [
+  { key:'easy',  name:'간편결제 TID', em:'📱' },
+  { key:'kakao', name:'카카오페이 TID', em:'🥝' },
+];
+const STATUS_OPTS = [
+  { v:'접수', cls:'req',  label:'📥 접수' },
+  { v:'진행', cls:'prog', label:'🔄 진행' },
+  { v:'완료', cls:'done', label:'✅ 완료' },
+];
+const VAN_SUB_META = {
+  'VAN/신규등록': { em:'💳', cls:'cat-new' },
+  'VAN/재신고':   { em:'🔁', cls:'cat-re' },
+  'VAN/정산':     { em:'💰', cls:'cat-settle' },
+  'VAN/계약':     { em:'📜', cls:'cat-contract' },
+  'VAN/변경':     { em:'✏️', cls:'cat-change' },
+};
 
 /* ════════════════════════════════════════════════════════════
    유틸
 ═══════════════════════════════════════════════════════════ */
-const esc = window.esc || (s => String(s||''));
+const esc = window.esc || (s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
 function $(id){ return document.getElementById(id); }
 function fmtDate(d){
   if (!d) return '';
   return String(d).slice(0, 10);
+}
+function todayKst(){
+  try { return (window._kstDateTimeStr() || '').slice(0,10); }
+  catch(_){ return new Date().toISOString().slice(0,10); }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -419,7 +499,6 @@ function parseHash(){
   if (h.startsWith('entry')) return { view:'entry' };
   if (h.startsWith('form/edit/')) return { view:'form', jobId:h.slice('form/edit/'.length) };
   if (h.startsWith('form')) {
-    // form?sub=xxx
     const q = h.split('?')[1] || '';
     const params = new URLSearchParams(q);
     return { view:'form', sub: params.get('sub') || '' };
@@ -431,12 +510,9 @@ function setView(name){
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   const el = $('view-' + name);
   if (el) el.classList.add('active');
-  // bottom nav 는 홈에서만
   $('bottomNav').style.display = (name === 'home') ? 'flex' : 'none';
-  // 뒤로 버튼 — 홈에선 숨김
   $('backBtn').style.display = (name === 'home') ? 'none' : 'flex';
-  // 타이틀
-  const titles = { home:'🏪 NeoRetail', entry:'🆕 신규 업무', form:'🆕 신규 등록', thread:'📋 요청·처리 기록' };
+  const titles = { home:'🏪 NeoRetail', entry:'💳 VAN 업무', form:'💳 VAN 등록', thread:'📋 VAN thread' };
   $('appTitle').textContent = titles[name] || 'NeoRetail';
   $('appBadge').style.display = 'none';
 }
@@ -460,7 +536,7 @@ window.addEventListener('hashchange', renderCurrentView);
 ═══════════════════════════════════════════════════════════ */
 function renderHome(){
   const jobs = getJobs();
-  const stk  = getStocktakes ? (getStocktakes() || []) : [];
+  const stk  = (typeof getStocktakes === 'function') ? (getStocktakes() || []) : [];
   const isDone = window._isJobDone;
   const cat = window.classifyJobCategory;
   const cnt = { new:0, as:0, van:0, supplies:0, stock:0 };
@@ -476,31 +552,48 @@ function renderHome(){
     const s = String(r.status||'');
     if (s !== '완료' && s !== '처리완료') cnt.stock++;
   });
-  function paint(id, sub, bdg, n){
+  function paint(sub, bdg, n){
     $(sub).textContent = n > 0 ? (n + '건 진행') : '진행 중 없음';
     const b = $(bdg);
     if (n > 0) { b.textContent = String(n); b.style.display = 'flex'; }
     else b.style.display = 'none';
   }
-  paint('new',      'cnt-sub-new', 'cnt-bdg-new', cnt.new);
-  paint('as',       'cnt-sub-as',  'cnt-bdg-as',  cnt.as);
-  paint('van',      'cnt-sub-van', 'cnt-bdg-van', cnt.van);
-  paint('supplies', 'cnt-sub-sup', 'cnt-bdg-sup', cnt.supplies);
-  paint('stock',    'cnt-sub-stk', 'cnt-bdg-stk', cnt.stock);
+  paint('cnt-sub-new', 'cnt-bdg-new', cnt.new);
+  paint('cnt-sub-as',  'cnt-bdg-as',  cnt.as);
+  paint('cnt-sub-van', 'cnt-bdg-van', cnt.van);
+  paint('cnt-sub-sup', 'cnt-bdg-sup', cnt.supplies);
+  paint('cnt-sub-stk', 'cnt-bdg-stk', cnt.stock);
 }
 
 /* ════════════════════════════════════════════════════════════
-   ENTRY — 진행 중 신규 업무 목록
+   ENTRY — vandocs 패널 + 진행 목록
 ═══════════════════════════════════════════════════════════ */
+window.onCopyVandocsUrl = async function(){
+  const url = `${location.origin}/vandocs.html`;
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('🔗 URL 복사됨: ' + url);
+  } catch(_){
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('🔗 URL 복사됨');
+  }
+};
+window.onBulkDownload = function(){
+  alert('📥 일괄 다운로드는 PC 버전에서 처리하세요.\n\n모바일은 R2 일괄 다운로드가 제한됩니다.\nPC → 📑 접수서류 패널 → ⬇ 일괄 다운로드를 사용하세요.');
+};
+
 function renderEntry(){
   const list = $('entryJobList');
   const jobs = getJobs();
   const cat = window.classifyJobCategory;
   const isDone = window._isJobDone;
-  const filtered = jobs.filter(j => cat(j) === 'new' && !isDone(j));
+  const filtered = jobs.filter(j => cat(j) === 'van' && !isDone(j));
   filtered.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
   if (!filtered.length) {
-    list.innerHTML = '<div class="empty">진행 중인 신규 업무가 없습니다.<br>위 카테고리에서 새 업무를 등록해보세요.</div>';
+    list.innerHTML = '<div class="empty">진행 중인 VAN 업무가 없습니다.<br>위 카테고리에서 새 업무를 등록해보세요.</div>';
     $('appBadge').style.display = 'none';
     return;
   }
@@ -512,113 +605,242 @@ function renderEntry(){
     let cls = 'prog';
     if (status === '요청접수' || status === '접수') cls = 'req';
     if (status === '완료' || status === '처리완료') cls = 'done';
-    const sched = j.installDate || j.softOpenDate || j.openDate || j.consultDate || '';
     const lastThread = Array.isArray(j.thread) && j.thread.length
                       ? j.thread.slice().sort((a,b)=>(b.ts||'').localeCompare(a.ts||''))[0]
                       : null;
     const summary = (lastThread && lastThread.text) || j.memo || '';
+    const tp = j.type || 'VAN';
+    const meta = VAN_SUB_META[tp] || { em:'💳', cls:'cat-new' };
+    // van strip (vandocs 의 4사 status)
+    const vd = j.vandocs && j.vandocs.vans || {};
+    const strip = VAN_BRANDS.map(b => {
+      const st = (vd[b.key] && vd[b.key].status) || '';
+      if (!st) return '';
+      const mk = st === '완료' ? '✓' : (st === '진행' ? '…' : '▫');
+      return `<span class="pill van">${esc(b.name)} ${mk}</span>`;
+    }).filter(Boolean).join('');
+    const applyD = j.franchiseApplyDate || j.date || '';
     return `
-    <div class="card ${cls}" onclick="location.hash='#thread/${esc(j.id)}'">
+    <div class="card van ${cls}" onclick="location.hash='#thread/${esc(j.id)}'">
       <div class="topline">
-        <div class="nm">${esc(j.storeName || j.store || '(미지정)')}</div>
+        <span class="pill ${meta.cls}">${meta.em} ${esc(tp)}</span>
         <span class="pill ${cls}">${esc(status)}</span>
       </div>
-      <div class="meta">${esc(j.type || '신규')}${sched ? ' · ' + fmtDate(sched) : ''}</div>
+      <div class="nm" style="margin-top:4px">${esc(j.storeName || j.store || '(미지정)')}</div>
+      <div class="meta">${applyD ? '신청 ' + fmtDate(applyD) + ' · ' : ''}${esc(j.contactName||'')}${j.contactRole?' '+esc(j.contactRole):''}</div>
       <div class="summary">${esc((summary||'').slice(0,80))}</div>
+      ${strip ? `<div class="strip">${strip}</div>` : ''}
     </div>
     `;
   }).join('');
 }
 
 /* ════════════════════════════════════════════════════════════
-   FORM — 신규 등록 / 편집
+   FORM — VAN 등록 / 편집
 ═══════════════════════════════════════════════════════════ */
-let _formStore = null;     // 선택된 매장 객체 (or null)
-let _formEquipment = {};   // { key: count }
-let _editingJob = null;    // 편집 모드면 job 객체
+let _formStore = null;
+let _editingJob = null;
+let _vandocsDraft = null;  // { vans: {KOCES:{status,tid,serial}, ...}, easy:{enabled,status,tid}, kakao:{enabled,status,tid} }
+
+function emptyVandocsDraft(){
+  const d = { vans:{}, easy:{enabled:false,status:'접수',tid:''}, kakao:{enabled:false,status:'접수',tid:''} };
+  VAN_BRANDS.forEach(b => {
+    d.vans[b.key] = { enabled:false, status:'접수', tid:'', serial:'' };
+  });
+  return d;
+}
 
 function renderForm(r){
   _formStore = null;
-  _formEquipment = {};
   _editingJob = null;
-  // 장비 행 그리기
-  buildEqList();
+  _vandocsDraft = emptyVandocsDraft();
+
   // 입력 초기화
-  ['fStoreSearch','fContactName','fContactPhone','fUnregName','fUnregBiz',
-   'fConsultDate','fInstallDate','fSoftOpenDate','fOpenDate','fMemo'].forEach(id => { const e=$(id); if (e) e.value=''; });
+  ['fStoreSearch','fContactName','fContactRole','fContactPhone',
+   'fUnregName','fUnregBiz','fAddress','fMemo'].forEach(id => { const e=$(id); if (e) e.value=''; });
   $('fUnregMode').checked = false;
   $('fUnregBox').style.display = 'none';
   $('fStorePicked').style.display = 'none';
   $('fStoreResults').style.display = 'none';
   $('fLineSend').checked = false;
   $('fDeleteBtn').style.display = 'none';
+  $('fApplyDate').value = todayKst();
   document.querySelectorAll('input[name="fType"]').forEach(rd => { rd.checked = false; });
   refreshTypeChips();
+
+  // VAN 4사 + 간편결제/카카오 카드 build
+  buildVanCardList();
+  buildPayCardList();
 
   // sub 사전 선택
   if (r.sub) {
     const rd = document.querySelector(`input[name="fType"][value="${r.sub}"]`);
     if (rd) { rd.checked = true; refreshTypeChips(); }
   }
+
   // edit 모드
   if (r.jobId) {
     const jobs = getJobs();
     const j = jobs.find(x => x.id === r.jobId);
     if (j) {
       _editingJob = j;
-      $('appTitle').textContent = '🆕 신규 수정';
+      $('appTitle').textContent = '💳 VAN 수정';
       $('fDeleteBtn').style.display = 'block';
-      // 채우기
       $('fStoreSearch').value = j.storeName || j.store || '';
       _formStore = { id:j.storeId, name:j.storeName || j.store, bizNo:j.bizNo };
       if (j.storeId) showPicked(_formStore);
-      $('fContactName').value = j.contactName || '';
+      $('fContactName').value  = j.contactName  || '';
+      $('fContactRole').value  = j.contactRole  || '';
       $('fContactPhone').value = j.contactPhone || '';
-      $('fConsultDate').value = fmtDate(j.consultDate);
-      $('fInstallDate').value = fmtDate(j.installDate);
-      $('fSoftOpenDate').value = fmtDate(j.softOpenDate);
-      $('fOpenDate').value = fmtDate(j.openDate);
-      $('fMemo').value = j.memo || '';
+      $('fAddress').value      = j.address      || '';
+      $('fMemo').value         = j.memo         || '';
+      $('fApplyDate').value    = fmtDate(j.franchiseApplyDate || j.date) || todayKst();
       const tv = j.type || '';
-      const rd = document.querySelector(`input[name="fType"][value="${tv}"]`);
-      if (rd) rd.checked = true;
+      const rd2 = document.querySelector(`input[name="fType"][value="${tv}"]`);
+      if (rd2) rd2.checked = true;
       refreshTypeChips();
-      if (j.equipment && typeof j.equipment === 'object') {
-        Object.assign(_formEquipment, j.equipment);
-        renderEqCounts();
+      // vandocs 복원
+      const vd = j.vandocs || {};
+      const vans = vd.vans || {};
+      VAN_BRANDS.forEach(b => {
+        const v = vans[b.key] || {};
+        const tid = v.tid || '';
+        const serial = v.serial || '';
+        const st = v.status || '접수';
+        const enabled = !!(tid || serial || v.enabled);
+        _vandocsDraft.vans[b.key] = { enabled, status:st, tid, serial };
+      });
+      // vanRegistration 호환 (PC 의 vans/pay 배열 구조)
+      if (j.vanRegistration && Array.isArray(j.vanRegistration.vans)) {
+        j.vanRegistration.vans.forEach(v => {
+          if (_vandocsDraft.vans[v.brand]) {
+            _vandocsDraft.vans[v.brand].enabled = true;
+            _vandocsDraft.vans[v.brand].tid    = v.tid    || _vandocsDraft.vans[v.brand].tid;
+            _vandocsDraft.vans[v.brand].serial = v.serial || _vandocsDraft.vans[v.brand].serial;
+          }
+        });
       }
+      // easy / kakao
+      if (vd.easy) {
+        _vandocsDraft.easy.enabled = !!(vd.easy.tid || vd.easy.enabled);
+        _vandocsDraft.easy.status  = vd.easy.status || '접수';
+        _vandocsDraft.easy.tid     = vd.easy.tid || '';
+      }
+      if (vd.kakao) {
+        _vandocsDraft.kakao.enabled = !!(vd.kakao.tid || vd.kakao.enabled);
+        _vandocsDraft.kakao.status  = vd.kakao.status || '접수';
+        _vandocsDraft.kakao.tid     = vd.kakao.tid || '';
+      }
+      if (j.vanRegistration && Array.isArray(j.vanRegistration.pay)) {
+        j.vanRegistration.pay.forEach(p => {
+          if (p.brand === '간편결제') { _vandocsDraft.easy.enabled = true; _vandocsDraft.easy.tid = p.tid || _vandocsDraft.easy.tid; }
+          if (p.brand === '카카오페이') { _vandocsDraft.kakao.enabled = true; _vandocsDraft.kakao.tid = p.tid || _vandocsDraft.kakao.tid; }
+        });
+      }
+      buildVanCardList();
+      buildPayCardList();
     }
   }
 }
 
-function buildEqList(){
-  $('fEqList').innerHTML = EQUIPMENT.map(eq => `
-    <div class="eq-row">
-      <div style="font-size:18px">${eq.icon}</div>
-      <div class="nm">${eq.name}</div>
-      <div class="eq-ctl">
-        <button class="eq-btn" onclick="eqDec('${eq.key}')">−</button>
-        <span class="eq-cnt" id="eq-cnt-${eq.key}">0</span>
-        <button class="eq-btn" onclick="eqInc('${eq.key}')">+</button>
+function buildVanCardList(){
+  $('vanCardList').innerHTML = VAN_BRANDS.map(b => {
+    const d = _vandocsDraft.vans[b.key];
+    const statusBtns = STATUS_OPTS.map(s => `
+      <button type="button" class="vsb ${d.status===s.v?'on '+s.cls:''}" data-brand="${b.key}" data-status="${s.v}">${s.label}</button>
+    `).join('');
+    return `
+      <div class="van-card ${d.enabled?'on':''}" data-brand="${b.key}">
+        <div class="vh">
+          <span class="em">${b.em}</span>
+          <span class="nm">${b.name}</span>
+          <span class="status-pill ${d.enabled ? (d.status==='완료'?'done':d.status==='진행'?'prog':'req') : ''}">${d.enabled ? esc(d.status) : '미사용'}</span>
+        </div>
+        <div class="vstatus-row">${statusBtns}</div>
+        <div class="vfields ${b.hasSerial?'':'one'}">
+          <div>
+            <div class="vfield-lbl">TID</div>
+            <input class="vfield-inp" type="text" data-brand="${b.key}" data-field="tid" placeholder="TID 번호" value="${esc(d.tid)}">
+          </div>
+          ${b.hasSerial ? `
+          <div>
+            <div class="vfield-lbl">Serial</div>
+            <input class="vfield-inp" type="text" data-brand="${b.key}" data-field="serial" placeholder="단말 시리얼" value="${esc(d.serial)}">
+          </div>
+          ` : ''}
+        </div>
       </div>
-    </div>
-  `).join('');
-  renderEqCounts();
-}
-function renderEqCounts(){
-  EQUIPMENT.forEach(eq => {
-    const el = $('eq-cnt-' + eq.key);
-    if (el) el.textContent = String(_formEquipment[eq.key] || 0);
+    `;
+  }).join('');
+
+  // 이벤트 바인딩
+  $('vanCardList').querySelectorAll('.vsb').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const brand = btn.dataset.brand;
+      const status = btn.dataset.status;
+      _vandocsDraft.vans[brand].status = status;
+      _vandocsDraft.vans[brand].enabled = true;
+      buildVanCardList(); // 재렌더 (값 보존됨)
+    });
+  });
+  $('vanCardList').querySelectorAll('.vfield-inp').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const brand = inp.dataset.brand;
+      const fld   = inp.dataset.field;
+      _vandocsDraft.vans[brand][fld] = inp.value;
+      // 값 입력 시 자동 enabled
+      if (inp.value.trim()) _vandocsDraft.vans[brand].enabled = true;
+      // 헤더 색 토글만 (재렌더는 비효율)
+      const card = inp.closest('.van-card');
+      if (card) card.classList.toggle('on', _vandocsDraft.vans[brand].enabled);
+    });
   });
 }
-window.eqInc = function(key){
-  _formEquipment[key] = (_formEquipment[key] || 0) + 1;
-  renderEqCounts();
-};
-window.eqDec = function(key){
-  _formEquipment[key] = Math.max(0, (_formEquipment[key] || 0) - 1);
-  renderEqCounts();
-};
+
+function buildPayCardList(){
+  $('payCardList').innerHTML = PAY_BRANDS.map(b => {
+    const d = _vandocsDraft[b.key];
+    const statusBtns = STATUS_OPTS.map(s => `
+      <button type="button" class="vsb ${d.status===s.v?'on '+s.cls:''}" data-payb="${b.key}" data-status="${s.v}">${s.label}</button>
+    `).join('');
+    return `
+      <div class="pay-card ${d.enabled?'on':''}" data-payb="${b.key}">
+        <div class="ph">
+          <span class="em">${b.em}</span>
+          <span class="nm">${b.name}</span>
+          <span class="status-pill ${d.enabled ? (d.status==='완료'?'done':d.status==='진행'?'prog':'req') : ''}">${d.enabled ? esc(d.status) : '미사용'}</span>
+        </div>
+        <div class="vstatus-row">${statusBtns}</div>
+        <div class="pfields">
+          <div>
+            <div class="vfield-lbl">TID</div>
+            <input class="vfield-inp" type="text" data-payb="${b.key}" data-field="tid" placeholder="TID 번호" value="${esc(d.tid)}">
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  $('payCardList').querySelectorAll('.vsb').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.payb;
+      const status = btn.dataset.status;
+      _vandocsDraft[key].status = status;
+      _vandocsDraft[key].enabled = true;
+      buildPayCardList();
+    });
+  });
+  $('payCardList').querySelectorAll('.vfield-inp').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const key = inp.dataset.payb;
+      const fld = inp.dataset.field;
+      _vandocsDraft[key][fld] = inp.value;
+      if (inp.value.trim()) _vandocsDraft[key].enabled = true;
+      const card = inp.closest('.pay-card');
+      if (card) card.classList.toggle('on', _vandocsDraft[key].enabled);
+    });
+  });
+}
 
 function refreshTypeChips(){
   document.querySelectorAll('#fTypeRow .radio-chip').forEach(lb => {
@@ -640,7 +862,7 @@ function doStoreSearch(){
   const q = ($('fStoreSearch').value || '').trim();
   const results = $('fStoreResults');
   if (q.length < 1) { results.style.display='none'; return; }
-  const stores = getStores ? (getStores() || []) : [];
+  const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
   const norm = window._normalizeSearch || (s => String(s||'').toLowerCase());
   const qn = norm(q);
   const hits = stores.filter(s => {
@@ -664,6 +886,26 @@ window.pickStore = function(s){
   $('fStoreSearch').value = s.name;
   $('fStoreResults').style.display = 'none';
   showPicked(s);
+  // store.vanProfile 의 기존 TID/serial 로 빈 칸 prefill
+  try {
+    const stores = getStores() || [];
+    const full = stores.find(x => x.id === s.id);
+    if (full && full.vanProfile) {
+      VAN_BRANDS.forEach(b => {
+        const vp = full.vanProfile[b.key];
+        if (vp) {
+          if (!_vandocsDraft.vans[b.key].tid && vp.tid) _vandocsDraft.vans[b.key].tid = vp.tid;
+          if (b.hasSerial && !_vandocsDraft.vans[b.key].serial && vp.serial) _vandocsDraft.vans[b.key].serial = vp.serial;
+        }
+      });
+      buildVanCardList();
+    }
+    if (full && full.payProfile) {
+      if (full.payProfile['간편결제'] && !_vandocsDraft.easy.tid) _vandocsDraft.easy.tid = full.payProfile['간편결제'].tid || '';
+      if (full.payProfile['카카오페이'] && !_vandocsDraft.kakao.tid) _vandocsDraft.kakao.tid = full.payProfile['카카오페이'].tid || '';
+      buildPayCardList();
+    }
+  } catch(_){}
 };
 function showPicked(s){
   if (!s) { $('fStorePicked').style.display='none'; return; }
@@ -701,6 +943,16 @@ window.onSaveForm = async function(){
   if (!typeRd) { showToast('⚠ 작업 유형을 선택하세요'); return; }
   const type = typeRd.value;
   const memo = ($('fMemo').value || '').trim();
+  const address = ($('fAddress').value || '').trim();
+  const applyDate = $('fApplyDate').value || todayKst();
+
+  // vandocs 정리 — TID/serial 있는 곳은 enabled true 로 강제
+  VAN_BRANDS.forEach(b => {
+    const v = _vandocsDraft.vans[b.key];
+    if ((v.tid && v.tid.trim()) || (b.hasSerial && v.serial && v.serial.trim())) v.enabled = true;
+  });
+  if (_vandocsDraft.easy.tid && _vandocsDraft.easy.tid.trim()) _vandocsDraft.easy.enabled = true;
+  if (_vandocsDraft.kakao.tid && _vandocsDraft.kakao.tid.trim()) _vandocsDraft.kakao.enabled = true;
 
   const jobs = getJobs();
   let job;
@@ -720,45 +972,111 @@ window.onSaveForm = async function(){
   if (storeId) job.storeId = storeId;
   if (bizNo)   job.bizNo = bizNo;
   job.type = type;
-  job.category = 'new';
-  job.lineCategory = 'open_store';
-  job.contactName  = ($('fContactName').value || '').trim();
+  job.category = 'van';
+  job.lineCategory = (type === 'VAN/변경') ? 'van_change' : 'van_doc';
+  job.contactName  = ($('fContactName').value  || '').trim();
+  job.contactRole  = ($('fContactRole').value  || '').trim();
   job.contactPhone = ($('fContactPhone').value || '').trim();
-  job.consultDate  = $('fConsultDate').value || '';
-  job.installDate  = $('fInstallDate').value || '';
-  job.softOpenDate = $('fSoftOpenDate').value || '';
-  job.openDate     = $('fOpenDate').value || '';
+  job.franchiseApplyDate = applyDate;
+  job.date = applyDate; // PC 호환
+  job.address = address;
   job.memo = memo;
-  job.equipment = Object.assign({}, _formEquipment);
+  // vandocs 본체 저장
+  job.vandocs = {
+    vans: {},
+    easy:  { status:_vandocsDraft.easy.status,  tid:_vandocsDraft.easy.tid.trim(),  enabled:_vandocsDraft.easy.enabled },
+    kakao: { status:_vandocsDraft.kakao.status, tid:_vandocsDraft.kakao.tid.trim(), enabled:_vandocsDraft.kakao.enabled },
+  };
+  // vanRegistration (PC 호환 배열 형태)
+  const vansArr = [];
+  VAN_BRANDS.forEach(b => {
+    const d = _vandocsDraft.vans[b.key];
+    job.vandocs.vans[b.key] = {
+      status: d.status,
+      tid: (d.tid||'').trim(),
+      serial: b.hasSerial ? (d.serial||'').trim() : '',
+      enabled: d.enabled,
+    };
+    if (d.enabled && (d.tid||'').trim()) {
+      const v = { brand: b.key, tid: d.tid.trim() };
+      if (b.hasSerial && (d.serial||'').trim()) v.serial = d.serial.trim();
+      vansArr.push(v);
+    }
+  });
+  const payArr = [];
+  if (_vandocsDraft.easy.enabled && _vandocsDraft.easy.tid.trim())   payArr.push({ brand:'간편결제',   tid:_vandocsDraft.easy.tid.trim() });
+  if (_vandocsDraft.kakao.enabled && _vandocsDraft.kakao.tid.trim()) payArr.push({ brand:'카카오페이', tid:_vandocsDraft.kakao.tid.trim() });
+  job.vanRegistration = { cardAcquire:{ applyDate, completeDate:'', note:'' }, vans:vansArr, pay:payArr };
+
   job.status = job.status || '요청접수';
   job.updatedAt = Date.now();
 
-  // 신규일 경우 array 에 push
   if (!_editingJob) {
+    // 등록 요약 ROOT 자동 생성
+    const parts = [type.replace('VAN/','')];
+    if (vansArr.length) parts.push('📡 ' + vansArr.map(v => v.brand + '(TID:' + v.tid + (v.serial?',SN:'+v.serial:'') + ')').join(', '));
+    if (payArr.length)  parts.push('📱 ' + payArr.map(p => p.brand + '(TID:' + p.tid + ')').join(', '));
+    const summary = parts.join(' · ');
+    const ts = window._kstNow ? window._kstNow() : (new Date()).toISOString().slice(0,16).replace('T',' ');
+    const me = window._currentAuthName ? window._currentAuthName() : '';
+    job.thread = [{
+      threadId: 'TR-' + Date.now() + '-' + Math.random().toString(36).slice(2,7),
+      parentId: null,
+      ts, author: me || '담당자',
+      status: '요청접수',
+      text: summary,
+    }];
     jobs.push(job);
   } else {
     const ix = jobs.findIndex(x => x.id === job.id);
     if (ix >= 0) jobs[ix] = job;
   }
   saveJobs(jobs);
+
+  // store.vanProfile / payProfile 누적
+  if (storeId && !unreg) {
+    try {
+      const stores = getStores() || [];
+      const sIdx = stores.findIndex(x => x.id === storeId);
+      if (sIdx >= 0) {
+        const s = stores[sIdx];
+        s.vanProfile = s.vanProfile || {};
+        vansArr.forEach(v => {
+          s.vanProfile[v.brand] = Object.assign({}, s.vanProfile[v.brand] || {}, {
+            tid: v.tid,
+            serial: v.serial || (s.vanProfile[v.brand] ? s.vanProfile[v.brand].serial : undefined),
+            updatedAt: Date.now(),
+            sourceJobId: job.id,
+          });
+        });
+        if (payArr.length) {
+          s.payProfile = s.payProfile || {};
+          payArr.forEach(p => {
+            s.payProfile[p.brand] = { tid: p.tid, updatedAt: Date.now(), sourceJobId: job.id };
+          });
+        }
+        stores[sIdx] = s;
+        if (typeof saveStores === 'function') saveStores(stores);
+      }
+    } catch(e) { console.warn('[m/van saveForm] vanProfile update', e); }
+  }
+
   // LINE 발송
   if ($('fLineSend').checked) {
-    try { window._openLineForJob(job); } catch(e){ console.warn(e); }
+    try { window._openLineForJob(job, { category:'van' }); } catch(e){ console.warn(e); }
   }
   showToast(_editingJob ? '✓ 수정 완료' : '✓ 등록 완료');
-  // 즉시 cloud push (디바운스 우회)
-  try { window.pushJobsToCloud(); } catch(_){}
-  // thread 뷰로
+  try { window.pushJobsToCloud && window.pushJobsToCloud(); } catch(_){}
   location.hash = '#thread/' + job.id;
 };
 
 window.onDeleteJob = function(){
   if (!_editingJob) return;
-  if (!confirm('이 업무를 삭제하시겠습니까?\n클라우드의 다른 기기에서도 사라집니다.')) return;
+  if (!confirm('이 VAN 업무를 삭제하시겠습니까?\n클라우드의 다른 기기에서도 사라집니다.')) return;
   const jobs = getJobs().filter(j => j.id !== _editingJob.id);
-  window._addTombstone('job', _editingJob.id);
+  if (window._addTombstone) window._addTombstone('job', _editingJob.id);
   saveJobs(jobs);
-  try { window.pushJobsToCloud(); } catch(_){}
+  try { window.pushJobsToCloud && window.pushJobsToCloud(); } catch(_){}
   showToast('🗑 삭제됨');
   location.hash = '#entry';
 };
@@ -777,8 +1095,8 @@ function renderThread(jobId){
     return;
   }
   $('thStoreName').textContent = j.storeName || j.store || '(미지정)';
-  const sched = j.installDate || j.openDate || j.softOpenDate || '';
-  $('thType').textContent = (j.type || '신규') + (sched ? ' · ' + fmtDate(sched) : '');
+  const applyD = j.franchiseApplyDate || j.date || '';
+  $('thType').textContent = (j.type || 'VAN') + (applyD ? ' · 신청 ' + fmtDate(applyD) : '') + (j.contactName?' · '+j.contactName:'');
   $('thNewRoot').value = '';
   $('thNewRootLine').checked = false;
   renderThreadGroupsMobile(j);
@@ -851,7 +1169,6 @@ function renderThreadGroupsMobile(j){
   }).join('');
   $('thGroups').innerHTML = out || '<div class="empty">아직 등록된 요청이 없습니다.<br>위에서 새 요청을 등록하세요.</div>';
 
-  // radio chip on/off
   document.querySelectorAll('#thGroups input[type="radio"]').forEach(rd => {
     rd.addEventListener('change', () => {
       const grp = rd.name;
@@ -888,10 +1205,10 @@ window.onAddRoot = function(){
   jobs[ix] = j;
   saveJobs(jobs);
   if ($('thNewRootLine').checked) {
-    try { window._openLineForJob(j, { entry }); } catch(_){}
+    try { window._openLineForJob(j, { entry, category:'van' }); } catch(_){}
   }
   showToast('✓ 등록');
-  try { window.pushJobsToCloud(); } catch(_){}
+  try { window.pushJobsToCloud && window.pushJobsToCloud(); } catch(_){}
   renderThread(_currentJobId);
 };
 
@@ -914,9 +1231,7 @@ window.onAddChild = function(rootId){
   j.thread = Array.isArray(j.thread) ? j.thread : [];
   j.thread.push(entry);
   j.thread = window._threadMigrate(j.thread);
-  // 완료면 job 자체도 완료 처리할 수 있게 — 다른 root 가 미완료면 진행중 유지
   if (status === '완료') {
-    // 그룹별 상태 재계산
     const roots = j.thread.filter(e => e.parentId === null);
     const childrenByRoot = new Map();
     for (const e of j.thread) if (e.parentId) {
@@ -937,10 +1252,10 @@ window.onAddChild = function(rootId){
   jobs[ix] = j;
   saveJobs(jobs);
   if ($('ch_line_' + rootId).checked) {
-    try { window._openLineForJob(j, { entry }); } catch(_){}
+    try { window._openLineForJob(j, { entry, category:'van' }); } catch(_){}
   }
   showToast('✓ 추가');
-  try { window.pushJobsToCloud(); } catch(_){}
+  try { window.pushJobsToCloud && window.pushJobsToCloud(); } catch(_){}
   renderThread(_currentJobId);
 };
 
@@ -951,11 +1266,11 @@ window.onDelChild = function(threadId){
   if (ix < 0) return;
   const j = jobs[ix];
   j.thread = (j.thread || []).filter(e => e.threadId !== threadId);
-  window._addTombstone('thread', threadId, _currentJobId);
+  if (window._addTombstone) window._addTombstone('thread', threadId, _currentJobId);
   j.updatedAt = Date.now();
   jobs[ix] = j;
   saveJobs(jobs);
-  try { window.pushJobsToCloud(); } catch(_){}
+  try { window.pushJobsToCloud && window.pushJobsToCloud(); } catch(_){}
   renderThread(_currentJobId);
 };
 
@@ -966,12 +1281,14 @@ window.onDelRoot = function(rootId){
   if (ix < 0) return;
   const j = jobs[ix];
   j.thread = (j.thread || []).filter(e => e.threadId !== rootId && e.parentId !== rootId);
-  window._addTombstone('thread', rootId, _currentJobId);
-  window._addTombstone('thread-children', rootId, _currentJobId);
+  if (window._addTombstone) {
+    window._addTombstone('thread', rootId, _currentJobId);
+    window._addTombstone('thread-children', rootId, _currentJobId);
+  }
   j.updatedAt = Date.now();
   jobs[ix] = j;
   saveJobs(jobs);
-  try { window.pushJobsToCloud(); } catch(_){}
+  try { window.pushJobsToCloud && window.pushJobsToCloud(); } catch(_){}
   renderThread(_currentJobId);
 };
 
@@ -982,28 +1299,23 @@ window.onLineSendJob = function(){
   if (!_currentJobId) return;
   const jobs = getJobs();
   const j = jobs.find(x => x.id === _currentJobId);
-  if (j) window._openLineForJob(j);
+  if (j) window._openLineForJob(j, { category:'van' });
 };
 
 /* ════════════════════════════════════════════════════════════
    초기 로드: cloud sync → render → 이벤트 바인딩
 ═══════════════════════════════════════════════════════════ */
 (async function init(){
-  // 매장 검색 이벤트
   $('fStoreSearch').addEventListener('input', onStoreSearchInput);
   $('fStoreSearch').addEventListener('focus', onStoreSearchInput);
-  // cloud sync
   try { await Promise.all([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
-  // 라우팅
-  if (!location.hash) location.hash = '#home';
+  if (!location.hash) location.hash = '#entry'; // VAN 진입은 entry 직행
   renderCurrentView();
-  // 데이터 변경 자동 갱신 (다른 탭/PC 와 동기화 — 30초 polling)
   setInterval(async () => {
     if (document.visibilityState !== 'visible') return;
     try { await Promise.all([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
     renderCurrentView();
   }, 30000);
-  // 다른 탭 storage 이벤트
   window.addEventListener('storage', e => {
     if (e.key === 'ns_jobs' || e.key === 'ns_stores') {
       renderCurrentView();
