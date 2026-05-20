@@ -323,13 +323,24 @@
         <div class="hd">📝 임시 매장 정보</div>
         <div class="grid2">
           <div>
-            <div class="field-label" style="font-size:10px;color:#92400E;margin-bottom:3px">상호명</div>
+            <div class="field-label" style="font-size:10px;color:#92400E;margin-bottom:3px">상호명 <span style="color:#DC2626">*</span></div>
             <input class="field-input" id="fUnregName" type="text" placeholder="매장명">
           </div>
           <div>
             <div class="field-label" style="font-size:10px;color:#92400E;margin-bottom:3px">사업자번호</div>
-            <input class="field-input" id="fUnregBiz" type="text" placeholder="000-00-00000">
+            <input class="field-input" id="fUnregBiz" type="text" placeholder="000-00-00000" inputmode="numeric">
           </div>
+        </div>
+        <div style="margin-top:8px">
+          <div class="field-label" style="font-size:10px;color:#92400E;margin-bottom:3px">주소</div>
+          <input class="field-input" id="fUnregAddr" type="text" placeholder="서울특별시 ...">
+        </div>
+        <button type="button" id="fUnregPromoteBtn" onclick="onPromoteUnregStore()"
+          style="margin-top:10px;width:100%;padding:11px;background:#16A34A;color:#fff;border:none;border-radius:9px;font-size:13.5px;font-weight:800;cursor:pointer">
+          ⭐ 정식 매장으로 등록
+        </button>
+        <div style="font-size:10.5px;color:#92400E;margin-top:6px;line-height:1.45">
+          ※ 정식 등록하면 매장 DB 에 즉시 반영되어 다음부터 매장 검색에서 바로 찾을 수 있습니다.
         </div>
       </div>
     </div>
@@ -446,7 +457,7 @@
   <a class="item" href="/?desktop=1"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-as-3"></script>
+<script src="/m-core.js?v=2026-05-20-as-4"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -690,7 +701,7 @@ function renderForm(r){
   document.querySelectorAll('#fCondRow .cond-chip').forEach(x => x.classList.toggle('on', x.dataset.c === 'new'));
 
   // 초기화
-  ['fStoreSearch','fContactName','fContactRole','fContactPhone','fUnregName','fUnregBiz',
+  ['fStoreSearch','fContactName','fContactRole','fContactPhone','fUnregName','fUnregBiz','fUnregAddr',
    'fAsReceivedAt','fAsDueDate','fAsDueTime','fAsRequest','fMemo'].forEach(id => { const e=$(id); if (e) e.value=''; });
   ['fAsTargetVAN','fAsTargetPOS','fAsTargetKIO','fAsTargetETC'].forEach(id => { const e=$(id); if (e) e.checked=false; });
   $('fUnregMode').checked = false;
@@ -919,6 +930,47 @@ window.onUnregToggle = function(){
     _mergeTargetJob = null;
     $('fStorePicked').style.display='none';
     $('fMergeNotice').style.display='none';
+  }
+};
+
+// 미등록 → 정식 매장 등록 (KV 즉시 반영)
+window.onPromoteUnregStore = async function(){
+  const name = ($('fUnregName').value || '').trim();
+  const biz  = ($('fUnregBiz').value || '').trim();
+  const addr = ($('fUnregAddr').value || '').trim();
+  if (!name) { showToast('⚠ 매장명을 입력하세요'); $('fUnregName').focus(); return; }
+  if (!confirm(`다음 매장을 정식 등록할까요?\n\n매장명: ${name}\n사업자번호: ${biz||'(미입력)'}\n주소: ${addr||'(미입력)'}\n\n등록 후 매장 DB 에서 검색 가능합니다.`)) return;
+  const btn = $('fUnregPromoteBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 등록 중...';
+  try {
+    const res = await window.registerStoreAsOfficial({ name, biz, addr });
+    if (res.ok) {
+      showToast(`⭐ ${name} 정식 등록 완료`);
+      // 미등록 모드 해제 후 등록된 매장으로 자동 선택
+      $('fUnregMode').checked = false;
+      $('fUnregBox').style.display = 'none';
+      $('fStoreSearch').value = res.store.name;
+      _formStore = { id: res.store.id, name: res.store.name, bizNo: res.store.biz || '' };
+      showPicked(_formStore);
+      checkMergeTarget();
+    } else if (res.store) {
+      // 중복 — 그 매장으로 자동 선택
+      showToast('ℹ️ ' + (res.error || '이미 등록된 매장 — 자동 선택'));
+      $('fUnregMode').checked = false;
+      $('fUnregBox').style.display = 'none';
+      $('fStoreSearch').value = res.store.name;
+      _formStore = { id: res.store.id, name: res.store.name, bizNo: res.store.biz || res.store.bizNo || '' };
+      showPicked(_formStore);
+      checkMergeTarget();
+    } else {
+      showToast('⚠ ' + (res.error || '등록 실패'));
+    }
+  } catch(e) {
+    showToast('⚠ 등록 실패: ' + String(e));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⭐ 정식 매장으로 등록';
   }
 };
 

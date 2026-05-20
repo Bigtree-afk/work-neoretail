@@ -123,6 +123,55 @@
     } catch(e) { /* 네트워크 실패 무시 */ }
   }
 
+  // 미등록 가맹점 → 정식 매장으로 KV 등록 (PC pushStoresToCloud 와 동일 /api/sync POST)
+  // 반환: { ok, store, error? }
+  async function registerStoreAsOfficial({ name, biz, addr, ceo, tel }) {
+    name = String(name||'').trim();
+    if (!name) return { ok:false, error:'매장명 필수' };
+    const bizDigits = String(biz||'').replace(/\D/g,'');
+    const local = getStores() || [];
+    // 중복 체크 — 같은 사업자번호 또는 같은 이름 + 주소
+    const dupe = local.find(s => {
+      const sb = String(s.biz || s.bizNo || s.bizno || '').replace(/\D/g,'');
+      if (bizDigits && sb && bizDigits === sb) return true;
+      if ((s.name||'') === name && (s.addr||'') === (addr||'')) return true;
+      return false;
+    });
+    if (dupe) return { ok:false, error:'이미 등록된 매장입니다', store:dupe };
+
+    const id = 'EC-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,5).toUpperCase();
+    const newStore = {
+      id,
+      name,
+      biz: biz || '',
+      addr: addr || '',
+      ceo: ceo || '',
+      tel: tel || '',
+      pos: '0',
+      status: '거래중',
+      createdAt: Date.now(),
+      storeRegDate: new Date().toISOString().slice(0,10),
+      _origin: 'mobile-unreg-promote',
+    };
+    const next = [...local, newStore];
+    saveStores(next);
+    // 클라우드 sync (PC pushStoresToCloud 와 같은 엔드포인트)
+    try {
+      const res = await fetch('/api/sync', {
+        method:'POST',
+        headers:{ 'content-type':'application/json' },
+        body: JSON.stringify({ stores: next, source:'mobile-spa' }),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(()=>'')
+        return { ok:false, error:`서버 응답 ${res.status}: ${txt.slice(0,80)}`, store:newStore };
+      }
+    } catch(e) {
+      return { ok:false, error:'네트워크 실패 — 로컬에는 저장됨, 추후 자동 동기화', store:newStore };
+    }
+    return { ok:true, store:newStore };
+  }
+
   // ── STOCKTAKE — index.html L5923 (키: ns_stocktake 단수) ────
   function getStocktakes() {
     try { return JSON.parse(localStorage.getItem('ns_stocktake') || '[]'); } catch { return []; }
@@ -834,6 +883,7 @@
   global.getStores = getStores;
   global.saveStores = saveStores;
   global.syncStoresFromCloud = syncStoresFromCloud;
+  global.registerStoreAsOfficial = registerStoreAsOfficial;
   global.getUsers = getUsers;
   global.scheduleAutoBackup = scheduleAutoBackup;
 
