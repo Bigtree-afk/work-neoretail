@@ -122,6 +122,27 @@
   .eq-btn:active{background:#EFF6FF}
   .eq-btn:disabled{color:var(--gray-300)}
   .eq-cnt{min-width:22px;text-align:center;font-weight:800;font-size:14px}
+  /* dual counter row — 포스다이 좌타·우타 한 row */
+  .eq-row.dual .nm{flex:0 0 auto}
+  .eq-row.dual .dual-grp{display:flex;gap:4px;align-items:center;font-size:11px;color:var(--gray-500);font-weight:700}
+  .eq-row.dual .dual-grp + .dual-grp{margin-left:6px}
+  .eq-row.dual .eq-ctl{padding:1px 3px}
+  .eq-row.dual .eq-btn{width:22px;height:22px;font-size:15px}
+  .eq-row.dual .eq-cnt{min-width:18px;font-size:12.5px}
+  /* 접기/펼치기 */
+  .sec.collapsible > .sec-h{cursor:pointer;user-select:none;margin-bottom:0;padding:2px 0}
+  .sec.collapsible > .sec-h .chev{margin-left:auto;font-size:13px;color:var(--gray-400);transition:transform .15s}
+  .sec.collapsible.open > .sec-h .chev{transform:rotate(180deg)}
+  .sec.collapsible > .sec-body{display:none;margin-top:10px}
+  .sec.collapsible.open > .sec-body{display:block}
+  .sec.collapsible > .sec-h .summary{margin-left:auto;font-size:11px;color:var(--gray-500);font-weight:600;background:var(--gray-100);padding:2px 8px;border-radius:10px}
+  .sec.collapsible.open > .sec-h .summary{display:none}
+  /* 신품/중고 라디오 */
+  .cond-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px}
+  .cond-chip{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:10px;font-size:13.5px;font-weight:700;color:var(--gray-600);cursor:pointer}
+  .cond-chip input{display:none}
+  .cond-chip.on[data-c="new"]{background:#EFF6FF;border-color:#3B82F6;color:#1E40AF}
+  .cond-chip.on[data-c="used"]{background:#FFFBEB;border-color:#F59E0B;color:#92400E}
 
   /* LINE 체크박스 */
   .line-check{display:flex;align-items:center;gap:8px;padding:11px 13px;background:var(--line-light);border:1.5px solid #BBF7D0;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;color:#04A047}
@@ -312,27 +333,50 @@
       </div>
     </div>
 
-    <!-- 일정 -->
+    <!-- 일정 — 상담일은 hidden(저장 시 오늘 자동 기록) -->
+    <input type="hidden" id="fConsultDate" value="">
     <div class="sec">
       <div class="sec-h">📅 일정</div>
       <div class="sched">
-        <div class="field"><div class="field-label">상담일</div><input class="field-input" id="fConsultDate" type="date"></div>
         <div class="field"><div class="field-label">설치일</div><input class="field-input" id="fInstallDate" type="date"></div>
-        <div class="field"><div class="field-label">소프트오픈</div><input class="field-input" id="fSoftOpenDate" type="date"></div>
+        <div class="field"><div class="field-label">가오픈</div><input class="field-input" id="fSoftOpenDate" type="date"></div>
         <div class="field"><div class="field-label">정식오픈</div><input class="field-input" id="fOpenDate" type="date"></div>
       </div>
     </div>
 
-    <!-- 장비 체크리스트 -->
+    <!-- 요청접수 — 신규 등록 시 요구사항. 저장 시 thread 첫 ROOT 로 기록 + LINE 발송 가능 -->
     <div class="sec">
-      <div class="sec-h">🖥️ 장비 체크리스트 <span class="hint">(수량 입력)</span></div>
-      <div class="eq-list" id="fEqList"></div>
+      <div class="sec-h">📥 요청접수 <span class="hint">· 신규 등록 시 요구사항</span></div>
+      <textarea class="field-textarea" id="fRequest" placeholder="신규 매장에서 요청한 내용을 입력하세요&#10;예: POS 2대 + 키오스크 1대 견적 요청, 가오픈 5/20"></textarea>
     </div>
 
-    <!-- 메모 -->
+    <!-- 설치할 장비 목록 — 평상시 접힘, 헤더 탭하면 펼침. 신품/중고 라디오 후 장비 카운터 -->
+    <div class="sec collapsible" id="fEqSec">
+      <div class="sec-h" onclick="toggleEqSec()">
+        🖥️ 설치할 장비 목록
+        <span class="hint">· 필요할 때만 펼치기</span>
+        <span class="summary" id="fEqSummary">없음</span>
+        <span class="chev">▼</span>
+      </div>
+      <div class="sec-body">
+        <!-- 신품 / 중고 토글 -->
+        <div class="cond-row" id="fCondRow">
+          <label class="cond-chip on" data-c="new"><input type="radio" name="fCond" value="new" checked>🆕 신품</label>
+          <label class="cond-chip" data-c="used"><input type="radio" name="fCond" value="used">♻️ 중고</label>
+        </div>
+        <div class="eq-list" id="fEqList"></div>
+        <!-- 장비 관련 추가 요청사항 -->
+        <div class="field" style="margin-top:11px;margin-bottom:0">
+          <div class="field-label">🛠 장비 관련 추가 요청사항</div>
+          <textarea class="field-textarea" id="fEqMemo" placeholder="장비 사양·옵션·구성 등 특이사항"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- 매장 특이사항 -->
     <div class="sec">
-      <div class="sec-h">📝 메모</div>
-      <textarea class="field-textarea" id="fMemo" placeholder="추가 요청사항 / 현장 특이사항 등"></textarea>
+      <div class="sec-h">🏪 매장 특이사항 <span class="hint">· 메모</span></div>
+      <textarea class="field-textarea" id="fMemo" placeholder="매장 위치·접근성·운영 시간·기타 특이사항"></textarea>
     </div>
 
     <!-- LINE 체크 -->
@@ -390,7 +434,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-20-newjob-3"></script>
+<script src="/m-core.js?v=2026-05-20-newjob-4"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -403,8 +447,11 @@ const EQUIPMENT = [
   { key:'fixedScan',  name:'고정스캐너',    icon:'📡' },
   { key:'handyTerm',  name:'핸디터미널',    icon:'📱' },
   { key:'labelPrint', name:'라벨프린터',    icon:'🏷️' },
-  { key:'posDaiL',    name:'포스다이좌타',  icon:'🔧' },
-  { key:'posDaiR',    name:'포스다이우타',  icon:'🔧' },
+  // 포스다이 — 좌타 / 우타 한 row 에서 동시 입력 (dual counter)
+  { key:'posDai',     name:'포스다이',      icon:'🔧', dual:[
+      { key:'posDaiL', label:'좌타' },
+      { key:'posDaiR', label:'우타' },
+  ]},
   { key:'checker',    name:'체크기',        icon:'✅' },
   { key:'handyScan',  name:'핸디스캐너',    icon:'🛒' },
 ];
@@ -546,23 +593,32 @@ function renderEntry(){
 ═══════════════════════════════════════════════════════════ */
 let _formStore = null;     // 선택된 매장 객체 (or null)
 let _formEquipment = {};   // { key: count }
+let _formEquipCondition = 'new'; // 'new' | 'used' — 모든 장비 공통
 let _editingJob = null;    // 편집 모드면 job 객체
 
 function renderForm(r){
   _formStore = null;
   _formEquipment = {};
+  _formEquipCondition = 'new';
   _editingJob = null;
   // 장비 행 그리기
   buildEqList();
+  bindCondRow();
   // 입력 초기화
   ['fStoreSearch','fContactName','fContactPhone','fUnregName','fUnregBiz','fUnregAddr',
-   'fConsultDate','fInstallDate','fSoftOpenDate','fOpenDate','fMemo'].forEach(id => { const e=$(id); if (e) e.value=''; });
+   'fConsultDate','fInstallDate','fSoftOpenDate','fOpenDate','fMemo','fRequest','fEqMemo'].forEach(id => { const e=$(id); if (e) e.value=''; });
   $('fUnregMode').checked = false;
   $('fUnregBox').style.display = 'none';
   $('fStorePicked').style.display = 'none';
   $('fStoreResults').style.display = 'none';
-  $('fLineSend').checked = false;
+  $('fLineSend').checked = true; // 신규 등록 기본 ON (요청접수 + 장비 메시지 자동 발송)
   $('fDeleteBtn').style.display = 'none';
+  // 장비 섹션 — 기본 접힘, 신품 선택
+  const eqSec = document.getElementById('fEqSec');
+  if (eqSec) eqSec.classList.remove('open');
+  const rdNew = document.querySelector('#fCondRow input[value="new"]');
+  if (rdNew) rdNew.checked = true;
+  document.querySelectorAll('#fCondRow .cond-chip').forEach(x => x.classList.toggle('on', x.dataset.c === 'new'));
   document.querySelectorAll('input[name="fType"]').forEach(rd => { rd.checked = false; });
   refreshTypeChips();
 
@@ -590,6 +646,10 @@ function renderForm(r){
       $('fSoftOpenDate').value = fmtDate(j.softOpenDate);
       $('fOpenDate').value = fmtDate(j.openDate);
       $('fMemo').value = j.memo || '';
+      $('fEqMemo').value = j.equipmentMemo || j.eqMemo || '';
+      // 요청접수 원문이 thread 첫 ROOT 에 시드된 경우 그대로 보여줌 (편집은 thread 에서만)
+      $('fRequest').value = j.initialRequest || '';
+      $('fLineSend').checked = false; // 편집 모드 기본 OFF
       const tv = j.type || '';
       const rd = document.querySelector(`input[name="fType"][value="${tv}"]`);
       if (rd) rd.checked = true;
@@ -598,13 +658,43 @@ function renderForm(r){
         Object.assign(_formEquipment, j.equipment);
         renderEqCounts();
       }
+      // condition 복원 — job.equipCondition 또는 첫 equipment[*].condition
+      let cond = j.equipCondition;
+      if (!cond && Array.isArray(j.equipmentList)) {
+        const first = j.equipmentList.find(e => e && e.condition);
+        if (first) cond = first.condition;
+      }
+      _formEquipCondition = (cond === 'used') ? 'used' : 'new';
+      document.querySelectorAll('#fCondRow .cond-chip').forEach(x => x.classList.toggle('on', x.dataset.c === _formEquipCondition));
+      const rdC = document.querySelector(`#fCondRow input[value="${_formEquipCondition}"]`);
+      if (rdC) rdC.checked = true;
+      // 장비 있으면 자동 펼침
+      const totalCount = _eqAllKeys().reduce((s,k) => s + (_formEquipment[k.key]||0), 0);
+      if (totalCount > 0) document.getElementById('fEqSec').classList.add('open');
     }
   }
 }
 
 function buildEqList(){
-  $('fEqList').innerHTML = EQUIPMENT.map(eq => `
-    <div class="eq-row">
+  $('fEqList').innerHTML = EQUIPMENT.map(eq => {
+    if (Array.isArray(eq.dual)) {
+      // 포스다이 좌·우 한 row
+      const ctls = eq.dual.map(sub => `
+        <div class="dual-grp">${sub.label}
+          <div class="eq-ctl">
+            <button class="eq-btn" onclick="eqDec('${sub.key}')">−</button>
+            <span class="eq-cnt" id="eq-cnt-${sub.key}">0</span>
+            <button class="eq-btn" onclick="eqInc('${sub.key}')">+</button>
+          </div>
+        </div>`).join('');
+      return `<div class="eq-row dual">
+        <div style="font-size:18px">${eq.icon}</div>
+        <div class="nm">${eq.name}</div>
+        <div style="flex:1"></div>
+        ${ctls}
+      </div>`;
+    }
+    return `<div class="eq-row">
       <div style="font-size:18px">${eq.icon}</div>
       <div class="nm">${eq.name}</div>
       <div class="eq-ctl">
@@ -612,14 +702,44 @@ function buildEqList(){
         <span class="eq-cnt" id="eq-cnt-${eq.key}">0</span>
         <button class="eq-btn" onclick="eqInc('${eq.key}')">+</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
   renderEqCounts();
 }
-function renderEqCounts(){
+// 모든 단말 key 평면화 (dual 의 sub.key 포함) — count 표시·총합·저장 매핑에서 사용
+function _eqAllKeys(){
+  const arr = [];
   EQUIPMENT.forEach(eq => {
-    const el = $('eq-cnt-' + eq.key);
-    if (el) el.textContent = String(_formEquipment[eq.key] || 0);
+    if (Array.isArray(eq.dual)) eq.dual.forEach(sub => arr.push({ key:sub.key, name:eq.name+' '+sub.label }));
+    else arr.push({ key:eq.key, name:eq.name });
+  });
+  return arr;
+}
+function renderEqCounts(){
+  let totalCount = 0;
+  _eqAllKeys().forEach(k => {
+    const c = _formEquipment[k.key] || 0;
+    totalCount += c;
+    const el = $('eq-cnt-' + k.key);
+    if (el) el.textContent = String(c);
+  });
+  const summary = document.getElementById('fEqSummary');
+  if (summary) summary.textContent = totalCount > 0 ? `${totalCount}건` : '없음';
+}
+// 접기/펼치기 + 신품/중고
+window.toggleEqSec = function(){
+  const sec = document.getElementById('fEqSec');
+  if (sec) sec.classList.toggle('open');
+};
+function bindCondRow(){
+  document.querySelectorAll('#fCondRow .cond-chip').forEach(lb => {
+    const rd = lb.querySelector('input');
+    if (!rd) return;
+    rd.addEventListener('change', () => {
+      _formEquipCondition = rd.value === 'used' ? 'used' : 'new';
+      document.querySelectorAll('#fCondRow .cond-chip').forEach(x => x.classList.remove('on'));
+      lb.classList.add('on');
+    });
   });
 }
 window.eqInc = function(key){
@@ -787,6 +907,8 @@ window.onSaveForm = async function(){
   if (!typeRd) { showToast('⚠ 작업 유형을 선택하세요'); return; }
   const type = typeRd.value;
   const memo = ($('fMemo').value || '').trim();
+  const requestText = ($('fRequest').value || '').trim();
+  const eqMemo = ($('fEqMemo').value || '').trim();
 
   const jobs = getJobs();
   let job;
@@ -810,16 +932,35 @@ window.onSaveForm = async function(){
   job.lineCategory = 'open_store';
   job.contactName  = ($('fContactName').value || '').trim();
   job.contactPhone = ($('fContactPhone').value || '').trim();
-  job.consultDate  = $('fConsultDate').value || '';
+  // 상담일은 폼에 노출 X — 신규 등록 시 오늘 자동 기록 (수정 시 기존 값 보존)
+  if (!_editingJob && !job.consultDate) {
+    job.consultDate = (window._kstNow ? window._kstNow().toISOString() : new Date().toISOString()).slice(0,10);
+  } else {
+    job.consultDate = $('fConsultDate').value || job.consultDate || '';
+  }
   job.installDate  = $('fInstallDate').value || '';
   job.softOpenDate = $('fSoftOpenDate').value || '';
   job.openDate     = $('fOpenDate').value || '';
   job.memo = memo;
   job.equipment = Object.assign({}, _formEquipment);
+  job.equipCondition = _formEquipCondition;
+  job.equipmentMemo = eqMemo;
+  if (!_editingJob && requestText) job.initialRequest = requestText;
   job.status = job.status || '요청접수';
   job.updatedAt = Date.now();
 
-  // 신규일 경우 array 에 push
+  // 신규 등록 + 요청접수 텍스트 입력 → thread 첫 ROOT 시드
+  if (!_editingJob && requestText) {
+    const ts = window._kstDateTimeStr ? window._kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' ');
+    const author = (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자';
+    const root = {
+      ts, author, status:'요청접수', text: requestText,
+      threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+      parentId: null,
+    };
+    job.thread = (window._threadMigrate ? window._threadMigrate([root]) : [root]);
+  }
+
   if (!_editingJob) {
     jobs.push(job);
   } else {
@@ -827,14 +968,26 @@ window.onSaveForm = async function(){
     if (ix >= 0) jobs[ix] = job;
   }
   saveJobs(jobs);
-  // LINE 발송
-  if ($('fLineSend').checked) {
-    try { window._openLineForJob(job); } catch(e){ console.warn(e); }
-  }
   showToast(_editingJob ? '✓ 수정 완료' : '✓ 등록 완료');
-  // 즉시 cloud push (디바운스 우회)
   try { window.pushJobsToCloud(); } catch(_){}
-  // thread 뷰로
+
+  // LINE 발송 — 신규 등록 시 요청접수 + 설치 장비 목록을 메시지에 포함
+  if ($('fLineSend').checked) {
+    try {
+      // _openLineForJob 의 opts 로 전달할 추가 prefix 텍스트 빌드
+      const eqLines = [];
+      _eqAllKeys().forEach(k => {
+        const c = _formEquipment[k.key] || 0;
+        if (c > 0) eqLines.push(`• ${k.name} ${c}대`);
+      });
+      const condLabel = _formEquipCondition === 'used' ? '♻️ 중고' : '🆕 신품';
+      let extraPrefix = '';
+      if (requestText)  extraPrefix += `📥 요청접수\n${requestText}\n\n`;
+      if (eqLines.length) extraPrefix += `🖥 설치 요청 장비 (${condLabel})\n${eqLines.join('\n')}\n`;
+      if (eqMemo)       extraPrefix += (eqLines.length ? '' : '\n') + `🛠 장비 추가 요청: ${eqMemo}\n`;
+      window._openLineForJob(job, { extraPrefix });
+    } catch(e){ console.warn(e); }
+  }
   location.hash = '#thread/' + job.id;
 };
 

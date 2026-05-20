@@ -834,7 +834,11 @@
       owner: job.owner || job.engineer || job.assignee || '',
       memo: headContent,
     });
-    const defaultText = _buildEnrichedLineText(rec, { scheduleLabel: scheduleLabelMap[category] || '📅 예정', headContent });
+    let defaultText = _buildEnrichedLineText(rec, { scheduleLabel: scheduleLabelMap[category] || '📅 예정', headContent });
+    // opts.extraPrefix — 호출 측에서 메시지 본문 앞에 붙이고 싶은 텍스트 (예: 요청접수 내용 + 설치 장비 목록)
+    if (opts.extraPrefix && typeof opts.extraPrefix === 'string') {
+      defaultText = opts.extraPrefix.trim() + '\n\n' + defaultText;
+    }
 
     _openLineSendComposer({
       category,
