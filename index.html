@@ -3101,6 +3101,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             <span style="font-size:11px;color:var(--gray-500)">원</span>
             <span id="supplyAmountHint" style="font-size:10.5px;color:var(--gray-400);margin-left:6px"></span>
           </div>
+          <!-- 💰 수금 예정일 — 후불 모드일 때만 노출 -->
+          <div id="supplyArDueRow" style="margin-top:9px;display:none;align-items:center;gap:9px;padding:8px 11px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:7px">
+            <div style="font-size:11px;color:#92400E;font-weight:700">💰 수금 예정일</div>
+            <input type="date" id="jobSupplyArDue" style="padding:6px 9px;border:1px solid #FCD34D;border-radius:6px;font-size:13px;background:#fff">
+            <span style="font-size:10.5px;color:#92400E">— 후불(미수) 수금 추적용. hub 미수금 행에 강조 표시됨</span>
+          </div>
         </div>
         <!-- 요청접수 textarea + 바로 완료 체크박스 — 미수금/수금예정 케이스 또는 요청접수 후 즉시 완료 -->
         <div style="margin-top:12px;padding:11px 13px;background:#FAFAFA;border:1px solid var(--gray-200);border-radius:9px">
@@ -15311,6 +15317,13 @@ ${text.slice(0, 4000)}`;
         if (window._currentJobContext !== 'supplies') return undefined;
         return ((document.getElementById('jobSupplyUnit')||{}).value || '개').trim();
       })(),
+      // 💰 수금 예정일 — 후불 모드에서만 입력. 다른 모드면 빈 문자열
+      arDueDate:    (function(){
+        if (window._currentJobContext !== 'supplies') return undefined;
+        const mode = (document.querySelector('input[name="jobSupplyMode"]:checked')||{}).value || 'support';
+        if (mode !== 'postpaid') return '';
+        return ((document.getElementById('jobSupplyArDue')||{}).value || '').slice(0,10);
+      })(),
       // AS 전용
       asReceivedAt: asInfo ? asInfo.receivedAt : '',
       asDueDate:    asInfo ? asInfo.dueDate    : '',
@@ -18552,7 +18565,7 @@ ${text.slice(0, 4000)}`;
     if (typeof window.renderSuppliesHub === 'function') window.renderSuppliesHub();
   };
 
-  // 💳 처리 구분 변경 — 지원/선불/후불 chip + 금액 row toggle
+  // 💳 처리 구분 변경 — 지원/선불/후불 chip + 금액 row + 수금예정일 row toggle
   window.onSupplyModeChange = function() {
     const mode = (document.querySelector('input[name="jobSupplyMode"]:checked') || {}).value || 'support';
     document.querySelectorAll('#supplyModeRow .sup-mode').forEach(lb => {
@@ -18562,6 +18575,9 @@ ${text.slice(0, 4000)}`;
     if (amtRow) amtRow.style.display = (mode === 'support') ? 'none' : 'flex';
     const hint = document.getElementById('supplyAmountHint');
     if (hint) hint.textContent = mode === 'prepaid' ? '선불 — 즉시 매출 집계' : mode === 'postpaid' ? '후불 — 미수금 발생, 수금 후 완료' : '';
+    // 수금 예정일 row — 후불일 때만 노출
+    const dueRow = document.getElementById('supplyArDueRow');
+    if (dueRow) dueRow.style.display = (mode === 'postpaid') ? 'flex' : 'none';
   };
 
   // 🏷️ 소모품 품목별 단위 매핑 — POS용지=박스, 나머지 라벨류=롤
@@ -18629,6 +18645,7 @@ ${text.slice(0, 4000)}`;
     setVal('jobSupplyAmount', '');
     setVal('jobSupplyQty', '1');
     setVal('jobSupplyUnit', '');
+    setVal('jobSupplyArDue', '');
     const supDone = document.getElementById('jobSupplyDoneNow');
     if (supDone) supDone.checked = false;
     const supLbl = document.getElementById('suppliesPickedLabel');
