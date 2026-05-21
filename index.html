@@ -104,6 +104,34 @@
 
   .topnav-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: auto; }
   .topnav-date { font-size: 11.5px; color: rgba(255,248,231,0.55); font-family: 'Space Grotesk', sans-serif; white-space: nowrap; }
+  /* 🌤 날씨 + 일시 위젯 (top nav) */
+  .nav-clock {
+    display:flex; align-items:center; gap:8px;
+    padding:5px 11px; border-radius:99px;
+    background:linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+    border:1px solid rgba(255,248,231,0.12);
+    font-family:'Space Grotesk', sans-serif;
+    color:rgba(255,248,231,0.88);
+    white-space:nowrap; backdrop-filter:blur(4px);
+  }
+  .nav-clock .w-emoji { font-size:15px; line-height:1; filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25)); }
+  .nav-clock .w-temp { font-size:12px; font-weight:700; letter-spacing:.2px; }
+  .nav-clock .w-sep { width:1px; height:11px; background:rgba(255,248,231,0.18); }
+  .nav-clock .w-date { font-size:11.5px; font-weight:600; color:rgba(255,248,231,0.78); }
+  .nav-clock .w-time { font-size:11.5px; font-weight:700; color:#FFD56B; letter-spacing:.4px; font-variant-numeric:tabular-nums; }
+  .nav-clock.w-loading { opacity:.6 }
+  /* topbar 의 일시 (메인 컨텐츠 상단) */
+  .topbar-clock {
+    display:inline-flex; align-items:center; gap:7px;
+    padding:4px 11px; border-radius:99px;
+    background:linear-gradient(135deg, #FFFBEB, #FEF3C7);
+    border:1px solid #FCD34D; color:#92400E;
+    font-family:'Space Grotesk', sans-serif; font-size:11.5px; font-weight:700;
+    white-space:nowrap;
+  }
+  .topbar-clock .w-emoji { font-size:14px }
+  .topbar-clock .w-sep { width:1px; height:10px; background:#FCD34D }
+  .topbar-clock .w-time { font-variant-numeric:tabular-nums; color:#B45309 }
   .avatar { width: 26px; height: 26px; background: #FF2D1F; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0; }
   .topnav-user { display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 4px 8px 4px 4px; border-radius: 8px; background: rgba(255,248,231,0.06); }
   .user-name { font-size: 12px; font-weight: 600; color: #FFF8E7; }
@@ -1232,7 +1260,13 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   <!-- 우측 영역 -->
   <div class="topnav-right">
-    <span class="topnav-date">2026. 04. 20 (월)</span>
+    <div class="nav-clock w-loading" id="navClock" title="서울 기준 날씨 · KST">
+      <span class="w-emoji" id="navClockEmoji">⏳</span>
+      <span class="w-temp" id="navClockTemp">--°</span>
+      <span class="w-sep"></span>
+      <span class="w-date" id="navClockDate">로딩…</span>
+      <span class="w-time" id="navClockTime">--:--</span>
+    </div>
     <button class="btn btn-primary btn-sm" onclick="showModal('newJobModal')" style="background:#FF2D1F; box-shadow:3px 3px 0 #1A1614; border-radius:7px; border:none;">+ 새 작업</button>
     <div class="topnav-divider"></div>
     <!-- 비로그인 상태 -->
@@ -1303,7 +1337,13 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
   <div class="topbar">
     <span class="page-title" id="pageTitle">대시보드</span>
     <div class="topbar-right">
-      <span style="font-size:12px; color:var(--gray-400)" class="topbar-date">2026. 04. 20 (월)</span>
+      <div class="topbar-clock" id="topbarClock" title="서울 기준 날씨 · KST">
+        <span class="w-emoji" id="topbarClockEmoji">⏳</span>
+        <span id="topbarClockTemp">--°</span>
+        <span class="w-sep"></span>
+        <span id="topbarClockDate">로딩…</span>
+        <span class="w-time" id="topbarClockTime">--:--</span>
+      </div>
     </div>
   </div>
 
@@ -5132,6 +5172,117 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     }
   }
   window.syncFromCloud = syncFromCloud;
+
+  /* ════════════════════════════════════════════════════════════
+     🌤 상단 일시 + 날씨 위젯 (서울/KST 고정)
+     - 일시: 1분마다 갱신
+     - 날씨: Open-Meteo (https://open-meteo.com) — 무료, API key 불필요, CORS OK
+            15분마다 갱신 + localStorage 캐시 (페이지 새로고침 깜빡임 방지)
+     ════════════════════════════════════════════════════════════ */
+  (function _initNavClock(){
+    const DOW = ['일','월','화','수','목','금','토'];
+    const SEOUL = { lat: 37.5665, lon: 126.9780 };
+    // WMO weather codes → emoji + 한국어 라벨
+    function wmoToEmoji(code, isDay){
+      const d = isDay !== 0; // 1=day, 0=night
+      if (code === 0) return { e: d ? '☀️' : '🌙', l: d ? '맑음' : '맑음(밤)' };
+      if (code === 1) return { e: d ? '🌤' : '🌙', l: '대체로 맑음' };
+      if (code === 2) return { e: d ? '⛅' : '☁️', l: '부분 흐림' };
+      if (code === 3) return { e: '☁️', l: '흐림' };
+      if (code === 45 || code === 48) return { e: '🌫', l: '안개' };
+      if (code >= 51 && code <= 57) return { e: '🌦', l: '이슬비' };
+      if (code >= 61 && code <= 67) return { e: '🌧', l: '비' };
+      if (code >= 71 && code <= 77) return { e: '🌨', l: '눈' };
+      if (code >= 80 && code <= 82) return { e: '🌦', l: '소나기' };
+      if (code === 85 || code === 86) return { e: '🌨', l: '눈 소나기' };
+      if (code >= 95 && code <= 99) return { e: '⛈', l: '뇌우' };
+      return { e: '🌡', l: '날씨' };
+    }
+    function paintDateTime(){
+      // KST 환산: Asia/Seoul ICU 직접 사용 (안정)
+      const now = new Date();
+      const kst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+      const y = kst.getFullYear();
+      const m = String(kst.getMonth()+1).padStart(2,'0');
+      const d = String(kst.getDate()).padStart(2,'0');
+      const dow = DOW[kst.getDay()];
+      const hh = String(kst.getHours()).padStart(2,'0');
+      const mm = String(kst.getMinutes()).padStart(2,'0');
+      const dateStr = `${y}. ${m}. ${d} (${dow})`;
+      const timeStr = `${hh}:${mm}`;
+      const navD = document.getElementById('navClockDate');
+      const navT = document.getElementById('navClockTime');
+      const tpD  = document.getElementById('topbarClockDate');
+      const tpT  = document.getElementById('topbarClockTime');
+      if (navD) navD.textContent = dateStr;
+      if (navT) navT.textContent = timeStr;
+      if (tpD)  tpD.textContent  = dateStr;
+      if (tpT)  tpT.textContent  = timeStr;
+    }
+    function paintWeather(temp, code, isDay){
+      const { e, l } = wmoToEmoji(code, isDay);
+      const t = (typeof temp === 'number') ? `${Math.round(temp)}°C` : '--°';
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('navClockEmoji', e);
+      set('navClockTemp', t);
+      set('topbarClockEmoji', e);
+      set('topbarClockTemp', t);
+      const navWrap = document.getElementById('navClock');
+      if (navWrap) navWrap.classList.remove('w-loading');
+      // tooltip 에 한국어 라벨
+      [document.getElementById('navClock'), document.getElementById('topbarClock')].forEach(el => {
+        if (el) el.title = `서울 · ${l} ${t} · KST`;
+      });
+    }
+    async function fetchWeather(){
+      const CACHE_KEY = 'ns_weather_cache_v1';
+      // 캐시 (15분) 우선 — 깜빡임 방지
+      try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (raw) {
+          const c = JSON.parse(raw);
+          if (c && Date.now() - c.at < 15 * 60 * 1000) {
+            paintWeather(c.temp, c.code, c.isDay);
+          }
+        }
+      } catch(_){}
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${SEOUL.lat}&longitude=${SEOUL.lon}&current=temperature_2m,weather_code,is_day&timezone=Asia%2FSeoul`;
+        const r = await fetch(url, { cache: 'no-store' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        const cur = j && j.current;
+        if (!cur) throw new Error('no current');
+        const temp = Number(cur.temperature_2m);
+        const code = Number(cur.weather_code);
+        const isDay = Number(cur.is_day);
+        paintWeather(temp, code, isDay);
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), temp, code, isDay })); } catch(_){}
+      } catch(e) {
+        // 실패해도 일시는 계속 표시 — 캐시 fallback 으로 충분
+        console.warn('[weather] fetch 실패', e);
+      }
+    }
+    function start(){
+      paintDateTime();
+      fetchWeather();
+      // 일시: 매 분마다 (다음 정각 분 기준)
+      const now = new Date();
+      const msToNextMin = 60000 - (now.getSeconds()*1000 + now.getMilliseconds());
+      setTimeout(() => {
+        paintDateTime();
+        setInterval(paintDateTime, 60000);
+      }, msToNextMin);
+      // 날씨: 15분마다
+      setInterval(fetchWeather, 15 * 60 * 1000);
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', start);
+    } else {
+      start();
+    }
+  })();
+
   // 페이지 로드 직후 1회 자동 동기화 + 모든 위젯 강제 재렌더 (데모 잔존 방지)
   document.addEventListener('DOMContentLoaded', () => {
     // 기존 AI 분석 결과(샘플 위험/주의 항목) 정리 — 의미없는 데이터 제거
