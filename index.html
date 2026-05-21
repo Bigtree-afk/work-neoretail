@@ -5590,14 +5590,36 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         const wnCls = dd.urgent ? 'urgent' : (dd.done ? 'done' : '');
         const who = j.engineer || j.assignee || '';
         const memos = Array.isArray(j.memos) ? j.memos.length : 0;
-        const date = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
+        const date = j.shipDate || j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
         const onclick = j.id ? `editNewopen('${escFn(j.id)}')` : '';
         const lineBtn = j.id ? `<button class="hub-line-btn" title="📡 LINE 발송" onclick="event.stopPropagation();window._hubLineSend('${escFn(j.id)}','')">📡</button>` : '';
+        // 🏷️ 소모품 — 처리 구분 / 금액 / 미수 정보 enriched 표시
+        let supplyMetaHtml = '';
+        let supplyTitleSuffix = '';
+        if (cat === 'supplies') {
+          const mode = j.supplyMode || ((j.amount > 0) ? (/(후불|미수)/i.test(String(j.payment||j.note||j.notes||''))?'postpaid':'prepaid') : 'support');
+          const amt = Number(j.amount)||0;
+          const paid = Number(j.arPaidAmount)||0;
+          const remaining = Math.max(0, amt - paid);
+          const fmt = n => (Number(n)||0).toLocaleString();
+          if (mode === 'support') {
+            supplyTitleSuffix = ` <span style="font-size:11px;color:#15803d;font-weight:700;margin-left:5px">🎁 지원</span>`;
+          } else if (mode === 'prepaid') {
+            supplyTitleSuffix = ` <span style="font-size:11px;color:#06B6D4;font-weight:700;margin-left:5px">💰 선불 ${fmt(amt)}원</span>`;
+          } else if (mode === 'postpaid') {
+            if (j.arPaid || remaining === 0) {
+              supplyTitleSuffix = ` <span style="font-size:11px;color:#15803d;font-weight:700;margin-left:5px">✅ 수금완료 ${fmt(amt)}원</span>`;
+            } else {
+              const partial = paid > 0 ? ` (부분 ${fmt(paid)})` : '';
+              supplyTitleSuffix = ` <span style="font-size:11px;color:#F59E0B;font-weight:700;margin-left:5px">📌 미수 ${fmt(remaining)}원${partial}</span>`;
+            }
+          }
+        }
         return `<div class="hub-sj" onclick="${onclick}">
           <div class="sjl">
             <span class="sjtag ${cat}">${escFn(j.type || cat)}</span>
-            <div class="sjti">${escFn(j.title || j.type || '업무')}</div>
-            <div class="sjmt">${date ? '📅 '+date+' · ' : ''}${who?who+' · ':''}${memos?'메모 '+memos+'건':''}</div>
+            <div class="sjti">${escFn(j.title || j.type || '업무')}${supplyTitleSuffix}</div>
+            <div class="sjmt">${date ? '📅 '+escFn(date)+' · ' : ''}${who?escFn(who)+' · ':''}${memos?'메모 '+memos+'건':''}</div>
           </div>
           ${lineBtn}
           <div class="sjwn ${wnCls}">${dd.text}</div>
@@ -5783,6 +5805,21 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       const el = document.getElementById(id); if (el && cnts[k] !== undefined) el.textContent = cnts[k];
     });
 
+    // 🛡 백그라운드 sync 재렌더 시 열려있던 매장 그룹의 expand 상태 보존
+    //   - 재렌더 전: 현재 expanded 된 매장 storeId 수집
+    //   - 재렌더 후: 같은 storeId 의 그룹에 'expanded' class 재부여
+    const _prevExpanded = new Set();
+    container.querySelectorAll('.hub-group.expanded[data-store-id]').forEach(g => {
+      const sid = g.getAttribute('data-store-id');
+      if (sid) _prevExpanded.add(sid);
+    });
+    // storeId 없는 그룹 (legacy 매장명 기반) — 매장명으로도 보존
+    const _prevExpandedByName = new Set();
+    container.querySelectorAll('.hub-group.expanded:not([data-store-id])').forEach(g => {
+      const nameEl = g.querySelector('.gname');
+      if (nameEl) _prevExpandedByName.add((nameEl.textContent||'').trim());
+    });
+
     if (displayed.length === 0) {
       container.innerHTML = `<div class="hub-empty"><div style="font-size:32px;margin-bottom:8px">📭</div>${search ? '검색 결과 없음' : '진행 중인 업무가 없습니다'}</div>`;
       return;
@@ -5815,6 +5852,18 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       return (b._lastTouch||0) - (a._lastTouch||0);
     });
     container.innerHTML = displayed.map(g => _hubRenderGroup(g, opts.cardCat, { urgentIfPending: !!opts.urgentIfPending, byRoots: !!opts.byRoots })).join('');
+    // expand 상태 복원 — 사용자가 펼쳐둔 매장이 백그라운드 sync 로 닫히지 않도록
+    if (_prevExpanded.size > 0 || _prevExpandedByName.size > 0) {
+      container.querySelectorAll('.hub-group').forEach(g => {
+        const sid = g.getAttribute('data-store-id');
+        if (sid && _prevExpanded.has(sid)) { g.classList.add('expanded'); return; }
+        if (!sid) {
+          const nameEl = g.querySelector('.gname');
+          const nm = nameEl ? (nameEl.textContent||'').trim() : '';
+          if (nm && _prevExpandedByName.has(nm)) g.classList.add('expanded');
+        }
+      });
+    }
   }
 
   /* ─── AS hub ─── */
