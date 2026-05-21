@@ -431,6 +431,19 @@
           <span class="em">💰</span><span>판매</span>
         </label>
       </div>
+      <!-- 판매 sub-mode: 선불/후불 -->
+      <div id="fSubModeRow" style="display:none;margin-top:9px">
+        <div class="field-label" style="margin-bottom:6px">결제 방식</div>
+        <div class="radio-row">
+          <label class="radio-chip"><input type="radio" name="fSubMode" value="선불" checked> 💳 선불</label>
+          <label class="radio-chip"><input type="radio" name="fSubMode" value="후불"> 📅 후불 (미수)</label>
+        </div>
+      </div>
+      <!-- 수금 예정일 (후불 한정) -->
+      <div id="fArDueRow" class="field" style="display:none;margin-top:10px;margin-bottom:0">
+        <div class="field-label">📅 수금 예정일</div>
+        <input class="field-input" id="fArDue" type="date">
+      </div>
       <div class="price-panel disabled" id="fPricePanel">
         <div class="ph">💵 가격 (판매 선택 시 활성화) <span class="tag" id="fPriceTag">무료 지원</span></div>
         <div class="price-grid">
@@ -444,6 +457,12 @@
           </div>
         </div>
       </div>
+      <!-- 완료 처리 토글 — 지원/선불은 기본 ON, 후불은 기본 OFF -->
+      <label class="line-check" style="margin-top:10px;background:#FEF3C7;border-color:#FCD34D;color:#92400E">
+        <input type="checkbox" id="fDoneNow" checked>
+        ✅ 등록과 동시에 완료 처리
+        <span style="margin-left:auto;font-size:10.5px;font-weight:500;color:var(--gray-500)" id="fDoneNowHint">(후불은 보통 미체크 — 수금 후 별도 완료)</span>
+      </label>
     </div>
 
     <!-- 매장 특이사항 -->
@@ -503,7 +522,7 @@
   <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-21-supplies-8"></script>
+<script src="/m-core.js?v=2026-05-21-supplies-9"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    소모품 품목 카탈로그
@@ -523,6 +542,31 @@ const SUPPLY_ITEMS = {
 const esc = window.esc || (s => String(s||''));
 function $(id){ return document.getElementById(id); }
 function fmtDate(d){ if (!d) return ''; return String(d).slice(0, 10); }
+/* PC ↔ 모바일 supplyMode 정규화
+   PC:    'support' | 'prepaid' | 'postpaid'
+   모바일 (구버전): '지원' | '판매'
+   → 통일된 표시값으로 변환 */
+function normalizeSupplyMode(j){
+  if (!j) return { mode:'지원', sub:'', code:'support' };
+  const m = String(j.supplyMode || '').toLowerCase();
+  const raw = String(j.supplyMode || '');
+  if (m === 'support' || raw === '지원') return { mode:'지원', sub:'', code:'support' };
+  if (m === 'prepaid' || raw === '선불') return { mode:'판매', sub:'선불', code:'prepaid' };
+  if (m === 'postpaid' || raw === '후불') return { mode:'판매', sub:'후불', code:'postpaid' };
+  if (raw === '판매') return { mode:'판매', sub: (j.supplyArMode === 'postpaid' ? '후불' : '선불'),
+                              code: (j.supplyArMode === 'postpaid' ? 'postpaid' : 'prepaid') };
+  return { mode:'지원', sub:'', code:'support' };
+}
+function modePillCls(nm){
+  if (nm.code === 'support') return 'support';
+  return 'sale';
+}
+function modeLabel(nm){
+  if (nm.code === 'support') return '🤝 지원';
+  if (nm.code === 'prepaid') return '💳 선불';
+  if (nm.code === 'postpaid') return '📅 후불';
+  return '판매';
+}
 function todayKST(){
   try {
     if (window._kstDateTimeStr) return String(window._kstDateTimeStr()).slice(0,10);
@@ -636,39 +680,53 @@ function renderEntry(){
   const jobs = getJobs();
   const cat = window.classifyJobCategory;
   const isDone = window._isJobDone;
-  const filtered = jobs.filter(j => cat(j) === 'supplies' && !isDone(j));
-  filtered.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
-  if (!filtered.length) {
-    list.innerHTML = '<div class="empty">진행 중인 소모품 거래가 없습니다.<br>위에서 품목을 선택해 신규 등록하세요.</div>';
+  // 완료건도 함께 노출 — 미완료 위, 완료 아래. 각 그룹 내 최근(updated/created/done) 우선
+  const all = jobs.filter(j => cat(j) === 'supplies');
+  const ts = j => Number(j.updatedAt || j.createdAt || 0) || (j.receivedAt ? Date.parse(j.receivedAt) : 0);
+  all.sort((a,b) => {
+    const aDone = isDone(a) ? 1 : 0;
+    const bDone = isDone(b) ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;          // 미완료 먼저
+    return ts(b) - ts(a);                                 // 최근 먼저
+  });
+  if (!all.length) {
+    list.innerHTML = '<div class="empty">소모품 거래 내역이 없습니다.<br>위에서 품목을 선택해 신규 등록하세요.</div>';
     $('appBadge').style.display = 'none';
     return;
   }
-  $('appBadge').textContent = filtered.length + '건';
-  $('appBadge').style.display = 'inline-block';
+  const activeCnt = all.filter(j => !isDone(j)).length;
+  if (activeCnt > 0) {
+    $('appBadge').textContent = activeCnt + '건';
+    $('appBadge').style.display = 'inline-block';
+  } else {
+    $('appBadge').style.display = 'none';
+  }
 
-  list.innerHTML = filtered.map(j => {
+  list.innerHTML = all.map(j => {
     const status = String(j.status || '진행중');
     let cls = 'prog';
     if (status === '요청접수' || status === '접수') cls = 'req';
-    if (status === '완료' || status === '처리완료') cls = 'done';
-    const lastThread = Array.isArray(j.thread) && j.thread.length
-                      ? j.thread.slice().sort((a,b)=>(b.ts||'').localeCompare(a.ts||''))[0]
-                      : null;
-    const summary = (lastThread && lastThread.text) || j.supplyMemo || j.memo || '';
-    const mode = j.supplyMode || '지원';
-    const modeCls = mode === '판매' ? 'sale' : 'support';
+    if (status === '완료' || status === '처리완료' || isDone(j)) cls = 'done';
+    const nm = normalizeSupplyMode(j);
     const itemTxt = j.supplyItem || (j.type ? String(j.type).replace(/^소모품\//,'') : '');
     const qtyTxt = j.supplyQty ? String(j.supplyQty) : '';
-    const amountTxt = (mode === '판매' && j.totalAmount) ? ` · <b class="amt">${Number(j.totalAmount).toLocaleString()}원</b>` : '';
+    const dateTxt = fmtDate(j.shipDate || j.receivedAt || j.createdAt && new Date(j.createdAt).toISOString());
+    const amt = Number(j.totalAmount || j.amount || 0);
+    const amtTxt = (nm.mode === '판매' && amt > 0) ? ` · <b class="amt">${amt.toLocaleString()}원</b>` : '';
+    // 후불 미수 잔액
+    const paid = Number(j.arPaidAmount || j.paid || 0);
+    const remaining = (nm.code === 'postpaid' && amt > paid) ? Math.max(0, amt - paid) : 0;
+    const remTxt = remaining > 0 ? ` · <span style="color:#DC2626;font-weight:800">미수 ${remaining.toLocaleString()}원</span>` : '';
+    // 한 줄 요약: [날짜] [품목 · 처리구분] · 수량 · 금액 · 미수
+    const summaryLine = `[${dateTxt || '-'}] ${esc(itemTxt)} · ${modeLabel(nm)}${qtyTxt ? ' · ' + esc(qtyTxt) : ''}${amtTxt}${remTxt}`;
     return `
     <div class="card ${cls}" onclick="location.hash='#thread/${esc(j.id)}'">
       <div class="topline">
         <div class="nm">${esc(j.storeName || j.store || '(미지정)')}</div>
-        <span class="pill ${modeCls}">${esc(mode)}</span>
+        <span class="pill ${modePillCls(nm)}">${modeLabel(nm)}</span>
         <span class="pill ${cls}">${esc(status)}</span>
       </div>
-      <div class="meta">${esc(itemTxt)}${qtyTxt ? ' · ' + esc(qtyTxt) : ''}${j.receivedAt ? ' · 접수 ' + esc(fmtDate(j.receivedAt)) : ''}</div>
-      <div class="summary">${esc((summary||'').slice(0,80))}${amountTxt}</div>
+      <div class="summary">${summaryLine}</div>
     </div>
     `;
   }).join('');
@@ -693,7 +751,10 @@ function renderForm(r){
 
   // 입력 초기화
   ['fStoreSearch','fContactName','fContactRole','fContactPhone','fUnregName','fUnregBiz','fUnregAddr',
-   'fSupplyQty','fSupplyMemo','fMemo','fRequest','fUnitPrice','fTotalAmount'].forEach(id => { const e=$(id); if (e) e.value=''; });
+   'fSupplyQty','fSupplyMemo','fMemo','fRequest','fUnitPrice','fTotalAmount','fArDue'].forEach(id => { const e=$(id); if (e) e.value=''; });
+  // 결제 방식 sub-radio 초기화 + 완료 토글 기본 ON
+  document.querySelectorAll('input[name="fSubMode"]').forEach(rd => { rd.checked = (rd.value === '선불'); });
+  if ($('fDoneNow')) $('fDoneNow').checked = true;
   $('fUnregMode').checked = false;
   $('fUnregBox').style.display = 'none';
   $('fStorePicked').style.display = 'none';
@@ -758,11 +819,18 @@ function renderForm(r){
         }
       }
 
-      // 모드
-      const md = j.supplyMode || '지원';
-      document.querySelectorAll('input[name="fMode"]').forEach(rd => { rd.checked = (rd.value === md); });
+      // 모드 (PC/모바일 모두 정규화)
+      const nm = normalizeSupplyMode(j);
+      document.querySelectorAll('input[name="fMode"]').forEach(rd => { rd.checked = (rd.value === nm.mode); });
+      if (nm.mode === '판매') {
+        document.querySelectorAll('input[name="fSubMode"]').forEach(rd => { rd.checked = (rd.value === (nm.sub || '선불')); });
+      }
+      // 수금 예정일
+      if ($('fArDue') && j.arDueDate) $('fArDue').value = String(j.arDueDate).slice(0,10);
+      // 편집 시: 이미 완료된 건이면 doneNow=ON, 미완료면 OFF
+      if ($('fDoneNow')) $('fDoneNow').checked = !!(j.completed || /완료/.test(j.status||''));
       $('fUnitPrice').value   = j.unitPrice    || 0;
-      $('fTotalAmount').value = j.totalAmount  || 0;
+      $('fTotalAmount').value = j.totalAmount  || j.amount || 0;
       refreshModeUi();
     }
   }
@@ -811,7 +879,36 @@ function refreshModeUi(){
     $('fUnitPrice').value = '0';
     $('fTotalAmount').value = '0';
   }
+  // 선/후불 sub-row 토글 + 수금예정일 토글 + 완료 기본값
+  const subRow = $('fSubModeRow');
+  if (subRow) subRow.style.display = isSale ? 'block' : 'none';
+  refreshSubModeUi();
   recalcTotal();
+}
+
+function refreshSubModeUi(){
+  const mode = (document.querySelector('input[name="fMode"]:checked') || {}).value || '지원';
+  const sub  = (document.querySelector('input[name="fSubMode"]:checked') || {}).value || '선불';
+  document.querySelectorAll('#fSubModeRow .radio-chip').forEach(lb => {
+    const rd = lb.querySelector('input');
+    lb.classList.toggle('on', !!(rd && rd.checked));
+  });
+  const isPost = (mode === '판매' && sub === '후불');
+  const arRow = $('fArDueRow');
+  if (arRow) arRow.style.display = isPost ? 'block' : 'none';
+  // 완료 기본값 — 지원/선불=ON, 후불=OFF (사용자가 토글하면 그대로 유지)
+  // 단, 사용자가 명시적으로 만진 적이 있으면 건드리지 않음
+  const dn = $('fDoneNow');
+  if (dn && !dn.dataset.touched) {
+    dn.checked = !isPost;
+  }
+  // 힌트 텍스트
+  const hint = $('fDoneNowHint');
+  if (hint) {
+    hint.textContent = isPost
+      ? '(후불: 수금 처리 후 완료를 권장)'
+      : (mode === '판매' ? '(선불: 즉시 매출 — 보통 ON)' : '(지원: 보통 ON)');
+  }
 }
 
 function recalcTotal(){
@@ -828,6 +925,8 @@ document.addEventListener('change', e => {
   if (!e.target) return;
   if (e.target.name === 'fUnit') refreshUnitChips();
   if (e.target.name === 'fMode') refreshModeUi();
+  if (e.target.name === 'fSubMode') refreshSubModeUi();
+  if (e.target.id === 'fDoneNow') e.target.dataset.touched = '1';
 });
 document.addEventListener('input', e => {
   if (!e.target) return;
@@ -992,6 +1091,11 @@ window.onSaveForm = async function(){
   const supplyQty = qtyNum > 0 ? (qtyNum + ' ' + unitVal) : '';
 
   const mode = (document.querySelector('input[name="fMode"]:checked') || {}).value || '지원';
+  const sub  = (document.querySelector('input[name="fSubMode"]:checked') || {}).value || '선불';
+  // PC 스키마와 동일하게 supplyMode 코드 저장
+  const supplyModeCode = (mode === '지원') ? 'support' : (sub === '후불' ? 'postpaid' : 'prepaid');
+  const arDueDate = (supplyModeCode === 'postpaid') ? (($('fArDue')||{}).value || '') : '';
+  const doneNow = !!($('fDoneNow') && $('fDoneNow').checked);
   const unitPrice   = mode === '판매' ? (parseFloat($('fUnitPrice').value   || '0') || 0) : 0;
   const totalAmount = mode === '판매' ? (parseFloat($('fTotalAmount').value || '0') || 0) : 0;
 
@@ -1026,13 +1130,28 @@ window.onSaveForm = async function(){
   job.supplyItem  = _formItemKey;
   job.supplyQty   = supplyQty;
   job.supplyMemo  = supplyMemo;
-  job.supplyMode  = mode;
+  job.supplyMode  = supplyModeCode;      // PC 와 동일 스키마 — support/prepaid/postpaid
   job.unitPrice   = unitPrice;
   job.totalAmount = totalAmount;
+  job.amount      = totalAmount;          // PC 측은 amount 사용 — 양쪽 모두 채움
+  job.arDueDate   = arDueDate;
   job.memo = memo;
   if (!_editingJob && requestText) job.initialRequest = requestText;
-  job.status = job.status || '요청접수';
   job.updatedAt = Date.now();
+  // 완료 처리 규칙
+  //   지원/선불 — 기본 완료 (doneNow=true)
+  //   후불     — 기본 진행중 (doneNow=false), 수금 처리 후 별도 완료
+  //   사용자 토글로 override 가능
+  if (doneNow) {
+    job.status = '완료';
+    job.completed = true;
+    job.doneAt = job.doneAt || (new Date()).toISOString();
+    job.completedAt = job.completedAt || (new Date()).toISOString();
+  } else {
+    job.status = '요청접수';
+    job.completed = false;
+    job.doneAt = '';
+  }
 
   // 신규 등록 + 요청접수 텍스트 입력 → thread 첫 ROOT 시드
   if (!_editingJob && requestText) {
@@ -1100,13 +1219,43 @@ function renderThread(jobId){
     return;
   }
   $('thStoreName').textContent = j.storeName || j.store || '(미지정)';
-  const mode = j.supplyMode || '지원';
-  const recv = j.receivedAt ? ' · 접수 ' + fmtDate(j.receivedAt) : '';
-  $('thType').textContent = (j.type || '소모품') + ' · ' + mode + recv;
+  const nm = normalizeSupplyMode(j);
+  const recv = j.receivedAt ? ' · 접수 ' + fmtDate(j.receivedAt) : (j.createdAt ? ' · 등록 ' + fmtDate(new Date(j.createdAt).toISOString()) : '');
+  $('thType').textContent = (j.type || '소모품') + ' · ' + modeLabel(nm) + recv;
   const itemTxt = j.supplyItem || '';
   const qtyTxt = j.supplyQty || '';
-  const amtTxt = (mode === '판매' && j.totalAmount) ? ' · ' + Number(j.totalAmount).toLocaleString() + '원' : '';
-  $('thItemQty').textContent = (itemTxt ? '📋 ' + itemTxt : '') + (qtyTxt ? ' · ' + qtyTxt : '') + amtTxt;
+  const amt = Number(j.totalAmount || j.amount || 0);
+  const amtTxt = (nm.mode === '판매' && amt > 0) ? ' · ' + amt.toLocaleString() + '원' : '';
+  const paid = Number(j.arPaidAmount || j.paid || 0);
+  const remaining = (nm.code === 'postpaid' && amt > paid) ? Math.max(0, amt - paid) : 0;
+  const remHtml = remaining > 0 ? ` <span style="color:#DC2626;font-weight:800">· 미수 ${remaining.toLocaleString()}원</span>` : '';
+  const dueTxt = (nm.code === 'postpaid' && j.arDueDate) ? ` · 📅 수금예정 ${fmtDate(j.arDueDate)}` : '';
+  $('thItemQty').innerHTML = (itemTxt ? '📋 ' + esc(itemTxt) : '') + (qtyTxt ? ' · ' + esc(qtyTxt) : '') + esc(amtTxt) + remHtml + esc(dueTxt);
+  // 후불 미수 + 미완료 → 완료 처리 버튼 노출 (헤더 액션 영역에)
+  const headerActions = $('thHeader').querySelector('div[style*="margin-top:8px"]');
+  if (headerActions) {
+    // 기존 동적 버튼 제거
+    headerActions.querySelectorAll('[data-dyn]').forEach(b => b.remove());
+    if (!window._isJobDone(j)) {
+      if (nm.code === 'postpaid' && remaining > 0) {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-primary';
+        btn.setAttribute('data-dyn','1');
+        btn.style.cssText = 'flex:0;padding:7px 11px;font-size:12px;background:#16A34A';
+        btn.textContent = '💵 수금 처리';
+        btn.onclick = () => onCollectAr(j.id);
+        headerActions.appendChild(btn);
+      } else {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-primary';
+        btn.setAttribute('data-dyn','1');
+        btn.style.cssText = 'flex:0;padding:7px 11px;font-size:12px';
+        btn.textContent = '✅ 완료 처리';
+        btn.onclick = () => onMarkSupplyDone(j.id);
+        headerActions.appendChild(btn);
+      }
+    }
+  }
 
   $('thNewRoot').value = '';
   $('thNewRootLine').checked = false;
@@ -1132,8 +1281,34 @@ function _renderEntryAttachments(e) {
 }
 
 function renderThreadGroupsMobile(j){
-  const thread = window._threadMigrate(Array.isArray(j.thread) ? j.thread.slice() : []);
-  const roots = thread.filter(e => e.parentId === null);
+  let thread = window._threadMigrate(Array.isArray(j.thread) ? j.thread.slice() : []);
+  let roots = thread.filter(e => e.parentId === null);
+  // 🆕 thread root 가 비어있으면 등록 정보로 합성 entry 표시 (PC 에서 등록된 건 — initialRequest 없이 발송됨)
+  const synth = [];
+  if (roots.length === 0) {
+    const nm0 = normalizeSupplyMode(j);
+    const ts0 = j.receivedAt || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,16).replace('T',' ') : '');
+    const itemTxt = j.supplyItem || (j.type ? String(j.type).replace(/^소모품\//,'') : '품목');
+    const qtyTxt = j.supplyQty || '';
+    const amt = Number(j.totalAmount || j.amount || 0);
+    const paid = Number(j.arPaidAmount || j.paid || 0);
+    const dueTxt = (nm0.code === 'postpaid' && j.arDueDate) ? `\n📅 수금예정: ${fmtDate(j.arDueDate)}` : '';
+    const amtLine = (nm0.mode === '판매' && amt > 0)
+      ? `\n💰 ${amt.toLocaleString()}원${nm0.code === 'postpaid' && amt > paid ? ` (미수 ${(amt-paid).toLocaleString()}원)` : ''}`
+      : '';
+    const synthText = `🛒 ${itemTxt}${qtyTxt ? ' · ' + qtyTxt : ''} · ${modeLabel(nm0)}${amtLine}${dueTxt}${j.supplyMemo ? '\n\n📝 ' + j.supplyMemo : ''}`;
+    const synthRoot = {
+      ts: ts0, author: j.createdBy || '담당자',
+      status: window._isJobDone(j) ? '완료' : '요청접수',
+      text: synthText,
+      threadId: 'TR-synth-' + (j.id || 'x'),
+      parentId: null,
+      _synth: true
+    };
+    synth.push(synthRoot);
+    roots = synth;
+    thread = synth;
+  }
   const childrenByRoot = new Map();
   for (const e of thread) {
     if (e.parentId) {
@@ -1171,18 +1346,20 @@ function renderThreadGroupsMobile(j){
         </div>
       `;
     }).join('');
+    const isSynth = !!r._synth;
     return `
-      <div class="thread-group">
+      <div class="thread-group"${isSynth ? ' style="border-color:#FCD34D;background:#FFFBEB"' : ''}>
         <div class="tg-h">
           <span class="stt ${cls}">${stIcon} ${esc(gs)}</span>
+          ${isSynth ? '<span style="font-size:10px;font-weight:700;color:#92400E;background:#FEF3C7;padding:2px 7px;border-radius:9px">📋 등록 시점 정보</span>' : ''}
           <span class="when">${esc(r.ts||'')}</span>
-          <button class="del" title="이 그룹 전체 삭제" onclick="onDelRoot('${esc(r.threadId)}')">✕</button>
+          ${isSynth ? '' : `<button class="del" title="이 그룹 전체 삭제" onclick="onDelRoot('${esc(r.threadId)}')">✕</button>`}
         </div>
         <div class="tg-root">${esc(r.text||'')}</div>
         <div class="tg-author">— ${esc(r.author||'담당자')}</div>
         ${_renderEntryAttachments(r)}
         ${childHtml}
-        ${gs !== '완료' ? `
+        ${(!isSynth && gs !== '완료') ? `
         <div class="tg-form">
           <div class="radio-row">
             <label class="radio-chip"><input type="radio" name="ch_${r.threadId}" value="진행"> 🔄 진행</label>
@@ -1337,6 +1514,62 @@ window.onDelRoot = function(rootId){
   saveJobs(jobs);
   try { window.pushJobsToCloud(); } catch(_){}
   renderThread(_currentJobId);
+};
+
+window.onMarkSupplyDone = function(jobId){
+  if (!confirm('이 소모품 거래를 완료 처리하시겠습니까?')) return;
+  const jobs = getJobs();
+  const ix = jobs.findIndex(x => x.id === jobId);
+  if (ix < 0) return;
+  const j = jobs[ix];
+  j.status = '완료';
+  j.completed = true;
+  j.doneAt = (new Date()).toISOString();
+  j.completedAt = j.completedAt || (new Date()).toISOString();
+  j.updatedAt = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  try { window.pushJobsToCloud(); } catch(_){}
+  showToast('✅ 완료 처리');
+  renderThread(jobId);
+};
+
+window.onCollectAr = function(jobId){
+  const jobs = getJobs();
+  const ix = jobs.findIndex(x => x.id === jobId);
+  if (ix < 0) return;
+  const j = jobs[ix];
+  const totalAmt = Number(j.totalAmount || j.amount || 0);
+  const prevPaid = Number(j.arPaidAmount || j.paid || 0);
+  const remaining = Math.max(0, totalAmt - prevPaid);
+  const input = prompt(
+    `💵 수금 금액 입력\n\n매장: ${j.storeName||j.store||'-'}\n품목: ${j.supplyItem || j.type || '-'}\n총 판매가: ${totalAmt.toLocaleString()}원\n기 수금: ${prevPaid.toLocaleString()}원\n남은 미수: ${remaining.toLocaleString()}원\n\n이번에 받은 금액 (전액이면 ${remaining} 입력):`,
+    String(remaining)
+  );
+  if (input == null) return;
+  const collected = parseInt(String(input).replace(/[^\d]/g,''), 10);
+  if (!Number.isFinite(collected) || collected <= 0) { showToast('⚠ 0보다 큰 금액'); return; }
+  const newPaid = Math.min(totalAmt, prevPaid + collected);
+  j.arPaidAmount = newPaid;
+  if (newPaid >= totalAmt) {
+    j.arPaid = true;
+    j.arPaidAt = (new Date()).toISOString();
+    j.status = '완료';
+    j.completed = true;
+    j.doneAt = j.doneAt || (new Date()).toISOString();
+  } else {
+    j.arPaid = false;
+  }
+  if (!Array.isArray(j.memos)) j.memos = [];
+  const ts = (window._kstDateTimeStr ? window._kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' '));
+  const by = (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자';
+  j.memos.push({ at: ts, author: by, text: `💵 수금 ${collected.toLocaleString()}원 입금 (누적 ${newPaid.toLocaleString()}/${totalAmt.toLocaleString()})${newPaid >= totalAmt ? ' — 전액 수금 완료' : ''}` });
+  j.updatedAt = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  try { window.pushJobsToCloud(); } catch(_){}
+  showToast(newPaid >= totalAmt ? `✅ 전액 수금 완료` : `💵 ${collected.toLocaleString()}원 수금 — 잔액 ${(totalAmt-newPaid).toLocaleString()}원`);
+  renderThread(jobId);
 };
 
 window.onEditJobFromThread = function(){
