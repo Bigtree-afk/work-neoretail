@@ -1,5 +1,69 @@
 # work.neoretail.net — 프로젝트 규칙
 
+## 🎯 업무별 레이아웃 분리 규칙 (필수)
+
+**원칙**: 등록 폼·상세 모달·hub sub-card 등 모든 UI 는 업무 카테고리에 맞는 필드만 노출. 다른 카테고리의 필드를 그대로 끼워 넣어 "통합 폼" 으로 만들면 사용자 혼란 + 데이터 오염 발생.
+
+### 카테고리별 필수/금지 필드
+
+| 카테고리 | 핵심 필드 | 표시 금지 |
+|---|---|---|
+| **신규** (`new`) | 설치일·가오픈일·오픈일, 매장 담당자(여러명), VAN 서류, 장비 테이블, thread (요청접수·처리기록), 메모 | — |
+| **AS** (`as`) | asReceivedAt (접수시각), asDueDate, AS 대상, thread (요청접수·처리기록), 투입 장비 (요청별) | 설치/가오픈/오픈일, 매장 누적 장비 |
+| **VAN** (`van`) | 업무일, VAN사 (KOCES/NICE/KIS/KSNET) TID/Serial, 카드 가맹 신청/완료일, 거래처 담당자, 메모 | 설치/가오픈/오픈일, 장비 테이블, thread |
+| **소모품** (`supplies`) | 품목(POS용지/단말용지/가격라벨/프라이스텍/저울라벨), 처리구분(지원/선불/후불), 수량+단위, 금액, 발송일, (후불) 수금예정일+미수상태, 요청접수 (단순) | 설치/가오픈/오픈일, 장비 테이블, 비고, 담당 엔지니어, 매장 누적 장비 |
+| **재고조사** (`stocktake`) | 조사일, 조사 단계 (상담→일정확정→조사완료→정산→마감), 수수료/인건비/비용/수익, 수금금액, 미수금 | 일반 작업 필드 |
+
+### 구현 패턴
+
+1. **등록 폼 (`newJobModal`)** — body class 토글로 분기
+   ```js
+   document.body.classList.toggle('supplies-mode', isSupplies);
+   // CSS:
+   //   body.supplies-mode .js-non-supplies { display: none !important; }
+   //   body.supplies-mode .js-supplies-only { display: block !important; }
+   ```
+
+2. **상세 모달** — 카테고리별 short-circuit (큰 차이는 별도 함수)
+   ```js
+   function editNewopen(id) {
+     const cat = classifyJobCategory(j);
+     if (cat === 'van' && window.openVanJobModal) { openVanJobModal(id); return; }
+     if (cat === 'supplies' && window._editSupplyJob) { _editSupplyJob(id); return; }
+     // 신규/AS 는 공통 레이아웃 (필드 일부 .js-non-as 로 신규/AS 분기)
+   }
+   ```
+
+3. **Hub sub-card** — 카테고리별 표시 포맷
+   ```js
+   if (cat === 'supplies') {
+     titleHtml = `[${date}][${itemShort} ${modeLabel} ${qty}${unit}] · ${amount}원`;
+   } else if (cat === 'as') {
+     titleHtml = `${asRequest?.slice(0,60)} (${asDueDate})`;
+   } else { /* 기본 */ }
+   ```
+
+### 점검 체크리스트 (신규 카테고리 추가 시)
+
+- [ ] `classifyJobCategory()` 에 분기 추가 (m-core.js)
+- [ ] 등록 폼: `.js-non-<cat>` / `.js-<cat>-only` CSS 규칙 + applyJobTypeMode 분기
+- [ ] `_resetJobForm` 에 해당 필드 reset
+- [ ] `applyJobFormContext('<cat>')` 에 초기값 셋팅
+- [ ] `saveNewJob` 에 카테고리별 필드 저장 분기
+- [ ] 상세 모달: 별도 함수 또는 editNewopen 분기 (`.js-non-<cat>` 클래스 활용)
+- [ ] Hub sub-card: cat 분기 표시
+- [ ] 카테고리별 hub 의 집계 표 (선불/후불/미수/매출 등 도메인 특화)
+
+**금지**:
+- "다음에 정리하지" 라고 일반 폼에 새 필드 추가 (다른 카테고리에 노이즈)
+- 작업 유형 select 의 option 값으로 카테고리 판단 (`classifyJobCategory()` 사용 — type 텍스트만으로 판별 불가능한 경우 있음)
+- 모든 카테고리에 동일한 일자 trio (설치/가오픈/오픈) 강제 (소모품은 발송일만 등)
+
+**예외**:
+- 공통 헤더 (점포명, 작업유형, 매장 검색) — 모든 등록 폼 공통
+- 첨부 (`uploader`) — 모든 카테고리 공통
+- thread (요청접수·처리기록) — 신규/AS/소모품 공통 (VAN 은 thread 없음)
+
 ## 📅 날짜 기록 규칙 (필수)
 
 **원칙**: 모든 업무 기록(작업/메모/thread entry/상태 변경 등)에는 **날짜가 반드시 포함**되어야 한다.
