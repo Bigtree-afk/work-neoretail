@@ -16961,8 +16961,17 @@ ${text.slice(0, 4000)}`;
     //  _isJobEffectivelyDone 사용 — thread ROOT 전체 완료 시 status 무관 done 처리
     //  (옛 AS 데이터의 stale status 가 카운트에 잡히던 버그 fix)
     const isDone = window._isJobEffectivelyDone || _isJobDone;
-    // 이번달 신규 = 신규 작업 중 openDate 가 이번달 (등록/미등록 무관)
-    const newOpenThisMonth = jobs.filter(j => /신규|개업|오픈/.test(j.type||'') && (j.openDate||'').slice(0,7) === ym).length;
+    // 이번달 신규 = 신규 카테고리 중 openDate 이번달 + 진행 중 (effectively-done 제외)
+    //   hub(renderNewHub) 의 progress 필터와 일치하도록 정합 — 완료된 건은 별도 카운트
+    //   classifyJobCategory 우선 사용 — type 문자열만으로는 '신규/VAN변경' 등도 잡혀 오분류
+    const _classifyJob = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : null;
+    const isNewCat = (j) => {
+      if (_classifyJob) return _classifyJob(j) === 'new';
+      return /신규|개업|오픈/.test(j.type||'');
+    };
+    const newAllThisMonth = jobs.filter(j => isNewCat(j) && (j.openDate||'').slice(0,7) === ym);
+    const newOpenThisMonth = newAllThisMonth.filter(j => !isDone(j)).length;
+    const newDoneThisMonth = newAllThisMonth.length - newOpenThisMonth;
     const inProgress = jobs.filter(j => !isDone(j)).length;
     const asCount = jobs.filter(j => /as|에이에스/i.test(j.type||'') && !isDone(j)).length;
     const asOver48 = jobs.filter(j => {
@@ -16978,7 +16987,10 @@ ${text.slice(0, 4000)}`;
 
     const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
     setText('statNewOpen', newOpenThisMonth);
-    setText('statNewOpenSub', newOpenThisMonth === 0 ? '이번달 신규 없음' : '이번달 ' + newOpenThisMonth + '건');
+    setText('statNewOpenSub',
+      newOpenThisMonth === 0
+        ? (newDoneThisMonth > 0 ? `완료 ${newDoneThisMonth}건` : '이번달 신규 없음')
+        : `진행 ${newOpenThisMonth}건${newDoneThisMonth > 0 ? ` · 완료 ${newDoneThisMonth}건` : ''}`);
     setText('statInProgress', inProgress);
     setText('statInProgressSub', inProgress === 0 ? '등록된 작업 없음' : '오늘 예정 ' + todoneToday + '건');
     setText('statAsCount', asCount);
@@ -17100,15 +17112,17 @@ ${text.slice(0, 4000)}`;
     try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e){}
     const today = new Date();
     const ym = today.toISOString().slice(0,7);
-    const isDone = _isJobDone;
+    const isDone = window._isJobEffectivelyDone || _isJobDone;
+    const _classifyJob2 = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : null;
+    const isNewCat2 = (j) => _classifyJob2 ? _classifyJob2(j) === 'new' : /신규|개업|오픈/.test(j.type||'');
 
     let title = '목록';
     let list = [];
     let emptyMsg = '데이터가 없습니다.';
 
     if (kind === 'newOpen') {
-      title = `🏪 이번달 신규 (${ym})`;
-      list = jobs.filter(j => /신규|개업|오픈/.test(j.type||'') && (j.openDate||'').slice(0,7) === ym)
+      title = `🏪 이번달 신규 (${ym}) — 진행 중`;
+      list = jobs.filter(j => isNewCat2(j) && (j.openDate||'').slice(0,7) === ym && !isDone(j))
                  .sort((a,b) => (a.openDate||'').localeCompare(b.openDate||''));
       emptyMsg = '이번달 신규 작업이 없습니다.';
     } else if (kind === 'inProgress') {
