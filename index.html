@@ -10968,8 +10968,19 @@ ${text.slice(0, 4000)}`;
   window.deletePending = deletePending;
 
   async function approvePending(id) {
+    // 🛡 중복 승인 방지 — 같은 pending id 가 처리 중이면 무시
+    //   원인: 사용자 더블클릭 → /api/line-pending DELETE 가 응답 오기 전 두 번째 클릭이
+    //         아직 _linePending 에 남은 p 를 다시 찾아 동일 lineTs(==msgAt) 로 또 등록 → 중복.
+    window._lineApprovingSet = window._lineApprovingSet || new Set();
+    if (window._lineApprovingSet.has(id)) {
+      try { showToast('⏳ 이미 승인 중입니다…'); } catch(_){}
+      return;
+    }
+    window._lineApprovingSet.add(id);
+    const _releaseLineLock = () => { try { window._lineApprovingSet.delete(id); } catch(_){} };
+    setTimeout(_releaseLineLock, 5000);
     const p = _linePending.find(x => x.id === id);
-    if (!p) return;
+    if (!p) { _releaseLineLock(); return; }
     // 매장 미연결 + 추가처리 메모 누락 경고
     if (!p.storeId && !p.store) {
       if (!confirm('매장이 미연결 상태입니다. 미등록 작업으로 진행할까요?')) return;
@@ -15390,6 +15401,22 @@ ${text.slice(0, 4000)}`;
    *   4. AS job 의 type 은 'AS 처리' 로 정규화 (분류기와 일관)
    * ════════════════════════════════════════════════════════════════════════ */
   function saveNewJob() {
+    // 🛡 중복 등록 방지 — 진행 중이면 무시 (더블클릭/Enter 연타 가드)
+    //   PC saveNewJob 은 동기 진입 후 push 까지 비동기. 가드 없으면 ID 다른 2건이 생김.
+    if (window._saveNewJobBusy) {
+      try { showToast('⏳ 저장 진행 중입니다…'); } catch(_){}
+      return;
+    }
+    window._saveNewJobBusy = true;
+    // 버튼 disable — 모달 footer 의 primary 버튼 (작업 등록 / 저장)
+    const _saveBtns = Array.from(document.querySelectorAll('#newJobModal .modal-footer .btn.btn-primary'));
+    _saveBtns.forEach(b => { b.disabled = true; b.dataset.savingOrig = b.textContent; b.textContent = '⏳ 저장 중...'; b.style.opacity = '0.6'; b.style.cursor = 'wait'; });
+    // 1.5초 후 자동 해제 (실패/조기 return 대비 — 정상 저장 시는 모달 close 시 함께 해제됨)
+    setTimeout(() => {
+      window._saveNewJobBusy = false;
+      _saveBtns.forEach(b => { b.disabled = false; if (b.dataset.savingOrig) b.textContent = b.dataset.savingOrig; b.style.opacity = ''; b.style.cursor = ''; });
+    }, 2000);
+
     // AS 인라인 편집 모드 — 모든 thread 편집이 이미 live 저장되었으므로 모달만 닫음
     if (window._asInlineEditJobId) {
       const jid = window._asInlineEditJobId;

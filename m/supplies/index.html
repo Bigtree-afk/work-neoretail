@@ -1063,7 +1063,20 @@ window.onPromoteUnregStore = async function(){
 };
 
 /* 저장 */
+let _saveBusy = false;
 window.onSaveForm = async function(){
+  // 🛡 중복 등록 방지 — 진행 중이면 무시
+  if (_saveBusy) { showToast('⏳ 저장 진행 중...'); return; }
+  _saveBusy = true;
+  const _saveBtn = document.querySelector('#view-form .actions .btn-primary');
+  let _origTxt = '';
+  if (_saveBtn) { _origTxt = _saveBtn.textContent; _saveBtn.disabled = true; _saveBtn.textContent = '⏳ 저장 중...'; _saveBtn.style.opacity = '.6'; }
+  const _release = () => {
+    _saveBusy = false;
+    if (_saveBtn) { _saveBtn.disabled = false; _saveBtn.textContent = _origTxt || '저장'; _saveBtn.style.opacity = ''; }
+  };
+  setTimeout(_release, 3000);  // fail-safe
+  try {
   const unreg = $('fUnregMode').checked;
   let storeName = '', storeId = '', bizNo = '';
   if (unreg) {
@@ -1191,6 +1204,8 @@ window.onSaveForm = async function(){
   showToast(_editingJob ? '✓ 수정 완료' : '✓ 등록 완료');
   try { window.pushJobsToCloud(); } catch(_){}
   location.hash = '#thread/' + job.id;
+  } catch(e) { console.warn('[onSaveForm] 실패', e); showToast('⚠ 저장 실패: ' + e.message); }
+  finally { _release(); }
 };
 
 window.onDeleteJob = function(){
