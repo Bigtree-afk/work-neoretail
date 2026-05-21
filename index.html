@@ -4,11 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>작업관리 — NeoSolution</title>
-<!-- 📱 모바일 자동 리다이렉트 — 일단 OFF (모바일 SPA 완성 전까지 PC 반응형 유지)
-     재활성화 시 아래 IIFE 의 if(false) 만 풀면 됨. /m/ 경로 직접 접속은 계속 가능. -->
+<!-- 📱 모바일 자동 리다이렉트 — ON (2026-05-21 ~ 1주 테스트)
+     - /m/* 경로는 redirect 제외 (이미 모바일 SPA)
+     - ?desktop=1 → 강제 PC 모드 (localStorage.force_desktop=1 영구 저장)
+     - localStorage.force_desktop=1 → 항상 PC
+     - 화면 폭 ≤640 OR 모바일 UA → /m/ 으로 redirect
+     문제 발생 시 if(true) → if(false) 한 줄만 되돌리면 비활성화. -->
 <script>
   (function(){
-    if (false) {
+    if (true) {
       try {
         var url = new URL(location.href);
         var p = url.pathname || '/';

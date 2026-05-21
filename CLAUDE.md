@@ -115,6 +115,24 @@ job.shipDate = formShipDate || today;
 - ms 정밀도 없는 일자 문자열(`YYYY-MM-DD`) 만으로 정렬 (같은 날 등록 건 순서 불안정)
 - 매장 그룹 내 정렬을 카테고리 무관하게 `createdAt desc` 일괄 적용 (도메인 우선순위 무시)
 
+## 📱 모바일 자동 리다이렉트 (2026-05-21 ~ 1주 테스트)
+
+- **위치**: `index.html` 상단 IIFE
+- **활성화 토글**: 같은 IIFE 의 `if (true)` ↔ `if (false)`
+- **제외 경로**: `/m`, `/m.html`, `/m/*`
+- **PC 강제 진입**: `?desktop=1` URL 파라미터 (한 번 들어가면 `localStorage.force_desktop=1` 영구 저장)
+- **mobile 감지**: 화면 폭 ≤640 OR `Mobi|Android|iPhone|iPod|webOS|BlackBerry|IEMobile|Opera Mini` UA
+
+**테스트 관찰 항목**:
+- 모바일 SPA 에 누락된 기능이 있는지 (있으면 PC 로 fallback 가능한지 확인)
+- `force_desktop=1` 영구 토글이 의도대로 동작
+- 모바일 SPA 의 카테고리별 페이지(`/m/newjob/` `/m/as/` `/m/van/` `/m/supplies/` `/m/stocktake/`) 모두 진입 가능
+- iPad 등 태블릿이 모바일로 잡혀 불편한지 — 필요 시 폭 임계값(640) 조정
+
+**1주 후 결정**:
+- 안정적이면 → 정식 적용 + 이 섹션을 "운영 중" 으로 갱신
+- 문제 다발 → `if (false)` 로 임시 비활성화 + 원인 정리
+
 ## 📝 리스트/sub-card 상세 표시 규칙 (필수)
 
 **원칙**: hub/리스트의 sub-card 한 줄은 사용자가 **별도로 열어보지 않고도 즉시 판단 가능한 정보**를 모두 담는다. 카테고리별 핵심 식별자 + 도메인 수치 + 상태 라벨을 한 줄에 묶어 표시.
