@@ -18497,19 +18497,29 @@ ${text.slice(0, 4000)}`;
     const colsEl  = document.getElementById('neoSummaryColumns');
     if (!statsEl && !colsEl) return;
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
-    const isDone = _isJobDone;
+    // _isJobEffectivelyDone 사용 — thread ROOT 전체 완료도 done 처리 (옛 데이터 stale status 정확화)
+    const isDone = window._isJobEffectivelyDone || _isJobDone;
     const today = new Date().toISOString().slice(0,10);
     const ym = today.slice(0,7);
+    // classifyJobCategory(j) === 'new' 우선 — type 정규식보다 정확 (신규/VAN변경 등 변종 정확히 분류)
+    const _cls = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : null;
+    const isNewCat = (j) => {
+      if (!j || j.type === '상담') return false;
+      if (_cls) return _cls(j) === 'new';
+      return /신규|개업|오픈/.test(j.type||'');
+    };
 
-    const newopen = jobs.filter(j => j && j.type !== '상담' && /신규|개업|오픈/.test(j.type||''));
+    const newopen = jobs.filter(isNewCat);
     const consult = jobs.filter(j => j && j.type === '상담');
 
     const newopenActive = newopen.filter(j => !isDone(j));
     const consultActive = consult.filter(j => j.status === '상담중');
     const consultWon = consult.filter(j => j.status === '납품성공').length;
     const consultLost = consult.filter(j => j.status === '납품실패').length;
-    const openThisMonth = newopen.filter(j => (j.openDate||'').slice(0,7) === ym).length;
+    // '이번달 오픈 예정' — 완료 제외 (이미 오픈된 매장은 '예정' 아님)
+    const openThisMonth = newopen.filter(j => (j.openDate||'').slice(0,7) === ym && !isDone(j)).length;
     const installSoon = newopen.filter(j => {
+      if (isDone(j)) return false;
       const d = (j.installDate||'').slice(0,10);
       if (!d) return false;
       return d >= today && d <= addDays(today, 14);
