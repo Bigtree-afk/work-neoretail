@@ -3117,7 +3117,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </div>
           <div>
             <div style="font-size:11px;color:var(--gray-500);margin-bottom:3px;font-weight:600">단위</div>
-            <input type="text" id="jobSupplyUnit" placeholder="박스/롤" style="width:100%;text-align:center" readonly>
+            <select id="jobSupplyUnit" style="width:100%;text-align:center;padding:6px 4px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;background:#fff">
+              <option value="박스">박스</option>
+              <option value="롤">롤</option>
+              <option value="매">매</option>
+              <option value="개">개</option>
+              <option value="세트">세트</option>
+              <option value="EA">EA</option>
+            </select>
           </div>
           <div id="suppliesPickedLabel" style="font-size:11.5px;color:var(--gray-500);padding-bottom:8px">품목 미선택</div>
         </div>
@@ -18846,7 +18853,7 @@ ${text.slice(0, 4000)}`;
     setVal('jobSupplyRequest', '');
     setVal('jobSupplyAmount', '');
     setVal('jobSupplyQty', '1');
-    setVal('jobSupplyUnit', '');
+    setVal('jobSupplyUnit', '박스');  // select 기본값 — 품목 클릭 시 매핑값으로 덮어씀
     setVal('jobSupplyArDue', '');
     const supDone = document.getElementById('jobSupplyDoneNow');
     if (supDone) supDone.checked = false;
