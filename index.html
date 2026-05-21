@@ -5599,6 +5599,32 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       // 카테고리 뱃지
       const subCats = [...new Set(g.jobs.map(j => j.type || j.category || ''))].filter(Boolean).slice(0, 3);
       badgesHtml = subCats.map(c => `<span class="gbtag ${cat}">${escFn(c)}</span>`).join('');
+      // 🏷️ 소모품 매장 내 정렬 규칙 (GLOBAL_RULE: supplies-store-sort):
+      //   ① 미수 (postpaid · 잔액 > 0 · arPaid=false) → 최상단
+      //   ② 그 외 → updatedAt > createdAt > shipDate (분 단위까지) desc
+      //   완료/미완료 섞여도 미수가 항상 위. createdAt/updatedAt 은 ms 정밀도라
+      //   같은 일자라도 등록 시·분 단위로 안정 정렬됨.
+      if (cat === 'supplies') {
+        const _isOutstanding = (j) => {
+          const mode = j.supplyMode || ((Number(j.amount)>0 && /(후불|미수)/i.test(String(j.payment||j.note||j.notes||''))) ? 'postpaid' : (Number(j.amount)>0 ? 'prepaid' : 'support'));
+          if (mode !== 'postpaid') return false;
+          if (j.arPaid) return false;
+          const amt = Number(j.amount)||0;
+          const paid = Number(j.arPaidAmount)||0;
+          return Math.max(0, amt - paid) > 0;
+        };
+        const _touch = (j) => {
+          let v = Number(j.updatedAt||0) || Number(j.createdAt||0);
+          if (!v && j.shipDate) { const t = Date.parse(String(j.shipDate).replace(' ','T')); if (!isNaN(t)) v = t; }
+          return v;
+        };
+        g.jobs = g.jobs.slice().sort((a,b) => {
+          const ao = _isOutstanding(a) ? 0 : 1;
+          const bo = _isOutstanding(b) ? 0 : 1;
+          if (ao !== bo) return ao - bo;       // 미수 먼저
+          return _touch(b) - _touch(a);         // 최신 먼저 (분 단위)
+        });
+      }
       subsHtml = g.jobs.map(j => {
         const dd = _hubDday(j);
         const wnCls = dd.urgent ? 'urgent' : (dd.done ? 'done' : '');

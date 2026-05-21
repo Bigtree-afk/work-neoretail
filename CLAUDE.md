@@ -88,6 +88,33 @@ const today = (typeof _kstNow === 'function') ? String(_kstNow()||'').slice(0,10
 job.shipDate = formShipDate || today;
 ```
 
+## 🔢 카테고리별 hub 정렬 규칙 (필수)
+
+**원칙**: 매장 그룹 내(하위 sub-card) 정렬은 도메인 의미에 맞게 — 사용자가 가장 먼저 처리해야 할 항목이 위에 와야 한다. 단순 createdAt desc 로는 부족.
+
+| 카테고리 | 정렬 1순위 | 정렬 2순위 (tie-break) |
+|---|---|---|
+| **소모품** (`supplies`) | **미수 (postpaid · 잔액>0 · arPaid=false)** 먼저 | `updatedAt > createdAt > shipDate` desc (분 단위) |
+| **AS** | 긴급 (urgent D-day) 먼저 | 접수일 desc |
+| **신규** | 미완료 ROOT 있는 것 먼저, 그 안에서 오픈일 임박 우선 | createdAt desc |
+| **VAN** | 진행중 먼저 | 업무일 desc |
+
+**구현 위치**: `_hubRenderGroup` 의 `subsHtml = g.jobs.map(...)` 직전에 `g.jobs = g.jobs.slice().sort(...)` 로 정렬.
+
+**시간 정밀도 (필수)**:
+- 모든 작업/메모/thread entry 의 `createdAt` / `updatedAt` 은 **ms 단위 (`Date.now()`)** 로 저장 — 같은 일자 등록도 분·초 단위로 안정 정렬됨.
+- `ts` (thread/memo) 는 KST `YYYY-MM-DD HH:MM` 표시용. 정렬 비교는 가능한 `updatedAt`/`createdAt` 의 ms 사용 (문자열 비교는 fallback).
+- 일자 필드(`shipDate`/`openDate` 등)는 `YYYY-MM-DD` 만 — UI 표시·필터용. 정렬 tie-break 에 쓸 때는 `Date.parse(d+'T00:00:00')` 로 환산.
+
+**저장 시 의무**:
+- 신규 작업 등록 → `createdAt = Date.now()` (필수), `updatedAt = Date.now()` (필수)
+- 수정 (edit/patch) → `updatedAt = Date.now()` 갱신 의무
+- 상태 전환 (완료/수금) → `doneAt` / `arPaidAt` 등 시점 기록
+
+**금지**:
+- ms 정밀도 없는 일자 문자열(`YYYY-MM-DD`) 만으로 정렬 (같은 날 등록 건 순서 불안정)
+- 매장 그룹 내 정렬을 카테고리 무관하게 `createdAt desc` 일괄 적용 (도메인 우선순위 무시)
+
 ## 📏 파일 크기 가드레일 (필수)
 
 **원칙**: 한 파일에 1,000줄 이상 코드 생성·누적 금지. 임계 근접 시 분할 검토.
