@@ -5637,15 +5637,32 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
                   || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '-');
         const onclick = j.id ? `editNewopen('${escFn(j.id)}')` : '';
         const lineBtn = j.id ? `<button class="hub-line-btn" title="📡 LINE 발송" onclick="event.stopPropagation();window._hubLineSend('${escFn(j.id)}','')">📡</button>` : '';
-        // 🏷️ 소모품 — [날짜][품목 처리구분 수량단위 금액] 상세 표시
+        // 🏷️ 소모품 — [날짜][품목규격 수량단위 처리구분] · 금액  상세 표시
+        //   글로벌 규칙: list-detail-rule — 리스트는 한 줄에서 바로 처리 가능한 정보 모두 노출
+        //   (품목명·규격·수량·단위·처리구분·금액·미수)
         let titleHtml;
         if (cat === 'supplies') {
           const fmt = n => (Number(n)||0).toLocaleString();
-          // 품목명 — "소모품/POS용지" → "POS용지", "소모품/저울라벨" → "저울라벨"
-          const itemShort = String(j.type||'').replace(/^소모품\//,'') || (j.title || '소모품');
-          const qty = Number(j.supplyQty) || 0;
-          const unit = j.supplyUnit || '';
-          const qtyTxt = qty > 0 ? ` ${qty}${unit}` : '';
+          // 품목 + 규격 매핑 — sub-card 에 "3" POS용지" 처럼 규격이 보이도록
+          const SUPPLY_DISPLAY = {
+            '소모품/POS용지':   { name: 'POS용지',   spec: '3"' },
+            '소모품/단말용지':  { name: '단말용지',  spec: '2"' },
+            '소모품/가격라벨':  { name: '가격라벨',  spec: '40×23' },
+            '소모품/프라이스텍':{ name: '프라이스텍', spec: '70×35' },
+            '소모품/저울라벨':  { name: '저울라벨',  spec: '58×40' },
+            '소모품/기타':      { name: '기타',      spec: '' },
+          };
+          const typeKey = String(j.type||'');
+          const disp = SUPPLY_DISPLAY[typeKey] || { name: typeKey.replace(/^소모품\//,'') || '소모품', spec: '' };
+          const itemShort = disp.spec ? `${disp.spec} ${disp.name}` : disp.name;
+          // 수량 + 단위 — PC(숫자+supplyUnit) / 모바일("5 박스" 문자열) 양쪽 지원
+          let qty = Number(j.supplyQty);
+          let unit = j.supplyUnit || '';
+          if (!Number.isFinite(qty) || qty === 0) {
+            const m = String(j.supplyQty||'').match(/(\d+(?:\.\d+)?)\s*(\S*)/);
+            if (m) { qty = parseFloat(m[1])||0; if (!unit && m[2]) unit = m[2]; }
+          }
+          const qtyTxt = qty > 0 ? ` ${qty}${unit||''}` : '';
           // 처리 구분 라벨 + 색
           const mode = j.supplyMode || ((j.amount > 0) ? (/(후불|미수)/i.test(String(j.payment||j.note||j.notes||''))?'postpaid':'prepaid') : 'support');
           const amt = Number(j.amount)||0;
@@ -5667,11 +5684,11 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
               amtTxt = ` · ${fmt(remaining)}원${partial}`;
             }
           }
-          // 최종: [날짜][품목명 처리구분 N단위] 금액
+          // 최종: [날짜] [규격 품목명 N단위 처리구분] · 금액
           titleHtml = `<span style="color:var(--gray-500);font-weight:600">[${escFn(date)}]</span> `
-                    + `<span style="color:var(--gray-800);font-weight:800">[${escFn(itemShort)} </span>`
+                    + `<span style="color:var(--gray-800);font-weight:800">[${escFn(itemShort)}${escFn(qtyTxt)} </span>`
                     + `<span style="color:${modeColor};font-weight:700">${modeTxt}</span>`
-                    + `<span style="color:var(--gray-800);font-weight:800">${escFn(qtyTxt)}]</span>`
+                    + `<span style="color:var(--gray-800);font-weight:800">]</span>`
                     + `<span style="color:${modeColor};font-size:11px;font-weight:600">${amtTxt}</span>`;
         } else {
           // 비-소모품 — 기존 표시
