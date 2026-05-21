@@ -11,7 +11,13 @@
 export async function onRequestGet({ env }) {
   if (!env.STORES_KV) return json({ jobs: [], error: 'KV not bound' }, 200);
   const data = (await env.STORES_KV.get('jobs', 'json')) || { jobs: [] };
-  return json(data, 200);
+  // 🪦 deleted_jobs 레지스트리 포함 — 클라이언트가 자기 localStorage 정리에 사용
+  //    형식: [{ id, deletedAt, reason }]
+  const deleted = (await env.STORES_KV.get('deleted_jobs', 'json')) || [];
+  const out = (data && typeof data === 'object' && !Array.isArray(data))
+    ? { ...data, deleted }
+    : { jobs: Array.isArray(data) ? data : [], deleted };
+  return json(out, 200);
 }
 
 export async function onRequestPost({ request, env }) {

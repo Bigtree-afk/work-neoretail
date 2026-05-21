@@ -5117,6 +5117,15 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       const remote = Array.isArray(data.stores) ? data.stores : [];
       const meta = data.meta || {};
       const local = (typeof getStores === 'function') ? (getStores() || []) : [];
+      // 🪦 서버 측 매장 삭제 레지스트리 — 동일 id 를 자기 localStorage 에서도 제거
+      //   + 로컬 tombstone 등록해서 future sync 시 부활 차단
+      const cloudDeletedStores = Array.isArray(data.deleted) ? data.deleted : [];
+      const cloudDeletedStoreIds = new Set(cloudDeletedStores.map(e => String(e && e.id || '')).filter(Boolean));
+      if (cloudDeletedStoreIds.size > 0 && typeof _addTombstone === 'function') {
+        for (const id of cloudDeletedStoreIds) {
+          try { _addTombstone('store', id); } catch(_){}
+        }
+      }
       // 다중 키 인덱스 (id / biz / code) — 한쪽이 결손이어도 매칭 가능
       const normBiz = (b) => String(b||'').replace(/\D/g, '');
       const indexBy = (arr) => {
@@ -5137,8 +5146,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       // (정책: window.STORE_FIELD_POLICY 에서 명시. 새 필드는 정책만 추가하면 됨)
       const mergeStore = (loc, rem) => mergeStoreObjects(loc, rem);
 
-      // 🪦 store tombstone 필터 — 삭제된 매장이 클라우드에서 부활 차단
-      const isStoreTomb = (s) => s && s.id && (typeof _isTombstoned === 'function') && _isTombstoned('store', s.id);
+      // 🪦 store tombstone 필터 — 로컬 tombstone 또는 서버 deleted 레지스트리 매칭 시 제외
+      const isStoreTomb = (s) => {
+        if (!s || !s.id) return false;
+        if (cloudDeletedStoreIds.has(String(s.id))) return true;
+        return (typeof _isTombstoned === 'function') && _isTombstoned('store', s.id);
+      };
       const result = [];
       const seen = new Set();
       // 1) 로컬 매장 순회 — tombstone 된 매장은 skip, 나머지는 KV 매장과 머지
@@ -13591,15 +13604,34 @@ ${text.slice(0, 4000)}`;
       const data = await res.json();
       const local = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
       const cloud = Array.isArray(data?.jobs) ? data.jobs : [];
+      // 🪦 서버 측 삭제 레지스트리 — admin-delete 로 다른 기기에서 지운 항목을
+      //    이 기기에서도 자동 제거 + 로컬 tombstone 등록 (재발 차단)
+      //    형식: [{ id, deletedAt, reason }]
+      const cloudDeleted = Array.isArray(data?.deleted) ? data.deleted : [];
+      const cloudDeletedIds = new Set(cloudDeleted.map(e => String(e && e.id || '')).filter(Boolean));
+      let serverTombsAdded = 0;
+      if (cloudDeletedIds.size > 0) {
+        for (const id of cloudDeletedIds) {
+          if (!_isJobTombstoned(id)) {
+            try { _addTombstone('job', id); serverTombsAdded++; } catch(_){}
+          }
+        }
+      }
       // 로컬과 머지: id 기준 합집합 — 같은 id 는 thread/memos union 으로 안전 머지
       // (이전 정책: cloud 가 무조건 우선 → stale cloud 가 로컬 thread 를 지우는 사고 발생)
       const byId = new Map();
-      // 🪦 로컬에 이미 tombstone 된 job 은 skip — stale cloud 부활 차단
-      local.forEach(j => { if (j && j.id && !_isJobTombstoned(j.id)) byId.set(j.id, j); });
+      // 🪦 로컬에 이미 tombstone 된 OR 서버에서 삭제된 job 은 skip
+      local.forEach(j => {
+        if (!j || !j.id) return;
+        if (_isJobTombstoned(j.id)) return;
+        if (cloudDeletedIds.has(j.id)) return;   // 서버 삭제 항목은 즉시 제거
+        byId.set(j.id, j);
+      });
       let mergedCount = 0;
       cloud.forEach(j => {
         if (!j || !j.id) return;
-        if (_isJobTombstoned(j.id)) return; // 🪦 cloud 에 살아있어도 로컬에서 삭제 처리된 job 차단
+        if (_isJobTombstoned(j.id)) return;
+        if (cloudDeletedIds.has(j.id)) return;
         const existing = byId.get(j.id);
         if (existing) mergedCount++;
         byId.set(j.id, _mergeJobRecord(existing, j));

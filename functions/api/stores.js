@@ -9,7 +9,9 @@ export async function onRequestGet({ env }) {
   // cacheTtl:0 — patch / sync 의 최신 write 가 PoP 캐시에 막혀 stale 안 되도록
   const stores = (await env.STORES_KV.get('stores', 'json')) || [];
   const meta = (await env.STORES_KV.get('meta', 'json')) || {};
-  return json({ stores, meta }, 200);
+  // 🪦 deleted_stores 레지스트리 — 클라이언트가 localStorage 정리에 사용
+  const deleted = (await env.STORES_KV.get('deleted_stores', 'json')) || [];
+  return json({ stores, meta, deleted }, 200);
 }
 
 function json(obj, status = 200) {

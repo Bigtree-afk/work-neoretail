@@ -112,18 +112,28 @@
       const data = await res.json();
       const remote = Array.isArray(data && data.stores) ? data.stores : [];
       if (remote.length === 0) return;
+      // 🪦 서버 측 매장 삭제 레지스트리 — 자기 localStorage 에서도 제거 + 로컬 tombstone 등록
+      const cloudDeleted = Array.isArray(data && data.deleted) ? data.deleted : [];
+      const cloudDeletedIds = new Set(cloudDeleted.map(e => String(e && e.id || '')).filter(Boolean));
+      if (cloudDeletedIds.size > 0 && typeof _addTombstone === 'function') {
+        for (const id of cloudDeletedIds) {
+          try { _addTombstone('store', id); } catch(_){}
+        }
+      }
       const local = getStores() || [];
       const byId = new Map();
       // 로컬 우선 등록 (tombstone 된 매장은 skip)
       local.forEach(s => {
         if (!s || !s.id) return;
         if (_isStoreTombstoned(s.id)) return;
+        if (cloudDeletedIds.has(s.id)) return;
         byId.set(s.id, s);
       });
       // 클라우드 매장 추가 — tombstone 필터 적용 (삭제된 매장이 살아돌아오는 것 방지)
       remote.forEach(s => {
         if (!s || !s.id) return;
         if (_isStoreTombstoned(s.id)) return;
+        if (cloudDeletedIds.has(s.id)) return;
         byId.set(s.id, s); // 같은 id 면 remote 우선 (PC master 가정)
       });
       const noId = [
@@ -505,12 +515,28 @@
       const data = await res.json();
       const local = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
       const cloud = Array.isArray(data?.jobs) ? data.jobs : [];
+      // 🪦 서버 측 삭제 레지스트리 적용 — 다른 기기에서 admin-delete 된 항목을 이 기기에서도 자동 제거
+      const cloudDeleted = Array.isArray(data?.deleted) ? data.deleted : [];
+      const cloudDeletedIds = new Set(cloudDeleted.map(e => String(e && e.id || '')).filter(Boolean));
+      if (cloudDeletedIds.size > 0 && typeof _addTombstone === 'function') {
+        for (const id of cloudDeletedIds) {
+          if (!_isJobTombstoned(id)) {
+            try { _addTombstone('job', id); } catch(_){}
+          }
+        }
+      }
       const byId = new Map();
-      local.forEach(j => { if (j && j.id && !_isJobTombstoned(j.id)) byId.set(j.id, j); });
+      local.forEach(j => {
+        if (!j || !j.id) return;
+        if (_isJobTombstoned(j.id)) return;
+        if (cloudDeletedIds.has(j.id)) return;
+        byId.set(j.id, j);
+      });
       let mergedCount = 0;
       cloud.forEach(j => {
         if (!j || !j.id) return;
         if (_isJobTombstoned(j.id)) return;
+        if (cloudDeletedIds.has(j.id)) return;
         const existing = byId.get(j.id);
         if (existing) mergedCount++;
         byId.set(j.id, _mergeJobRecord(existing, j));
