@@ -5679,7 +5679,12 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     return fixed;
   };
 
-  const _hubDoneFn = (j) => (typeof window._isJobDone === 'function') ? window._isJobDone(j) : false;
+  // hub 정렬·필터에서도 effectively-done 사용 — AS thread 완료 시 status 무관 done 처리
+  const _hubDoneFn = (j) => {
+    if (typeof window._isJobEffectivelyDone === 'function') return window._isJobEffectivelyDone(j);
+    if (typeof window._isJobDone === 'function') return window._isJobDone(j);
+    return false;
+  };
 
   // D-day 계산
   function _hubDday(j) {
@@ -10408,6 +10413,40 @@ ${text.slice(0, 4000)}`;
        - 'done'      : 영문 호환 (구버전)
      [규칙] j.status === '완료' 같은 인라인 체크 금지 — _isJobDone(j) 사용
   ─────────────────────────────────────────────────────────────*/
+  /* 🎯 _isJobEffectivelyDone(j) — status 문자열 OR thread ROOT 전체 완료 검사
+     예: AS job 의 모든 ROOT 가 child '완료' 가지면 status='접수' 라도 effectively done.
+     사용처: 대시보드/리스트의 미완료 필터 — 옛날 데이터의 stale status 도 정확히 처리.
+     단, 신규(new) 카테고리는 openDate 가드 적용 (미래/오늘이면 effectively done 아님). */
+  window._isJobEffectivelyDone = function(j) {
+    if (!j) return false;
+    // 1) status 가 명시적으로 완료면 done
+    const s = String(j.status || '');
+    if (s === '완료' || s === '처리완료' || s === 'done') return true;
+    // 2) thread 기반 검사 — 모든 ROOT 가 child '완료' 가짐
+    const thread = Array.isArray(j.thread) ? j.thread : [];
+    if (thread.length === 0) return false;
+    const norm = (typeof window._threadMigrate === 'function') ? window._threadMigrate(thread) : thread;
+    const roots = norm.filter(e => e && e.parentId == null);
+    if (roots.length === 0) return false;
+    const allRootsDone = roots.every(r => {
+      const kids = norm.filter(e => e.parentId === r.threadId);
+      return kids.some(k => k.status === '완료');
+    });
+    if (!allRootsDone) return false;
+    // 3) 신규 openDate 가드
+    try {
+      const cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
+      if (cat === 'new') {
+        const todayStr = (typeof _kstNow === 'function')
+          ? String(_kstNow()||'').slice(0,10)
+          : new Date().toISOString().slice(0,10);
+        const od = String(j.openDate||'').slice(0,10);
+        if (od && od >= todayStr) return false;  // openDate 가 미래/오늘이면 미완료 유지
+      }
+    } catch(_){}
+    return true;
+  };
+
   window._isJobDone = function(j) {
     if (!j) return false;
     const s = String(j.status || '');
@@ -16869,7 +16908,9 @@ ${text.slice(0, 4000)}`;
     const ym = todayStr.slice(0,7); // YYYY-MM
 
     /* ── 상단 통계 카드 ── */
-    const isDone = _isJobDone;  // 글로벌 헬퍼 사용 (완료/처리완료/done 모두 포함)
+    //  _isJobEffectivelyDone 사용 — thread ROOT 전체 완료 시 status 무관 done 처리
+    //  (옛 AS 데이터의 stale status 가 카운트에 잡히던 버그 fix)
+    const isDone = window._isJobEffectivelyDone || _isJobDone;
     // 이번달 신규 = 신규 작업 중 openDate 가 이번달 (등록/미등록 무관)
     const newOpenThisMonth = jobs.filter(j => /신규|개업|오픈/.test(j.type||'') && (j.openDate||'').slice(0,7) === ym).length;
     const inProgress = jobs.filter(j => !isDone(j)).length;
@@ -16958,12 +16999,14 @@ ${text.slice(0, 4000)}`;
       }
     }
 
-    // AS 미처리
+    // AS 미처리 — _isJobEffectivelyDone 사용: thread ROOT 전체 완료 시 status 무관 제외
+    //   (옛날 데이터의 stale status='접수' 인데 thread 는 다 끝난 경우도 정확히 걸러냄)
     const asBody = document.getElementById('dashAsBody');
     if (asBody) {
+      const effectivelyDone = window._isJobEffectivelyDone || _isJobDone;
       const asJobs = jobs.filter(j => {
         const t = (j.type || '').toLowerCase();
-        return /as|에이에스/i.test(t) && !_isJobDone(j);
+        return /as|에이에스/i.test(t) && !effectivelyDone(j);
       });
       if (asJobs.length === 0) {
         asBody.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--gray-400);font-size:12px">미처리 AS가 없습니다.</div>`;
@@ -20808,7 +20851,12 @@ ${text.slice(0, 4000)}`;
     '재방문필요': { color:'#9A3412', bg:'#FED7AA', icon:'🔁' },
     '처리완료':   { color:'#065F46', bg:'#D1FAE5', icon:'✅' },
   };
-  function _isAsDone(j) { return j.status === '처리완료' || j.status === '완료' || j.status === 'done'; }
+  // _isJobEffectivelyDone 우선 사용 — thread ROOT 전체 완료 시 status 무관 done 처리
+  // 옛 데이터의 stale status 도 정확히 분류 (대시보드 AS 미처리 불일치 fix)
+  function _isAsDone(j) {
+    if (typeof window._isJobEffectivelyDone === 'function') return window._isJobEffectivelyDone(j);
+    return j.status === '처리완료' || j.status === '완료' || j.status === 'done';
+  }
   function cycleAsStatus(jobId) {
     const jobs = getJobs();
     const j = jobs.find(x => x.id === jobId);
