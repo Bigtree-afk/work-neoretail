@@ -433,6 +433,12 @@
   body.new-mode .js-non-new { display: none !important; }
   /* 소모품 카테고리에서 숨길 필드 — 담당자/주요일정/비고 (발송일 + 요청접수 만 사용) */
   body.supplies-mode .js-non-supplies { display: none !important; }
+  /* 소모품 전용 필드 — 평소 숨김, supplies-mode 진입 시만 노출 */
+  .js-supplies-only { display: none !important; }
+  body.supplies-mode .js-supplies-only { display: block !important; }
+  /* 품목 picker 활성 상태 */
+  .sup-pick.active { border-color: #06B6D4 !important; background:#ECFEFF !important; box-shadow:0 0 0 3px rgba(6,182,212,.15); }
+  .sup-pick:hover { border-color: #06B6D4; }
   /* 상담 등록 전용 필드 (상담일 등) */
   .js-consult-only { display: none !important; }
   body.consult-mode .js-consult-only { display: flex !important; }
@@ -2968,9 +2974,42 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <input type="date" id="jobConsultDate" style="padding:6px 10px;border:1px solid #FCD34D;border-radius:6px;font-size:13px;background:#fff;font-weight:600">
         <span style="font-size:11px;color:#92400E">기본은 오늘 — 날짜 버튼을 눌러 수정 가능</span>
       </div>
+      <!-- 🏷️ 소모품 — 품목 아이콘 카드 + 발송일 (소모품 모드 전용) -->
+      <div class="form-group js-supplies-only" style="margin-bottom:14px">
+        <label style="display:flex;align-items:center;gap:6px">🏷️ 소모품 품목 <span style="font-size:10px;color:var(--gray-400);font-weight:400">— 아이콘 클릭으로 품목 선택</span></label>
+        <div id="suppliesPicker" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">
+          <button type="button" class="sup-pick" data-sup-type="소모품/POS용지"   data-sup-name='3"포스용지' onclick="pickSupplyItem(this)" style="background:#fff;border:2px solid var(--gray-200);border-radius:10px;padding:11px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .12s">
+            <div style="font-size:24px">🧾</div><div style="font-size:12px;font-weight:800">3"포스용지</div><div style="font-size:10px;color:var(--gray-500)">80×80 감열지</div>
+          </button>
+          <button type="button" class="sup-pick" data-sup-type="소모품/단말용지"   data-sup-name='2"단말용지' onclick="pickSupplyItem(this)" style="background:#fff;border:2px solid var(--gray-200);border-radius:10px;padding:11px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .12s">
+            <div style="font-size:24px">📃</div><div style="font-size:12px;font-weight:800">2"단말용지</div><div style="font-size:10px;color:var(--gray-500)">57×50 감열지</div>
+          </button>
+          <button type="button" class="sup-pick" data-sup-type="소모품/가격라벨"   data-sup-name="가격라벨" onclick="pickSupplyItem(this)" style="background:#fff;border:2px solid var(--gray-200);border-radius:10px;padding:11px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .12s">
+            <div style="font-size:24px">🏷️</div><div style="font-size:12px;font-weight:800">가격라벨</div><div style="font-size:10px;color:var(--gray-500)">40×23</div>
+          </button>
+          <button type="button" class="sup-pick" data-sup-type="소모품/프라이스텍" data-sup-name="프라이스텍" onclick="pickSupplyItem(this)" style="background:#fff;border:2px solid var(--gray-200);border-radius:10px;padding:11px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .12s">
+            <div style="font-size:24px">🪪</div><div style="font-size:12px;font-weight:800">프라이스텍</div><div style="font-size:10px;color:var(--gray-500)">70×35</div>
+          </button>
+          <button type="button" class="sup-pick" data-sup-type="소모품/저울라벨"   data-sup-name="저울라벨" onclick="pickSupplyItem(this)" style="background:#fff;border:2px solid var(--gray-200);border-radius:10px;padding:11px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .12s">
+            <div style="font-size:24px">⚖️</div><div style="font-size:12px;font-weight:800">저울라벨</div><div style="font-size:10px;color:var(--gray-500)">58×40 / 58×70</div>
+          </button>
+          <button type="button" class="sup-pick" data-sup-type="소모품/기타"       data-sup-name="기타 소모품" onclick="pickSupplyItem(this)" style="background:#fff;border:2px dashed var(--gray-300);border-radius:10px;padding:11px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .12s">
+            <div style="font-size:24px">✚</div><div style="font-size:12px;font-weight:800">기타 추가</div><div style="font-size:10px;color:var(--gray-500)">메모로 진행</div>
+          </button>
+        </div>
+        <input type="hidden" id="suppliesPickedType" value="">
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 2fr;gap:10px;align-items:end">
+          <div>
+            <div style="font-size:11px;color:var(--gray-500);margin-bottom:3px;font-weight:600">🚚 발송일</div>
+            <input type="date" id="jobShipDate" style="width:100%">
+          </div>
+          <div id="suppliesPickedLabel" style="font-size:11.5px;color:var(--gray-500);padding-bottom:8px">품목 미선택</div>
+        </div>
+      </div>
+
       <!-- 기본 정보 -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
-        <div class="form-group" style="margin:0">
+        <div class="form-group js-non-supplies" style="margin:0">
           <label>작업 유형 <span id="jobTypeCtxBadge" style="display:none;font-size:10px;color:var(--primary);font-weight:700;margin-left:6px"></span></label>
           <select id="jobType" onchange="applyJobTypeMode()">
             <option>상담</option>
@@ -15007,6 +15046,7 @@ ${text.slice(0, 4000)}`;
       installDate:  isAs ? '' : ((document.getElementById('jobInstallDate')   || {}).value || ''),
       softOpenDate: isAs ? '' : ((document.getElementById('jobSoftOpenDate')  || {}).value || ''),
       openDate:     isAs ? '' : ((document.getElementById('jobOpenDate')      || {}).value || ''),
+      shipDate:     ((document.getElementById('jobShipDate') || {}).value || ''),  // 🚚 소모품 발송일 (소모품 모드에서만 사용)
       // AS 전용
       asReceivedAt: asInfo ? asInfo.receivedAt : '',
       asDueDate:    asInfo ? asInfo.dueDate    : '',
@@ -18027,18 +18067,41 @@ ${text.slice(0, 4000)}`;
       if (badge) { badge.style.display = ''; badge.textContent = '📑 VAN 메뉴 진입 — VAN 카테고리만 등록'; }
       applyJobTypeMode();
     } else if (ctx === 'supplies') {
-      // 소모품: 장비 추가 또는 신규 옵션 사용 (소모품용 전용 type 없음 — 기존 호환)
-      Array.from(sel.options).forEach(o => {
-        const ok = ['장비 추가','신규'].includes(o.value);
-        o.disabled = !ok;
-        o.hidden = !ok;
-      });
-      sel.value = '장비 추가';
-      if (badge) { badge.style.display = ''; badge.textContent = '🏷️ 소모품 진입'; }
+      // 소모품: 작업 유형 셀렉트 숨김 — 대신 품목 아이콘 카드로 type 결정
+      // sel 자체 숨김 + 기본값 '소모품/기타' 로 (아이콘 클릭 시 덮어쓰기)
+      sel.style.display = 'none';
+      sel.value = '소모품/기타';
+      // 모든 picker 카드 active 해제 + 발송일 오늘로 초기화
+      document.querySelectorAll('#suppliesPicker .sup-pick').forEach(b => b.classList.remove('active'));
+      const pickedTypeEl = document.getElementById('suppliesPickedType');
+      if (pickedTypeEl) pickedTypeEl.value = '';
+      const pickedLabel = document.getElementById('suppliesPickedLabel');
+      if (pickedLabel) pickedLabel.textContent = '품목 미선택';
+      const ship = document.getElementById('jobShipDate');
+      if (ship && !ship.value) {
+        const today = (typeof _kstNow === 'function') ? String(_kstNow()||'').slice(0,10) : new Date().toISOString().slice(0,10);
+        ship.value = today;
+      }
+      if (badge) { badge.style.display = ''; badge.textContent = '🏷️ 소모품 등록 — 품목 선택 후 발송일 입력'; }
       applyJobTypeMode();
     }
   }
   window.applyJobFormContext = applyJobFormContext;
+
+  // 🏷️ 소모품 picker — 아이콘 카드 클릭 시 jobType 설정 + 시각 active 표시
+  window.pickSupplyItem = function(btn) {
+    if (!btn) return;
+    const type = btn.getAttribute('data-sup-type') || '소모품/기타';
+    const name = btn.getAttribute('data-sup-name') || '기타 소모품';
+    document.querySelectorAll('#suppliesPicker .sup-pick').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const sel = document.getElementById('jobType');
+    if (sel) sel.value = type;
+    const hidden = document.getElementById('suppliesPickedType');
+    if (hidden) hidden.value = type;
+    const label = document.getElementById('suppliesPickedLabel');
+    if (label) label.textContent = `✓ 선택: ${name}`;
+  };
 
   /* ─── 폼 매장/입력 초기화 — 모달 열 때마다 호출 ─── */
   function _resetJobForm() {
@@ -18066,10 +18129,19 @@ ${text.slice(0, 4000)}`;
     setVal('jobInstallDate', '');
     setVal('jobSoftOpenDate', '');
     setVal('jobOpenDate', '');
+    setVal('jobShipDate', '');
     setVal('asReceivedAt', '');
     setVal('asProcessDate', '');
     setVal('jobNotes', '');
     setVal('jobConsultDate', '');
+    // 소모품 picker 초기화
+    document.querySelectorAll('#suppliesPicker .sup-pick').forEach(b => b.classList.remove('active'));
+    setVal('suppliesPickedType', '');
+    const supLbl = document.getElementById('suppliesPickedLabel');
+    if (supLbl) supLbl.textContent = '품목 미선택';
+    // jobType select 표시 복원 (supplies 컨텍스트에서 숨겼던 경우 대비)
+    const _jt = document.getElementById('jobType');
+    if (_jt) _jt.style.display = '';
     // 서브 카테고리
     setVal('jobAsSubcat', '');
     setVal('jobNewSubcat', '');
