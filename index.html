@@ -5357,6 +5357,56 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       try { if (typeof hydrateSavedStores === 'function') hydrateSavedStores(); } catch(e){}
       try { if (typeof renderCalendar === 'function') renderCalendar(); } catch(e){}
     }, 600);
+
+    /* ════════════════════════════════════════════════════════════
+       🔄 다기기 라이브 동기화 (30초 폴링)
+       - 다른 PC/모바일에서 등록·수정·삭제한 항목을 자동 반영
+       - 탭이 보이지 않을 때는 idle (배터리/네트워크 절약)
+       - localStorage hash 비교 → 변경 시에만 hub/dashboard 재렌더 (jitter 방지)
+       - 페이지 visible 전환 시 즉시 1회 sync (탭 전환 stale 차단)
+       ════════════════════════════════════════════════════════════ */
+    (function _setupLiveSync(){
+      let busy = false;
+      const _hash = () => {
+        try {
+          const j = localStorage.getItem('ns_jobs') || '';
+          const s = localStorage.getItem('ns_stores') || '';
+          return (window._fastHash ? window._fastHash(j + '|' + s) : (j.length + ':' + s.length));
+        } catch { return ''; }
+      };
+      async function tick() {
+        if (busy) return;
+        if (document.visibilityState !== 'visible') return;
+        busy = true;
+        try {
+          const before = _hash();
+          // 작업 + 매장 + LINE pending 모두 동기화
+          const tasks = [];
+          if (typeof syncJobsFromCloud === 'function') tasks.push(syncJobsFromCloud());
+          if (typeof syncFromCloud === 'function')     tasks.push(syncFromCloud({ toast:false }));
+          if (typeof syncLinePending === 'function')   tasks.push(syncLinePending());
+          await Promise.allSettled(tasks);
+          const after = _hash();
+          if (before !== after) {
+            // 변경 감지 — hub + dashboard 자동 재렌더
+            try { if (typeof window._refreshAllHubsAfterThread === 'function') window._refreshAllHubsAfterThread(); } catch(_){}
+            try { if (typeof renderCalendar === 'function') renderCalendar(); } catch(_){}
+            try { if (typeof hydrateSavedStores === 'function') hydrateSavedStores(); } catch(_){}
+          }
+        } catch(e) { console.warn('[liveSync]', e); }
+        finally { busy = false; }
+      }
+      // 30초 폴링
+      setInterval(tick, 30000);
+      // 탭이 다시 보일 때 즉시 1회 — 백그라운드에서 다른 기기 변경 사항 즉시 반영
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          setTimeout(tick, 100);
+        }
+      });
+      // window focus 이벤트 — 다른 탭/창에서 돌아왔을 때
+      window.addEventListener('focus', () => setTimeout(tick, 100));
+    })();
   });
   // 추가 보강: window load 이벤트에서도 한 번 더
   window.addEventListener('load', () => {
