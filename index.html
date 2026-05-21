@@ -3005,6 +3005,19 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </div>
           <div id="suppliesPickedLabel" style="font-size:11.5px;color:var(--gray-500);padding-bottom:8px">품목 미선택</div>
         </div>
+        <!-- 요청접수 textarea + 바로 완료 체크박스 — 미수금/수금예정 케이스 또는 요청접수 후 즉시 완료 -->
+        <div style="margin-top:12px;padding:11px 13px;background:#FAFAFA;border:1px solid var(--gray-200);border-radius:9px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+            <div style="font-size:11px;font-weight:700;color:var(--gray-700)">📝 요청접수 <span style="font-size:10px;color:var(--gray-400);font-weight:400">선택 — 수금 예정/미수 등 추적할 내용이 있을 때만 입력</span></div>
+            <label style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#15803d;cursor:pointer">
+              <input type="checkbox" id="jobSupplyDoneNow" style="accent-color:#15803d;margin:0"> ✅ 바로 완료
+            </label>
+          </div>
+          <textarea id="jobSupplyRequest" rows="2" placeholder="예: 6월 말 수금 예정 / 후불 결제 / 1박스 분 미수금 등 — 비워두면 발송만 등록되고 자동 완료됩니다" style="width:100%;font-family:inherit;font-size:12.5px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;resize:vertical"></textarea>
+          <div style="margin-top:5px;font-size:10.5px;color:var(--gray-500);line-height:1.45">
+            ⚙ 동작: <b>비워둠</b> → 발송만 등록 + 자동 완료 / <b>입력</b> → 요청접수로 등록 (수금 후 별도 완료) / <b>입력 + 바로 완료</b> → 요청접수 + 즉시 완료
+          </div>
+        </div>
       </div>
 
       <!-- 기본 정보 -->
@@ -15063,16 +15076,33 @@ ${text.slice(0, 4000)}`;
         : ((document.getElementById('jobNotes') || {}).value?.trim() || ''),
       equipment,
       equipTotal,
-      // 신규/AS 업무 — 요청사항/처리 기록 스레드 (그룹형)
-      // AS 의 경우 asRequest 가 있고 스레드가 비었으면 첫 ROOT 로 자동 시드
+      // 신규/AS/소모품 업무 — 요청사항/처리 기록 스레드 (그룹형)
+      // AS: asRequest 가 있고 스레드가 비었으면 첫 ROOT 로 자동 시드
+      // 소모품: jobSupplyRequest 가 있으면 ROOT 시드 + (바로 완료 체크 시) child '완료' 자동 추가
       thread: (() => {
         let draft = Array.isArray(window._jobThreadDraft) ? window._jobThreadDraft.slice() : [];
+        const ts = (typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr()
+                  : new Date().toISOString().slice(0,16).replace('T',' ');
+        const author = ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
         if (isAs && draft.length === 0 && asInfo && asInfo.request) {
-          const ts = (typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr()
-                    : new Date().toISOString().slice(0,16).replace('T',' ');
-          const author = ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
           draft = [{ ts, author, status:'요청접수', text: asInfo.request,
                      threadId: 'TR-as-seed-' + Date.now(), parentId: null }];
+        }
+        // 🏷️ 소모품: 요청접수 textarea 내용이 있으면 ROOT 시드
+        if (window._currentJobContext === 'supplies') {
+          const supReqEl = document.getElementById('jobSupplyRequest');
+          const supReq = supReqEl ? (supReqEl.value || '').trim() : '';
+          if (supReq && draft.length === 0) {
+            const rootId = 'TR-sup-seed-' + Date.now();
+            draft = [{ ts, author, status:'요청접수', text: supReq, threadId: rootId, parentId: null }];
+            // 바로 완료 체크 시 자식 '완료' entry 추가 → job 도 완료 상태로
+            const doneNow = !!(document.getElementById('jobSupplyDoneNow')||{}).checked;
+            if (doneNow) {
+              draft.push({ ts, author, status:'완료', text:'(자동) 요청접수와 동시에 완료 처리',
+                threadId: 'TR-sup-done-' + Date.now() + '-' + Math.random().toString(36).slice(2,5),
+                parentId: rootId });
+            }
+          }
         }
         return (typeof window._threadMigrate === 'function')
                 ? window._threadMigrate(draft) : draft;
@@ -15095,7 +15125,32 @@ ${text.slice(0, 4000)}`;
         }
         return { vans:{}, easy:{status:'접수',tid:''}, kakao:{status:'접수',tid:''} };
       })(),
-      status:    isConsult ? '상담중' : (isAs ? '접수' : '진행중'),
+      // 🏷️ 소모품: 요청접수 비어있으면 자동 완료, 채워졌고 '바로 완료' 체크면 완료, 아니면 요청접수
+      status: (() => {
+        if (isConsult) return '상담중';
+        if (isAs) return '접수';
+        if (window._currentJobContext === 'supplies') {
+          const supReq = ((document.getElementById('jobSupplyRequest')||{}).value || '').trim();
+          const doneNow = !!(document.getElementById('jobSupplyDoneNow')||{}).checked;
+          if (!supReq) return '완료';  // 발송만 케이스 — 자동 완료
+          if (doneNow) return '완료';  // 요청접수 + 바로 완료
+          return '요청접수';            // 수금 예정/미수 — 별도 완료 처리 필요
+        }
+        return '진행중';
+      })(),
+      completed: (() => {
+        if (window._currentJobContext !== 'supplies') return undefined;
+        const supReq = ((document.getElementById('jobSupplyRequest')||{}).value || '').trim();
+        const doneNow = !!(document.getElementById('jobSupplyDoneNow')||{}).checked;
+        return (!supReq) || doneNow;  // 발송만 또는 바로 완료 → true
+      })(),
+      doneAt: (() => {
+        if (window._currentJobContext !== 'supplies') return undefined;
+        const supReq = ((document.getElementById('jobSupplyRequest')||{}).value || '').trim();
+        const doneNow = !!(document.getElementById('jobSupplyDoneNow')||{}).checked;
+        if ((!supReq) || doneNow) return new Date().toISOString();
+        return '';
+      })(),
       // 📷📎 첨부 (newJobUploader)
       attachments: (function(){
         try {
@@ -18137,6 +18192,9 @@ ${text.slice(0, 4000)}`;
     // 소모품 picker 초기화
     document.querySelectorAll('#suppliesPicker .sup-pick').forEach(b => b.classList.remove('active'));
     setVal('suppliesPickedType', '');
+    setVal('jobSupplyRequest', '');
+    const supDone = document.getElementById('jobSupplyDoneNow');
+    if (supDone) supDone.checked = false;
     const supLbl = document.getElementById('suppliesPickedLabel');
     if (supLbl) supLbl.textContent = '품목 미선택';
     // jobType select 표시 복원 (supplies 컨텍스트에서 숨겼던 경우 대비)
