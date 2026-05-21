@@ -5399,9 +5399,13 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   // D-day 계산
   function _hubDday(j) {
-    const sched = j.scheduleDate || j.date;
-    if (!sched) return { text:'진행중', urgent:false, done:false };
+    // 🛡 완료 판정을 sched 체크보다 먼저 — sched 없는 작업 (소모품 등) 도 완료 표시되도록
     if (_hubDoneFn(j)) return { text:'완료', urgent:false, done:true };
+    // 소모품 (shipDate) / AS (asReceivedAt) / 신규 (openDate) 도 fallback 으로 인식
+    const sched = j.scheduleDate || j.date || j.shipDate
+                  || j.installDate || j.softOpenDate || j.openDate
+                  || (j.asReceivedAt ? String(j.asReceivedAt).slice(0,10) : '');
+    if (!sched) return { text:'진행중', urgent:false, done:false };
     const today = new Date(); today.setHours(0,0,0,0);
     const tgt = new Date(sched + 'T00:00:00');
     const diff = Math.round((tgt - today)/86400000);
