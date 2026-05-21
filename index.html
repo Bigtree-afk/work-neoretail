@@ -431,6 +431,8 @@
   body.as-mode  .js-thread-mode { display: block !important; }
   /* 신규 카테고리에서 숨길 필드 — 등록 폼의 비고/특이사항 등 (thread + memos 로 충분) */
   body.new-mode .js-non-new { display: none !important; }
+  /* 소모품 카테고리에서 숨길 필드 — 담당자/주요일정/비고 (발송일 + 요청접수 만 사용) */
+  body.supplies-mode .js-non-supplies { display: none !important; }
   /* 상담 등록 전용 필드 (상담일 등) */
   .js-consult-only { display: none !important; }
   body.consult-mode .js-consult-only { display: flex !important; }
@@ -3042,14 +3044,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
             ⚠ 미등록 가맹점 모드 — 점포명/주소를 직접 입력하고 나중에 등록되면 "가맹점 연결" 버튼으로 정식 매핑하세요.
           </div>
         </div>
-        <div class="form-group" style="margin:0">
+        <div class="form-group js-non-supplies" style="margin:0">
           <label>담당 엔지니어 <span style="font-size:10px;color:var(--gray-400);font-weight:400">· 등록 직원만</span></label>
           <select id="jobEngineer">
             <option value="">담당자 선택...</option>
           </select>
         </div>
-        <!-- 매장 주요 일정 — AS 가 아닐 때만 표시 -->
-        <div class="form-group js-non-as" style="margin:0;grid-column:1/-1">
+        <!-- 매장 주요 일정 — AS 가 아닐 때만 표시. 소모품 카테고리에서도 숨김 (발송일만 사용) -->
+        <div class="form-group js-non-as js-non-supplies" style="margin:0;grid-column:1/-1">
           <label style="display:flex;align-items:center;gap:6px">📌 매장 주요 일정 <span style="font-size:10px;color:var(--gray-400);font-weight:400">미정이면 비워두세요 — 나중에 상세에서 수정 가능</span></label>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
             <div>
@@ -3210,7 +3212,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div style="margin-top:6px;font-size:11px;color:var(--gray-400)">🔒 고정 품목은 수량 0으로 두면 미투입 처리 · 분류/사이즈 옵션 있는 품목은 드롭다운에서 선택 · 추가 품목은 "＋ 행 추가"로 무제한</div>
       </div>
 
-      <div class="form-group js-non-new" style="margin-top:14px;margin-bottom:0">
+      <div class="form-group js-non-new js-non-supplies" style="margin-top:14px;margin-bottom:0">
         <label>비고 / 특이사항</label>
         <textarea id="jobNotes" placeholder="VAN사 변경 사항, 고객 요청, 현장 특이사항 등..." style="min-height:52px"></textarea>
       </div>
@@ -15699,7 +15701,7 @@ ${text.slice(0, 4000)}`;
     if (!jobId) return;
     try { closeModal('newJobModal'); } catch(e){}
     // 잔존 body 모드 클래스 정리 — 이전 newJobModal 컨텍스트의 영향 차단
-    try { document.body.classList.remove('new-mode','as-mode','consult-mode'); } catch(e){}
+    try { document.body.classList.remove('new-mode','as-mode','consult-mode','supplies-mode'); } catch(e){}
     setTimeout(() => {
       try { editNewopen(jobId); } catch(e){}
       if (openNewRoot) {
@@ -17930,6 +17932,9 @@ ${text.slice(0, 4000)}`;
     const newSubVisible = newSub && newSub.style.display !== 'none';
     const isNew = /^신규/.test(t) || t === '신규가맹' || t === 'POS 교체' || t === 'SW 변경' || t === '당사매장 인수' || newSubVisible || (window._currentJobContext === 'new');
     document.body.classList.toggle('new-mode', isNew);
+    // 소모품 모드 — type 이 소모품 계열이거나 supplies 컨텍스트
+    const isSupplies = /소모품|라벨|영수증|프라이스텍|택배|장비 추가/.test(t) || (window._currentJobContext === 'supplies');
+    document.body.classList.toggle('supplies-mode', isSupplies);
     try { if (typeof _renderJobThread === 'function') _renderJobThread(); } catch(e){}
     // AS 세부 카테고리 셀렉트 — AS 처리 선택 시만 표시
     const asSub = document.getElementById('jobAsSubcat');
