@@ -11162,18 +11162,24 @@ ${text.slice(0, 4000)}`;
             const cur = Array.isArray(existing.asTargets) ? existing.asTargets : [];
             existing.asTargets = Array.from(new Set(cur.concat(job.asTargets)));
           }
-          // 완료 → 진행중 환원 (새 요청 들어오면 다시 진행)
-          if (existing.status === '완료' || existing.status === '처리완료' || existing.completed) {
-            existing.status = '접수';
-            existing.completed = false;
-            existing.completedAt = '';
-          }
           if (!/AS|에이에스/i.test(existing.type || '')) {
             if (!existing._originalType) existing._originalType = existing.type || '';
             existing.type = 'AS 처리';
           }
           existing.lastEditedBy = recordedBy;
           existing.lastEditedAt = new Date().toISOString();
+          // 🎯 새 ROOT 가 추가됐으니 status 재평가 — 보통 '접수'/'진행중' 으로 환원
+          //   _recomputeJobStatus 가 모든 규칙 적용 (allRootsDone / AS '접수' / 신규 openDate 가드)
+          if (typeof window._recomputeJobStatus === 'function') {
+            window._recomputeJobStatus(existing);
+          } else {
+            // fallback — 단순 환원
+            if (existing.status === '완료' || existing.status === '처리완료' || existing.completed) {
+              existing.status = '접수';
+              existing.completed = false;
+              existing.completedAt = '';
+            }
+          }
           jobs[existingIdx] = existing;
           _mergedExistingAs = existing;
           if (typeof showToast === 'function') {
@@ -11185,6 +11191,8 @@ ${text.slice(0, 4000)}`;
         jobs.unshift(job);
       }
       saveJobs(jobs);
+      // 🔄 hub 라이브 갱신 — 새로고침 없이 즉시 반영
+      try { if (typeof window._refreshHubsForCategory === 'function') window._refreshHubsForCategory('as'); } catch(_){}
     }
 
     try { pushJobsToCloud({ toast:false }); } catch(e){}
@@ -13654,6 +13662,81 @@ ${text.slice(0, 4000)}`;
     } catch(e) { /* 네트워크 실패 무시 */ }
   }
   window.syncJobsFromCloud = syncJobsFromCloud;
+
+  /* ════════════════════════════════════════════════════════════
+     🎯 _recomputeJobStatus(job) — thread 기반 status 재평가 (공용 헬퍼)
+     호출 시점: thread 편집, AS 머지, child 추가/삭제 등 thread 가 바뀐 직후
+     규칙:
+       - 모든 ROOT 가 child '완료' 가지면 → status='완료'/'처리완료', completed=true, doneAt 셋팅
+       - 그 외엔 → '진행중' (AS 는 '접수' 우선, 진행중 entry 있으면 '진행중')
+       - 신규(new) 카테고리: openDate 가 오늘 이상이면 자동 완료 차단
+     job 객체를 in-place 수정. 호출자가 saveJobs() 와 hub 재렌더 책임짐.
+     ════════════════════════════════════════════════════════════ */
+  window._recomputeJobStatus = function(job) {
+    if (!job) return;
+    const arr = Array.isArray(job.thread) ? job.thread : [];
+    const norm = (typeof window._threadMigrate === 'function') ? window._threadMigrate(arr) : arr;
+    const roots = norm.filter(e => e && e.parentId == null);
+    const allRootsDone = roots.length > 0 && roots.every(r => {
+      const kids = norm.filter(e => e.parentId === r.threadId);
+      return kids.some(k => k.status === '완료');
+    });
+    const anyProg = norm.some(e => e.status === '진행');
+    const cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(job) : '';
+    const isAs = (cat === 'as');
+    if (allRootsDone) {
+      // 신규(new) — openDate 가 오늘 이상이면 자동 완료 차단
+      let blockAutoDone = false;
+      if (cat === 'new') {
+        try {
+          const todayStr = (typeof _kstNow === 'function')
+            ? String(_kstNow()||'').slice(0,10)
+            : new Date().toISOString().slice(0,10);
+          const od = String(job.openDate||'').slice(0,10);
+          if (od && od >= todayStr) blockAutoDone = true;
+        } catch(_){}
+      }
+      if (blockAutoDone) {
+        job.completed = false;
+        job.status = '진행중';
+      } else {
+        job.completed = true;
+        const lastDone = norm.filter(e => e.status==='완료').slice(-1)[0]?.ts || '';
+        job.doneAt = lastDone;
+        job.completedAt = job.completedAt || new Date().toISOString();
+        job.status = isAs ? '처리완료' : '완료';
+      }
+    } else {
+      job.completed = false;
+      // AS: 진행 entry 있으면 '진행중', 없으면 '접수'
+      // 그 외: 진행 entry 있으면 '진행중', 기존 '완료' 면 '진행중' 환원, 아니면 기존 유지
+      if (isAs) {
+        job.status = anyProg ? '진행중' : '접수';
+      } else {
+        job.status = anyProg ? '진행중' : (job.status === '완료' ? '진행중' : (job.status || '진행중'));
+      }
+      job.doneAt = '';
+    }
+    return job;
+  };
+  /* 매장 + 카테고리로 hub 변경 트리거 — 공용 헬퍼
+     호출자가 saveJobs / pushJobsToCloud 후에 호출. UI 라이브 갱신 보장. */
+  window._refreshHubsForCategory = function(cat) {
+    try {
+      if (typeof _refreshAllHubsAfterThread === 'function') {
+        _refreshAllHubsAfterThread();
+        return;
+      }
+    } catch(_){}
+    // fallback — 각 hub 직접 호출
+    try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(_){}
+    try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(_){}
+    try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(_){}
+    try { if (typeof renderAsHub === 'function') renderAsHub(); } catch(_){}
+    try { if (typeof renderNewHub === 'function') renderNewHub(); } catch(_){}
+    try { if (typeof renderVanHub === 'function') renderVanHub(); } catch(_){}
+    try { if (typeof renderSuppliesHub === 'function') renderSuppliesHub(); } catch(_){}
+  };
   let _pushJobsTimer = null;
   function schedulePushJobsToCloud() {
     if (_pushJobsTimer) clearTimeout(_pushJobsTimer);
@@ -19919,43 +20002,9 @@ ${text.slice(0, 4000)}`;
     const i = jobs.findIndex(x => x.id === jobId);
     if (i < 0) return;
     jobs[i].thread = arr.slice();
-    // job status 동기화 — Fix C: 모든 ROOT 가 '완료' child 를 가질 때만 완료
-    const norm = window._threadMigrate(arr);
-    const roots = norm.filter(e => e && e.parentId == null);
-    const allRootsDone = roots.length > 0 && roots.every(r => {
-      const kids = norm.filter(e => e.parentId === r.threadId);
-      return kids.some(k => k.status === '완료');
-    });
-    const anyProg = norm.some(e => e.status === '진행');
-    if (allRootsDone) {
-      // 🛡 신규 작업은 openDate 가 미래/오늘이면 자동 완료 차단 — 모바일 m/newjob 와 동일 규칙
-      //   예) 5/21 에 모든 thread 완료 처리해도 openDate=5/28 이면 진행 중 유지
-      //   정식 오픈일이 master clock 역할
-      let blockAutoDone = false;
-      try {
-        const cat = (typeof window.classifyJobCategory === 'function')
-          ? window.classifyJobCategory(jobs[i]) : '';
-        if (cat === 'new') {
-          const todayStr = (typeof _kstNow === 'function')
-            ? String(_kstNow()||'').slice(0,10)
-            : new Date().toISOString().slice(0,10);
-          const od = String(jobs[i].openDate||'').slice(0,10);
-          if (od && od >= todayStr) blockAutoDone = true;
-        }
-      } catch(_){}
-      if (blockAutoDone) {
-        jobs[i].completed = false;
-        jobs[i].status = '진행중';
-      } else {
-        jobs[i].completed = true;
-        const ts = norm.filter(e => e.status==='완료').slice(-1)[0]?.ts || '';
-        jobs[i].doneAt = ts;
-        jobs[i].completedAt = jobs[i].completedAt || new Date().toISOString();
-        jobs[i].status = '완료';
-      }
-    } else {
-      jobs[i].completed = false;
-      jobs[i].status = anyProg ? '진행중' : (jobs[i].status === '완료' ? '진행중' : (jobs[i].status || '진행중'));
+    // job status 동기화 — 공용 헬퍼 사용 (다른 경로에서도 동일 규칙 적용 가능)
+    if (typeof window._recomputeJobStatus === 'function') {
+      window._recomputeJobStatus(jobs[i]);
     }
     if (typeof saveJobs === 'function') saveJobs(jobs);
     // 스레드 편집은 즉시 푸시 — 디바운스 갭에서 stale cloud 가 덮을 위험 차단
@@ -19982,7 +20031,7 @@ ${text.slice(0, 4000)}`;
     safe(window.renderAsHub);
     safe(window.renderVanHub);
     safe(window.renderStocktakeHub);
-    safe(window.renderSupplyHub);
+    safe(window.renderSuppliesHub);  // typo 수정 — Supply → Supplies
     safe(window.hydrateDashboardJobs);
     safe(window.hydrateAsMgmt);
     safe(window.hydrateNewopen && (() => window.hydrateNewopen('all')));
