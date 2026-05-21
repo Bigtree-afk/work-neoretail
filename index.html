@@ -20604,6 +20604,249 @@ ${text.slice(0, 4000)}`;
     try { _refreshAllHubsAfterThread(); } catch(e){}
   }
   window.deleteConsult = deleteConsult;
+  /* ══════════════════════════════════════════════════════════
+     🏷️ 소모품 전용 상세 모달 — _editSupplyJob(jobId)
+     ─ 신규용 (설치/가오픈/오픈일/장비테이블/비고) 레이아웃 부적합 해소
+     ─ 필드: 점포명 / 작업유형 / 발송일 / 처리구분 / 수량+단위 / 금액 / 수금예정일 / 요청접수 thread / 첨부
+     ─ 푸터: ✓ 작업 종료 / ↩ 진행 되돌리기
+     ══════════════════════════════════════════════════════════ */
+  const _SUPPLY_TYPE_OPTIONS = ['소모품/POS용지','소모품/단말용지','소모품/가격라벨','소모품/프라이스텍','소모품/저울라벨','소모품/기타'];
+  const _SUPPLY_UNIT_MAP_PC  = { '소모품/POS용지':'박스','소모품/단말용지':'롤','소모품/가격라벨':'롤','소모품/프라이스텍':'롤','소모품/저울라벨':'롤','소모품/기타':'개' };
+  // 필드 단위 자동저장 헬퍼 — 모든 updater 공통
+  function _patchJob(jobId, patch) {
+    const jobs = getJobs();
+    const i = jobs.findIndex(x => x.id === jobId);
+    if (i < 0) return null;
+    Object.assign(jobs[i], patch);
+    jobs[i].updatedAt = Date.now();
+    saveJobs(jobs);
+    try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(_){}
+    return jobs[i];
+  }
+  window.updateJobShipDate = function(jobId, v) {
+    _patchJob(jobId, { shipDate: v || '' });
+    if (typeof renderSuppliesHub === 'function') renderSuppliesHub();
+  };
+  window.updateJobSupplyType = function(jobId, v) {
+    const unit = _SUPPLY_UNIT_MAP_PC[v] || '개';
+    _patchJob(jobId, { type: v, supplyUnit: unit });
+    if (typeof renderSuppliesHub === 'function') renderSuppliesHub();
+    // 모달 재렌더 (단위 자동 갱신)
+    if (typeof window._editSupplyJob === 'function') window._editSupplyJob(jobId);
+  };
+  window.updateJobSupplyMode = function(jobId, v) {
+    const patch = { supplyMode: v };
+    if (v === 'support') patch.amount = 0;
+    _patchJob(jobId, patch);
+    if (typeof renderSuppliesHub === 'function') renderSuppliesHub();
+    if (typeof window._editSupplyJob === 'function') window._editSupplyJob(jobId);  // 금액 필드 토글
+  };
+  window.updateJobSupplyQty = function(jobId, v) {
+    const n = parseInt(String(v||'1').replace(/[^\d]/g,''),10);
+    _patchJob(jobId, { supplyQty: (Number.isFinite(n) && n > 0) ? n : 1 });
+    if (typeof renderSuppliesHub === 'function') renderSuppliesHub();
+  };
+  window.updateJobSupplyAmount = function(jobId, v) {
+    const n = parseInt(String(v||'0').replace(/[^\d]/g,''),10) || 0;
+    _patchJob(jobId, { amount: n });
+    if (typeof renderSuppliesHub === 'function') renderSuppliesHub();
+  };
+  window.updateJobArDueDate = function(jobId, v) {
+    _patchJob(jobId, { arDueDate: v || '' });
+  };
+
+  window._editSupplyJob = function(jobId) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === jobId);
+    if (!j) { if (typeof showToast === 'function') showToast('작업을 찾을 수 없습니다'); return; }
+
+    // 모달 shell — newopenDetailModal 재사용 (한번 만들어지면 그대로)
+    let modal = document.getElementById('newopenDetailModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'newopenDetailModal';
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal" style="max-width:760px;width:96%">
+          <div class="modal-header">
+            <div class="modal-title" id="newopenDetailTitle">상세</div>
+            <button class="modal-close" onclick="document.getElementById('newopenDetailModal').classList.remove('show')">✕</button>
+          </div>
+          <div class="modal-body" id="newopenDetailBody"></div>
+          <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
+            <div id="newopenDetailFooterLeft"></div>
+            <button class="btn btn-outline" onclick="document.getElementById('newopenDetailModal').classList.remove('show')">닫기</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+    }
+
+    const title = document.getElementById('newopenDetailTitle');
+    const body  = document.getElementById('newopenDetailBody');
+    const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'').replace(/[<>&]/g,'');
+    const fmt = n => (Number(n)||0).toLocaleString();
+    title.textContent = `🏷️ ${j.storeName || j.store || '-'} · ${j.type || '소모품'}`;
+
+    const jid = j.id;
+    const mode = j.supplyMode || ((j.amount > 0) ? 'prepaid' : 'support');
+    const amt = Number(j.amount) || 0;
+    const paid = Number(j.arPaidAmount) || 0;
+    const remaining = Math.max(0, amt - paid);
+    const isPostpaid = (mode === 'postpaid');
+    const isDone = (typeof _isJobDone === 'function') ? _isJobDone(j) : false;
+    const inputSty = 'padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;background:#fff;font-family:inherit';
+
+    // 메모 (j.memos) — 수금 이력 등 자동 기록만 표시 (편집 X)
+    const memosList = Array.isArray(j.memos) ? j.memos : [];
+    const memoHtml = memosList.length > 0
+      ? `<div style="margin-top:12px;padding:9px 11px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:7px">
+          <div style="font-size:11px;font-weight:700;color:#92400E;margin-bottom:5px">📒 처리 이력 (${memosList.length}건)</div>
+          ${memosList.slice().reverse().map(m => `<div style="font-size:11.5px;color:#78350F;padding:3px 0;border-bottom:1px dotted #FCD34D"><span style="color:#92400E;font-size:10px">${escFn(m.at||'')}${m.author?' · '+escFn(m.author):''}</span><br>${escFn(m.text||'')}</div>`).join('')}
+        </div>`
+      : '';
+
+    // 요청접수 thread — supplies 는 단순화: ROOT 만 노출 (수정 가능)
+    const threadList = Array.isArray(j.thread) ? j.thread : [];
+    const reqRoot = threadList.find(e => e && e.parentId === null);
+    const threadHtml = reqRoot
+      ? `<div style="margin-top:12px;padding:9px 11px;background:#fff;border:1px solid var(--gray-200);border-radius:7px">
+          <div style="font-size:11px;font-weight:700;color:var(--gray-700);margin-bottom:5px">📝 요청접수 <span style="font-size:10px;color:var(--gray-400);font-weight:400">${escFn(reqRoot.ts||'')}${reqRoot.author?' · '+escFn(reqRoot.author):''}</span></div>
+          <div style="font-size:12.5px;color:var(--gray-700);line-height:1.55;white-space:pre-wrap">${escFn(reqRoot.text||'(내용 없음)')}</div>
+        </div>`
+      : '';
+
+    body.innerHTML = `
+      <!-- 기본 정보 -->
+      <div style="display:grid;grid-template-columns:2fr 2fr;gap:12px;margin-bottom:14px;padding:12px 14px;background:#F9FAFB;border-radius:10px;border:1px solid var(--gray-200)">
+        <div>
+          <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:3px">🏪 점포명</div>
+          <input type="text" value="${escFn(j.storeName||j.store||'')}" onchange="updateJobStoreName('${escFn(jid)}',this.value)" style="${inputSty};width:100%;font-weight:700">
+          <div style="font-size:10.5px;color:var(--gray-500);margin-top:3px">
+            ${j.storeId ? `<span style="color:#065F46">✓ 등록 매장 ${escFn(j.storeId)}</span>` : `<span style="color:#92400E">⚠ 미등록</span>`}
+            ${j.contactPhone ? ` · 📞 ${escFn(j.contactPhone)}` : ''}
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:3px">🏷️ 작업 유형</div>
+          <select onchange="updateJobSupplyType('${escFn(jid)}',this.value)" style="${inputSty};width:100%;font-weight:700">
+            ${_SUPPLY_TYPE_OPTIONS.map(t => `<option value="${escFn(t)}" ${j.type===t?'selected':''}>${escFn(t)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <!-- 처리 구분 + 수량 + 단위 -->
+      <div style="display:grid;grid-template-columns:2fr 1fr 0.7fr 1fr;gap:10px;margin-bottom:14px">
+        <div>
+          <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:5px">💳 처리 구분</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            ${[
+              {v:'support',  l:'🎁 지원',  c:'#15803d', bg:'#F0FDF4'},
+              {v:'prepaid',  l:'💰 선불',  c:'#06B6D4', bg:'#ECFEFF'},
+              {v:'postpaid', l:'📌 후불',  c:'#F59E0B', bg:'#FFFBEB'},
+            ].map(m => `<label style="display:inline-flex;align-items:center;gap:4px;padding:6px 10px;background:${mode===m.v?m.bg:'#fff'};border:2px solid ${mode===m.v?m.c:'var(--gray-200)'};border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:700;color:${mode===m.v?m.c:'var(--gray-700)'}">
+              <input type="radio" name="supEditMode_${escFn(jid)}" value="${m.v}" ${mode===m.v?'checked':''} onchange="updateJobSupplyMode('${escFn(jid)}','${m.v}')" style="margin:0">${m.l}
+            </label>`).join('')}
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:3px">📦 수량</div>
+          <input type="number" min="1" value="${Number(j.supplyQty)||1}" onchange="updateJobSupplyQty('${escFn(jid)}',this.value)" style="${inputSty};width:100%;text-align:right">
+        </div>
+        <div>
+          <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:3px">단위</div>
+          <input type="text" value="${escFn(j.supplyUnit || _SUPPLY_UNIT_MAP_PC[j.type] || '개')}" readonly style="${inputSty};width:100%;text-align:center;background:var(--gray-50)">
+        </div>
+        ${mode !== 'support' ? `<div>
+          <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:3px">💵 금액</div>
+          <input type="number" min="0" step="100" value="${amt}" onchange="updateJobSupplyAmount('${escFn(jid)}',this.value)" style="${inputSty};width:100%;text-align:right;font-weight:700">
+        </div>` : '<div></div>'}
+      </div>
+
+      <!-- 일자: 발송일 + (후불일 때) 수금 예정일 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div>
+          <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:3px">🚚 발송일 <span style="color:var(--danger)">*</span></div>
+          <input type="date" value="${escFn((j.shipDate||'').slice(0,10))}" onchange="updateJobShipDate('${escFn(jid)}',this.value)" style="${inputSty};width:100%">
+        </div>
+        ${isPostpaid ? `<div>
+          <div style="font-size:10.5px;color:#92400E;font-weight:700;margin-bottom:3px">💰 수금 예정일</div>
+          <input type="date" value="${escFn((j.arDueDate||'').slice(0,10))}" onchange="updateJobArDueDate('${escFn(jid)}',this.value)" style="${inputSty};width:100%;border-color:#FCD34D;background:#FFFBEB">
+        </div>` : '<div></div>'}
+      </div>
+
+      <!-- 후불 미수 상태 + 수금 처리 버튼 -->
+      ${isPostpaid && amt > 0 ? `
+      <div style="margin-bottom:14px;padding:11px 13px;background:${j.arPaid?'#F0FDF4':'#FFFBEB'};border:1px solid ${j.arPaid?'#86EFAC':'#FCD34D'};border-radius:9px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:${j.arPaid?'#15803d':'#92400E'}">${j.arPaid ? '✅ 수금 완료' : '📌 미수금'}</div>
+          <div style="font-size:13.5px;font-weight:800;color:${j.arPaid?'#15803d':'#92400E'};margin-top:2px">
+            ${j.arPaid ? `${fmt(amt)}원` : `${fmt(remaining)}원 미수`}
+            ${paid > 0 && !j.arPaid ? ` <span style="font-size:10.5px;font-weight:600;color:var(--gray-500)">(부분 ${fmt(paid)} / 총 ${fmt(amt)})</span>` : ''}
+            ${j.arPaidAt ? ` <span style="font-size:10.5px;color:var(--gray-500)">${escFn(String(j.arPaidAt).slice(0,16).replace('T',' '))}</span>` : ''}
+          </div>
+        </div>
+        ${j.arPaid
+          ? `<button onclick="revertSupplyArPay('${escFn(jid)}')" style="background:var(--gray-200);color:var(--gray-700);border:none;border-radius:6px;padding:7px 13px;cursor:pointer;font-size:12px;font-weight:700">↩ 수금 되돌리기</button>`
+          : `<button onclick="collectSupplyAr('${escFn(jid)}')" style="background:#15803d;color:#fff;border:none;border-radius:6px;padding:7px 13px;cursor:pointer;font-size:12px;font-weight:700">＋ 수금 처리</button>`}
+      </div>
+      ` : ''}
+
+      <!-- 요청접수 thread (있을 때만) -->
+      ${threadHtml}
+
+      <!-- 처리 이력 메모 (수금 이력 등) -->
+      ${memoHtml}
+
+      <!-- 첨부 -->
+      <div style="margin-top:14px">
+        <div style="font-size:11px;color:var(--gray-500);font-weight:600;margin-bottom:4px">📷📎 첨부</div>
+        <div id="jobAttUploader-${escFn(jid)}"></div>
+      </div>
+
+      <!-- 매장 일정 / 등록일 -->
+      <div style="margin-top:12px;padding:8px 12px;background:var(--gray-50);border-radius:7px;font-size:11px;color:var(--gray-500);display:flex;gap:14px;flex-wrap:wrap">
+        <span>등록 ${j.createdAt ? escFn(new Date(j.createdAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})) : '-'}</span>
+        ${j.updatedAt ? `<span>· 수정 ${escFn(new Date(j.updatedAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}))}</span>` : ''}
+        ${j.completedAt ? `<span>· ✓ 종료 ${escFn(new Date(j.completedAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}))}</span>` : ''}
+        <span style="margin-left:auto;color:var(--gray-400)">ID ${escFn(jid)}</span>
+      </div>
+    `;
+
+    // 푸터 — 작업 종료 / 진행 되돌리기
+    const footerLeft = document.getElementById('newopenDetailFooterLeft');
+    if (footerLeft) {
+      footerLeft.innerHTML = isDone
+        ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-700);border-color:var(--gray-400);font-weight:700" onclick="reopenNewopen('${escFn(jid)}');setTimeout(()=>_editSupplyJob('${escFn(jid)}'),100)">↩ 진행으로 되돌리기</button>`
+        : `<button class="btn btn-primary btn-sm" style="background:var(--success);font-weight:700" onclick="completeNewopen('${escFn(jid)}');document.getElementById('newopenDetailModal').classList.remove('show')">✓ 작업 종료</button>`;
+    }
+
+    // 첨부 uploader mount (편집 모드)
+    try {
+      const upBox = document.getElementById('jobAttUploader-' + jid);
+      if (upBox && window.NS_UPLOAD) {
+        window._jobUploaderCtls = window._jobUploaderCtls || {};
+        window._jobUploaderCtls[jid] = window.NS_UPLOAD.mount(upBox, {
+          initial: Array.isArray(j.attachments) ? j.attachments : [],
+          category: 'supplies',
+          jobId: jid,
+          max: 30,
+          onChange: (arr) => {
+            try {
+              const _jobs = getJobs();
+              const idx = _jobs.findIndex(x => x.id === jid);
+              if (idx < 0) return;
+              _jobs[idx].attachments = arr.slice();
+              if (typeof saveJobs === 'function') saveJobs(_jobs);
+              try { if (typeof schedulePushJobsToCloud === 'function') schedulePushJobsToCloud(); } catch(_){}
+            } catch(err) { console.warn('attachments save failed', err); }
+          },
+        });
+      }
+    } catch(e) { console.warn('[_editSupplyJob] uploader mount failed', e); }
+
+    modal.classList.add('show');
+  };
+
   function editNewopen(id) {
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const j = jobs.find(x => x.id === id);
@@ -20614,6 +20857,11 @@ ${text.slice(0, 4000)}`;
       const catRoute = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
       if (catRoute === 'van' && typeof window.openVanJobModal === 'function') {
         window.openVanJobModal(id);
+        return;
+      }
+      // 🏷️ 소모품 카테고리 — 전용 슬림 모달로 라우팅 (신규용 레이아웃 부적합)
+      if (catRoute === 'supplies' && typeof window._editSupplyJob === 'function') {
+        window._editSupplyJob(id);
         return;
       }
     } catch(_){}
