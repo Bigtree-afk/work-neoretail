@@ -439,6 +439,10 @@
   /* 품목 picker 활성 상태 */
   .sup-pick.active { border-color: #06B6D4 !important; background:#ECFEFF !important; box-shadow:0 0 0 3px rgba(6,182,212,.15); }
   .sup-pick:hover { border-color: #06B6D4; }
+  /* 처리 구분 chip 활성 상태 */
+  .sup-mode.active { border-color: #06B6D4 !important; background:#ECFEFF !important; }
+  .sup-mode.active[data-mode="postpaid"] { border-color: #F59E0B !important; background:#FFFBEB !important; }
+  .sup-mode.active[data-mode="support"] { border-color: #15803d !important; background:#F0FDF4 !important; }
   /* 상담 등록 전용 필드 (상담일 등) */
   .js-consult-only { display: none !important; }
   body.consult-mode .js-consult-only { display: flex !important; }
@@ -3005,6 +3009,27 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </div>
           <div id="suppliesPickedLabel" style="font-size:11.5px;color:var(--gray-500);padding-bottom:8px">품목 미선택</div>
         </div>
+        <!-- 처리 구분: 지원 / 판매(선불) / 판매(후불) -->
+        <div style="margin-top:12px;padding:11px 13px;background:#fff;border:1px solid var(--gray-200);border-radius:9px">
+          <div style="font-size:11px;font-weight:700;color:var(--gray-700);margin-bottom:7px">💳 처리 구분 <span style="font-size:10px;color:var(--gray-400);font-weight:400">— 매출/미수 집계에 사용</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="supplyModeRow">
+            <label class="sup-mode" data-mode="support" style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;background:#fff;border:2px solid var(--gray-200);border-radius:9px;cursor:pointer;font-size:12px;font-weight:700">
+              <input type="radio" name="jobSupplyMode" value="support" checked onchange="onSupplyModeChange()" style="margin:0">🎁 지원 (무상)
+            </label>
+            <label class="sup-mode" data-mode="prepaid" style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;background:#fff;border:2px solid var(--gray-200);border-radius:9px;cursor:pointer;font-size:12px;font-weight:700">
+              <input type="radio" name="jobSupplyMode" value="prepaid" onchange="onSupplyModeChange()" style="margin:0">💰 판매 · 선불
+            </label>
+            <label class="sup-mode" data-mode="postpaid" style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;background:#fff;border:2px solid var(--gray-200);border-radius:9px;cursor:pointer;font-size:12px;font-weight:700">
+              <input type="radio" name="jobSupplyMode" value="postpaid" onchange="onSupplyModeChange()" style="margin:0">📌 판매 · 후불 (미수)
+            </label>
+          </div>
+          <div id="supplyAmountRow" style="margin-top:9px;display:none;align-items:center;gap:9px">
+            <div style="font-size:11px;color:var(--gray-500);font-weight:600">💵 금액</div>
+            <input type="number" id="jobSupplyAmount" min="0" step="100" placeholder="0" style="width:180px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;text-align:right">
+            <span style="font-size:11px;color:var(--gray-500)">원</span>
+            <span id="supplyAmountHint" style="font-size:10.5px;color:var(--gray-400);margin-left:6px"></span>
+          </div>
+        </div>
         <!-- 요청접수 textarea + 바로 완료 체크박스 — 미수금/수금예정 케이스 또는 요청접수 후 즉시 완료 -->
         <div style="margin-top:12px;padding:11px 13px;background:#FAFAFA;border:1px solid var(--gray-200);border-radius:9px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
@@ -3232,8 +3257,8 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <div style="margin-top:6px;font-size:11px;color:var(--gray-400)">💡 장비 종류 → 카탈로그 항목 → 세부 정보 입력</div>
       </div>
 
-      <!-- 투입 장비 (카탈로그 + 커스텀 행) — AS 가 아닐 때만 -->
-      <div class="js-non-as" style="background:var(--gray-50);border-radius:12px;padding:16px 20px;border:1px solid var(--gray-200)">
+      <!-- 투입 장비 (카탈로그 + 커스텀 행) — AS 가 아닐 때만, 소모품에서도 숨김 -->
+      <div class="js-non-as js-non-supplies" style="background:var(--gray-50);border-radius:12px;padding:16px 20px;border:1px solid var(--gray-200)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
           <div style="font-size:13px;font-weight:700;color:var(--gray-700)">📦 투입 장비</div>
           <button type="button" class="btn btn-outline btn-sm" onclick="addEquipRow()" style="padding:4px 12px;font-size:11px">＋ 행 추가</button>
@@ -15064,6 +15089,15 @@ ${text.slice(0, 4000)}`;
       softOpenDate: isAs ? '' : ((document.getElementById('jobSoftOpenDate')  || {}).value || ''),
       openDate:     isAs ? '' : ((document.getElementById('jobOpenDate')      || {}).value || ''),
       shipDate:     ((document.getElementById('jobShipDate') || {}).value || ''),  // 🚚 소모품 발송일 (소모품 모드에서만 사용)
+      // 💳 소모품 처리 구분 — support / prepaid / postpaid
+      supplyMode:   (document.querySelector('input[name="jobSupplyMode"]:checked')||{}).value || (window._currentJobContext === 'supplies' ? 'support' : undefined),
+      // 💵 금액 — 지원은 0, 선불/후불은 입력값
+      amount:       (function(){
+        const mode = (document.querySelector('input[name="jobSupplyMode"]:checked')||{}).value || 'support';
+        if (window._currentJobContext !== 'supplies') return undefined;
+        if (mode === 'support') return 0;
+        return parseInt(String((document.getElementById('jobSupplyAmount')||{}).value||'0').replace(/[^\d]/g,''), 10) || 0;
+      })(),
       // AS 전용
       asReceivedAt: asInfo ? asInfo.receivedAt : '',
       asDueDate:    asInfo ? asInfo.dueDate    : '',
@@ -18142,10 +18176,26 @@ ${text.slice(0, 4000)}`;
         ship.value = today;
       }
       if (badge) { badge.style.display = ''; badge.textContent = '🏷️ 소모품 등록 — 품목 선택 후 발송일 입력'; }
+      // 처리 구분 기본 — 지원
+      const supModeRd = document.querySelector('input[name="jobSupplyMode"][value="support"]');
+      if (supModeRd) supModeRd.checked = true;
+      if (typeof window.onSupplyModeChange === 'function') window.onSupplyModeChange();
       applyJobTypeMode();
     }
   }
   window.applyJobFormContext = applyJobFormContext;
+
+  // 💳 처리 구분 변경 — 지원/선불/후불 chip + 금액 row toggle
+  window.onSupplyModeChange = function() {
+    const mode = (document.querySelector('input[name="jobSupplyMode"]:checked') || {}).value || 'support';
+    document.querySelectorAll('#supplyModeRow .sup-mode').forEach(lb => {
+      lb.classList.toggle('active', lb.dataset.mode === mode);
+    });
+    const amtRow = document.getElementById('supplyAmountRow');
+    if (amtRow) amtRow.style.display = (mode === 'support') ? 'none' : 'flex';
+    const hint = document.getElementById('supplyAmountHint');
+    if (hint) hint.textContent = mode === 'prepaid' ? '선불 — 즉시 매출 집계' : mode === 'postpaid' ? '후불 — 미수금 발생, 수금 후 완료' : '';
+  };
 
   // 🏷️ 소모품 picker — 아이콘 카드 클릭 시 jobType 설정 + 시각 active 표시
   window.pickSupplyItem = function(btn) {
@@ -18197,10 +18247,15 @@ ${text.slice(0, 4000)}`;
     document.querySelectorAll('#suppliesPicker .sup-pick').forEach(b => b.classList.remove('active'));
     setVal('suppliesPickedType', '');
     setVal('jobSupplyRequest', '');
+    setVal('jobSupplyAmount', '');
     const supDone = document.getElementById('jobSupplyDoneNow');
     if (supDone) supDone.checked = false;
     const supLbl = document.getElementById('suppliesPickedLabel');
     if (supLbl) supLbl.textContent = '품목 미선택';
+    // 처리 구분 — 지원 기본
+    const supRd = document.querySelector('input[name="jobSupplyMode"][value="support"]');
+    if (supRd) supRd.checked = true;
+    if (typeof window.onSupplyModeChange === 'function') window.onSupplyModeChange();
     // jobType select 표시 복원 (supplies 컨텍스트에서 숨겼던 경우 대비)
     const _jt = document.getElementById('jobType');
     if (_jt) _jt.style.display = '';
