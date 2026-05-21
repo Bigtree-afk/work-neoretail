@@ -2134,6 +2134,45 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         </div>
       </div>
 
+      <!-- 💳 처리 구분별 집계 표 — 클릭 시 상세 모달 -->
+      <div style="background:#fff;border:1.5px solid var(--gray-200);border-radius:12px;padding:14px 16px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:800;color:var(--gray-700);margin-bottom:8px">💳 처리 구분별 집계 <span style="font-size:10px;color:var(--gray-400);font-weight:400">— 행 클릭 시 상세 + 수금 관리</span></div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:#F9FAFB;color:var(--gray-600);font-weight:700">
+              <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--gray-200)">구분</th>
+              <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--gray-200)">건수</th>
+              <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--gray-200)">이번달</th>
+              <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--gray-200)">누적</th>
+              <th style="padding:8px 10px;width:90px;text-align:center;border-bottom:1px solid var(--gray-200)"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid var(--gray-100);cursor:pointer" onclick="openSuppliesBreakdown('prepaid')" onmouseover="this.style.background='#F0F9FF'" onmouseout="this.style.background=''">
+              <td style="padding:9px 10px;font-weight:700"><span style="color:#06B6D4">💰</span> 판매 · 선불</td>
+              <td style="padding:9px 10px;text-align:right" id="supPrepaidCnt">0</td>
+              <td style="padding:9px 10px;text-align:right;font-weight:700;color:#06B6D4" id="supPrepaidThisMonth">0원</td>
+              <td style="padding:9px 10px;text-align:right" id="supPrepaidTotal">0원</td>
+              <td style="padding:9px 10px;text-align:center"><span style="color:var(--primary);font-size:11px;font-weight:700">상세 ›</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--gray-100);cursor:pointer" onclick="openSuppliesBreakdown('postpaid')" onmouseover="this.style.background='#FFFBEB'" onmouseout="this.style.background=''">
+              <td style="padding:9px 10px;font-weight:700"><span style="color:#F59E0B">📌</span> 판매 · 후불 (미수)</td>
+              <td style="padding:9px 10px;text-align:right" id="supPostpaidCnt">0</td>
+              <td style="padding:9px 10px;text-align:right;font-weight:700;color:#F59E0B" id="supPostpaidOutstanding">0원</td>
+              <td style="padding:9px 10px;text-align:right;color:var(--gray-500)" id="supPostpaidPaid">수금 0원</td>
+              <td style="padding:9px 10px;text-align:center"><span style="color:#F59E0B;font-size:11px;font-weight:700">수금 관리 ›</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--gray-100);cursor:pointer" onclick="openSuppliesBreakdown('support')" onmouseover="this.style.background='#F0FDF4'" onmouseout="this.style.background=''">
+              <td style="padding:9px 10px;font-weight:700"><span style="color:#15803d">🎁</span> 지원 (무상)</td>
+              <td style="padding:9px 10px;text-align:right" id="supSupportCnt">0</td>
+              <td style="padding:9px 10px;text-align:right;font-weight:700;color:#15803d" id="supSupportThisMonth">0건</td>
+              <td style="padding:9px 10px;text-align:right" id="supSupportTotal">0건</td>
+              <td style="padding:9px 10px;text-align:center"><span style="color:#15803d;font-size:11px;font-weight:700">상세 ›</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <div class="hub-actbar" style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:9px 14px;margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap" id="supplieshubFilters">
           <button class="hub-filter active" data-filter="all">전체 <span id="supplieshubCntAll">0</span></button>
@@ -2144,6 +2183,31 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         <button class="btn btn-primary btn-sm" onclick="openNewJobFor('supplies')" style="font-size:11.5px;padding:6px 12px;font-weight:800">+ 소모품 등록</button>
       </div>
       <div id="supplieshubContainer" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+
+    <!-- 💳 처리 구분별 상세 모달 — 선불/후불/지원 공통 + 후불은 수금 처리 UI 포함 -->
+    <div class="modal-overlay" id="suppliesBreakdownModal">
+      <div class="modal" style="max-width:920px;width:96vw;max-height:88vh;display:flex;flex-direction:column;background:#fff">
+        <div class="modal-header">
+          <div>
+            <div class="modal-title" id="suppliesBreakdownTitle">처리 구분 상세</div>
+            <div style="font-size:11px;color:var(--gray-500);margin-top:3px" id="suppliesBreakdownSummary">불러오는 중...</div>
+          </div>
+          <button class="modal-close" onclick="closeModal('suppliesBreakdownModal')">✕</button>
+        </div>
+        <div class="modal-body" style="overflow-y:auto;flex:1;padding:0">
+          <table style="width:100%;font-size:12px;border-collapse:collapse" id="suppliesBreakdownTable">
+            <thead><tr style="background:var(--gray-100);position:sticky;top:0;z-index:1">
+              <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:800">매장</th>
+              <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:800">품목</th>
+              <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:800">발송일</th>
+              <th style="padding:9px 12px;text-align:right;font-size:11px;font-weight:800" id="suppliesBreakdownColAmt">금액</th>
+              <th style="padding:9px 12px;text-align:center;font-size:11px;font-weight:800" id="suppliesBreakdownColAct">처리</th>
+            </tr></thead>
+            <tbody id="suppliesBreakdownTbody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- 미수금 매장별 내역 모달 -->
@@ -7321,27 +7385,59 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     const month = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
 
     let salesThisMonth = 0, arAmount = 0, shipPending = 0;
-    let arRows = [];
+    let prepaidThisMonth = 0, prepaidTotal = 0;
+    let postpaidTotal = 0, postpaidPaidTotal = 0, supportThisMonth = 0, supportTotal = 0;
+    let arRows = [], prepaidRows = [], supportRows = [], postpaidPaidRows = [];
     supplyJobs.forEach(j => {
       const amt = parseInt(String(j.amount||j.price||'0').replace(/[^\d]/g,''), 10) || 0;
-      const date = j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
-      const isPostpaid = /후불|미수|postpaid/i.test(String(j.payment||j.note||j.notes||''));
-      const isPaid = /수금완료|입금완료|paid/i.test(String(j.note||j.notes||'')) || j.arPaid;
-      const isShipped = /발송|배송|shipped/i.test(String(j.note||j.notes||'')) || j.shipped;
+      const date = j.shipDate || j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
+      // 신규 모델 우선: j.supplyMode. 없으면 legacy 텍스트 매칭
+      let mode = j.supplyMode;
+      if (!mode) {
+        const blob = String(j.payment||j.note||j.notes||'');
+        if (/후불|미수|postpaid/i.test(blob)) mode = 'postpaid';
+        else if (amt > 0) mode = 'prepaid';
+        else mode = 'support';
+      }
+      // 후불 수금 완료 여부: arPaid (신규) 또는 텍스트 legacy
+      const isPaid = !!j.arPaid || /수금완료|입금완료|paid/i.test(String(j.note||j.notes||''));
+      const paidAmt = (typeof j.arPaidAmount === 'number') ? j.arPaidAmount : (isPaid ? amt : 0);
+      const isShipped = !!j.shipDate || /발송|배송|shipped/i.test(String(j.note||j.notes||'')) || j.shipped;
 
-      if (date.startsWith(month) && amt > 0) salesThisMonth += amt;
-      if (isPostpaid && !isPaid && amt > 0) {
-        arAmount += amt;
-        arRows.push({ store: j.storeName||j.store||'-', item: j.title||j.type||'-', date, amount: amt, jobId: j.id });
+      const row = { store: j.storeName||j.store||'-', item: j.title||j.type||'-', date, amount: amt, jobId: j.id, mode, isPaid, paidAmt };
+
+      if (mode === 'prepaid' && amt > 0) {
+        if (date.startsWith(month)) prepaidThisMonth += amt;
+        prepaidTotal += amt;
+        prepaidRows.push(row);
+        if (date.startsWith(month)) salesThisMonth += amt;
+      } else if (mode === 'postpaid' && amt > 0) {
+        if (isPaid) {
+          postpaidPaidTotal += paidAmt;
+          postpaidPaidRows.push(row);
+        } else {
+          arAmount += (amt - paidAmt);  // 부분 수금 후 잔액
+          arRows.push({ ...row, outstanding: amt - paidAmt });
+        }
+        if (date.startsWith(month) && isPaid) salesThisMonth += paidAmt;
+      } else if (mode === 'support') {
+        if (date.startsWith(month)) supportThisMonth++;
+        supportTotal++;
+        supportRows.push(row);
       }
       if (!isShipped && !_hubDoneFn(j)) shipPending++;
     });
-    return { salesThisMonth, arAmount, shipPending, totalCount: supplyJobs.length, arRows };
+    return {
+      salesThisMonth, arAmount, shipPending, totalCount: supplyJobs.length,
+      prepaidThisMonth, prepaidTotal, postpaidTotal, postpaidPaidTotal,
+      supportThisMonth, supportTotal,
+      arRows, prepaidRows, supportRows, postpaidPaidRows,
+    };
   }
 
   window.renderSuppliesHub = function() {
     const stats = _suppliesStats();
-    const fmt = n => n.toLocaleString();
+    const fmt = n => (Number(n)||0).toLocaleString();
     const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     const setHTML = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
     setHTML('supSalesAmount', `${fmt(stats.salesThisMonth)}<span style="font-size:11px;font-weight:700;color:var(--gray-500);margin-left:3px">원</span>`);
@@ -7350,6 +7446,16 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     setText('supTotalCount', stats.totalCount);
     setText('supSalesSub', stats.salesThisMonth > 0 ? '이번달 누적' : '데이터 없음');
     setText('supArSub', stats.arRows.length > 0 ? `${stats.arRows.length}건 미수` : '미수 없음');
+    // 💳 처리 구분별 집계 표
+    setText('supPrepaidCnt',         `${stats.prepaidRows.length}건`);
+    setText('supPrepaidThisMonth',   `${fmt(stats.prepaidThisMonth)}원`);
+    setText('supPrepaidTotal',       `${fmt(stats.prepaidTotal)}원`);
+    setText('supPostpaidCnt',        `${stats.arRows.length + stats.postpaidPaidRows.length}건`);
+    setText('supPostpaidOutstanding',`${fmt(stats.arAmount)}원 (${stats.arRows.length}건)`);
+    setText('supPostpaidPaid',       `수금 ${fmt(stats.postpaidPaidTotal)}원 (${stats.postpaidPaidRows.length}건)`);
+    setText('supSupportCnt',         `${stats.supportRows.length}건`);
+    setText('supSupportThisMonth',   `${stats.supportThisMonth}건`);
+    setText('supSupportTotal',       `${stats.supportTotal}건`);
 
     _hubGenericRender({
       containerId: 'supplieshubContainer',
