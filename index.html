@@ -436,7 +436,13 @@
   .sdv2-info-row { display:flex;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:12.5px }
   .sdv2-info-row:last-child { border-bottom:none }
   .sdv2-info-row .k { width:90px;color:var(--gray-500);font-weight:700;flex-shrink:0 }
-  .sdv2-info-row .v { color:var(--gray-800);font-weight:600;flex:1;word-break:break-all }
+  .sdv2-info-row .v { color:var(--gray-800);font-weight:600;flex:1;word-break:break-all;display:flex;align-items:center;gap:6px }
+  .sdv2-info-row .v .sdv2-val { flex:1;min-width:0 }
+  .sdv2-info-row .v a.sdv2-tel { color:#1E40AF;text-decoration:none;font-variant-numeric:tabular-nums }
+  .sdv2-info-row .v a.sdv2-tel:hover { text-decoration:underline }
+  .sdv2-edit-btn { background:none;border:none;color:var(--gray-400);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:5px;line-height:1;flex-shrink:0 }
+  .sdv2-edit-btn:hover { color:var(--primary);background:var(--gray-100) }
+  .sdv2-info-row .v input.sdv2-edit-input { flex:1;padding:5px 9px;border:1.5px solid var(--primary);border-radius:6px;font-size:12.5px;font-family:inherit;font-weight:600 }
   .sdv2-equip-table { width:100%;font-size:11.5px;border-collapse:collapse }
   .sdv2-equip-table th,.sdv2-equip-table td { padding:7px 6px;border-bottom:1px solid var(--gray-200);text-align:left }
   .sdv2-equip-table th { background:var(--gray-100);font-weight:800;font-size:10.5px;color:var(--gray-700) }
@@ -22342,6 +22348,7 @@ ${text.slice(0, 4000)}`;
     const displayAddr = (store?.addr) || addr || '-';
     const displayCeo  = (store?.ceo)  || ceo  || '-';
     const displayTel  = (store?.tel)  || tel  || '-';
+    const displayCeoTel = (store?.ceoTel) || '-';
     const displayBiz  = (store?.biz)  || bizno || '';
     const displayVan  = (store?.van)  || van;
     const displayPos  = (store?.pos)  ? `POS ${store.pos}대` : (posTxt || '');
@@ -22381,20 +22388,97 @@ ${text.slice(0, 4000)}`;
     const basicInfoEl = document.getElementById('detailBasicInfo');
     if (basicInfoEl) {
       const escSafe = (typeof esc === 'function') ? esc : (s)=>String(s||'');
-      const row = (k, v) => `<div class="sdv2-info-row"><div class="k">${k}</div><div class="v">${escSafe(v||'-')}</div></div>`;
+      const sid = store?.id || '';
+      // 읽기 전용 row
+      const row = (k, v) => `<div class="sdv2-info-row"><div class="k">${k}</div><div class="v"><span class="sdv2-val">${escSafe(v||'-')}</span></div></div>`;
+      // 편집 가능 row — 매장 id 필요
+      const erow = (k, field, v, opts) => {
+        opts = opts || {};
+        const valHtml = opts.tel && v && v !== '-'
+          ? `<a href="tel:${escSafe(v)}" class="sdv2-tel" onclick="event.stopPropagation()">${escSafe(v)}</a>`
+          : escSafe(v||'-');
+        const btn = sid ? `<button class="sdv2-edit-btn" title="${escSafe(k)} 수정" onclick="_sdv2EditField('${escSafe(sid)}','${field}','${escSafe(k)}',${opts.tel?'true':'false'})">✏</button>` : '';
+        return `<div class="sdv2-info-row" data-sdv2-row="${field}"><div class="k">${escSafe(k)}</div><div class="v"><span class="sdv2-val">${valHtml}</span>${btn}</div></div>`;
+      };
       basicInfoEl.innerHTML = [
-        row('매장명', displayName),
-        row('대표자', displayCeo),
+        erow('매장명', 'name', displayName),
+        erow('대표자', 'ceo', displayCeo),
+        erow('대표자 연락처', 'ceoTel', displayCeoTel, { tel:true }),
+        erow('매장 연락처', 'tel', displayTel, { tel:true }),
         row('사업자번호', displayBiz),
         row('매장코드', code || (store && store.code) || '-'),
         row('VAN사', displayVan),
-        row('주소', displayAddr),
-        row('연락처', displayTel),
+        erow('주소', 'addr', displayAddr),
         row('매장 등록일', store?.storeRegDate || '-'),
         row('이카운트 등록', store?.ecountRegDate || '-'),
         row('상태', displayStat),
       ].join('');
     }
+
+    /* ── 인라인 편집 헬퍼 — 매장정보 기본 정보 row 편집 ──
+       UX: ✏ 클릭 → 같은 자리 input 표시 → Enter/blur 저장 + Esc 취소
+       저장: store[field] 갱신 + saveStoreInPlace + pushStoresToCloud
+       전화필드(tel=true) 는 inputmode=tel + 저장 후 tel: 링크로 재렌더 */
+    if (!window._sdv2EditField) window._sdv2EditField = function(storeId, field, label, isTel) {
+      try {
+        const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+        const ix = stores.findIndex(s => s.id === storeId);
+        if (ix < 0) { if (typeof showToast === 'function') showToast('⚠ 매장을 찾을 수 없습니다'); return; }
+        const cur = String(stores[ix][field] || '');
+        const row = document.querySelector(`#detailBasicInfo .sdv2-info-row[data-sdv2-row="${field}"]`);
+        if (!row) return;
+        const valWrap = row.querySelector('.v');
+        const btn = row.querySelector('.sdv2-edit-btn');
+        const valSpan = row.querySelector('.sdv2-val');
+        if (!valWrap || !valSpan) return;
+        // 편집 input 생성
+        const input = document.createElement('input');
+        input.type = isTel ? 'tel' : 'text';
+        input.className = 'sdv2-edit-input';
+        input.value = cur;
+        input.placeholder = label;
+        if (isTel) input.inputMode = 'tel';
+        valSpan.style.display = 'none';
+        if (btn) btn.style.display = 'none';
+        valWrap.insertBefore(input, valSpan);
+        input.focus();
+        input.select();
+        let committed = false;
+        const commit = (save) => {
+          if (committed) return;
+          committed = true;
+          if (save) {
+            const next = String(input.value || '').trim();
+            stores[ix][field] = next;
+            // changeLog 추가 (있으면)
+            if (!Array.isArray(stores[ix].changeLog)) stores[ix].changeLog = [];
+            const ts = (typeof _kstStamp === 'function') ? _kstStamp() : new Date().toISOString().slice(0,16).replace('T',' ');
+            const by = (typeof _currentUserName === 'function') ? _currentUserName() : '';
+            stores[ix].changeLog.push({ at: ts, by, field, before: cur, after: next, note: `${label} 수정` });
+            saveStores(stores);
+            try { if (typeof pushStoresToCloud === 'function') pushStoresToCloud({ toast:false }); } catch(_){}
+            if (typeof showToast === 'function') showToast(`✓ ${label} 저장`);
+            // valSpan 갱신 — tel 필드는 링크로 재렌더
+            const esc2 = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+            if (isTel && next) {
+              valSpan.innerHTML = `<a href="tel:${esc2(next)}" class="sdv2-tel" onclick="event.stopPropagation()">${esc2(next)}</a>`;
+            } else {
+              valSpan.textContent = next || '-';
+            }
+          }
+          input.remove();
+          valSpan.style.display = '';
+          if (btn) btn.style.display = '';
+        };
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); commit(true); }
+          else if (e.key === 'Escape') { e.preventDefault(); commit(false); }
+        });
+        input.addEventListener('blur', () => commit(true));
+      } catch(e) {
+        console.warn('[_sdv2EditField] failed', e);
+      }
+    };
 
     /* ── 특이사항 (store.notes[]) 렌더 + 추가 ── */
     (function renderStoreNotes(){
