@@ -11104,7 +11104,73 @@ ${text.slice(0, 4000)}`;
       } else {
         job.date = (p.lineMsgAt || '').slice(0,10);
       }
-      jobs.unshift(job);
+
+      // 🔁 AS 통합 — saveNewJob 과 동일 정책: 같은 매장 진행 중 AS 가 있으면 별도 등록 X,
+      //   기존 AS thread 에 새 ROOT 추가. (LINE import 가 이 경로 우회해서 중복 발생하던 버그 차단)
+      //   샤르르 케이스 (2026-05-20 15:08 → 15:13 후속 메시지) 같은 경우 한 건으로 통합됨.
+      let _mergedExistingAs = null;
+      if (isAs && !job.unregistered) {
+        const isDoneFn = (typeof window._isJobDone === 'function') ? window._isJobDone : () => false;
+        const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
+        const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+        const target = normFn(job.storeName);
+        const candIdxs = [];
+        jobs.forEach((j, idx) => {
+          if (j.id === job.id) return;
+          if (classifyFn(j) !== 'as') return;
+          const sn = (j.storeName || j.store || '').trim();
+          if (!sn) return;
+          if (normFn(sn) === target) candIdxs.push(idx);
+        });
+        let existingIdx = candIdxs.find(i => !isDoneFn(jobs[i]));
+        if (existingIdx === undefined) {
+          candIdxs.sort((a,b) => (jobs[b].createdAt||0) - (jobs[a].createdAt||0));
+          existingIdx = (candIdxs.length > 0) ? candIdxs[0] : -1;
+        }
+        if (existingIdx >= 0) {
+          const existing = jobs[existingIdx];
+          const ts = (p.lineMsgAt || '').replace('T',' ').slice(0,16)
+                  || ((typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' '));
+          const author = p.lineSender || recordedBy || 'Line';
+          const newRoot = {
+            ts, author, status: '요청접수',
+            text: job.asRequest || p.lineParsed || p.lineRequest || '(요청 내용 없음)',
+            threadId: 'TR-line-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+            parentId: null,
+            _lineSource: { msgAt: p.lineMsgAt || '', sender: p.lineSender || '', raw: p.lineRaw || '' },
+          };
+          const existingThread = Array.isArray(existing.thread) ? existing.thread.slice() : [];
+          const mergedT = existingThread.concat([newRoot]);
+          existing.thread = (typeof window._threadMigrate === 'function')
+                          ? window._threadMigrate(mergedT) : mergedT;
+          // AS 메타 갱신
+          if (job.asReceivedAt) existing.asReceivedAt = job.asReceivedAt;
+          if (Array.isArray(job.asTargets) && job.asTargets.length) {
+            const cur = Array.isArray(existing.asTargets) ? existing.asTargets : [];
+            existing.asTargets = Array.from(new Set(cur.concat(job.asTargets)));
+          }
+          // 완료 → 진행중 환원 (새 요청 들어오면 다시 진행)
+          if (existing.status === '완료' || existing.status === '처리완료' || existing.completed) {
+            existing.status = '접수';
+            existing.completed = false;
+            existing.completedAt = '';
+          }
+          if (!/AS|에이에스/i.test(existing.type || '')) {
+            if (!existing._originalType) existing._originalType = existing.type || '';
+            existing.type = 'AS 처리';
+          }
+          existing.lastEditedBy = recordedBy;
+          existing.lastEditedAt = new Date().toISOString();
+          jobs[existingIdx] = existing;
+          _mergedExistingAs = existing;
+          if (typeof showToast === 'function') {
+            showToast(`🔁 기존 AS 업무에 통합됨 (${existing.id})`);
+          }
+        }
+      }
+      if (!_mergedExistingAs) {
+        jobs.unshift(job);
+      }
       saveJobs(jobs);
     }
 
