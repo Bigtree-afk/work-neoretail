@@ -5640,7 +5640,33 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       container.innerHTML = `<div class="hub-empty"><div style="font-size:32px;margin-bottom:8px">📭</div>${search ? '검색 결과 없음' : '진행 중인 업무가 없습니다'}</div>`;
       return;
     }
-    displayed.sort((a,b) => (a.jobs.some(j => !_hubDoneFn(j)) ? 0 : 1) - (b.jobs.some(j => !_hubDoneFn(j)) ? 0 : 1));
+    // 정렬: ① 진행중 그룹 먼저, 완료 그룹 뒤 ② 같은 그룹 내에서는 최근 활동 desc
+    // lastTouch = updatedAt / createdAt / thread 마지막 ts / doneAt 중 최대
+    const _toMs = (v) => {
+      if (!v) return 0;
+      if (typeof v === 'number') return v;
+      const t = Date.parse(String(v).replace(' ', 'T'));
+      return isNaN(t) ? 0 : t;
+    };
+    const _groupLastTouch = (g) => {
+      let max = 0;
+      for (const j of g.jobs) {
+        max = Math.max(max,
+          _toMs(j.updatedAt), _toMs(j.createdAt),
+          _toMs(j.completedAt), _toMs(j.doneAt));
+        if (Array.isArray(j.thread)) {
+          for (const e of j.thread) max = Math.max(max, _toMs(e?.ts));
+        }
+      }
+      return max;
+    };
+    displayed.forEach(g => { g._lastTouch = _groupLastTouch(g); g._hasProg = g.jobs.some(j => !_hubDoneFn(j)); });
+    displayed.sort((a,b) => {
+      // 진행중 우선 (true = 0, false = 1 → asc)
+      if (a._hasProg !== b._hasProg) return a._hasProg ? -1 : 1;
+      // 같은 진행 상태면 최근 활동 desc
+      return (b._lastTouch||0) - (a._lastTouch||0);
+    });
     container.innerHTML = displayed.map(g => _hubRenderGroup(g, opts.cardCat, { urgentIfPending: !!opts.urgentIfPending, byRoots: !!opts.byRoots })).join('');
   }
 
