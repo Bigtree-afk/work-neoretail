@@ -18291,6 +18291,160 @@ ${text.slice(0, 4000)}`;
   }
   window.applyJobFormContext = applyJobFormContext;
 
+  // 💳 처리 구분별 상세 모달 — 선불/후불/지원
+  window.openSuppliesBreakdown = function(mode) {
+    if (typeof _suppliesStats !== 'function') return;
+    const stats = _suppliesStats();
+    const title = document.getElementById('suppliesBreakdownTitle');
+    const summary = document.getElementById('suppliesBreakdownSummary');
+    const colAmt = document.getElementById('suppliesBreakdownColAmt');
+    const colAct = document.getElementById('suppliesBreakdownColAct');
+    const tbody = document.getElementById('suppliesBreakdownTbody');
+    if (!tbody) return;
+    const fmt = n => (Number(n)||0).toLocaleString();
+    const escFn = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+    let rows = [];
+    let titleTxt = '', sumTxt = '', amtCol = '금액', actCol = '';
+    if (mode === 'prepaid') {
+      titleTxt = '💰 판매 · 선불 상세';
+      sumTxt = `${stats.prepaidRows.length}건 · 이번달 ${fmt(stats.prepaidThisMonth)}원 / 누적 ${fmt(stats.prepaidTotal)}원`;
+      rows = stats.prepaidRows.slice().sort((a,b)=> String(b.date||'').localeCompare(String(a.date||'')));
+      amtCol = '판매가';
+      actCol = '';
+    } else if (mode === 'postpaid') {
+      titleTxt = '📌 판매 · 후불 (미수) 상세';
+      sumTxt = `미수 ${stats.arRows.length}건 ${fmt(stats.arAmount)}원 · 수금완료 ${stats.postpaidPaidRows.length}건 ${fmt(stats.postpaidPaidTotal)}원`;
+      // 미수 먼저, 수금완료 나중 — 같은 그룹은 발송일 최신순
+      const ar = stats.arRows.slice().sort((a,b)=> String(b.date||'').localeCompare(String(a.date||'')));
+      const paid = stats.postpaidPaidRows.slice().sort((a,b)=> String(b.date||'').localeCompare(String(a.date||'')));
+      rows = ar.concat(paid);
+      amtCol = '미수금 / 수금액';
+      actCol = '수금 처리';
+    } else if (mode === 'support') {
+      titleTxt = '🎁 지원 (무상) 상세';
+      sumTxt = `${stats.supportRows.length}건 · 이번달 ${stats.supportThisMonth}건 / 누적 ${stats.supportTotal}건`;
+      rows = stats.supportRows.slice().sort((a,b)=> String(b.date||'').localeCompare(String(a.date||'')));
+      amtCol = '구분';
+      actCol = '';
+    }
+    if (title) title.textContent = titleTxt;
+    if (summary) summary.textContent = sumTxt;
+    if (colAmt) colAmt.textContent = amtCol;
+    if (colAct) colAct.textContent = actCol;
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:30px;text-align:center;color:var(--gray-400);font-size:12px">데이터가 없습니다</td></tr>`;
+    } else {
+      tbody.innerHTML = rows.map(r => {
+        const linkOpen = r.jobId ? `closeModal('suppliesBreakdownModal');setTimeout(()=>{try{editNewopen('${escFn(r.jobId)}')}catch(e){}},120)` : '';
+        let amtCell = '';
+        let actCell = '';
+        if (mode === 'prepaid') {
+          amtCell = `<b style="color:#06B6D4">${fmt(r.amount)}원</b>`;
+        } else if (mode === 'postpaid') {
+          if (r.isPaid) {
+            amtCell = `<span style="color:var(--gray-500)">${fmt(r.paidAmt)}원 (수금완료)</span>`;
+            actCell = `<button onclick="event.stopPropagation();revertSupplyArPay('${escFn(r.jobId)}')" style="background:var(--gray-200);color:var(--gray-700);border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700">↩ 되돌리기</button>`;
+          } else {
+            const out = r.outstanding != null ? r.outstanding : r.amount;
+            const partial = r.paidAmt > 0 ? ` <span style="font-size:10px;color:var(--gray-500)">(부분 ${fmt(r.paidAmt)})</span>` : '';
+            amtCell = `<b style="color:#F59E0B">${fmt(out)}원</b>${partial}`;
+            actCell = `<button onclick="event.stopPropagation();collectSupplyAr('${escFn(r.jobId)}')" style="background:#15803d;color:#fff;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700">＋ 수금</button>`;
+          }
+        } else if (mode === 'support') {
+          amtCell = `<span style="color:#15803d;font-weight:700">🎁 지원</span>`;
+        }
+        return `<tr style="border-bottom:1px solid var(--gray-100);cursor:${linkOpen?'pointer':'default'}" ${linkOpen?`onclick="${linkOpen}"`:''} onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+          <td style="padding:9px 12px"><b>${escFn(r.store)}</b></td>
+          <td style="padding:9px 12px">${escFn(r.item)}</td>
+          <td style="padding:9px 12px;font-size:11.5px;color:var(--gray-600)">${escFn(r.date||'-')}</td>
+          <td style="padding:9px 12px;text-align:right">${amtCell}</td>
+          <td style="padding:9px 12px;text-align:center">${actCell}</td>
+        </tr>`;
+      }).join('');
+    }
+    if (typeof showModal === 'function') showModal('suppliesBreakdownModal');
+  };
+
+  // 💵 수금 처리 — 후불(미수) 작업에 수금 금액 입력
+  window.collectSupplyAr = function(jobId) {
+    if (!jobId) return;
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const i = jobs.findIndex(j => j.id === jobId);
+    if (i < 0) { if (typeof showToast === 'function') showToast('⚠ 작업을 찾을 수 없습니다'); return; }
+    const j = jobs[i];
+    const totalAmt = Number(j.amount) || 0;
+    const prevPaid = Number(j.arPaidAmount) || 0;
+    const remaining = Math.max(0, totalAmt - prevPaid);
+    const input = prompt(
+      `💵 수금 금액 입력\n\n매장: ${j.storeName||j.store||'-'}\n품목: ${j.type||'-'}\n총 판매가: ${totalAmt.toLocaleString()}원\n기 수금: ${prevPaid.toLocaleString()}원\n남은 미수: ${remaining.toLocaleString()}원\n\n이번에 받은 금액을 입력하세요 (전액이면 ${remaining} 입력):`,
+      String(remaining)
+    );
+    if (input == null) return;
+    const collected = parseInt(String(input).replace(/[^\d]/g,''), 10);
+    if (!Number.isFinite(collected) || collected <= 0) {
+      if (typeof showToast === 'function') showToast('⚠ 0보다 큰 금액을 입력하세요');
+      return;
+    }
+    const newPaid = Math.min(totalAmt, prevPaid + collected);
+    j.arPaidAmount = newPaid;
+    if (newPaid >= totalAmt) {
+      j.arPaid = true;
+      j.arPaidAt = new Date().toISOString();
+      // 전액 수금 시 자동 완료 처리
+      j.status = '완료';
+      j.completed = true;
+      j.completedAt = j.completedAt || new Date().toISOString();
+      j.doneAt = j.doneAt || new Date().toISOString();
+    } else {
+      j.arPaid = false;  // 부분 수금만
+    }
+    // 메모 자동 기록
+    if (!Array.isArray(j.memos)) j.memos = [];
+    const ts = (typeof _kstStamp === 'function') ? _kstStamp() : new Date().toISOString().slice(0,16).replace('T',' ');
+    const by = (typeof _currentUserName === 'function') ? _currentUserName() : '';
+    j.memos.push({ at: ts, author: by, text: `💵 수금 ${collected.toLocaleString()}원 입금 (누적 ${newPaid.toLocaleString()}/${totalAmt.toLocaleString()})${newPaid >= totalAmt ? ' — 전액 수금 완료' : ''}` });
+    j.updatedAt = Date.now();
+    jobs[i] = j;
+    if (typeof saveJobs === 'function') saveJobs(jobs);
+    try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(_){}
+    if (typeof showToast === 'function') {
+      showToast(newPaid >= totalAmt
+        ? `✅ 전액 수금 완료 — 작업 종료 처리됨`
+        : `💵 ${collected.toLocaleString()}원 수금 — 잔액 ${(totalAmt-newPaid).toLocaleString()}원`);
+    }
+    // 모달 새로고침
+    if (typeof window.openSuppliesBreakdown === 'function') window.openSuppliesBreakdown('postpaid');
+    if (typeof window.renderSuppliesHub === 'function') window.renderSuppliesHub();
+  };
+
+  // ↩ 수금 되돌리기
+  window.revertSupplyArPay = function(jobId) {
+    if (!jobId) return;
+    if (!confirm('이 작업의 수금 처리를 되돌리시겠습니까?\n미수금으로 환원되고 작업 상태도 진행중으로 돌아갑니다.')) return;
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const i = jobs.findIndex(j => j.id === jobId);
+    if (i < 0) return;
+    const j = jobs[i];
+    j.arPaid = false;
+    j.arPaidAmount = 0;
+    j.arPaidAt = '';
+    // status 환원 — completedAt 은 흔적 유지 (감사용)
+    j.status = '요청접수';
+    j.completed = false;
+    j.doneAt = '';
+    if (!Array.isArray(j.memos)) j.memos = [];
+    const ts = (typeof _kstStamp === 'function') ? _kstStamp() : new Date().toISOString().slice(0,16).replace('T',' ');
+    const by = (typeof _currentUserName === 'function') ? _currentUserName() : '';
+    j.memos.push({ at: ts, author: by, text: '↩ 수금 처리 되돌림 — 미수금 상태로 환원' });
+    j.updatedAt = Date.now();
+    jobs[i] = j;
+    if (typeof saveJobs === 'function') saveJobs(jobs);
+    try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(_){}
+    if (typeof showToast === 'function') showToast('↩ 미수금으로 환원되었습니다');
+    if (typeof window.openSuppliesBreakdown === 'function') window.openSuppliesBreakdown('postpaid');
+    if (typeof window.renderSuppliesHub === 'function') window.renderSuppliesHub();
+  };
+
   // 💳 처리 구분 변경 — 지원/선불/후불 chip + 금액 row toggle
   window.onSupplyModeChange = function() {
     const mode = (document.querySelector('input[name="jobSupplyMode"]:checked') || {}).value || 'support';
