@@ -15389,16 +15389,20 @@ ${text.slice(0, 4000)}`;
         }
         return { vans:{}, easy:{status:'접수',tid:''}, kakao:{status:'접수',tid:''} };
       })(),
-      // 🏷️ 소모품: 요청접수 비어있으면 자동 완료, 채워졌고 '바로 완료' 체크면 완료, 아니면 요청접수
+      // 🏷️ 소모품: 후불(미수) 은 수금 처리 전까지 자동 완료 X
+      //   - 후불: 항상 '요청접수' (doneNow 체크 시에만 완료)
+      //   - 그 외: 요청 비어있으면 자동 완료, 채워졌고 '바로 완료' 체크면 완료, 아니면 요청접수
       status: (() => {
         if (isConsult) return '상담중';
         if (isAs) return '접수';
         if (window._currentJobContext === 'supplies') {
           const supReq = ((document.getElementById('jobSupplyRequest')||{}).value || '').trim();
           const doneNow = !!(document.getElementById('jobSupplyDoneNow')||{}).checked;
-          if (!supReq) return '완료';  // 발송만 케이스 — 자동 완료
-          if (doneNow) return '완료';  // 요청접수 + 바로 완료
-          return '요청접수';            // 수금 예정/미수 — 별도 완료 처리 필요
+          const supMode = (document.querySelector('input[name="jobSupplyMode"]:checked')||{}).value || 'support';
+          if (supMode === 'postpaid') return doneNow ? '완료' : '요청접수';
+          if (!supReq) return '완료';
+          if (doneNow) return '완료';
+          return '요청접수';
         }
         return '진행중';
       })(),
@@ -15406,12 +15410,16 @@ ${text.slice(0, 4000)}`;
         if (window._currentJobContext !== 'supplies') return undefined;
         const supReq = ((document.getElementById('jobSupplyRequest')||{}).value || '').trim();
         const doneNow = !!(document.getElementById('jobSupplyDoneNow')||{}).checked;
-        return (!supReq) || doneNow;  // 발송만 또는 바로 완료 → true
+        const supMode = (document.querySelector('input[name="jobSupplyMode"]:checked')||{}).value || 'support';
+        if (supMode === 'postpaid') return !!doneNow;
+        return (!supReq) || doneNow;
       })(),
       doneAt: (() => {
         if (window._currentJobContext !== 'supplies') return undefined;
         const supReq = ((document.getElementById('jobSupplyRequest')||{}).value || '').trim();
         const doneNow = !!(document.getElementById('jobSupplyDoneNow')||{}).checked;
+        const supMode = (document.querySelector('input[name="jobSupplyMode"]:checked')||{}).value || 'support';
+        if (supMode === 'postpaid') return doneNow ? new Date().toISOString() : '';
         if ((!supReq) || doneNow) return new Date().toISOString();
         return '';
       })(),
