@@ -15160,6 +15160,14 @@ ${text.slice(0, 4000)}`;
     if (newSubEl && newSubEl.style.display !== 'none' && newSubEl.value) {
       jobType = newSubEl.value;  // '신규/오픈' | '신규/프로그램교체' | '신규/VAN변경'
     }
+    // 🏷️ 소모품 컨텍스트는 picker 의 hidden input (suppliesPickedType) 우선
+    //   jobType select 에는 '소모품/저울라벨' 등 option 이 없어서 sel.value 셋팅이 silent 실패함
+    //   결과: type 이 이전 select 값 ('신규' 등) 그대로 남아 잘못 저장되는 버그 차단
+    if (window._currentJobContext === 'supplies') {
+      const pickedType = (document.getElementById('suppliesPickedType')||{}).value;
+      if (pickedType) jobType = pickedType;
+      else jobType = '소모품/기타';   // picker 미선택 시 기본
+    }
     const isConsult = (jobType === '상담');
     const isAs = /AS/i.test(jobType);
 
@@ -15180,10 +15188,13 @@ ${text.slice(0, 4000)}`;
 
     // 신규 카테고리 — 분류기가 'new' 로 라우팅되도록 lineCategory 명시
     const isNewSub = /^신규\//.test(jobType);
+    const isSupplies = (window._currentJobContext === 'supplies') || /^소모품/.test(jobType);
     const job = {
       id: 'JOB-' + Date.now().toString(36).toUpperCase(),
       type:      jobType,
-      lineCategory: isNewSub ? 'open_store' : undefined,
+      // lineCategory: 신규는 'open_store', 소모품은 'supplies' — classifyJobCategory 안정성 보장
+      lineCategory: isNewSub ? 'open_store' : (isSupplies ? 'supplies' : undefined),
+      category:    isSupplies ? 'supplies' : undefined,
       storeName,
       store: storeName, // alias
       storeId: storeMatch ? storeMatch.id : '',
