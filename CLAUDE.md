@@ -1,5 +1,29 @@
 # work.neoretail.net — 프로젝트 규칙
 
+## 📅 날짜 기록 규칙 (필수)
+
+**원칙**: 모든 업무 기록(작업/메모/thread entry/상태 변경 등)에는 **날짜가 반드시 포함**되어야 한다.
+
+- **새 작업 등록**: 반드시 일자 필드 셋팅 (`createdAt` 자동 + 카테고리별 일정 — 신규=`installDate/openDate`, AS=`asReceivedAt`, 소모품=`shipDate`)
+- **thread entry**: `ts` 필수 (KST `YYYY-MM-DD HH:MM` 형식)
+- **memo entry**: `at` 필수 (KST stamp)
+- **상태 전환**: `doneAt`, `completedAt`, `arPaidAt` 등 변경 시점 기록
+- **표시 (hub sub-card / 모달 / 리스트)**: 가능한 경우 모든 항목에 일자 prefix `[YYYY-MM-DD]` 또는 inline `📅 YYYY-MM-DD` 표시
+
+**금지**:
+- 날짜 없는 작업 등록 (빈 input 그대로 저장 X — 폼 단에서 today 자동 셋팅)
+- 날짜 없는 sub-card 표시 (`createdAt` fallback 으로라도 표시)
+
+**구현 시 권장 패턴**:
+```js
+// 표시: 카테고리별 일자 fallback chain
+const date = j.shipDate || j.installDate || j.openDate || j.asReceivedAt?.slice(0,10) || j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
+
+// 저장: 빈 값일 때 today 자동
+const today = (typeof _kstNow === 'function') ? String(_kstNow()||'').slice(0,10) : new Date().toISOString().slice(0,10);
+job.shipDate = formShipDate || today;
+```
+
 ## 📏 파일 크기 가드레일 (필수)
 
 **원칙**: 한 파일에 1,000줄 이상 코드 생성·누적 금지. 임계 근접 시 분할 검토.

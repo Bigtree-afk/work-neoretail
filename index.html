@@ -3066,10 +3066,18 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
           </button>
         </div>
         <input type="hidden" id="suppliesPickedType" value="">
-        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 2fr;gap:10px;align-items:end">
+        <div style="margin-top:10px;display:grid;grid-template-columns:1.2fr 0.6fr 0.4fr 1.6fr;gap:10px;align-items:end">
           <div>
-            <div style="font-size:11px;color:var(--gray-500);margin-bottom:3px;font-weight:600">🚚 발송일</div>
+            <div style="font-size:11px;color:var(--gray-500);margin-bottom:3px;font-weight:600">🚚 발송일 <span style="color:var(--danger)">*</span></div>
             <input type="date" id="jobShipDate" style="width:100%">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--gray-500);margin-bottom:3px;font-weight:600">📦 수량</div>
+            <input type="number" id="jobSupplyQty" min="1" step="1" value="1" style="width:100%;text-align:right">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--gray-500);margin-bottom:3px;font-weight:600">단위</div>
+            <input type="text" id="jobSupplyUnit" placeholder="박스/롤" style="width:100%;text-align:center" readonly>
           </div>
           <div id="suppliesPickedLabel" style="font-size:11.5px;color:var(--gray-500);padding-bottom:8px">품목 미선택</div>
         </div>
@@ -5590,36 +5598,58 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         const wnCls = dd.urgent ? 'urgent' : (dd.done ? 'done' : '');
         const who = j.engineer || j.assignee || '';
         const memos = Array.isArray(j.memos) ? j.memos.length : 0;
-        const date = j.shipDate || j.date || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '');
+        // 글로벌 규칙: 카테고리별 일자 fallback chain — 날짜 무조건 표시
+        const date = j.shipDate || j.installDate || j.openDate
+                  || (j.asReceivedAt ? String(j.asReceivedAt).slice(0,10) : '')
+                  || j.date
+                  || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,10) : '-');
         const onclick = j.id ? `editNewopen('${escFn(j.id)}')` : '';
         const lineBtn = j.id ? `<button class="hub-line-btn" title="📡 LINE 발송" onclick="event.stopPropagation();window._hubLineSend('${escFn(j.id)}','')">📡</button>` : '';
-        // 🏷️ 소모품 — 처리 구분 / 금액 / 미수 정보 enriched 표시
-        let supplyMetaHtml = '';
-        let supplyTitleSuffix = '';
+        // 🏷️ 소모품 — [날짜][품목 처리구분 수량단위 금액] 상세 표시
+        let titleHtml;
         if (cat === 'supplies') {
+          const fmt = n => (Number(n)||0).toLocaleString();
+          // 품목명 — "소모품/POS용지" → "POS용지", "소모품/저울라벨" → "저울라벨"
+          const itemShort = String(j.type||'').replace(/^소모품\//,'') || (j.title || '소모품');
+          const qty = Number(j.supplyQty) || 0;
+          const unit = j.supplyUnit || '';
+          const qtyTxt = qty > 0 ? ` ${qty}${unit}` : '';
+          // 처리 구분 라벨 + 색
           const mode = j.supplyMode || ((j.amount > 0) ? (/(후불|미수)/i.test(String(j.payment||j.note||j.notes||''))?'postpaid':'prepaid') : 'support');
           const amt = Number(j.amount)||0;
           const paid = Number(j.arPaidAmount)||0;
           const remaining = Math.max(0, amt - paid);
-          const fmt = n => (Number(n)||0).toLocaleString();
+          let modeTxt = '', modeColor = 'var(--gray-600)', amtTxt = '';
           if (mode === 'support') {
-            supplyTitleSuffix = ` <span style="font-size:11px;color:#15803d;font-weight:700;margin-left:5px">🎁 지원</span>`;
+            modeTxt = '🎁 지원'; modeColor = '#15803d';
           } else if (mode === 'prepaid') {
-            supplyTitleSuffix = ` <span style="font-size:11px;color:#06B6D4;font-weight:700;margin-left:5px">💰 선불 ${fmt(amt)}원</span>`;
+            modeTxt = '💰 선불'; modeColor = '#06B6D4';
+            amtTxt = ` · ${fmt(amt)}원`;
           } else if (mode === 'postpaid') {
-            if (j.arPaid || remaining === 0) {
-              supplyTitleSuffix = ` <span style="font-size:11px;color:#15803d;font-weight:700;margin-left:5px">✅ 수금완료 ${fmt(amt)}원</span>`;
+            if (j.arPaid || (amt>0 && remaining === 0)) {
+              modeTxt = '✅ 수금완료'; modeColor = '#15803d';
+              amtTxt = ` · ${fmt(amt)}원`;
             } else {
+              modeTxt = '📌 후불 미수'; modeColor = '#F59E0B';
               const partial = paid > 0 ? ` (부분 ${fmt(paid)})` : '';
-              supplyTitleSuffix = ` <span style="font-size:11px;color:#F59E0B;font-weight:700;margin-left:5px">📌 미수 ${fmt(remaining)}원${partial}</span>`;
+              amtTxt = ` · ${fmt(remaining)}원${partial}`;
             }
           }
+          // 최종: [날짜][품목명 처리구분 N단위] 금액
+          titleHtml = `<span style="color:var(--gray-500);font-weight:600">[${escFn(date)}]</span> `
+                    + `<span style="color:var(--gray-800);font-weight:800">[${escFn(itemShort)} </span>`
+                    + `<span style="color:${modeColor};font-weight:700">${modeTxt}</span>`
+                    + `<span style="color:var(--gray-800);font-weight:800">${escFn(qtyTxt)}]</span>`
+                    + `<span style="color:${modeColor};font-size:11px;font-weight:600">${amtTxt}</span>`;
+        } else {
+          // 비-소모품 — 기존 표시
+          titleHtml = `${escFn(j.title || j.type || '업무')}`;
         }
         return `<div class="hub-sj" onclick="${onclick}">
           <div class="sjl">
             <span class="sjtag ${cat}">${escFn(j.type || cat)}</span>
-            <div class="sjti">${escFn(j.title || j.type || '업무')}${supplyTitleSuffix}</div>
-            <div class="sjmt">${date ? '📅 '+escFn(date)+' · ' : ''}${who?escFn(who)+' · ':''}${memos?'메모 '+memos+'건':''}</div>
+            <div class="sjti">${titleHtml}</div>
+            <div class="sjmt">${cat !== 'supplies' && date ? '📅 '+escFn(date)+' · ' : ''}${who?escFn(who)+' · ':''}${memos?'메모 '+memos+'건':''}</div>
           </div>
           ${lineBtn}
           <div class="sjwn ${wnCls}">${dd.text}</div>
@@ -15254,7 +15284,14 @@ ${text.slice(0, 4000)}`;
       installDate:  isAs ? '' : ((document.getElementById('jobInstallDate')   || {}).value || ''),
       softOpenDate: isAs ? '' : ((document.getElementById('jobSoftOpenDate')  || {}).value || ''),
       openDate:     isAs ? '' : ((document.getElementById('jobOpenDate')      || {}).value || ''),
-      shipDate:     ((document.getElementById('jobShipDate') || {}).value || ''),  // 🚚 소모품 발송일 (소모품 모드에서만 사용)
+      // 🚚 소모품 발송일 — 글로벌 규칙: 모든 업무 기록은 날짜 필수. 빈 값이면 today 자동
+      shipDate:     (function(){
+        const v = (document.getElementById('jobShipDate') || {}).value;
+        if (v) return v;
+        if (window._currentJobContext !== 'supplies') return '';
+        // 소모품에서 발송일이 비어있으면 today 강제
+        return (typeof _kstNow === 'function') ? String(_kstNow()||'').slice(0,10) : new Date().toISOString().slice(0,10);
+      })(),
       // 💳 소모품 처리 구분 — support / prepaid / postpaid
       supplyMode:   (document.querySelector('input[name="jobSupplyMode"]:checked')||{}).value || (window._currentJobContext === 'supplies' ? 'support' : undefined),
       // 💵 금액 — 지원은 0, 선불/후불은 입력값
@@ -15263,6 +15300,16 @@ ${text.slice(0, 4000)}`;
         if (window._currentJobContext !== 'supplies') return undefined;
         if (mode === 'support') return 0;
         return parseInt(String((document.getElementById('jobSupplyAmount')||{}).value||'0').replace(/[^\d]/g,''), 10) || 0;
+      })(),
+      // 📦 수량 + 단위 (소모품 모드에서만 사용) — sub-card 표시용
+      supplyQty:    (function(){
+        if (window._currentJobContext !== 'supplies') return undefined;
+        const n = parseInt(String((document.getElementById('jobSupplyQty')||{}).value||'1').replace(/[^\d]/g,''), 10);
+        return (Number.isFinite(n) && n > 0) ? n : 1;
+      })(),
+      supplyUnit:   (function(){
+        if (window._currentJobContext !== 'supplies') return undefined;
+        return ((document.getElementById('jobSupplyUnit')||{}).value || '개').trim();
       })(),
       // AS 전용
       asReceivedAt: asInfo ? asInfo.receivedAt : '',
@@ -18517,7 +18564,16 @@ ${text.slice(0, 4000)}`;
     if (hint) hint.textContent = mode === 'prepaid' ? '선불 — 즉시 매출 집계' : mode === 'postpaid' ? '후불 — 미수금 발생, 수금 후 완료' : '';
   };
 
-  // 🏷️ 소모품 picker — 아이콘 카드 클릭 시 jobType 설정 + 시각 active 표시
+  // 🏷️ 소모품 품목별 단위 매핑 — POS용지=박스, 나머지 라벨류=롤
+  const SUPPLY_UNIT_MAP = {
+    '소모품/POS용지':   '박스',
+    '소모품/단말용지':  '롤',
+    '소모품/가격라벨':  '롤',
+    '소모품/프라이스텍':'롤',
+    '소모품/저울라벨':  '롤',
+    '소모품/기타':      '개',
+  };
+  // 🏷️ 소모품 picker — 아이콘 카드 클릭 시 jobType 설정 + 시각 active 표시 + 단위 자동
   window.pickSupplyItem = function(btn) {
     if (!btn) return;
     const type = btn.getAttribute('data-sup-type') || '소모품/기타';
@@ -18530,6 +18586,9 @@ ${text.slice(0, 4000)}`;
     if (hidden) hidden.value = type;
     const label = document.getElementById('suppliesPickedLabel');
     if (label) label.textContent = `✓ 선택: ${name}`;
+    // 단위 자동 셋팅
+    const unitEl = document.getElementById('jobSupplyUnit');
+    if (unitEl) unitEl.value = SUPPLY_UNIT_MAP[type] || '개';
   };
 
   /* ─── 폼 매장/입력 초기화 — 모달 열 때마다 호출 ─── */
@@ -18568,6 +18627,8 @@ ${text.slice(0, 4000)}`;
     setVal('suppliesPickedType', '');
     setVal('jobSupplyRequest', '');
     setVal('jobSupplyAmount', '');
+    setVal('jobSupplyQty', '1');
+    setVal('jobSupplyUnit', '');
     const supDone = document.getElementById('jobSupplyDoneNow');
     if (supDone) supDone.checked = false;
     const supLbl = document.getElementById('suppliesPickedLabel');
