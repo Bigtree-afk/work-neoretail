@@ -1208,7 +1208,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <span class="nav-icon">📦</span> 재고조사
     </a>
     <a class="nav-item" onclick="showScreen('supplieshub')">
-      <span class="nav-icon">🏷️</span> 소모품판매
+      <span class="nav-icon">🏷️</span> 소모품
     </a>
     <a class="nav-item" onclick="showScreen('stores')">
       <span class="nav-icon">🏪</span> 점포관리
@@ -1257,7 +1257,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     <span class="nav-icon">📦</span> 재고조사
   </a>
   <a class="nav-item" onclick="showScreen('supplieshub'); closeMenu()">
-    <span class="nav-icon">🏷️</span> 소모품판매
+    <span class="nav-icon">🏷️</span> 소모품
   </a>
   <div class="nav-section">매장</div>
   <a class="nav-item" onclick="showScreen('stores'); closeMenu()">
@@ -2094,7 +2094,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     </div>
 
     <!-- ═══════════════════════════════════════ -->
-    <!-- SCREEN: SUPPLIESHUB (🏷️ 소모품판매)     -->
+    <!-- SCREEN: SUPPLIESHUB (🏷️ 소모품)     -->
     <!-- ═══════════════════════════════════════ -->
     <div class="screen" id="screen-supplieshub">
       <!-- 매출/미수 4종 대시보드 -->
@@ -5034,7 +5034,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
     newhub: '🆕 신규',
     ashub: '🔧 AS',
     vanhub: '📑 VAN',
-    supplieshub: '🏷️ 소모품판매',
+    supplieshub: '🏷️ 소모품',
     schedulehub: '📅 일정조회',
     stocktakehub: '📦 재고조사',
     consult: '상담 조회',
@@ -13833,7 +13833,7 @@ ${text.slice(0, 4000)}`;
         else category = 'newjob';
       }
     }
-    const labelMap = { as:'🔧 AS', newjob:'🆕 신규', van:'💳 VAN', stocktake:'📦 재고조사', supply:'🛒 소모품판매' };
+    const labelMap = { as:'🔧 AS', newjob:'🆕 신규', van:'💳 VAN', stocktake:'📦 재고조사', supply:'🛒 소모품' };
     const scheduleLabelMap = { as:'📅 처리예정', newjob:'📅 설치예정', van:'📅 진행일', stocktake:'📅 조사예정', supply:'📅 발송예정' };
 
     // entry 가 주어지면 그 텍스트를 본문으로, 아니면 job 최신 ROOT/메모 사용
@@ -18029,7 +18029,7 @@ ${text.slice(0, 4000)}`;
         o.hidden = !ok;
       });
       sel.value = '장비 추가';
-      if (badge) { badge.style.display = ''; badge.textContent = '🏷️ 소모품판매 진입'; }
+      if (badge) { badge.style.display = ''; badge.textContent = '🏷️ 소모품 진입'; }
       applyJobTypeMode();
     }
   }
