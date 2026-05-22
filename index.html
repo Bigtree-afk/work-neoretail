@@ -17140,7 +17140,19 @@ ${text.slice(0, 4000)}`;
       const effectivelyDone = window._isJobEffectivelyDone || _isJobDone;
       const asJobs = jobs.filter(j => {
         const t = (j.type || '').toLowerCase();
-        return /as|에이에스/i.test(t) && !effectivelyDone(j);
+        if (!/as|에이에스/i.test(t)) return false;
+        if (effectivelyDone(j)) return false;
+        // 🛡 ghost 차단 — thread 모두 삭제된 (tombstone 된) AS 는 대시보드에서 숨김 (2026-05-22)
+        try {
+          const roots = (Array.isArray(j.thread) ? j.thread : []).filter(e => e && e.parentId == null);
+          if (roots.length === 0) {
+            const list = (typeof _getTombstones === 'function') ? _getTombstones() : [];
+            const hadTomb = list.some(tn => tn && (tn.type === 'thread' || tn.type === 'thread-children' || tn.type === 'job') && tn.jobId === j.id);
+            const isJobTomb = (typeof _isJobTombstoned === 'function') && _isJobTombstoned(j.id);
+            if (hadTomb || isJobTomb) return false;
+          }
+        } catch(_){}
+        return true;
       });
       if (asJobs.length === 0) {
         asBody.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--gray-400);font-size:12px">미처리 AS가 없습니다.</div>`;
@@ -20636,6 +20648,32 @@ ${text.slice(0, 4000)}`;
         _addTombstone('thread', nodeId, jobId);
       }
     }
+    // 🔥 AS/신규 카테고리: 마지막 ROOT 삭제 시 job 전체 삭제 (cascade) — 2026-05-22
+    //   dashboard / 매장정보에서 thread=[] 인 ghost 카드로 남아 클릭 시 재시드되는 부활 차단
+    if (!draftMode && jobId && isRoot) {
+      const remainingRoots = (Array.isArray(arr) ? arr : []).filter(e => e && e.parentId == null);
+      if (remainingRoots.length === 0) {
+        try {
+          const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+          const ji = jobs.findIndex(x => x.id === jobId);
+          if (ji >= 0) {
+            const cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(jobs[ji]) : '';
+            if (cat === 'as' || cat === 'new') {
+              if (typeof _addTombstone === 'function') _addTombstone('job', jobId);
+              jobs.splice(ji, 1);
+              if (typeof saveJobs === 'function') saveJobs(jobs);
+              try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(_){}
+              if (typeof showToast === 'function') showToast('🗑 마지막 요청이라 업무가 함께 삭제됐습니다');
+              // 모달 닫기 시도
+              try { if (typeof closeModal === 'function') closeModal('newopenEditModal'); } catch(_){}
+              try { document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active')); } catch(_){}
+              _refreshAllHubsAfterThread();
+              return;
+            }
+          }
+        } catch(e) { console.warn('[cascadeDeleteJob]', e); }
+      }
+    }
     _setThreadFor(jobId, draftMode, arr, containerId);
     _rerenderThread(containerId, jobId, draftMode);
     _refreshAllHubsAfterThread();
@@ -21939,31 +21977,36 @@ ${text.slice(0, 4000)}`;
           // 기존 업무내역/접수정보를 첫 ROOT 로 자동 시드 — 스레드가 비었을 때만
           // 소스 우선순위: LINE 메시지 → AS 접수내용 → 비고
           let initialThread = j.thread || [];
+          // 🛡 자동 시드 가드 — 사용자가 thread 를 명시적으로 비웠다면 (tombstone 또는 _threadCleared 플래그)
+          //   다시 시드하지 않음. 그리고 시드해도 즉시 saveJobs 호출 금지 → 사용자가 명시적으로 입력해야 저장됨.
+          //   (이전: 클릭만 해도 lineParsed/asRequest/notes 에서 새 ROOT 가 만들어져 ns_jobs 에 저장 → 부활)
           if (!initialThread || initialThread.length === 0) {
-            const parts = [];
-            // 1) LINE 원문/요약
-            if (j.lineParsed && j.lineParsed.trim()) parts.push('📩 ' + j.lineParsed.trim());
-            else if (j.lineRaw && j.lineRaw.trim()) parts.push('📩 ' + j.lineRaw.trim());
-            // 2) AS 접수 요청
-            const asText = (j.asRequest || '').trim();
-            if (asText && !parts.some(p => p.includes(asText))) parts.push(asText);
-            // 3) 비고/notes (LINE/AS 와 중복 아닐 때만)
-            const notesText = (j.notes || '').trim();
-            if (notesText && !parts.some(p => p.includes(notesText))) parts.push(notesText);
-            if (parts.length > 0) {
-              const seedTs = (j.lineMsgAt || '').slice(0,16).replace('T',' ')
-                          || (j.asReceivedAt || '').slice(0,16).replace('T',' ')
-                          || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,16).replace('T',' ') : '');
-              const seedAuthor = j.lineSender || j.engineer || j.assignee || '담당자';
-              const seedRoot = { ts: seedTs, author: seedAuthor, status: '요청접수',
-                                 text: parts.join('\n\n'),
-                                 threadId: 'TR-seed-' + (j.id||Date.now()), parentId: null };
-              initialThread = [seedRoot];
-              try {
-                const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
-                const ix = jobs.findIndex(x => x.id === j.id);
-                if (ix >= 0) { jobs[ix].thread = initialThread.slice(); if (typeof saveJobs === 'function') saveJobs(jobs); }
-              } catch(_){}
+            const wasCleared = !!j._threadCleared;
+            // 과거 이 job 의 ROOT 가 한 번이라도 tombstone 됐으면 시드 skip — 부활 차단
+            let hadTombstonedRoot = false;
+            try {
+              const list = (typeof _getTombstones === 'function') ? _getTombstones() : [];
+              hadTombstonedRoot = list.some(t => t && (t.type === 'thread' || t.type === 'thread-children') && t.jobId === j.id);
+            } catch(_){}
+            if (!wasCleared && !hadTombstonedRoot) {
+              const parts = [];
+              if (j.lineParsed && j.lineParsed.trim()) parts.push('📩 ' + j.lineParsed.trim());
+              else if (j.lineRaw && j.lineRaw.trim()) parts.push('📩 ' + j.lineRaw.trim());
+              const asText = (j.asRequest || '').trim();
+              if (asText && !parts.some(p => p.includes(asText))) parts.push(asText);
+              const notesText = (j.notes || '').trim();
+              if (notesText && !parts.some(p => p.includes(notesText))) parts.push(notesText);
+              if (parts.length > 0) {
+                const seedTs = (j.lineMsgAt || '').slice(0,16).replace('T',' ')
+                            || (j.asReceivedAt || '').slice(0,16).replace('T',' ')
+                            || (j.createdAt ? new Date(j.createdAt).toISOString().slice(0,16).replace('T',' ') : '');
+                const seedAuthor = j.lineSender || j.engineer || j.assignee || '담당자';
+                const seedRoot = { ts: seedTs, author: seedAuthor, status: '요청접수',
+                                   text: parts.join('\n\n'),
+                                   threadId: 'TR-seed-' + (j.id||Date.now()), parentId: null };
+                initialThread = [seedRoot];
+                // ⚠️ 자동 저장 제거 — display-only. 사용자가 명시적으로 thread 편집/저장할 때만 영속.
+              }
             }
           }
           // AS 는 최대 5건 (미완료 우선) 노출 + 전체보기 토글 / 신규는 전체 노출

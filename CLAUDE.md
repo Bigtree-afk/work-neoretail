@@ -585,3 +585,14 @@ LINE 메시지 파싱 cron 은 **3중 방어** 구성:
 **테스트**: 한 PC 에서 업무 X 를 삭제 → 다른 PC 에서 X 가 진행중이던 상태로 ANY edit & push → cloud `/api/jobs` 에 X 가 등록 안 됨 (서버 필터링). 30초 이내 다른 PC 도 X 가 사라짐 (resync_token bump).
 
 **관리자 토큰 없는 PC** 라면: 그 PC 의 삭제는 cloud 레지스트리에 등록 안 되지만, 다른 토큰 보유 PC 가 같은 ID 를 한 번이라도 삭제하면 영구 차단됨. 또는 서버측 1차 방어선이 wholesale push 의 부활을 막음 (단, 등록 전까지는 일시적으로 살아날 수 있음).
+
+## 🔥 마지막 요청 삭제 → 업무 cascade 삭제 규칙 (2026-05-22 추가)
+
+**문제**: AS 페이지에서 "요청 삭제" 누르면 thread ROOT 만 사라지고 job 본체는 `thread=[]` 인 채로 남음 → 대시보드/매장 정보에 ghost 카드로 표시됨 → 클릭 시 `editNewopen` 이 `lineParsed/asRequest/notes` 에서 자동 시드 + **즉시 saveJobs** → **부활**.
+
+**해결 (필수)**:
+1. `_removeThreadNode` (index.html:~20630): ROOT 삭제 결과 남은 ROOT 가 0개이고 카테고리가 AS/신규면 **job 전체 cascade 삭제** (`_addTombstone('job', id)` + splice + push). 모달 자동 닫힘.
+2. `editNewopen` 자동 시드 (index.html:~21942): **즉시 `saveJobs` 호출 금지** — display-only. 그리고 같은 jobId 의 ROOT 가 한 번이라도 tombstone 됐으면 시드 자체를 skip.
+3. `hydrateDashboardJobs` AS 필터 (index.html:~17141): `thread.length===0` 이고 같은 jobId 의 tombstone 이 존재하면 dashboard 에서 숨김 (defense-in-depth).
+
+**테스트**: AS 페이지에서 마지막 요청 삭제 → AS 탭/대시보드 AS 미처리/매장 정보 AS 이력 모두에서 동시 제거. 다시 클릭해도 안 살아남.
