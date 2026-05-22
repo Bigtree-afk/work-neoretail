@@ -178,6 +178,48 @@ job.shipDate = formShipDate || today;
 
 **규칙 위반의 비용**: 사용자가 기존 업무에 대한 요청·처리 이력을 볼 수 없게 되고, 완료 처리·새 요청접수 등 모든 후속 액션이 막힘. 매장 데이터는 잘 저장돼도 사용자 입장에선 "기능 망가짐" 으로 보이는 치명적 UX 버그.
 
+## 📜 완료/done 항목 노출 규칙 (필수)
+
+**원칙**: 카테고리별 리스트(hub/entry/대시보드)는 **진행 중 + 완료 항목을 함께 표시**한다. 완료된 항목도 사용자가 **원본 요청 내용을 확인할 수 있어야** 한다.
+
+### 표시 정책
+
+| 항목 | 규칙 |
+|---|---|
+| **리스트 정렬** | 미완료 먼저 (위), 완료 아래. 카테고리별 1순위 정렬 (미수/긴급) 도 진행 그룹 내에서 적용 |
+| **카드 요약 텍스트** | **첫 ROOT(요청접수) 의 text 우선** — 완료된 항목도 원본 요청을 보여줘야 사용자가 어떤 건이었는지 파악 가능 |
+| **fallback 체인** | `firstRoot.text → j.asRequest → j.lineRequest → j.lineParsed → j.memo → j.notes` |
+| **완료 표시** | 카드 좌측 border `#10B981` (초록) + `✅ 완료` 배지 + 약한 음영 (`background:#FAFBFA`, `opacity:0.85`) |
+| **상단 카운트 배지** | 진행 중만 카운트 (완료는 카드에는 표시되지만 배지 숫자에는 포함 안 함) |
+
+### 위반 사례 (자주 발생 — 매번 지적)
+- **카드 summary 가 `lastThread.text` 또는 "최신 entry"**: 완료된 건은 마지막 entry 가 "완료 처리" 같은 시스템 메시지라 의미 불명. **첫 ROOT 인 원본 요청을 보여줘야 함.**
+- **`filter(!isDone)`** 만 적용: 완료 항목 자체가 안 보임 → 사용자 confused
+- **`_isJobDone` 만 사용**: thread 완료지만 status 미동기화 옛 데이터가 진행 중으로 잘못 분류. **`_isJobEffectivelyDone` 사용 필수.**
+
+### 구현 패턴
+```js
+// ✅ 올바른 패턴 (모바일 entry / PC hub 모두 동일)
+const isDone = window._isJobEffectivelyDone || window._isJobDone;
+const all = jobs.filter(j => cat(j) === '<CATEGORY>');
+all.sort((a, b) => {
+  const aD = isDone(a) ? 1 : 0;
+  const bD = isDone(b) ? 1 : 0;
+  if (aD !== bD) return aD - bD;       // 미완료 먼저
+  // 그룹 내 정렬 (긴급/날짜 등)
+});
+
+// 카드 요약: 첫 ROOT 우선
+const firstRoot = (j.thread||[]).find(e => e && e.parentId === null);
+const summary = (firstRoot && firstRoot.text) || j.asRequest || j.lineRequest || j.lineParsed || j.memo || '';
+```
+
+### 점검 체크리스트
+- [ ] 리스트 필터에 `!isDone(j)` 만 있는 경우 → 완료 항목도 포함하도록 변경
+- [ ] 카드 summary 가 첫 ROOT(`firstRoot.text`) 우선인가
+- [ ] 완료 카드 시각적 구분 (초록 border + 배지 + 음영)
+- [ ] `_isJobDone` 대신 `_isJobEffectivelyDone` 사용 (status 와 thread 정합성 보장)
+
 ## 📝 리스트/sub-card 상세 표시 규칙 (필수)
 
 **원칙**: hub/리스트의 sub-card 한 줄은 사용자가 **별도로 열어보지 않고도 즉시 판단 가능한 정보**를 모두 담는다. 카테고리별 핵심 식별자 + 도메인 수치 + 상태 라벨을 한 줄에 묶어 표시.

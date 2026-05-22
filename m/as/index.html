@@ -67,7 +67,8 @@
   .card{background:#fff;border-radius:12px;padding:13px 14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.04);cursor:pointer}
   .card.req{border-left:4px solid #3B82F6}
   .card.prog{border-left:4px solid #F59E0B}
-  .card.done{border-left:4px solid #10B981}
+  .card.done{border-left:4px solid #10B981;background:#FAFBFA}
+  .card.done .nm,.card.done .summary{opacity:0.85}
   .card.soon{border-left:4px solid #F59E0B;background:linear-gradient(90deg,#FFFBEB 0%,#fff 35%)}
   .card.urgent{border-left:4px solid var(--danger);background:linear-gradient(90deg,#FEF2F2 0%,#fff 35%)}
   .card .topline{display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap}
@@ -459,7 +460,7 @@
   <a class="item" href="/?desktop=1"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-22-card-nav-2"></script>
+<script src="/m-core.js?v=2026-05-22-home-search-1"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -626,47 +627,72 @@ function renderEntry(){
   const list = $('entryJobList');
   const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
   const cat = window.classifyJobCategory || (j => 'new');
-  const isDone = window._isJobDone || (j => j && (j.status === '완료' || j.completed));
-  const filtered = jobs.filter(j => cat(j) === 'as' && !isDone(j));
-  // 처리예정일 임박순 (없는 건 뒤로)
-  filtered.sort((a,b) => {
-    const da = _daysUntil(a.asDueDate);
-    const db = _daysUntil(b.asDueDate);
-    if (da === null && db === null) return (b.createdAt||0) - (a.createdAt||0);
-    if (da === null) return 1;
-    if (db === null) return -1;
-    return da - db;
+  // 🎯 _isJobEffectivelyDone 사용 — thread ROOT 전체 완료도 done 처리
+  const isDone = window._isJobEffectivelyDone || window._isJobDone || (j => j && (j.status === '완료' || j.completed));
+  // 🎯 진행 + 완료 함께 표시 — 사용자가 완료된 AS 의 요청접수 내용을 확인할 수 있도록
+  //   글로벌 규칙: 완료 항목도 리스트에 표시, 미완료 위 / 완료 아래로 정렬
+  const all = jobs.filter(j => cat(j) === 'as');
+  const filtered = all.slice().sort((a, b) => {
+    const aDone = isDone(a) ? 1 : 0;
+    const bDone = isDone(b) ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;  // 미완료 우선
+    // 같은 그룹 내 — 미완료는 처리예정일 임박순, 완료는 완료시각 최신순
+    if (!aDone) {
+      const da = _daysUntil(a.asDueDate);
+      const db = _daysUntil(b.asDueDate);
+      if (da === null && db === null) return (b.createdAt||0) - (a.createdAt||0);
+      if (da === null) return 1;
+      if (db === null) return -1;
+      return da - db;
+    } else {
+      const ta = Date.parse(a.completedAt||a.doneAt||'') || a.createdAt || 0;
+      const tb = Date.parse(b.completedAt||b.doneAt||'') || b.createdAt || 0;
+      return tb - ta;
+    }
   });
+  const activeCnt = filtered.filter(j => !isDone(j)).length;
   if (!filtered.length) {
-    list.innerHTML = '<div class="empty">진행 중인 AS 업무가 없습니다.<br>위에서 새 AS 접수를 시작하세요.</div>';
+    list.innerHTML = '<div class="empty">AS 업무가 없습니다.<br>위에서 새 AS 접수를 시작하세요.</div>';
     $('appBadge').style.display = 'none';
     return;
   }
-  $('appBadge').textContent = filtered.length + '건';
-  $('appBadge').style.display = 'inline-block';
+  if (activeCnt > 0) {
+    $('appBadge').textContent = activeCnt + '건';
+    $('appBadge').style.display = 'inline-block';
+  } else {
+    $('appBadge').style.display = 'none';
+  }
 
   list.innerHTML = filtered.map(j => {
-    const u = _asUrgency(j);
-    let cls = 'prog';
-    let urgentPill = '';
-    if (u) {
-      if (u.cls === 'urgent') { cls = 'urgent'; urgentPill = `<span class="pill urgent">${esc(u.label)}</span>`; }
-      else if (u.cls === 'soon') { cls = 'soon'; urgentPill = `<span class="pill soon">${esc(u.label)}</span>`; }
-      else { urgentPill = `<span class="pill prog">${esc(u.label)}</span>`; }
+    const done = isDone(j);
+    let cls, urgentPill;
+    if (done) {
+      cls = 'done';
+      urgentPill = `<span class="pill" style="background:#DCFCE7;color:#15803d">✅ 완료</span>`;
     } else {
-      const st = _lastEntryStatus(j);
-      if (st === '요청접수' || st === '접수') { cls = 'req'; urgentPill = `<span class="pill req">${esc(st)}</span>`; }
-      else urgentPill = `<span class="pill prog">${esc(st)}</span>`;
+      const u = _asUrgency(j);
+      cls = 'prog';
+      urgentPill = '';
+      if (u) {
+        if (u.cls === 'urgent') { cls = 'urgent'; urgentPill = `<span class="pill urgent">${esc(u.label)}</span>`; }
+        else if (u.cls === 'soon') { cls = 'soon'; urgentPill = `<span class="pill soon">${esc(u.label)}</span>`; }
+        else { urgentPill = `<span class="pill prog">${esc(u.label)}</span>`; }
+      } else {
+        const st = _lastEntryStatus(j);
+        if (st === '요청접수' || st === '접수') { cls = 'req'; urgentPill = `<span class="pill req">${esc(st)}</span>`; }
+        else urgentPill = `<span class="pill prog">${esc(st)}</span>`;
+      }
     }
     const sub = (j.type && /^AS\//.test(j.type)) ? j.type : 'AS';
     const subIco = sub.includes('VAN') ? '💳 VAN' : sub.includes('POS') ? '🖥 POS' : sub.includes('키오') ? '📟 KIO' : '📦 기타';
     const lineCnt = _lineCount(j);
     const linePill = lineCnt > 0 ? `<span class="pill line" style="margin-left:auto">📡 ${lineCnt}</span>` : '';
     const dueStr = j.asDueDate ? `처리예정 ${fmtDate(j.asDueDate)}${j.asDueTime?' '+j.asDueTime:''}` : '';
-    const lastThread = Array.isArray(j.thread) && j.thread.length
-                      ? j.thread.slice().sort((a,b)=>(b.ts||'').localeCompare(a.ts||''))[0]
-                      : null;
-    const summary = (lastThread && lastThread.text) || j.asRequest || j.memo || j.notes || '';
+    // 🎯 요청접수 내용 우선 표시 — 완료 항목도 원본 요청을 보여줘야 함 (CLAUDE.md 글로벌 규칙)
+    //   첫 ROOT (요청접수) 의 text 가 가장 의미 있는 요약 — 그게 없으면 asRequest / notes 순
+    const thread = Array.isArray(j.thread) ? j.thread : [];
+    const firstRoot = thread.find(e => e && e.parentId === null);
+    const summary = (firstRoot && firstRoot.text) || j.asRequest || j.lineRequest || j.lineParsed || j.memo || j.notes || '';
     return `
     <div class="card ${cls}" onclick="location.hash='#thread/${esc(j.id)}'">
       <div class="topline">

@@ -9,7 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  /* 🎯 모든 클릭 가능 요소 touch-action:manipulation — iOS double-tap zoom 지연 제거 */
+  a, button, .ico, .bottom-nav .item, .store-row { touch-action: manipulation; }
   :root{
     --primary:#2563EB; --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
     --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-600:#4B5563; --gray-700:#374151; --gray-800:#1F2937;
@@ -19,41 +21,82 @@
   .topbar{background:#fff;padding:14px 16px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:10}
   .topbar .logo{font-weight:900;font-size:17px;color:var(--primary);letter-spacing:-0.5px}
   .topbar .spacer{flex:1}
-  .topbar .desktop{font-size:11.5px;color:var(--gray-500);background:#F3F4F6;padding:6px 11px;border-radius:8px;text-decoration:none;font-weight:700;border:1px solid var(--gray-200)}
+  .topbar .desktop{font-size:11.5px;color:var(--gray-500);background:#F3F4F6;padding:6px 11px;border-radius:8px;text-decoration:none;font-weight:700;border:1px solid var(--gray-200);cursor:pointer;font-family:inherit}
   .topbar .desktop:active{background:var(--gray-200)}
   .wrap{padding:16px 14px 80px;max-width:480px;margin:0 auto}
   .hello{font-size:13px;color:var(--gray-600);margin-bottom:4px}
   .h1{font-size:19px;font-weight:800;color:var(--gray-800);margin-bottom:16px}
   .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-  .ico{position:relative;background:#fff;border-radius:14px;padding:18px 8px;display:flex;flex-direction:column;align-items:center;gap:7px;text-decoration:none;border:1.5px solid var(--gray-200);box-shadow:0 2px 6px rgba(0,0,0,.04);transition:transform .1s}
-  .ico:active{transform:scale(.97)}
+  .ico{position:relative;background:#fff;border-radius:14px;padding:18px 8px;display:flex;flex-direction:column;align-items:center;gap:7px;text-decoration:none;color:inherit;border:1.5px solid var(--gray-200);box-shadow:0 2px 6px rgba(0,0,0,.04)}
+  .ico:active{background:var(--gray-50)}
   .ico .em{font-size:34px}
   .ico .nm{font-size:13px;font-weight:800}
   .ico .sub{font-size:10px;color:var(--gray-500)}
-  .ico.newjob{border-color:#BFDBFE;box-shadow:0 2px 6px rgba(59,130,246,.08)} .ico.newjob .nm{color:#1E40AF}
-  .ico.as     {border-color:#FCA5A5;box-shadow:0 2px 6px rgba(239,68,68,.08)} .ico.as .nm{color:#991B1B}
-  .ico.van    {border-color:#DDD6FE;box-shadow:0 2px 6px rgba(124,58,237,.08)} .ico.van .nm{color:#5B21B6}
-  .ico.supply {border-color:#FCD34D;box-shadow:0 2px 6px rgba(245,158,11,.08)} .ico.supply .nm{color:#92400E}
-  .ico.stock  {border-color:#A7F3D0;box-shadow:0 2px 6px rgba(16,185,129,.08)} .ico.stock .nm{color:#065F46}
-  .badge{position:absolute;top:-8px;right:-8px;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.18)}
-  .badge.newjob{background:#2563EB;box-shadow:0 2px 8px rgba(37,99,235,.4)}
-  .badge.as    {background:#EF4444;box-shadow:0 2px 8px rgba(239,68,68,.4);animation:pulse 1.4s infinite}
-  .badge.van   {background:#7C3AED;box-shadow:0 2px 8px rgba(124,58,237,.4)}
-  .badge.supply{background:#F59E0B;box-shadow:0 2px 8px rgba(245,158,11,.4)}
-  .badge.stock {background:#10B981;box-shadow:0 2px 8px rgba(16,185,129,.4)}
-  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+  .ico.newjob{border-color:#BFDBFE} .ico.newjob .nm{color:#1E40AF}
+  .ico.as     {border-color:#FCA5A5} .ico.as .nm{color:#991B1B}
+  .ico.van    {border-color:#DDD6FE} .ico.van .nm{color:#5B21B6}
+  .ico.supply {border-color:#FCD34D} .ico.supply .nm{color:#92400E}
+  .ico.stock  {border-color:#A7F3D0} .ico.stock .nm{color:#065F46}
+  .badge{position:absolute;top:-8px;right:-8px;min-width:28px;height:28px;padding:0 6px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+  .badge.newjob{background:#2563EB}
+  .badge.as    {background:#EF4444}
+  .badge.van   {background:#7C3AED}
+  .badge.supply{background:#F59E0B}
+  .badge.stock {background:#10B981}
+
+  /* 🔍 매장 검색 섹션 */
+  .store-search-sec{background:#fff;border-radius:14px;border:1.5px solid var(--gray-200);padding:13px 14px;margin-bottom:14px;box-shadow:0 2px 6px rgba(0,0,0,.04)}
+  .store-search-sec .hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .store-search-sec .hdr-em{font-size:18px}
+  .store-search-sec .hdr-title{font-size:13.5px;font-weight:800;color:var(--gray-800);flex:1}
+  .store-search-sec .hdr-cnt{font-size:10.5px;color:var(--gray-500);background:var(--gray-100);padding:2px 8px;border-radius:9px;font-weight:700}
+  .store-search-sec .search-bar{display:flex;gap:6px}
+  .store-search-sec input{flex:1;padding:10px 12px;border:1.5px solid var(--gray-200);border-radius:9px;font-size:15px;font-family:inherit;color:var(--gray-800)}
+  .store-search-sec input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+  .store-search-sec .search-btn{padding:0 14px;background:var(--primary);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit}
+  .store-search-sec .search-btn:active{background:#1d4ed8}
+  .store-results{margin-top:10px;display:none;flex-direction:column;gap:4px;max-height:50vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .store-row{display:flex;align-items:center;gap:9px;padding:9px 11px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:9px;cursor:pointer;text-decoration:none;color:inherit}
+  .store-row:active{background:#EFF6FF;border-color:var(--primary)}
+  .store-row .avatar{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:#DBEAFE;font-size:14px;flex-shrink:0}
+  .store-row .body{flex:1;min-width:0}
+  .store-row .nm{font-weight:700;font-size:13.5px;color:var(--gray-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .store-row .meta{font-size:10.5px;color:var(--gray-500);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .store-row .arr{color:var(--gray-400);flex-shrink:0;font-size:18px}
+  .store-empty{padding:18px;text-align:center;color:var(--gray-400);font-size:12.5px}
+
+  /* 📋 매장 상세 모달 */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:none;align-items:flex-end;justify-content:center;animation:fadeIn .2s}
+  .modal-overlay.show{display:flex}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .modal{background:#fff;width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;animation:slideUp .25s}
+  @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .modal .grip{width:36px;height:4px;background:var(--gray-300);border-radius:2px;margin:0 auto 13px}
+  .modal .m-title{font-size:18px;font-weight:900;color:var(--gray-800);margin-bottom:4px}
+  .modal .m-sub{font-size:12px;color:var(--gray-500);margin-bottom:14px}
+  .modal .m-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-100);font-size:13px}
+  .modal .m-row:last-child{border-bottom:none}
+  .modal .m-row .k{width:88px;color:var(--gray-500);font-weight:700;flex-shrink:0;font-size:12px}
+  .modal .m-row .v{flex:1;color:var(--gray-800);font-weight:600;word-break:break-all}
+  .modal .m-row .v a{color:var(--primary);text-decoration:none;font-weight:700}
+  .modal .m-row .v a:active{text-decoration:underline}
+  .modal .m-actions{display:flex;gap:8px;margin-top:14px}
+  .modal .m-btn{flex:1;padding:13px;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:5px}
+  .modal .m-btn.call{background:#10B981;color:#fff}
+  .modal .m-btn.call:active{background:#059669}
+  .modal .m-btn.map{background:#3B82F6;color:#fff}
+  .modal .m-btn.map:active{background:#2563EB}
+  .modal .m-btn.close{background:var(--gray-100);color:var(--gray-700)}
+
   .notice{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:11px 13px;font-size:11.5px;color:#1E40AF;line-height:1.55;margin-bottom:14px}
-  .recent-t{font-size:11px;font-weight:800;color:var(--gray-600);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.5px}
-  .recent{background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:5px;display:flex;align-items:center;gap:9px}
-  .recent .avatar{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
-  .recent .body{flex:1;min-width:0}
-  .recent .nm{font-weight:700;font-size:13px}
-  .recent .meta{font-size:10.5px;color:var(--gray-500);margin-top:1px}
   .build-notice{background:#FEF3C7;border:1px solid #FCD34D;border-radius:9px;padding:9px 12px;font-size:11px;color:#92400E;line-height:1.55;margin-top:14px}
-  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--gray-200);display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:10}
-  .bottom-nav .item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;color:var(--gray-500);padding:5px 0;text-decoration:none;font-weight:600}
+
+  /* 하단 고정 네비 — 홈/일정/매장/설정 4개 */
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--gray-200);display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:9}
+  .bottom-nav .item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;color:var(--gray-500);padding:5px 0;text-decoration:none;font-weight:600;cursor:pointer;border:none;background:transparent;font-family:inherit}
   .bottom-nav .item.active{color:var(--primary)}
+  .bottom-nav .item:active{background:var(--gray-50)}
   .bottom-nav .icn{font-size:19px}
 </style>
 </head>
@@ -62,55 +105,9 @@
 <div class="topbar">
   <div class="logo">🏪 NeoRetail</div>
   <div class="spacer"></div>
-  <button class="desktop" onclick="_mResync()" title="클라우드에서 데이터 강제 재초기화 — 중복/옛 데이터 정리" style="background:#FEF3C7;border-color:#FCD34D;color:#92400E;font-weight:800;cursor:pointer;font-family:inherit">🔄 새로고침</button>
-  <a class="desktop" href="/?desktop=1" title="데스크톱 버전으로 (이 탭만)" style="margin-left:6px">💻 PC</a>
+  <button class="desktop" onclick="_mResync(event)" title="클라우드에서 데이터 강제 재초기화" style="background:#FEF3C7;border-color:#FCD34D;color:#92400E;font-weight:800">🔄 새로고침</button>
+  <a class="desktop" href="/?desktop=1" title="데스크톱 버전 (이 탭만)" style="margin-left:6px">💻 PC</a>
 </div>
-
-<script>
-/* 모바일 SPA 진입 시 — 옛 localStorage.force_desktop=1 잔여물 정리.
-   이전 버전(2026-05-21) 에서 ?desktop=1 클릭 시 localStorage 에 영구 저장됨.
-   /m/ 까지 진입했다는 건 사용자가 모바일 의도이므로 PC 강제 토글 해제. */
-try { localStorage.removeItem('force_desktop'); } catch(e){}
-</script>
-
-<script>
-/* 🔄 모바일 강제 재동기화 — 모바일 기기에서 콘솔 접근 어려운 사용자를 위한 UI 버튼.
-   클라우드(/api/jobs, /api/stores) 에서 freshest 받아오고 deleted 레지스트리 적용 후
-   localStorage 를 강제로 그 상태로 덮어씀. 중복/옛 status 데이터 즉시 정리. */
-async function _mResync() {
-  if (!confirm('클라우드에서 최신 데이터를 받아와 다시 동기화합니다.\n현재 등록 중인 폼이 있으면 취소될 수 있습니다. 계속할까요?')) return;
-  const btn = event && event.currentTarget;
-  const orig = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 동기화...'; }
-  try {
-    const [r1, r2] = await Promise.all([
-      fetch('/api/jobs', { cache:'no-store' }).then(r => r.json()),
-      fetch('/api/stores', { cache:'no-store' }).then(r => r.json()),
-    ]);
-    const cloudJobs = Array.isArray(r1?.jobs) ? r1.jobs : [];
-    const cloudStores = Array.isArray(r2?.stores) ? r2.stores : [];
-    const delJobIds = new Set((Array.isArray(r1?.deleted) ? r1.deleted : []).map(e => String(e.id||'')).filter(Boolean));
-    const delStoreIds = new Set((Array.isArray(r2?.deleted) ? r2.deleted : []).map(e => String(e.id||'')).filter(Boolean));
-    const cleanJobs = cloudJobs.filter(j => j && j.id && !delJobIds.has(j.id));
-    const cleanStores = cloudStores.filter(s => s && s.id && !delStoreIds.has(s.id));
-    localStorage.setItem('ns_jobs', JSON.stringify(cleanJobs));
-    localStorage.setItem('ns_stores', JSON.stringify(cleanStores));
-    // 삭제 레지스트리를 tombstone 에 등록
-    let tombs = [];
-    try { tombs = JSON.parse(localStorage.getItem('ns_tombstones')||'[]'); } catch(_){}
-    if (!Array.isArray(tombs)) tombs = [];
-    const seen = new Set(tombs.map(t => `${t.type}:${t.id}`));
-    for (const id of delJobIds) { const k = 'job:'+id; if (!seen.has(k)) { tombs.push({type:'job', id, ts:Date.now()}); seen.add(k); } }
-    for (const id of delStoreIds) { const k = 'store:'+id; if (!seen.has(k)) { tombs.push({type:'store', id, ts:Date.now()}); seen.add(k); } }
-    localStorage.setItem('ns_tombstones', JSON.stringify(tombs));
-    alert(`✓ 동기화 완료\n작업 ${cleanJobs.length}건 / 매장 ${cleanStores.length}건\n삭제 레지스트리 ${delJobIds.size + delStoreIds.size}건 반영`);
-    location.reload();
-  } catch(e) {
-    alert('⚠ 동기화 실패: ' + e.message);
-    if (btn) { btn.disabled = false; btn.textContent = orig; }
-  }
-}
-</script>
 
 <div class="wrap">
   <div class="hello">안녕하세요 👋</div>
@@ -121,65 +118,267 @@ async function _mResync() {
     <a href="/m/newjob/" class="ico newjob">
       <div class="em">🆕</div>
       <div class="nm">신규</div>
-      <div class="sub">6건 진행</div>
-      <span class="badge newjob">6</span>
+      <div class="sub" id="cnt-sub-new">로딩…</div>
+      <span class="badge newjob" id="cnt-bdg-new" style="display:none">0</span>
     </a>
     <a href="/m/as/" class="ico as">
       <div class="em">🔧</div>
       <div class="nm">AS</div>
-      <div class="sub">3건 긴급</div>
-      <span class="badge as">3</span>
+      <div class="sub" id="cnt-sub-as">로딩…</div>
+      <span class="badge as" id="cnt-bdg-as" style="display:none">0</span>
     </a>
     <a href="/m/van/" class="ico van">
       <div class="em">💳</div>
       <div class="nm">VAN</div>
-      <div class="sub">4건 · 📑 2</div>
-      <span class="badge van">4</span>
+      <div class="sub" id="cnt-sub-van">로딩…</div>
+      <span class="badge van" id="cnt-bdg-van" style="display:none">0</span>
     </a>
   </div>
   <div class="row2">
     <a href="/m/supplies/" class="ico supply">
       <div class="em">🛒</div>
       <div class="nm">소모품</div>
-      <div class="sub">5건 미수</div>
-      <span class="badge supply">5</span>
+      <div class="sub" id="cnt-sub-sup">로딩…</div>
+      <span class="badge supply" id="cnt-bdg-sup" style="display:none">0</span>
     </a>
     <a href="/m/stocktake/" class="ico stock">
       <div class="em">📦</div>
       <div class="nm">재고조사</div>
-      <div class="sub">2건 진행</div>
-      <span class="badge stock">2</span>
+      <div class="sub" id="cnt-sub-stk">로딩…</div>
+      <span class="badge stock" id="cnt-bdg-stk" style="display:none">0</span>
     </a>
   </div>
 
-  <div class="notice">
-    💡 각 아이콘 탭 → 서브 카테고리 선택 → 매장 선택 → 기존 요청 확인/수정 또는 신규 업무 등록 흐름이 모든 업무에 동일하게 적용됩니다.
+  <!-- 🔍 매장 검색 — 외부 직원이 매장 주소·연락처 빠르게 확인 -->
+  <div class="store-search-sec" id="storeSearchSec">
+    <div class="hdr">
+      <span class="hdr-em">🔍</span>
+      <div class="hdr-title">매장 빠른 검색</div>
+      <span class="hdr-cnt" id="storeCount">-</span>
+    </div>
+    <div class="search-bar">
+      <input id="storeSearchInput" type="search" placeholder="매장명 / 사업자번호 / 거래처코드" autocomplete="off" inputmode="search" enterkeyhint="search">
+      <button class="search-btn" onclick="onStoreSearchBtn()">검색</button>
+    </div>
+    <div class="store-results" id="storeResults"></div>
   </div>
 
-  <div class="recent-t">최근 매장</div>
-  <div class="recent">
-    <div class="avatar" style="background:#DBEAFE;color:#1E40AF">🏪</div>
-    <div class="body"><div class="nm">카페모리(역삼점)</div><div class="meta">🆕 신규/오픈 · D-2</div></div>
-    <span style="color:var(--gray-400)">›</span>
-  </div>
-  <div class="recent">
-    <div class="avatar" style="background:#FEE2E2;color:#991B1B">🏪</div>
-    <div class="body"><div class="nm">정이가마트</div><div class="meta">🔧 AS · POS 영수증 출력 안됨</div></div>
-    <span style="color:var(--gray-400)">›</span>
+  <div class="notice">
+    💡 매장 검색으로 주소·연락처를 빠르게 확인하세요. 매장 정보를 탭하면 전화 걸기 / 지도 열기가 가능합니다.
   </div>
 
   <div class="build-notice">
-    ⚠️ 베타 — 각 카테고리 페이지는 목업 단계입니다. PC 버전과 동일 데이터를 사용하는 정식 SPA 이관 작업 진행 중. 데이터 등록·수정은 우선 <a href="/?desktop=1" style="color:#92400E;font-weight:800;text-decoration:underline">PC 버전</a>에서 진행해 주세요.
+    📱 모바일 베타 — 각 카테고리의 카드를 탭하면 thread(요청·처리 기록) 으로 진입. 데이터 추가/수정 후 변경은 자동 동기화됩니다.
   </div>
 </div>
 
-<div class="bottom-nav">
-  <a href="#" class="item active"><span class="icn">🏠</span>홈</a>
-  <a href="#" class="item"><span class="icn">📅</span>일정</a>
-  <a href="#" class="item"><span class="icn">🏪</span>매장</a>
-  <a href="#" class="item"><span class="icn">📡</span>LINE</a>
-  <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
+<!-- 📋 매장 상세 모달 -->
+<div class="modal-overlay" id="storeDetailModal" onclick="if(event.target===this)closeStoreDetail()">
+  <div class="modal">
+    <div class="grip"></div>
+    <div class="m-title" id="mStoreName">-</div>
+    <div class="m-sub" id="mStoreSub">-</div>
+    <div id="mStoreRows"></div>
+    <div class="m-actions" id="mStoreActions"></div>
+  </div>
 </div>
+
+<!-- 하단 네비: 홈 / 일정 / 매장 / 설정 — 각각 직접 이동 -->
+<nav class="bottom-nav">
+  <a class="item active" href="/m/"><span class="icn">🏠</span>홈</a>
+  <a class="item" href="/?desktop=1#schedulehub"><span class="icn">📅</span>일정</a>
+  <button class="item" onclick="document.getElementById('storeSearchInput').focus();document.getElementById('storeSearchSec').scrollIntoView({behavior:'smooth',block:'center'})"><span class="icn">🏪</span>매장</button>
+  <a class="item" href="/?desktop=1#settings"><span class="icn">⚙️</span>설정</a>
+</nav>
+
+<script src="/m-core.js?v=2026-05-22-home-search-1"></script>
+<script>
+/* 모바일 SPA 진입 시 — 옛 localStorage.force_desktop 잔여물 정리 */
+try { localStorage.removeItem('force_desktop'); } catch(e){}
+
+/* 🔄 강제 재동기화 */
+async function _mResync(ev) {
+  if (!confirm('클라우드에서 최신 데이터를 받아와 다시 동기화합니다.\n계속할까요?')) return;
+  const btn = ev && ev.currentTarget;
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
+  try {
+    if (typeof window._forceResyncFromCloud === 'function') {
+      const r = await window._forceResyncFromCloud();
+      if (r.ok) { alert(`✓ 작업 ${r.jobs}건 / 매장 ${r.stores}건`); location.reload(); return; }
+      throw new Error(r.error || 'unknown');
+    }
+    // fallback (m-core 미로드 시)
+    const [r1, r2] = await Promise.all([
+      fetch('/api/jobs', { cache:'no-store' }).then(r => r.json()),
+      fetch('/api/stores', { cache:'no-store' }).then(r => r.json()),
+    ]);
+    localStorage.setItem('ns_jobs', JSON.stringify(r1.jobs || []));
+    localStorage.setItem('ns_stores', JSON.stringify(r2.stores || []));
+    alert('✓ 동기화 완료');
+    location.reload();
+  } catch(e) {
+    alert('⚠ 동기화 실패: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
+/* 카테고리 카운트 계산 — 진행 중 건수만 */
+function renderCounts() {
+  if (typeof getJobs !== 'function') return;
+  const jobs = getJobs() || [];
+  const isDone = window._isJobEffectivelyDone || window._isJobDone || ((j) => /완료/.test(String(j.status||'')));
+  const cat = window.classifyJobCategory || (() => '');
+  const stk = (typeof window.getStocktakes === 'function') ? (window.getStocktakes() || []) : [];
+  const cnt = { new:0, as:0, van:0, supplies:0, stock:0 };
+  jobs.forEach(j => {
+    if (isDone(j)) return;
+    const c = cat(j);
+    if (c === 'new')           cnt.new++;
+    else if (c === 'as')       cnt.as++;
+    else if (c === 'van')      cnt.van++;
+    else if (c === 'supplies') cnt.supplies++;
+  });
+  stk.forEach(r => {
+    const s = String(r.status||'');
+    if (s !== '완료' && s !== '처리완료') cnt.stock++;
+  });
+  function paint(subId, bdgId, n) {
+    const s = document.getElementById(subId);
+    const b = document.getElementById(bdgId);
+    if (s) s.textContent = n > 0 ? (n + '건 진행') : '진행 중 없음';
+    if (b) { if (n > 0) { b.textContent = String(n); b.style.display = 'flex'; } else { b.style.display = 'none'; } }
+  }
+  paint('cnt-sub-new', 'cnt-bdg-new', cnt.new);
+  paint('cnt-sub-as',  'cnt-bdg-as',  cnt.as);
+  paint('cnt-sub-van', 'cnt-bdg-van', cnt.van);
+  paint('cnt-sub-sup', 'cnt-bdg-sup', cnt.supplies);
+  paint('cnt-sub-stk', 'cnt-bdg-stk', cnt.stock);
+}
+
+/* 🔍 매장 검색 */
+function normSearch(s) {
+  return String(s||'').toLowerCase().replace(/\s+/g,'');
+}
+function _storesAll() {
+  if (typeof window.getStores === 'function') return window.getStores() || [];
+  try { return JSON.parse(localStorage.getItem('ns_stores')||'[]'); } catch { return []; }
+}
+function updateStoreCount() {
+  const el = document.getElementById('storeCount');
+  if (el) el.textContent = `${_storesAll().length.toLocaleString()}개`;
+}
+let _storeSearchTimer = null;
+function onStoreSearchInput() {
+  clearTimeout(_storeSearchTimer);
+  _storeSearchTimer = setTimeout(runStoreSearch, 180);
+}
+function onStoreSearchBtn() { runStoreSearch(); }
+function runStoreSearch() {
+  const q = (document.getElementById('storeSearchInput').value || '').trim();
+  const results = document.getElementById('storeResults');
+  if (!results) return;
+  if (q.length < 1) { results.style.display = 'none'; results.innerHTML = ''; return; }
+  const stores = _storesAll();
+  const qn = normSearch(q);
+  const qDigits = q.replace(/\D/g,'');
+  const hits = stores.filter(s => {
+    const nm = normSearch(s.name || s.storeName || '');
+    const aliases = Array.isArray(s.aliases) ? s.aliases.map(normSearch).join(' ') : '';
+    const biz = String(s.biz || s.bizNo || s.bizno || '').replace(/\D/g,'');
+    const code = normSearch(s.code || '');
+    if (nm.includes(qn) || aliases.includes(qn) || code.includes(qn)) return true;
+    if (qDigits.length >= 3 && biz.includes(qDigits)) return true;
+    return false;
+  }).slice(0, 50);
+  if (hits.length === 0) {
+    results.innerHTML = `<div class="store-empty">'${esc(q)}' 에 일치하는 매장 없음 (총 ${stores.length.toLocaleString()}개)</div>`;
+    results.style.display = 'flex';
+    return;
+  }
+  results.innerHTML = hits.map(s => {
+    const nm = s.name || s.storeName || '(이름 없음)';
+    const biz = s.biz || s.bizNo || s.bizno || '';
+    const addr = s.addr || s.address || '';
+    const meta = [biz, addr].filter(Boolean).join(' · ').slice(0, 80);
+    return `<div class="store-row" onclick="openStoreDetail('${esc(s.id||'')}')">
+      <div class="avatar">🏪</div>
+      <div class="body">
+        <div class="nm">${esc(nm)}</div>
+        <div class="meta">${esc(meta || '주소·사업자번호 없음')}</div>
+      </div>
+      <span class="arr">›</span>
+    </div>`;
+  }).join('');
+  results.style.display = 'flex';
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+window.openStoreDetail = function(storeId) {
+  const s = _storesAll().find(x => x.id === storeId);
+  if (!s) { alert('매장을 찾을 수 없습니다'); return; }
+  document.getElementById('mStoreName').textContent = s.name || s.storeName || '-';
+  const meta = [];
+  if (s.biz || s.bizNo) meta.push(s.biz || s.bizNo);
+  if (s.code) meta.push('코드 ' + s.code);
+  document.getElementById('mStoreSub').textContent = meta.join(' · ') || '-';
+  const rows = [];
+  const row = (k, v, isLink) => v ? `<div class="m-row"><div class="k">${k}</div><div class="v">${isLink && /^[0-9-+\s]+$/.test(String(v)) ? `<a href="tel:${esc(String(v).replace(/\s/g,''))}">${esc(v)}</a>` : esc(v)}</div></div>` : '';
+  rows.push(row('대표자', s.ceo));
+  rows.push(row('대표자 연락처', s.ceoTel, true));
+  rows.push(row('매장 연락처', s.tel || s.phone, true));
+  rows.push(row('주소', s.addr || s.address));
+  rows.push(row('사업자번호', s.biz || s.bizNo || s.bizno));
+  rows.push(row('VAN사', s.van));
+  rows.push(row('매장 등록일', s.storeRegDate));
+  rows.push(row('상태', s.status));
+  document.getElementById('mStoreRows').innerHTML = rows.filter(Boolean).join('') || '<div class="store-empty">등록된 추가 정보가 없습니다</div>';
+  // 액션 버튼: 전화 / 지도 / 닫기
+  const actions = [];
+  const phone = s.ceoTel || s.tel || s.phone;
+  if (phone) actions.push(`<a class="m-btn call" href="tel:${esc(String(phone).replace(/\s/g,''))}">📞 전화</a>`);
+  const addr = s.addr || s.address;
+  if (addr) actions.push(`<a class="m-btn map" href="https://map.naver.com/v5/search/${encodeURIComponent(addr)}" target="_blank">🗺 지도</a>`);
+  actions.push(`<button class="m-btn close" onclick="closeStoreDetail()">닫기</button>`);
+  document.getElementById('mStoreActions').innerHTML = actions.join('');
+  document.getElementById('storeDetailModal').classList.add('show');
+};
+window.closeStoreDetail = function() { document.getElementById('storeDetailModal').classList.remove('show'); };
+
+/* init */
+(async function init() {
+  document.getElementById('storeSearchInput').addEventListener('input', onStoreSearchInput);
+  document.getElementById('storeSearchInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); runStoreSearch(); }
+  });
+  // m-core 로드 후 sync
+  try {
+    if (typeof window.syncStoresFromCloud === 'function') await window.syncStoresFromCloud();
+    if (typeof window.syncJobsFromCloud === 'function') await window.syncJobsFromCloud();
+  } catch(_){}
+  renderCounts();
+  updateStoreCount();
+  // 폴링 — 다기기 라이브 동기화
+  setInterval(async () => {
+    if (document.visibilityState !== 'visible') return;
+    try {
+      if (typeof window.syncStoresFromCloud === 'function') await window.syncStoresFromCloud();
+      if (typeof window.syncJobsFromCloud === 'function') await window.syncJobsFromCloud();
+    } catch(_){}
+    renderCounts();
+    updateStoreCount();
+  }, 30000);
+  // visibility change — 즉시 sync
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible') return;
+    try {
+      if (typeof window.syncJobsFromCloud === 'function') await window.syncJobsFromCloud();
+    } catch(_){}
+    renderCounts();
+    updateStoreCount();
+  });
+})();
+</script>
 
 </body>
 </html>
