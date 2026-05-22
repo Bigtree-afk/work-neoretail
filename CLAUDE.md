@@ -596,3 +596,30 @@ LINE 메시지 파싱 cron 은 **3중 방어** 구성:
 3. `hydrateDashboardJobs` AS 필터 (index.html:~17141): `thread.length===0` 이고 같은 jobId 의 tombstone 이 존재하면 dashboard 에서 숨김 (defense-in-depth).
 
 **테스트**: AS 페이지에서 마지막 요청 삭제 → AS 탭/대시보드 AS 미처리/매장 정보 AS 이력 모두에서 동시 제거. 다시 클릭해도 안 살아남.
+
+## 🕐 per-job mtime + 서버측 머지 (2026-05-22 추가, 구조적 부활 차단)
+
+**문제 본질**: wholesale POST + last-write-wins 구조에서는 stale 한 PC가 POST 하는 순간 cloud 가 stale 상태로 회귀. 누가 어떤 job 을 언제 수정했는지 서버가 모르기 때문에, 같은 job 의 새 버전 vs 옛 버전 구분 불가.
+
+**해결 (구조 변경)**:
+
+### 1. 클라이언트 — `saveJobs` 가 변경된 job 만 `updatedAt` 자동 스탬프
+- `ns_jobs_snap` localStorage 키에 각 job 의 hash 저장 (`_jobHashForMtime` — `updatedAt` 필드 제외)
+- `saveJobs(arr)` 호출 시 snapshot 과 비교, 해시 다른 job 만 `updatedAt = now()` 갱신
+- 결과: 사용자가 실제로 수정한 job 만 mtime bump. cloud 에서 pull 한 job 은 그대로.
+
+### 2. 클라이언트 sync — cloud 머지 후 snapshot 동기화 (`_refreshJobsSnap`)
+- `syncJobsFromCloud` 가 merged 결과를 localStorage 에 쓴 직후 `_refreshJobsSnap()` 호출
+- 결과: 다음 saveJobs 호출 시 cloud-pulled job 들이 "변경됨" 으로 오인되지 않음 → 불필요한 push 차단
+
+### 3. 서버 — POST `/api/jobs` 는 per-job 머지 (`functions/api/jobs.js`)
+- 기존 KV 의 jobs 를 읽음
+- 각 incoming job 에 대해: 기존 cloud 의 같은 id 가 더 최신 `updatedAt` 이면 기존 유지, 아니면 incoming 으로 교체
+- **클라이언트가 보내지 않은 cloud job 은 그대로 유지** (omission = 삭제 아님)
+- 삭제는 `/api/admin-delete` + `deleted_jobs` 레지스트리로만 가능
+
+**효과**: A PC 가 X 를 완료/삭제 → cloud 에 새 mtime 으로 기록. B PC 가 stale X 를 wholesale POST → 서버가 mtime 비교 후 기존 cloud 버전 유지 → B 의 stale push 가 cloud 를 덮어쓰지 못함. 다음 sync 에서 B 는 cloud 의 새 X 를 받음.
+
+**테스트**: PC A 에서 업무 X 완료 → PC B (sync 안 함) 에서 다른 업무 Y 수정 후 자동 push → 서버 응답 `kept: N` (X 가 stale 이라서 keep) 확인. 30초 후 PC B sync → X 완료 상태로 동기화됨.
+
+**관련 mtime 필드**: `updatedAt` (우선), `lastEditedAt`, `createdAt`. 서버 머지는 이 순서로 fallback.

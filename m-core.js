@@ -381,6 +381,34 @@
   function getJobs() {
     try { return JSON.parse(localStorage.getItem('ns_jobs') || '[]'); } catch { return []; }
   }
+  // 🕐 per-job mtime 자동 스탬프 (PC index.html 과 동일 정책, 2026-05-22)
+  function _jobHashForMtime(j) {
+    if (!j || typeof j !== 'object') return '';
+    const out = {};
+    const keys = Object.keys(j).sort();
+    for (const k of keys) {
+      if (k === 'updatedAt') continue;
+      out[k] = j[k];
+    }
+    try { return JSON.stringify(out); } catch { return ''; }
+  }
+  function _loadJobsSnap() {
+    try { return JSON.parse(localStorage.getItem('ns_jobs_snap') || '{}') || {}; } catch { return {}; }
+  }
+  function _saveJobsSnap(snap) {
+    try { localStorage.setItem('ns_jobs_snap', JSON.stringify(snap || {})); } catch(_){}
+  }
+  function _refreshJobsSnap() {
+    try {
+      const arr = getJobs();
+      const snap = {};
+      for (const j of arr) {
+        if (j && j.id) snap[String(j.id)] = _jobHashForMtime(j);
+      }
+      _saveJobsSnap(snap);
+    } catch(_){}
+  }
+
   function saveJobs(arr) {
     // 🛡 id 기준 dedup — 중복 등록 방어 (PC 와 동일)
     let safe = arr;
@@ -397,6 +425,21 @@
       }
       if (dupes > 0) console.warn('[saveJobs] 동일 id job', dupes, '건 dedup');
     }
+    // 🕐 변경 감지 + 자동 mtime 스탬프
+    try {
+      const snap = _loadJobsSnap();
+      const newSnap = {};
+      const now = new Date().toISOString();
+      for (const j of (Array.isArray(safe) ? safe : [])) {
+        if (!j || !j.id) continue;
+        const h = _jobHashForMtime(j);
+        if (snap[String(j.id)] !== h) {
+          j.updatedAt = now;
+        }
+        newSnap[String(j.id)] = h;
+      }
+      _saveJobsSnap(newSnap);
+    } catch(_){}
     localStorage.setItem('ns_jobs', JSON.stringify(safe));
     scheduleAutoBackup();
     schedulePushJobsToCloud();
@@ -532,6 +575,7 @@
         const clean = cloudJobsRaw.filter(j => j && j.id && !delIds.has(j.id));
         try { localStorage.setItem('ns_jobs', JSON.stringify(clean)); } catch(_){}
         try { localStorage.setItem('ns_resync_token', cloudToken); } catch(_){}
+        try { _refreshJobsSnap(); } catch(_){}  // 🕐 snapshot 동기화
         for (const id of delIds) { try { _addTombstone('job', id); } catch(_){} }
         global._lastJobsPushHash = null;
         try { _selfHealJobStatuses(); } catch(_){}
@@ -574,6 +618,7 @@
         merged.push(j);
       }
       localStorage.setItem('ns_jobs', JSON.stringify(merged));
+      try { _refreshJobsSnap(); } catch(_){}  // 🕐 snapshot 동기화
       // 🩹 sync 후 status 와 thread 정합성 자동 보정 — 옛 데이터의 drift 자가 치료
       try { _selfHealJobStatuses(); } catch(_){}
       if (merged.length > cloud.length || mergedCount > 0) {

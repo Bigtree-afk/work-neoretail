@@ -51,7 +51,50 @@ export async function onRequestPost({ request, env }) {
       return true;
     });
     const rejected = jobs.length - cleaned.length;
-    const serialized = JSON.stringify({ jobs: cleaned, updatedAt: new Date().toISOString() });
+
+    // 🕐 PER-JOB MERGE BY mtime (2026-05-22) — wholesale overwrite 폐기.
+    //   다른 PC 의 stale localStorage 가 wholesale POST 로 cloud 를 덮어쓰던 문제 차단.
+    //   규칙:
+    //     - 클라이언트가 보낸 각 job 에 대해, KV 에 같은 id 의 기존 job 이 있고 그쪽 updatedAt 이 더 최신이면
+    //       기존 cloud 버전을 그대로 유지 (incoming 무시).
+    //     - 그렇지 않으면 incoming 으로 교체.
+    //     - 클라이언트가 보내지 않은 cloud job 은 그대로 유지 (omission 으로 삭제 안 함).
+    //     - 삭제는 오로지 /api/admin-delete (= deleted_jobs 레지스트리 + token bump) 채널로만.
+    const existingRaw = (await env.STORES_KV.get('jobs', 'json')) || { jobs: [] };
+    const existingArr = Array.isArray(existingRaw)
+      ? existingRaw
+      : (Array.isArray(existingRaw?.jobs) ? existingRaw.jobs : []);
+    const byId = new Map();
+    for (const j of existingArr) {
+      if (j && j.id && !deletedIds.has(String(j.id))) {
+        byId.set(String(j.id), j);
+      }
+    }
+    let kept = 0, replaced = 0, added = 0;
+    const mtime = (j) => String(j?.updatedAt || j?.lastEditedAt || j?.createdAt || '');
+    for (const inc of cleaned) {
+      const id = String(inc.id);
+      const ex = byId.get(id);
+      if (!ex) {
+        byId.set(id, inc);
+        added++;
+        continue;
+      }
+      const exMt = mtime(ex);
+      const inMt = mtime(inc);
+      if (!exMt || inMt > exMt) {
+        byId.set(id, inc);
+        replaced++;
+      } else if (inMt === exMt && JSON.stringify(ex) !== JSON.stringify(inc)) {
+        // 동일 mtime 인데 내용 다름 — incoming 채택 (last-writer-wins 보조 규칙)
+        byId.set(id, inc);
+        replaced++;
+      } else {
+        kept++;
+      }
+    }
+    const merged = [...byId.values()];
+    const serialized = JSON.stringify({ jobs: merged, updatedAt: new Date().toISOString() });
     if (serialized.length > 25_000_000) return json({ error: 'payload too large', size: serialized.length }, 413);
 
     try {
@@ -59,7 +102,7 @@ export async function onRequestPost({ request, env }) {
     } catch (e) {
       return json({ error: 'kv_put_failed', detail: String(e), stack: e?.stack || '', size: serialized.length }, 500);
     }
-    return json({ ok: true, count: cleaned.length, rejectedDeleted: rejected }, 200);
+    return json({ ok: true, count: merged.length, added, replaced, kept, rejectedDeleted: rejected }, 200);
   } catch (e) {
     return json({ error: 'handler_exception', detail: String(e), stack: e?.stack || '' }, 500);
   }

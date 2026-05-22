@@ -13556,6 +13556,40 @@ ${text.slice(0, 4000)}`;
   function getJobs() {
     try { return JSON.parse(localStorage.getItem('ns_jobs') || '[]'); } catch { return []; }
   }
+  // 🕐 per-job mtime 자동 스탬프 — sync 시 cloud-pulled 데이터를 snapshot 에 기록해 둠으로써
+  //   다음 saveJobs 호출 시 "변경된 job 만" updatedAt 갱신 → 서버 머지가 정확히 동작.
+  //   (구조 변경: wholesale POST → per-job upsert by mtime, 2026-05-22)
+  function _jobHashForMtime(j) {
+    if (!j || typeof j !== 'object') return '';
+    // updatedAt 자체는 hash 에서 제외 — 스탬프가 다음 hash 를 바꿔서 무한 재스탬프 방지
+    const out = {};
+    const keys = Object.keys(j).sort();
+    for (const k of keys) {
+      if (k === 'updatedAt') continue;
+      out[k] = j[k];
+    }
+    try { return JSON.stringify(out); } catch { return ''; }
+  }
+  function _loadJobsSnap() {
+    try { return JSON.parse(localStorage.getItem('ns_jobs_snap') || '{}') || {}; } catch { return {}; }
+  }
+  function _saveJobsSnap(snap) {
+    try { localStorage.setItem('ns_jobs_snap', JSON.stringify(snap || {})); } catch(_){}
+  }
+  // sync 경로에서 호출 — 현재 localStorage 의 jobs 상태를 snapshot 에 동기화.
+  //   결과: 다음 saveJobs 가 cloud-pulled 데이터를 "변경됨" 으로 오인하지 않음.
+  function _refreshJobsSnap() {
+    try {
+      const arr = getJobs();
+      const snap = {};
+      for (const j of arr) {
+        if (j && j.id) snap[String(j.id)] = _jobHashForMtime(j);
+      }
+      _saveJobsSnap(snap);
+    } catch(_){}
+  }
+  window._refreshJobsSnap = _refreshJobsSnap;
+
   function saveJobs(arr) {
     // 🛡 id 기준 dedup — 중복 등록 사고 방어 (어디서든 같은 id 가 두 번 들어가면 첫 항목만 유지)
     let safe = arr;
@@ -13572,6 +13606,26 @@ ${text.slice(0, 4000)}`;
       }
       if (dupes > 0) console.warn('[saveJobs] 동일 id job', dupes, '건 dedup');
     }
+    // 🕐 변경 감지 + 자동 mtime 스탬프 — 변경된 job 만 updatedAt 갱신
+    try {
+      const snap = _loadJobsSnap();
+      const newSnap = {};
+      const now = new Date().toISOString();
+      let stamped = 0;
+      for (const j of (Array.isArray(safe) ? safe : [])) {
+        if (!j || !j.id) continue;
+        const h = _jobHashForMtime(j);
+        const prev = snap[String(j.id)];
+        if (prev !== h) {
+          j.updatedAt = now;
+          stamped++;
+        }
+        // hash 재계산 — updatedAt 은 제외되므로 동일 값
+        newSnap[String(j.id)] = h;
+      }
+      _saveJobsSnap(newSnap);
+      if (stamped > 0) console.debug('[saveJobs] mtime 스탬프', stamped, '건');
+    } catch(e) { console.warn('[saveJobs mtime]', e); }
     localStorage.setItem('ns_jobs', JSON.stringify(safe));
     scheduleAutoBackup();
     schedulePushJobsToCloud();
@@ -13762,6 +13816,8 @@ ${text.slice(0, 4000)}`;
         const clean = cloudJobsRaw.filter(j => j && j.id && !delIds.has(j.id));
         try { localStorage.setItem('ns_jobs', JSON.stringify(clean)); } catch(_){}
         try { localStorage.setItem('ns_resync_token', cloudToken); } catch(_){}
+        // 🕐 cloud-pulled 상태로 snapshot 동기화 — 다음 saveJobs 가 cloud job 을 "변경됨" 으로 오인 안 함
+        try { _refreshJobsSnap(); } catch(_){}
         // deleted 도 tombstone 등록
         for (const id of delIds) { try { _addTombstone('job', id); } catch(_){} }
         // push 캐시 리셋
@@ -13815,6 +13871,8 @@ ${text.slice(0, 4000)}`;
         merged.push(j);
       }
       localStorage.setItem('ns_jobs', JSON.stringify(merged));
+      // 🕐 머지 결과로 snapshot 갱신 — 다음 saveJobs 가 cloud-pulled job 을 "변경됨" 으로 오인 안 함
+      try { _refreshJobsSnap(); } catch(_){}
       // 로컬이 클라우드보다 많거나, 머지 결과 thread/memos 가 cloud 와 다르면 즉시 푸시
       // → 다른 PC 의 stale cloud 가 다시 덮어쓰지 못하게 빠르게 재동기화
       if (merged.length > cloud.length || mergedCount > 0) {
