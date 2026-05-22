@@ -464,14 +464,28 @@
      BOTTOM NAV — 홈에서만 표시
 ─────────────────────────────────────────────────── -->
 <nav class="bottom-nav" id="bottomNav">
-  <a class="item" href="/m/"><span class="icn">🏠</span>홈</a>
-  <a href="/?desktop=1" class="item"><span class="icn">📅</span>일정</a>
-  <a href="/?desktop=1" class="item"><span class="icn">🏪</span>매장</a>
-  <a href="/?desktop=1" class="item"><span class="icn">📡</span>LINE</a>
-  <a href="/?desktop=1" class="item"><span class="icn">⚙️</span>설정</a>
+  <a class="item" href="/m/" data-nav="home"><span class="icn">🏠</span>홈</a>
+  <a class="item" href="/?desktop=1#schedulehub" data-nav="schedule"><span class="icn">📅</span>일정</a>
+  <a class="item" href="/m/#stores" data-nav="store"><span class="icn">🏪</span>매장</a>
+  <a class="item" href="/?desktop=1#settings" data-nav="settings"><span class="icn">⚙️</span>설정</a>
 </nav>
+<script>
+/* 🧭 바닥 네비 active — URL hash 가 #stores 면 매장 탭, 그 외엔 home 강조 (정확한 강조보다 단순화 우선)
+   다른 카테고리(/m/<cat>/) 안에서는 home/매장/일정/설정 4탭 어느 것도 강조 X 가 자연스러움 (전부 외부 이동) */
+(function(){
+  function _toggleNav(){
+    const h = (location.hash||'').replace(/^#/,'').toLowerCase();
+    document.querySelectorAll('#bottomNav .item').forEach(a => {
+      const k = a.getAttribute('data-nav');
+      a.classList.toggle('active', (k === 'store' && h === 'stores'));
+    });
+  }
+  _toggleNav();
+  window.addEventListener('hashchange', _toggleNav);
+})();
+</script>
 
-<script src="/m-core.js?v=2026-05-22-as-filter-1"></script>
+<script src="/m-core.js?v=2026-05-22-nav-unified-1"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수

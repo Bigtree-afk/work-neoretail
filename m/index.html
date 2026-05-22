@@ -183,12 +183,12 @@
   </div>
 </div>
 
-<!-- 하단 네비: 홈 / 일정 / 매장 / 설정 — 각각 직접 이동 -->
-<nav class="bottom-nav">
-  <a class="item active" href="/m/"><span class="icn">🏠</span>홈</a>
-  <a class="item" href="/?desktop=1#schedulehub"><span class="icn">📅</span>일정</a>
-  <button class="item" onclick="document.getElementById('storeSearchInput').focus();document.getElementById('storeSearchSec').scrollIntoView({behavior:'smooth',block:'center'})"><span class="icn">🏪</span>매장</button>
-  <a class="item" href="/?desktop=1#settings"><span class="icn">⚙️</span>설정</a>
+<!-- 하단 네비: 홈 / 일정 / 매장 / 설정 — 각각 직접 이동 (모든 모바일 페이지 공통 패턴) -->
+<nav class="bottom-nav" id="bottomNav">
+  <a class="item active" href="/m/" data-nav="home"><span class="icn">🏠</span>홈</a>
+  <a class="item" href="/?desktop=1#schedulehub" data-nav="schedule"><span class="icn">📅</span>일정</a>
+  <a class="item" href="/m/#stores" data-nav="store"><span class="icn">🏪</span>매장</a>
+  <a class="item" href="/?desktop=1#settings" data-nav="settings"><span class="icn">⚙️</span>설정</a>
 </nav>
 
 <script src="/m-core.js?v=2026-05-22-home-search-1"></script>
@@ -345,12 +345,33 @@ window.openStoreDetail = function(storeId) {
 };
 window.closeStoreDetail = function() { document.getElementById('storeDetailModal').classList.remove('show'); };
 
+/* 🏪 매장 탭 진입 시 (URL hash 가 #stores) — 검색 input 으로 자동 스크롤·포커스 */
+function _focusStoreSearchIfHash() {
+  if ((location.hash || '').replace(/^#/,'').toLowerCase() === 'stores') {
+    const sec = document.getElementById('storeSearchSec');
+    const inp = document.getElementById('storeSearchInput');
+    if (sec) sec.scrollIntoView({ behavior:'smooth', block:'center' });
+    if (inp) setTimeout(() => inp.focus(), 250);
+    // 활성 탭 토글
+    document.querySelectorAll('#bottomNav .item').forEach(a => {
+      a.classList.toggle('active', a.getAttribute('data-nav') === 'store');
+    });
+  } else {
+    document.querySelectorAll('#bottomNav .item').forEach(a => {
+      a.classList.toggle('active', a.getAttribute('data-nav') === 'home');
+    });
+  }
+}
+
 /* init */
 (async function init() {
   document.getElementById('storeSearchInput').addEventListener('input', onStoreSearchInput);
   document.getElementById('storeSearchInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); runStoreSearch(); }
   });
+  // 초기 진입 + hash 변경 시 매장 탭 처리
+  _focusStoreSearchIfHash();
+  window.addEventListener('hashchange', _focusStoreSearchIfHash);
   // m-core 로드 후 sync
   try {
     if (typeof window.syncStoresFromCloud === 'function') await window.syncStoresFromCloud();
