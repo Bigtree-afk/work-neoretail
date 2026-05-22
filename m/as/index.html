@@ -69,6 +69,15 @@
   .card.prog{border-left:4px solid #F59E0B}
   .card.done{border-left:4px solid #10B981;background:#FAFBFA}
   .card.done .nm,.card.done .summary{opacity:0.85}
+  /* 🎯 AS 필터 탭 (진행중/접수/완료/모두) */
+  .as-filter-row{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px}
+  .as-flt{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 4px;background:#fff;border:1.5px solid var(--gray-200);border-radius:10px;cursor:pointer;font-family:inherit;color:var(--gray-600);transition:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  .as-flt:active{background:var(--gray-50)}
+  .as-flt .ic{font-size:18px;line-height:1.1}
+  .as-flt .lb{font-size:11px;font-weight:800;margin-top:1px}
+  .as-flt .cnt{font-size:10px;font-weight:700;color:var(--gray-500);background:var(--gray-100);padding:0 6px;border-radius:9px;min-width:18px;text-align:center;margin-top:2px}
+  .as-flt.active{border-color:var(--as);background:#FFF5F5;color:var(--as-dark)}
+  .as-flt.active .cnt{background:var(--as);color:#fff}
   .card.soon{border-left:4px solid #F59E0B;background:linear-gradient(90deg,#FFFBEB 0%,#fff 35%)}
   .card.urgent{border-left:4px solid var(--danger);background:linear-gradient(90deg,#FEF2F2 0%,#fff 35%)}
   .card .topline{display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap}
@@ -290,7 +299,14 @@
         <div class="e">📦</div><div class="l"><div class="t">AS/기타</div><div class="d">주변기기 · 스캐너 · 프린터</div></div><div class="arr">›</div>
       </a>
     </div>
-    <div style="font-size:11px;font-weight:800;color:var(--as-dark);letter-spacing:.4px;margin-bottom:6px;text-transform:uppercase">📋 진행 중 AS — 카드 탭 시 수정</div>
+    <div style="font-size:11px;font-weight:800;color:var(--as-dark);letter-spacing:.4px;margin-bottom:6px;text-transform:uppercase">📋 AS 목록 — 카드 탭 시 thread 진입</div>
+    <!-- 🎯 필터 탭: 진행중 / 접수 / 완료 / 모두 -->
+    <div class="as-filter-row" id="asFilterRow">
+      <button type="button" class="as-flt active" data-flt="prog" onclick="setAsFilter('prog')"><span class="ic">🔄</span><span class="lb">진행중</span><span class="cnt" id="fltCntProg">0</span></button>
+      <button type="button" class="as-flt" data-flt="recv" onclick="setAsFilter('recv')"><span class="ic">📥</span><span class="lb">접수</span><span class="cnt" id="fltCntRecv">0</span></button>
+      <button type="button" class="as-flt" data-flt="done" onclick="setAsFilter('done')"><span class="ic">✅</span><span class="lb">완료</span><span class="cnt" id="fltCntDone">0</span></button>
+      <button type="button" class="as-flt" data-flt="all"  onclick="setAsFilter('all')"><span class="ic">📋</span><span class="lb">모두</span><span class="cnt" id="fltCntAll">0</span></button>
+    </div>
     <div id="entryJobList"></div>
   </div>
 </section>
@@ -460,7 +476,7 @@
   <a class="item" href="/?desktop=1"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-22-home-search-1"></script>
+<script src="/m-core.js?v=2026-05-22-as-filter-1"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -623,15 +639,50 @@ function renderHome(){
 /* ════════════════════════════════════════════════════════════
    ENTRY — 진행 중 AS 목록
 ═══════════════════════════════════════════════════════════ */
+// 🎯 AS 필터 상태 — 진행중 / 접수 / 완료 / 모두
+window._asFilter = window._asFilter || 'prog';
+window.setAsFilter = function(f) {
+  window._asFilter = f;
+  document.querySelectorAll('#asFilterRow .as-flt').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-flt') === f);
+  });
+  renderEntry();
+};
+
 function renderEntry(){
   const list = $('entryJobList');
   const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
   const cat = window.classifyJobCategory || (j => 'new');
   // 🎯 _isJobEffectivelyDone 사용 — thread ROOT 전체 완료도 done 처리
   const isDone = window._isJobEffectivelyDone || window._isJobDone || (j => j && (j.status === '완료' || j.completed));
-  // 🎯 진행 + 완료 함께 표시 — 사용자가 완료된 AS 의 요청접수 내용을 확인할 수 있도록
-  //   글로벌 규칙: 완료 항목도 리스트에 표시, 미완료 위 / 완료 아래로 정렬
-  const all = jobs.filter(j => cat(j) === 'as');
+  // AS 분류 + 상태 판정
+  const asAll = jobs.filter(j => cat(j) === 'as');
+  const _statusOf = (j) => {
+    if (isDone(j)) return 'done';
+    // thread 에 진행 child 있으면 progress
+    const thread = Array.isArray(j.thread) ? j.thread : [];
+    const anyProg = thread.some(e => e && e.status === '진행');
+    if (anyProg) return 'prog';
+    // status 가 '진행중' 이면 progress
+    const st = String(j.status || '');
+    if (st === '진행중') return 'prog';
+    // 그 외 (접수/요청접수 등) → recv
+    return 'recv';
+  };
+  // 카운트 (모든 상태) — 필터 탭에 표시
+  const counts = { prog:0, recv:0, done:0, all: asAll.length };
+  asAll.forEach(j => { counts[_statusOf(j)]++; });
+  const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = String(n); };
+  set('fltCntProg', counts.prog);
+  set('fltCntRecv', counts.recv);
+  set('fltCntDone', counts.done);
+  set('fltCntAll',  counts.all);
+
+  // 필터 적용
+  const flt = window._asFilter || 'prog';
+  let all;
+  if (flt === 'all') all = asAll.slice();
+  else all = asAll.filter(j => _statusOf(j) === flt);
   const filtered = all.slice().sort((a, b) => {
     const aDone = isDone(a) ? 1 : 0;
     const bDone = isDone(b) ? 1 : 0;
@@ -650,17 +701,23 @@ function renderEntry(){
       return tb - ta;
     }
   });
-  const activeCnt = filtered.filter(j => !isDone(j)).length;
-  if (!filtered.length) {
-    list.innerHTML = '<div class="empty">AS 업무가 없습니다.<br>위에서 새 AS 접수를 시작하세요.</div>';
-    $('appBadge').style.display = 'none';
-    return;
-  }
+  // 상단 뱃지 — 진행 중 카운트만 표시
+  const activeCnt = counts.prog + counts.recv;
   if (activeCnt > 0) {
     $('appBadge').textContent = activeCnt + '건';
     $('appBadge').style.display = 'inline-block';
   } else {
     $('appBadge').style.display = 'none';
+  }
+  if (!filtered.length) {
+    const emptyMsg = {
+      prog: '진행 중인 AS 가 없습니다.',
+      recv: '접수 대기 AS 가 없습니다.',
+      done: '완료된 AS 가 없습니다.',
+      all:  'AS 업무가 없습니다.',
+    }[flt] || 'AS 업무가 없습니다.';
+    list.innerHTML = `<div class="empty">${esc(emptyMsg)}<br>위에서 새 AS 접수를 시작하거나 다른 탭을 확인하세요.</div>`;
+    return;
   }
 
   list.innerHTML = filtered.map(j => {
