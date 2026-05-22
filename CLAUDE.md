@@ -139,6 +139,45 @@ job.shipDate = formShipDate || today;
 - 안정적이면 → 정식 적용 + 이 섹션을 "운영 중" 으로 갱신
 - 문제 다발 → `if (false)` 로 임시 비활성화 + 원인 정리
 
+## 🧭 모바일/PC 업무 카드 클릭 → 진입 화면 규칙 (필수)
+
+**원칙**: **기존 업무 카드를 클릭하면 항상 thread(요청·처리 기록) 화면**으로 진입한다.
+폼(메타 편집) 은 thread 화면 내 ✏️ 수정 버튼으로만 진입.
+
+### 진입 경로 표
+
+| 사용자 액션 | 도착 화면 | 이유 |
+|---|---|---|
+| 카드/리스트 항목 클릭 | **thread 뷰** (요청접수·진행·완료 기록) | 완료 처리, 추가 요청 기록 등 일상 액션이 thread 에서 일어남 |
+| thread 의 ✏️ 수정 버튼 | 메타 편집 폼 (매장/일정/금액 등) | 등록 정보 변경 |
+| 폼 저장 후 | **thread 뷰로 복귀** | 변경 결과 즉시 확인 |
+| 신규 등록 후 | **thread 뷰** | 후속 처리·LINE 발송이 거기서 발생 |
+
+### 모바일 SPA 통일 규칙 (m/<cat>/index.html)
+
+카테고리별 `renderEntry()` 등 카드 렌더링 코드는 **반드시**:
+```js
+<div class="card ${cls}" onclick="location.hash='#thread/${esc(j.id)}'">
+```
+패턴 사용. **`#form/edit/` 직접 이동 금지** (사용자가 thread 못 봐서 완료 처리 불가능).
+
+### 위반 사례 (2026-05-22 fix)
+- `m/as/index.html` L671: `onclick="location.hash='#form/edit/${j.id}'"` → **사용자가 기존 AS thread 확인 불가 + 완료 처리 불가** → `#thread/` 로 수정
+- 다른 4개 SPA (newjob/van/supplies/stocktake) 는 이미 `#thread/` 사용 — AS 만 예외였음
+
+### 점검 체크리스트 (모바일 SPA 신규/수정 시)
+- [ ] `renderEntry()` 카드 onclick 이 `#thread/<id>` 패턴인가
+- [ ] thread 뷰 진입 시 빈 thread 라도 `등록 정보 합성 entry` 로 사용자 정보 노출 (m/supplies 의 `_synth` 패턴)
+- [ ] thread 에 ✏️ 수정 버튼 존재 — 클릭 시 `#form/edit/<id>` 로
+- [ ] 폼 저장 후 `location.hash = '#thread/' + savedJob.id` 로 복귀
+- [ ] PC `editNewopen(id)` 도 동일 규칙 — 카테고리별 short-circuit (`_editSupplyJob`, `openVanJobModal` 등)
+
+### PC 측 동일 규칙
+- 카드/리스트 클릭 → `editNewopen(id)` → 카테고리별 모달 (thread + 메타 통합 뷰)
+- 카테고리별 short-circuit 으로 카테고리 맞는 레이아웃 분기 (CLAUDE.md "업무별 레이아웃 분리 규칙" 참조)
+
+**규칙 위반의 비용**: 사용자가 기존 업무에 대한 요청·처리 이력을 볼 수 없게 되고, 완료 처리·새 요청접수 등 모든 후속 액션이 막힘. 매장 데이터는 잘 저장돼도 사용자 입장에선 "기능 망가짐" 으로 보이는 치명적 UX 버그.
+
 ## 📝 리스트/sub-card 상세 표시 규칙 (필수)
 
 **원칙**: hub/리스트의 sub-card 한 줄은 사용자가 **별도로 열어보지 않고도 즉시 판단 가능한 정보**를 모두 담는다. 카테고리별 핵심 식별자 + 도메인 수치 + 상태 라벨을 한 줄에 묶어 표시.

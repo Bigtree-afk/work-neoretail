@@ -459,7 +459,7 @@
   <a class="item" href="/?desktop=1"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-22-effective-done-1"></script>
+<script src="/m-core.js?v=2026-05-22-card-nav-2"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -668,7 +668,7 @@ function renderEntry(){
                       : null;
     const summary = (lastThread && lastThread.text) || j.asRequest || j.memo || j.notes || '';
     return `
-    <div class="card ${cls}" onclick="location.hash='#form/edit/${esc(j.id)}'">
+    <div class="card ${cls}" onclick="location.hash='#thread/${esc(j.id)}'">
       <div class="topline">
         ${urgentPill}
         <span class="pill dev">${esc(subIco)}</span>
