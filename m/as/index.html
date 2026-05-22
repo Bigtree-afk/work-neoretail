@@ -69,8 +69,8 @@
   .card.prog{border-left:4px solid #F59E0B}
   .card.done{border-left:4px solid #10B981;background:#FAFBFA}
   .card.done .nm,.card.done .summary{opacity:0.85}
-  /* 🎯 AS 필터 탭 (진행중/접수/완료/모두) */
-  .as-filter-row{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px}
+  /* 🎯 AS 필터 탭 (진행중/완료/모두) */
+  .as-filter-row{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:10px}
   .as-flt{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 4px;background:#fff;border:1.5px solid var(--gray-200);border-radius:10px;cursor:pointer;font-family:inherit;color:var(--gray-600);transition:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   .as-flt:active{background:var(--gray-50)}
   .as-flt .ic{font-size:18px;line-height:1.1}
@@ -300,10 +300,9 @@
       </a>
     </div>
     <div style="font-size:11px;font-weight:800;color:var(--as-dark);letter-spacing:.4px;margin-bottom:6px;text-transform:uppercase">📋 AS 목록 — 카드 탭 시 thread 진입</div>
-    <!-- 🎯 필터 탭: 진행중 / 접수 / 완료 / 모두 -->
+    <!-- 🎯 필터 탭: 진행중(접수+진행) / 완료 / 모두 -->
     <div class="as-filter-row" id="asFilterRow">
       <button type="button" class="as-flt active" data-flt="prog" onclick="setAsFilter('prog')"><span class="ic">🔄</span><span class="lb">진행중</span><span class="cnt" id="fltCntProg">0</span></button>
-      <button type="button" class="as-flt" data-flt="recv" onclick="setAsFilter('recv')"><span class="ic">📥</span><span class="lb">접수</span><span class="cnt" id="fltCntRecv">0</span></button>
       <button type="button" class="as-flt" data-flt="done" onclick="setAsFilter('done')"><span class="ic">✅</span><span class="lb">완료</span><span class="cnt" id="fltCntDone">0</span></button>
       <button type="button" class="as-flt" data-flt="all"  onclick="setAsFilter('all')"><span class="ic">📋</span><span class="lb">모두</span><span class="cnt" id="fltCntAll">0</span></button>
     </div>
@@ -490,7 +489,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-05-22-nav-unified-1"></script>
+<script src="/m-core.js?v=2026-05-22-as-filter3-1"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -669,26 +668,14 @@ function renderEntry(){
   const cat = window.classifyJobCategory || (j => 'new');
   // 🎯 _isJobEffectivelyDone 사용 — thread ROOT 전체 완료도 done 처리
   const isDone = window._isJobEffectivelyDone || window._isJobDone || (j => j && (j.status === '완료' || j.completed));
-  // AS 분류 + 상태 판정
+  // AS 분류 + 상태 판정 — '진행중' = 접수(요청접수) + 진행 단계 모두 포함 (미완료 전체)
   const asAll = jobs.filter(j => cat(j) === 'as');
-  const _statusOf = (j) => {
-    if (isDone(j)) return 'done';
-    // thread 에 진행 child 있으면 progress
-    const thread = Array.isArray(j.thread) ? j.thread : [];
-    const anyProg = thread.some(e => e && e.status === '진행');
-    if (anyProg) return 'prog';
-    // status 가 '진행중' 이면 progress
-    const st = String(j.status || '');
-    if (st === '진행중') return 'prog';
-    // 그 외 (접수/요청접수 등) → recv
-    return 'recv';
-  };
-  // 카운트 (모든 상태) — 필터 탭에 표시
-  const counts = { prog:0, recv:0, done:0, all: asAll.length };
+  const _statusOf = (j) => isDone(j) ? 'done' : 'prog';
+  // 카운트 — 필터 탭에 표시
+  const counts = { prog:0, done:0, all: asAll.length };
   asAll.forEach(j => { counts[_statusOf(j)]++; });
   const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = String(n); };
   set('fltCntProg', counts.prog);
-  set('fltCntRecv', counts.recv);
   set('fltCntDone', counts.done);
   set('fltCntAll',  counts.all);
 
@@ -716,7 +703,7 @@ function renderEntry(){
     }
   });
   // 상단 뱃지 — 진행 중 카운트만 표시
-  const activeCnt = counts.prog + counts.recv;
+  const activeCnt = counts.prog;
   if (activeCnt > 0) {
     $('appBadge').textContent = activeCnt + '건';
     $('appBadge').style.display = 'inline-block';
@@ -725,8 +712,7 @@ function renderEntry(){
   }
   if (!filtered.length) {
     const emptyMsg = {
-      prog: '진행 중인 AS 가 없습니다.',
-      recv: '접수 대기 AS 가 없습니다.',
+      prog: '진행 중인 AS 가 없습니다. (접수·진행 단계 모두 포함)',
       done: '완료된 AS 가 없습니다.',
       all:  'AS 업무가 없습니다.',
     }[flt] || 'AS 업무가 없습니다.';
