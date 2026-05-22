@@ -489,7 +489,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-05-22-resync-token-1"></script>
+<script src="/m-core.js?v=2026-05-22-as-prog-strict-1"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -670,7 +670,16 @@ function renderEntry(){
   const isDone = window._isJobEffectivelyDone || window._isJobDone || (j => j && (j.status === '완료' || j.completed));
   // AS 분류 + 상태 판정 — '진행중' = 접수(요청접수) + 진행 단계 모두 포함 (미완료 전체)
   const asAll = jobs.filter(j => cat(j) === 'as');
-  const _statusOf = (j) => isDone(j) ? 'done' : 'prog';
+  // 🎯 done 판정 강화 — _isJobEffectivelyDone OR j.status==='완료' OR j.completed OR 마지막 thread 상태가 '완료'
+  //    (사용자 요청: 진행중 탭에 완료건이 새는 문제 차단 — 2026-05-22)
+  const _statusOf = (j) => {
+    if (isDone(j)) return 'done';
+    if (j && (j.status === '완료' || j.completed)) return 'done';
+    try {
+      if (_lastEntryStatus(j) === '완료') return 'done';
+    } catch(_){}
+    return 'prog';
+  };
   // 카운트 — 필터 탭에 표시
   const counts = { prog:0, done:0, all: asAll.length };
   asAll.forEach(j => { counts[_statusOf(j)]++; });
