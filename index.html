@@ -13605,7 +13605,32 @@ ${text.slice(0, 4000)}`;
       const fresh = list.filter(t => (t.ts||0) >= cutoff);
       localStorage.setItem(key, JSON.stringify(fresh));
     } catch(e) { console.warn('[_addTombstone]', e); }
+    // 🛡 cloud deleted_jobs 레지스트리에도 등록 — 다른 기기의 stale localStorage 가
+    //    wholesale POST 로 부활시키는 문제 차단 (샤르르 부활 루프, 2026-05-22)
+    if (type === 'job' && id) {
+      try { _cloudDeleteJobIds([id]); } catch(_){}
+    }
   }
+  // 클라우드 deleted_jobs 등록 — 토큰 없으면 silent skip (서버측 jobs.js 가 추가 방어선)
+  async function _cloudDeleteJobIds(ids) {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    let token = '';
+    try { token = (typeof getCloudSyncToken === 'function') ? getCloudSyncToken() : ''; } catch(_){}
+    if (!token) return;  // 토큰 없으면 server-side 필터에만 의존
+    try {
+      await fetch('/api/admin-delete', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'authorization': 'Bearer ' + token,
+        },
+        body: JSON.stringify({ jobIds: ids, reason: 'client-tombstone', bumpToken: true }),
+      });
+    } catch (e) {
+      console.warn('[_cloudDeleteJobIds] failed', e);
+    }
+  }
+  window._cloudDeleteJobIds = _cloudDeleteJobIds;
   function _getTombstones() {
     try { return JSON.parse(localStorage.getItem('ns_tombstones') || '[]'); }
     catch { return []; }

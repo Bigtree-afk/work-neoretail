@@ -569,3 +569,19 @@ LINE 메시지 파싱 cron 은 **3중 방어** 구성:
 - ✅ 완료 (`completed: true`) 는 **sticky** — 자동 헬퍼는 풀지 않음. 수동 reopen 만 가능.
 
 **테스트**: 두 기기 A, B 에서 동일 AS 가 진행중일 때 A 에서 완료 처리 → 30초 후 B sync → B 의 카드도 완료로 표시 → A/B 모두 새로고침 후에도 유지.
+
+## 🪦 삭제 부활(resurrection) 차단 규칙 (2026-05-22 추가, 샤르르 부활 루프)
+
+**문제**: 한 PC에서 업무를 삭제해도 다른 PC의 localStorage 에 남아 있으면, 그 PC가 wholesale POST 할 때 cloud 에 다시 등록됨. 무한 부활.
+
+**3중 방어선 (필수, 모두 유지)**:
+
+1. **서버측 — `POST /api/jobs` 가 `deleted_jobs` 레지스트리 ID 를 자동 필터링** (`functions/api/jobs.js`). 어떤 클라이언트가 push 해도 등록된 ID 는 KV 에 저장되지 않음.
+
+2. **클라이언트측 — `_addTombstone('job', id)` 호출 시 `_cloudDeleteJobIds([id])` 자동 호출** (`index.html`). SYNC_SECRET 토큰이 있는 PC 라면 `/api/admin-delete` 로 cloud 레지스트리 등록 + `resync_token` bump → 모든 기기 자동 정합화.
+
+3. **`resync_token` 자동 정합화** (`functions/api/jobs.js`, `index.html`, `m-core.js`). admin-delete 가 토큰을 bump 하면 다른 기기는 sync 시 토큰 불일치 감지 → localStorage 강제 wipe & cloud pull.
+
+**테스트**: 한 PC 에서 업무 X 를 삭제 → 다른 PC 에서 X 가 진행중이던 상태로 ANY edit & push → cloud `/api/jobs` 에 X 가 등록 안 됨 (서버 필터링). 30초 이내 다른 PC 도 X 가 사라짐 (resync_token bump).
+
+**관리자 토큰 없는 PC** 라면: 그 PC 의 삭제는 cloud 레지스트리에 등록 안 되지만, 다른 토큰 보유 PC 가 같은 ID 를 한 번이라도 삭제하면 영구 차단됨. 또는 서버측 1차 방어선이 wholesale push 의 부활을 막음 (단, 등록 전까지는 일시적으로 살아날 수 있음).

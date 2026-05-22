@@ -33,7 +33,24 @@ export async function onRequestPost({ request, env }) {
     const jobs = Array.isArray(body?.jobs) ? body.jobs : [];
     if (jobs.length > 10000) return json({ error: 'too_many', count: jobs.length }, 413);
 
-    const cleaned = jobs.filter(j => j && typeof j === 'object' && j.id);
+    // 🪦 deleted_jobs 레지스트리로 부활 차단 — stale 클라이언트 wholesale POST 가
+    //    삭제된 job 을 다시 cloud 에 등록시키는 문제 방지 (샤르르 부활 루프, 2026-05-22)
+    let deletedIds = new Set();
+    try {
+      const reg = (await env.STORES_KV.get('deleted_jobs', 'json')) || [];
+      if (Array.isArray(reg)) {
+        for (const e of reg) {
+          if (e && e.id) deletedIds.add(String(e.id));
+        }
+      }
+    } catch (_) {}
+
+    const cleaned = jobs.filter(j => {
+      if (!j || typeof j !== 'object' || !j.id) return false;
+      if (deletedIds.has(String(j.id))) return false;  // 부활 차단
+      return true;
+    });
+    const rejected = jobs.length - cleaned.length;
     const serialized = JSON.stringify({ jobs: cleaned, updatedAt: new Date().toISOString() });
     if (serialized.length > 25_000_000) return json({ error: 'payload too large', size: serialized.length }, 413);
 
@@ -42,7 +59,7 @@ export async function onRequestPost({ request, env }) {
     } catch (e) {
       return json({ error: 'kv_put_failed', detail: String(e), stack: e?.stack || '', size: serialized.length }, 500);
     }
-    return json({ ok: true, count: cleaned.length }, 200);
+    return json({ ok: true, count: cleaned.length, rejectedDeleted: rejected }, 200);
   } catch (e) {
     return json({ error: 'handler_exception', detail: String(e), stack: e?.stack || '' }, 500);
   }
