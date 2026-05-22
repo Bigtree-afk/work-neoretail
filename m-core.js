@@ -550,6 +550,8 @@
         merged.push(j);
       }
       localStorage.setItem('ns_jobs', JSON.stringify(merged));
+      // 🩹 sync 후 status 와 thread 정합성 자동 보정 — 옛 데이터의 drift 자가 치료
+      try { _selfHealJobStatuses(); } catch(_){}
       if (merged.length > cloud.length || mergedCount > 0) {
         schedulePushJobsToCloud();
       }
@@ -616,6 +618,103 @@
     if (!j) return false;
     const s = String(j.status || '');
     return s === '완료' || s === '처리완료' || s === 'done';
+  }
+  /* 🎯 _isJobEffectivelyDone — status OR thread ROOT 전체 완료 검사
+     옛 데이터의 status='접수' 인데 thread 다 끝난 경우도 done 처리. PC 와 동일 규칙. */
+  function _isJobEffectivelyDone(j) {
+    if (!j) return false;
+    if (_isJobDone(j)) return true;
+    const thread = Array.isArray(j.thread) ? j.thread : [];
+    if (thread.length === 0) return false;
+    const norm = (typeof _threadMigrate === 'function') ? _threadMigrate(thread) : thread;
+    const roots = norm.filter(e => e && e.parentId == null);
+    if (roots.length === 0) return false;
+    const allRootsDone = roots.every(r => {
+      const kids = norm.filter(e => e.parentId === r.threadId);
+      return kids.some(k => k.status === '완료');
+    });
+    if (!allRootsDone) return false;
+    // 신규 카테고리 openDate 가드
+    try {
+      if (classifyJobCategory(j) === 'new') {
+        const todayStr = String(_kstNow()||'').slice(0,10);
+        const od = String(j.openDate||'').slice(0,10);
+        if (od && od >= todayStr) return false;
+      }
+    } catch(_){}
+    return true;
+  }
+  /* 🩹 _selfHealJobStatuses — 로컬 jobs 의 status 와 thread 가 어긋난 경우 자동 보정
+     mobile sync 시 호출. drift 있으면 saveJobs + 푸시 트리거. */
+  function _selfHealJobStatuses() {
+    try {
+      const jobs = getJobs();
+      let dirty = false;
+      const _today = String(_kstNow()||'').slice(0,10);
+      for (const j of jobs) {
+        if (!j || !j.thread || !Array.isArray(j.thread) || j.thread.length === 0) continue;
+        const norm = _threadMigrate(j.thread);
+        const roots = norm.filter(e => e && e.parentId == null);
+        if (roots.length === 0) continue;
+        const allDone = roots.every(r => {
+          const kids = norm.filter(e => e.parentId === r.threadId);
+          return kids.some(k => k.status === '완료');
+        });
+        const cat = classifyJobCategory(j);
+        // 신규 openDate 가드
+        let blockAutoDone = false;
+        if (cat === 'new') {
+          const od = String(j.openDate||'').slice(0,10);
+          if (od && od >= _today) blockAutoDone = true;
+        }
+        const wasDone = _isJobDone(j);
+        if (allDone && !blockAutoDone && !wasDone) {
+          j.status = (cat === 'as') ? '처리완료' : '완료';
+          j.completed = true;
+          j.completedAt = j.completedAt || new Date().toISOString();
+          dirty = true;
+        } else if ((!allDone || blockAutoDone) && wasDone) {
+          // thread 에 미완료 ROOT 있는데 status 가 완료면 환원
+          j.status = (cat === 'as') ? '접수' : '진행중';
+          j.completed = false;
+          j.completedAt = '';
+          dirty = true;
+        }
+      }
+      if (dirty) {
+        saveJobs(jobs);
+        try { schedulePushJobsToCloud(); } catch(_){}
+      }
+      return dirty;
+    } catch(e) { return false; }
+  }
+  /* 🆘 _forceResyncFromCloud — 사용자 트리거 강제 재초기화
+     localStorage(ns_jobs) 비우고 cloud 에서 새로 받기. 모바일 "🔄 데이터 새로고침" 버튼용. */
+  async function _forceResyncFromCloud() {
+    try {
+      const r1 = await fetch('/api/jobs', { cache:'no-store' });
+      const d1 = await r1.json();
+      const cloudJobs = Array.isArray(d1?.jobs) ? d1.jobs : [];
+      const cloudDeletedJobs = Array.isArray(d1?.deleted) ? d1.deleted : [];
+      const r2 = await fetch('/api/stores', { cache:'no-store' });
+      const d2 = await r2.json();
+      const cloudStores = Array.isArray(d2?.stores) ? d2.stores : [];
+      const cloudDeletedStores = Array.isArray(d2?.deleted) ? d2.deleted : [];
+      // 삭제 ID set
+      const delJobIds = new Set(cloudDeletedJobs.map(e => String(e.id||'')).filter(Boolean));
+      const delStoreIds = new Set(cloudDeletedStores.map(e => String(e.id||'')).filter(Boolean));
+      const cleanJobs = cloudJobs.filter(j => j && j.id && !delJobIds.has(j.id));
+      const cleanStores = cloudStores.filter(s => s && s.id && !delStoreIds.has(s.id));
+      localStorage.setItem('ns_jobs', JSON.stringify(cleanJobs));
+      localStorage.setItem('ns_stores', JSON.stringify(cleanStores));
+      // 삭제 레지스트리를 로컬 tombstone 에도 등록
+      for (const id of delJobIds) { try { _addTombstone('job', id); } catch(_){} }
+      for (const id of delStoreIds) { try { _addTombstone('store', id); } catch(_){} }
+      global._lastJobsPushHash = null;
+      return { ok:true, jobs: cleanJobs.length, stores: cleanStores.length };
+    } catch(e) {
+      return { ok:false, error: String(e) };
+    }
   }
   function _normalizeSearch(s) {
     return String(s||'')
@@ -1131,6 +1230,9 @@
   // 분류 / 정규화
   global.classifyJobCategory = classifyJobCategory;
   global._isJobDone = _isJobDone;
+  global._isJobEffectivelyDone = _isJobEffectivelyDone;
+  global._selfHealJobStatuses = _selfHealJobStatuses;
+  global._forceResyncFromCloud = _forceResyncFromCloud;
   global._normalizeSearch = _normalizeSearch;
 
   // thread

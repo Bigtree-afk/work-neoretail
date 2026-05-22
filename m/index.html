@@ -62,8 +62,48 @@
 <div class="topbar">
   <div class="logo">🏪 NeoRetail</div>
   <div class="spacer"></div>
-  <a class="desktop" href="/?desktop=1" title="데스크톱 버전으로 이동">💻 PC 버전</a>
+  <button class="desktop" onclick="_mResync()" title="클라우드에서 데이터 강제 재초기화 — 중복/옛 데이터 정리" style="background:#FEF3C7;border-color:#FCD34D;color:#92400E;font-weight:800;cursor:pointer;font-family:inherit">🔄 새로고침</button>
+  <a class="desktop" href="/?desktop=1" title="데스크톱 버전으로 이동" style="margin-left:6px">💻 PC</a>
 </div>
+
+<script>
+/* 🔄 모바일 강제 재동기화 — 모바일 기기에서 콘솔 접근 어려운 사용자를 위한 UI 버튼.
+   클라우드(/api/jobs, /api/stores) 에서 freshest 받아오고 deleted 레지스트리 적용 후
+   localStorage 를 강제로 그 상태로 덮어씀. 중복/옛 status 데이터 즉시 정리. */
+async function _mResync() {
+  if (!confirm('클라우드에서 최신 데이터를 받아와 다시 동기화합니다.\n현재 등록 중인 폼이 있으면 취소될 수 있습니다. 계속할까요?')) return;
+  const btn = event && event.currentTarget;
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 동기화...'; }
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch('/api/jobs', { cache:'no-store' }).then(r => r.json()),
+      fetch('/api/stores', { cache:'no-store' }).then(r => r.json()),
+    ]);
+    const cloudJobs = Array.isArray(r1?.jobs) ? r1.jobs : [];
+    const cloudStores = Array.isArray(r2?.stores) ? r2.stores : [];
+    const delJobIds = new Set((Array.isArray(r1?.deleted) ? r1.deleted : []).map(e => String(e.id||'')).filter(Boolean));
+    const delStoreIds = new Set((Array.isArray(r2?.deleted) ? r2.deleted : []).map(e => String(e.id||'')).filter(Boolean));
+    const cleanJobs = cloudJobs.filter(j => j && j.id && !delJobIds.has(j.id));
+    const cleanStores = cloudStores.filter(s => s && s.id && !delStoreIds.has(s.id));
+    localStorage.setItem('ns_jobs', JSON.stringify(cleanJobs));
+    localStorage.setItem('ns_stores', JSON.stringify(cleanStores));
+    // 삭제 레지스트리를 tombstone 에 등록
+    let tombs = [];
+    try { tombs = JSON.parse(localStorage.getItem('ns_tombstones')||'[]'); } catch(_){}
+    if (!Array.isArray(tombs)) tombs = [];
+    const seen = new Set(tombs.map(t => `${t.type}:${t.id}`));
+    for (const id of delJobIds) { const k = 'job:'+id; if (!seen.has(k)) { tombs.push({type:'job', id, ts:Date.now()}); seen.add(k); } }
+    for (const id of delStoreIds) { const k = 'store:'+id; if (!seen.has(k)) { tombs.push({type:'store', id, ts:Date.now()}); seen.add(k); } }
+    localStorage.setItem('ns_tombstones', JSON.stringify(tombs));
+    alert(`✓ 동기화 완료\n작업 ${cleanJobs.length}건 / 매장 ${cleanStores.length}건\n삭제 레지스트리 ${delJobIds.size + delStoreIds.size}건 반영`);
+    location.reload();
+  } catch(e) {
+    alert('⚠ 동기화 실패: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+</script>
 
 <div class="wrap">
   <div class="hello">안녕하세요 👋</div>
