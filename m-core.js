@@ -513,6 +513,21 @@
       const res = await fetch('/api/jobs', { cache:'no-store' });
       if (!res.ok) return;
       const data = await res.json();
+      // 🔁 resync_token — 토큰 불일치 시 강제 정합화
+      const cloudToken = String(data?.resyncToken || '');
+      const localToken = (function(){ try { return localStorage.getItem('ns_resync_token') || ''; } catch { return ''; } })();
+      if (cloudToken && cloudToken !== localToken) {
+        const cloudJobsRaw = Array.isArray(data?.jobs) ? data.jobs : [];
+        const cloudDeletedRaw = Array.isArray(data?.deleted) ? data.deleted : [];
+        const delIds = new Set(cloudDeletedRaw.map(e => String(e && e.id || '')).filter(Boolean));
+        const clean = cloudJobsRaw.filter(j => j && j.id && !delIds.has(j.id));
+        try { localStorage.setItem('ns_jobs', JSON.stringify(clean)); } catch(_){}
+        try { localStorage.setItem('ns_resync_token', cloudToken); } catch(_){}
+        for (const id of delIds) { try { _addTombstone('job', id); } catch(_){} }
+        global._lastJobsPushHash = null;
+        try { _selfHealJobStatuses(); } catch(_){}
+        return;
+      }
       const local = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
       const cloud = Array.isArray(data?.jobs) ? data.jobs : [];
       // 🪦 서버 측 삭제 레지스트리 적용 — 다른 기기에서 admin-delete 된 항목을 이 기기에서도 자동 제거

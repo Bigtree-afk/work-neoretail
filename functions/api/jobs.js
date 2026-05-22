@@ -14,9 +14,11 @@ export async function onRequestGet({ env }) {
   // 🪦 deleted_jobs 레지스트리 포함 — 클라이언트가 자기 localStorage 정리에 사용
   //    형식: [{ id, deletedAt, reason }]
   const deleted = (await env.STORES_KV.get('deleted_jobs', 'json')) || [];
+  // 🔁 resync_token — 데이터 대규모 변경 시 모든 클라이언트 force-resync 트리거
+  const resyncToken = (await env.STORES_KV.get('resync_token')) || '';
   const out = (data && typeof data === 'object' && !Array.isArray(data))
-    ? { ...data, deleted }
-    : { jobs: Array.isArray(data) ? data : [], deleted };
+    ? { ...data, deleted, resyncToken }
+    : { jobs: Array.isArray(data) ? data : [], deleted, resyncToken };
   return json(out, 200);
 }
 

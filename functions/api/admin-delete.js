@@ -93,6 +93,18 @@ export async function onRequestPost({ request, env }) {
     console.warn('[admin-delete] tombstone registry write failed', e);
   }
 
+  // 🔁 resync_token 자동 bump — 데이터가 크게 변했음을 모든 기기에 알림.
+  //   클라이언트는 sync 시 자기 localStorage 토큰과 비교 → 다르면 force-resync.
+  //   결과: 한 기기에서 삭제하면 모든 기기가 자동으로 localStorage 를 cloud 와 정합화.
+  try {
+    if (jobsRemoved > 0 || storesRemoved > 0 || (body.bumpToken === true)) {
+      const token = String(Date.now()) + '-' + Math.random().toString(36).slice(2,8);
+      await env.STORES_KV.put('resync_token', token);
+    }
+  } catch (e) {
+    console.warn('[admin-delete] resync_token bump failed', e);
+  }
+
   return new Response(
     JSON.stringify({ ok: true, storesRemoved, jobsRemoved }),
     { headers: { 'content-type': 'application/json; charset=utf-8' } },
