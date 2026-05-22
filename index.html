@@ -11236,10 +11236,12 @@ ${text.slice(0, 4000)}`;
           if (!sn) return;
           if (normFn(sn) === target) candIdxs.push(idx);
         });
+        // ⛔️ 완료된 AS 에는 절대 머지하지 않음 — 샤르르 reopen 루프 차단 (2026-05-22)
+        //   기존 fallback 은 진행 중 후보 없을 때 가장 최근 완료건을 골라 thread 추가 + 상태 환원 →
+        //   다른 기기에서 stale localStorage push 시 무한 reopen. 새 job 생성으로 강제.
         let existingIdx = candIdxs.find(i => !isDoneFn(jobs[i]));
         if (existingIdx === undefined) {
-          candIdxs.sort((a,b) => (jobs[b].createdAt||0) - (jobs[a].createdAt||0));
-          existingIdx = (candIdxs.length > 0) ? candIdxs[0] : -1;
+          existingIdx = -1;  // 완료건은 merge 대상 아님 → 새 AS 로 등록
         }
         if (existingIdx >= 0) {
           const existing = jobs[existingIdx];
@@ -13701,6 +13703,17 @@ ${text.slice(0, 4000)}`;
     // 상태/완료일 보전 — 완료 상태인 쪽 우선
     if (localJob.completed && localJob.doneAt) merged.doneAt = localJob.doneAt;
     else if (cloudJob.completed && cloudJob.doneAt) merged.doneAt = cloudJob.doneAt;
+    // 🛡 status 보전 — completed===true 면 status 도 완료계열로 동기화 (샤르르 reopen 차단)
+    //   local 의 stale '진행중' status 가 cloud 의 '완료' 를 덮어쓰던 문제 차단 (2026-05-22)
+    if (merged.completed) {
+      const cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(merged) : '';
+      const doneStr = (cat === 'as') ? '처리완료' : '완료';
+      if (merged.status !== '완료' && merged.status !== '처리완료') {
+        merged.status = doneStr;
+      }
+      // completedAt 도 둘 중 있는 쪽 보전
+      merged.completedAt = localJob.completedAt || cloudJob.completedAt || merged.completedAt || '';
+    }
     return merged;
   }
   window._mergeJobRecord = _mergeJobRecord;

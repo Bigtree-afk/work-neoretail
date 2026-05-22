@@ -505,6 +505,15 @@
     merged.completed = !!(localJob.completed || cloudJob.completed);
     if (localJob.completed && localJob.doneAt) merged.doneAt = localJob.doneAt;
     else if (cloudJob.completed && cloudJob.doneAt) merged.doneAt = cloudJob.doneAt;
+    // 🛡 status 보전 — completed 면 status 도 완료계열로 (샤르르 reopen 차단, 2026-05-22)
+    if (merged.completed) {
+      const cat = (typeof classifyJobCategory === 'function') ? classifyJobCategory(merged) : '';
+      const doneStr = (cat === 'as') ? '처리완료' : '완료';
+      if (merged.status !== '완료' && merged.status !== '처리완료') {
+        merged.status = doneStr;
+      }
+      merged.completedAt = localJob.completedAt || cloudJob.completedAt || merged.completedAt || '';
+    }
     return merged;
   }
 
@@ -688,13 +697,11 @@
           j.completed = true;
           j.completedAt = j.completedAt || new Date().toISOString();
           dirty = true;
-        } else if ((!allDone || blockAutoDone) && wasDone) {
-          // thread 에 미완료 ROOT 있는데 status 가 완료면 환원
-          j.status = (cat === 'as') ? '접수' : '진행중';
-          j.completed = false;
-          j.completedAt = '';
-          dirty = true;
         }
+        // ⛔️ 역방향 (완료→진행중) 자동 환원 제거 — 샤르르 reopen 루프 차단 (2026-05-22)
+        //   stale thread (다른 기기가 추가한 완료 child 가 아직 동기화 안 됨) 때문에
+        //   자동 환원이 cloud 의 완료 상태를 덮어쓰는 문제. completed 는 sticky.
+        //   진짜 reopen 은 사용자가 명시적으로 thread 편집할 때만 발생해야 함.
       }
       if (dirty) {
         saveJobs(jobs);

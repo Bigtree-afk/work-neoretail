@@ -552,3 +552,20 @@ LINE 메시지 파싱 cron 은 **3중 방어** 구성:
 - 도메인: `work.neoretail.net`
 - KV: `STORES_KV`
 - 주요 KV 키: `stores`, `line_config`, `line_raw_queue`, `line_pending`, `line_parse_lastrun`, `line_parse_log_<YYYY-MM-DD>`, `line_alert_lastsent`
+
+## 🚫 완료(done) 환원 금지 규칙 (2026-05-22 추가, 샤르르 reopen 루프)
+
+**문제**: 멀티 디바이스 환경에서 한 기기가 AS/업무를 완료해도 다른 기기에서 다시 진행중으로 살아나는 reopen 루프.
+
+**원인** (3가지 동시 발생):
+1. `approvePending` (LINE→AS 자동 통합) 가 진행중 AS 후보 없으면 **가장 최근 완료건을 골라 thread 추가 + 상태 환원** → 새 ROOT 추가될 때마다 완료가 풀림.
+2. `_selfHealJobStatuses` (모바일) 가 thread 미완료 ROOT 감지 시 **`완료 → 진행중` 자동 환원**. stale local thread (다른 기기 완료 child 미동기화) 가 cloud 완료를 덮어씀.
+3. `_mergeJobRecord` 가 `Object.assign({}, cloudJob, localJob)` 로 **local 의 stale `status='진행중'` 이 cloud 의 `'완료'` 를 덮음** (completed 플래그만 union 되고 status 는 안 됨).
+
+**해결 규칙 (필수, 절대 되돌리지 말 것)**:
+- ❌ `approvePending` 은 **완료된 AS 에 절대 머지하지 않음** — 진행중 후보 없으면 새 job 등록.
+- ❌ `_selfHealJobStatuses` 는 `완료 → 진행중` **자동 환원 금지** — 정방향(인 완료→완료)만 허용. 진짜 reopen 은 사용자 명시적 thread 편집 시에만.
+- ✅ `_mergeJobRecord` 는 `completed===true` 면 `status` 도 완료계열(`'완료'`/`'처리완료'`)로 강제 동기화. local stale '진행중' 이 절대 cloud '완료' 를 덮지 못하도록.
+- ✅ 완료 (`completed: true`) 는 **sticky** — 자동 헬퍼는 풀지 않음. 수동 reopen 만 가능.
+
+**테스트**: 두 기기 A, B 에서 동일 AS 가 진행중일 때 A 에서 완료 처리 → 30초 후 B sync → B 의 카드도 완료로 표시 → A/B 모두 새로고침 후에도 유지.
