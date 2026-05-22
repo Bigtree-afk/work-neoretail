@@ -6,9 +6,9 @@
 <title>작업관리 — NeoSolution</title>
 <!-- 📱 모바일 자동 리다이렉트 — ON (2026-05-21 ~ 1주 테스트)
      - /m/* 경로는 redirect 제외 (이미 모바일 SPA)
-     - ?desktop=1 → 강제 PC 모드 (localStorage.force_desktop=1 영구 저장)
-     - localStorage.force_desktop=1 → 항상 PC
-     - 화면 폭 ≤640 OR 모바일 UA → /m/ 으로 redirect
+     - ?desktop=1 → 현재 탭 세션만 PC 모드 (sessionStorage 사용 — 다음 방문 시 다시 모바일 자동)
+     - ?desktop=clear → force_desktop 토글 제거 후 자동 판정
+     - 화면 폭 ≤768 OR 모바일/태블릿 UA → /m/ 으로 redirect
      문제 발생 시 if(true) → if(false) 한 줄만 되돌리면 비활성화. -->
 <script>
   (function(){
@@ -17,13 +17,24 @@
         var url = new URL(location.href);
         var p = url.pathname || '/';
         if (p === '/m' || p === '/m.html' || p.indexOf('/m/') === 0) return;
-        if (url.searchParams.get('desktop') === '1') {
-          try { localStorage.setItem('force_desktop', '1'); } catch(e) {}
+        // ?desktop=clear — force_desktop 토글 제거 후 모바일이면 /m/ 으로
+        if (url.searchParams.get('desktop') === 'clear') {
+          try { sessionStorage.removeItem('force_desktop'); localStorage.removeItem('force_desktop'); } catch(e){}
+          url.searchParams.delete('desktop');
+          location.replace(url.toString());
           return;
         }
-        try { if (localStorage.getItem('force_desktop') === '1') return; } catch(e) {}
+        // ?desktop=1 — 이 탭 세션에서만 PC 모드 (sessionStorage 사용 — 새 탭/창은 다시 자동 판정)
+        if (url.searchParams.get('desktop') === '1') {
+          try { sessionStorage.setItem('force_desktop', '1'); } catch(e) {}
+          // 기존 localStorage 잔여물 정리 (이전 sticky bug)
+          try { localStorage.removeItem('force_desktop'); } catch(e) {}
+          return;
+        }
+        try { if (sessionStorage.getItem('force_desktop') === '1') return; } catch(e) {}
         var ua = navigator.userAgent || '';
-        var isMobile = (window.innerWidth <= 640) || /Mobi|Android|iPhone|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+        // 폭 임계값 ≤768 — 태블릿 세로 포함 (iPad 등)
+        var isMobile = (window.innerWidth <= 768) || /Mobi|Android|iPhone|iPod|iPad|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
         if (isMobile) {
           location.replace('/m/' + (url.search || '') + (url.hash || ''));
         }
@@ -1270,6 +1281,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
   <!-- 우측 영역 -->
   <div class="topnav-right">
+    <a href="/?desktop=clear" class="topnav-date" style="background:rgba(245,158,11,0.15);color:#FCD34D;padding:5px 10px;border-radius:99px;text-decoration:none;font-weight:700;font-size:11px;border:1px solid rgba(245,158,11,0.3)" title="모바일 모드로 전환 (force_desktop 해제)">📱 모바일</a>
     <div class="nav-clock w-loading" id="navClock" title="서울 기준 날씨 · KST">
       <span class="w-emoji" id="navClockEmoji">⏳</span>
       <span class="w-temp" id="navClockTemp">--°</span>

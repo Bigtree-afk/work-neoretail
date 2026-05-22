@@ -63,8 +63,15 @@
   <div class="logo">🏪 NeoRetail</div>
   <div class="spacer"></div>
   <button class="desktop" onclick="_mResync()" title="클라우드에서 데이터 강제 재초기화 — 중복/옛 데이터 정리" style="background:#FEF3C7;border-color:#FCD34D;color:#92400E;font-weight:800;cursor:pointer;font-family:inherit">🔄 새로고침</button>
-  <a class="desktop" href="/?desktop=1" title="데스크톱 버전으로 이동" style="margin-left:6px">💻 PC</a>
+  <a class="desktop" href="/?desktop=1" title="데스크톱 버전으로 (이 탭만)" style="margin-left:6px">💻 PC</a>
 </div>
+
+<script>
+/* 모바일 SPA 진입 시 — 옛 localStorage.force_desktop=1 잔여물 정리.
+   이전 버전(2026-05-21) 에서 ?desktop=1 클릭 시 localStorage 에 영구 저장됨.
+   /m/ 까지 진입했다는 건 사용자가 모바일 의도이므로 PC 강제 토글 해제. */
+try { localStorage.removeItem('force_desktop'); } catch(e){}
+</script>
 
 <script>
 /* 🔄 모바일 강제 재동기화 — 모바일 기기에서 콘솔 접근 어려운 사용자를 위한 UI 버튼.

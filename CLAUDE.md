@@ -120,8 +120,14 @@ job.shipDate = formShipDate || today;
 - **위치**: `index.html` 상단 IIFE
 - **활성화 토글**: 같은 IIFE 의 `if (true)` ↔ `if (false)`
 - **제외 경로**: `/m`, `/m.html`, `/m/*`
-- **PC 강제 진입**: `?desktop=1` URL 파라미터 (한 번 들어가면 `localStorage.force_desktop=1` 영구 저장)
-- **mobile 감지**: 화면 폭 ≤640 OR `Mobi|Android|iPhone|iPod|webOS|BlackBerry|IEMobile|Opera Mini` UA
+- **PC 강제 진입 (1회)**: `?desktop=1` URL 파라미터 → `sessionStorage.force_desktop=1` (현재 탭만)
+  - 새 탭/창에서는 다시 자동 판정 → 모바일이면 `/m/` 으로
+  - **2026-05-22 변경**: 이전 `localStorage` 영구 저장 → `sessionStorage` (sticky 버그 fix)
+- **PC 강제 해제**: `?desktop=clear` URL 파라미터 또는 PC 상단의 "📱 모바일" 버튼
+  - localStorage/sessionStorage 의 `force_desktop` 모두 제거 후 자동 판정
+- **mobile 감지**: 화면 폭 **≤768** OR `Mobi|Android|iPhone|iPod|iPad|webOS|BlackBerry|IEMobile|Opera Mini` UA
+  - 2026-05-22 변경: 640 → 768 (태블릿 세로 포함), `iPad` 추가
+- **잔여물 자동 청소**: `m/index.html` 진입 시 옛 `localStorage.force_desktop` 자동 제거
 
 **테스트 관찰 항목**:
 - 모바일 SPA 에 누락된 기능이 있는지 (있으면 PC 로 fallback 가능한지 확인)
