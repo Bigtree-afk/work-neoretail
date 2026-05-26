@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2563EB">
+<title>설정 · NeoRetail</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  a,button,[onclick]{touch-action:manipulation;cursor:pointer}
+  :root{
+    --primary:#2563EB; --primary-dark:#1D4ED8;
+    --gray-100:#F3F4F6; --gray-200:#E5E7EB; --gray-300:#D1D5DB;
+    --gray-400:#9CA3AF; --gray-500:#6B7280; --gray-600:#4B5563;
+    --gray-700:#374151; --gray-800:#1F2937;
+    --success:#16A34A; --danger:#DC2626;
+  }
+  html,body{height:100%;background:#F3F4F6}
+  body{font-family:'Pretendard Variable','Pretendard','Apple SD Gothic Neo',sans-serif;color:var(--gray-800);font-size:14px;-webkit-font-smoothing:antialiased}
+  .appbar{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;padding:0 14px;height:52px;gap:10px}
+  .appbar .title{font-size:15px;font-weight:800;flex:1}
+  .wrap{padding:14px 14px calc(76px + env(safe-area-inset-bottom))}
+  .sec{background:#fff;border-radius:12px;margin-bottom:12px;overflow:hidden}
+  .sec-h{font-size:11px;font-weight:800;color:var(--gray-400);text-transform:uppercase;letter-spacing:.5px;padding:14px 16px 6px}
+  .row{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--gray-100);gap:12px}
+  .row:last-child{border-bottom:none}
+  .row .label{font-size:13px;color:var(--gray-600);font-weight:600;min-width:72px}
+  .row .val{font-size:13px;color:var(--gray-800);font-weight:700;flex:1}
+  .row .val.empty{color:var(--gray-400);font-weight:400}
+  .pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:800}
+  .pill.admin{background:#FEE2E2;color:#991B1B}
+  .pill.staff{background:#EFF6FF;color:#1D4ED8}
+  .sync-status{font-size:12px;color:var(--gray-400);font-weight:600}
+  .sync-status.ok{color:var(--success)}
+  .sync-status.err{color:var(--danger)}
+  .btn-row{padding:10px 16px}
+  .btn{width:100%;padding:13px;border-radius:10px;font-size:13.5px;font-weight:800;border:none;cursor:pointer;font-family:inherit}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-outline{background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-200)}
+  .btn-danger{background:#FEF2F2;color:var(--danger);border:1.5px solid #FECACA}
+  /* bottom nav */
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--gray-200);display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:9}
+  .bottom-nav .item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;color:var(--gray-400);padding:5px 0;text-decoration:none;font-weight:600;background:transparent;border:none;font-family:inherit}
+  .bottom-nav .item.active{color:var(--primary)}
+  .bottom-nav .icn{font-size:19px}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="title">⚙️ 설정</div>
+  <a href="/?desktop=1#settings" style="font-size:12px;color:var(--gray-400);text-decoration:none;font-weight:700">💻 PC</a>
+</header>
+
+<div class="wrap">
+
+  <!-- 사용자 정보 -->
+  <div class="sec-h" style="padding:0 4px 6px;font-size:11px;font-weight:800;color:var(--gray-400);text-transform:uppercase;letter-spacing:.5px">사용자</div>
+  <div class="sec" id="userSec">
+    <div class="row"><div class="label">이름</div><div class="val" id="uName">—</div></div>
+    <div class="row"><div class="label">이메일</div><div class="val" id="uEmail">—</div></div>
+    <div class="row"><div class="label">직책</div><div class="val" id="uTitle">—</div></div>
+    <div class="row"><div class="label">권한</div><div class="val" id="uRole">—</div></div>
+  </div>
+
+  <!-- 데이터 동기화 -->
+  <div class="sec-h" style="padding:0 4px 6px;font-size:11px;font-weight:800;color:var(--gray-400);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">데이터 동기화</div>
+  <div class="sec">
+    <div class="row">
+      <div class="label">상태</div>
+      <div class="val sync-status" id="syncStatus">확인 중...</div>
+    </div>
+    <div class="row">
+      <div class="label">매장</div>
+      <div class="val" id="storeCount">—</div>
+    </div>
+    <div class="row">
+      <div class="label">업무</div>
+      <div class="val" id="jobCount">—</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="doSync()" id="syncBtn">🔄 지금 동기화</button>
+    </div>
+  </div>
+
+  <!-- PC 기능 바로가기 -->
+  <div class="sec-h" style="padding:0 4px 6px;font-size:11px;font-weight:800;color:var(--gray-400);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">PC 기능</div>
+  <div class="sec">
+    <div class="row" onclick="location.href='/?desktop=1#settings'" style="cursor:pointer;justify-content:space-between">
+      <div style="font-size:13px;color:var(--gray-700);font-weight:700">⚙️ 상세 설정 (PC)</div>
+      <div style="color:var(--gray-400);font-size:16px">›</div>
+    </div>
+    <div class="row" onclick="location.href='/?desktop=1#schedulehub'" style="cursor:pointer;justify-content:space-between">
+      <div style="font-size:13px;color:var(--gray-700);font-weight:700">📅 일정 허브 (PC)</div>
+      <div style="color:var(--gray-400);font-size:16px">›</div>
+    </div>
+  </div>
+
+  <!-- 앱 정보 -->
+  <div class="sec-h" style="padding:0 4px 6px;font-size:11px;font-weight:800;color:var(--gray-400);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">앱 정보</div>
+  <div class="sec">
+    <div class="row"><div class="label">버전</div><div class="val">2026.05</div></div>
+    <div class="row"><div class="label">배포</div><div class="val">Cloudflare Pages</div></div>
+  </div>
+
+  <!-- 로그아웃 -->
+  <div style="margin-top:8px">
+    <button class="btn btn-danger" onclick="doLogout()">로그아웃</button>
+  </div>
+
+</div>
+
+<nav class="bottom-nav">
+  <a class="item" href="/m/" data-nav="home"><span class="icn">🏠</span>홈</a>
+  <a class="item" href="/m/schedule/" data-nav="schedule"><span class="icn">📅</span>일정</a>
+  <a class="item" href="/m/#stores" data-nav="store"><span class="icn">🏪</span>매장</a>
+  <a class="item active" href="/m/settings/" data-nav="settings"><span class="icn">⚙️</span>설정</a>
+</nav>
+
+<script src="/m-core.js?v=2026-05-26-settings"></script>
+<script>
+function renderUser() {
+  try {
+    const auth = JSON.parse(localStorage.getItem('ns_auth') || 'null');
+    const users = JSON.parse(localStorage.getItem('ns_users') || '[]');
+    if (!auth) { document.getElementById('uName').textContent = '로그인 안 됨'; return; }
+    const me = users.find(u => (u.id||'').toLowerCase() === (auth.id||auth.email||'').toLowerCase()) || auth;
+    document.getElementById('uName').textContent  = me.name || auth.name || '—';
+    document.getElementById('uEmail').textContent = me.email || auth.email || '—';
+    document.getElementById('uTitle').textContent = me.title || me.position || '—';
+    const role = me.role || auth.role || 'staff';
+    document.getElementById('uRole').innerHTML = `<span class="pill ${role}">${role === 'admin' ? '관리자' : '직원'}</span>`;
+  } catch(e) {}
+}
+
+function renderCounts() {
+  const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+  const jobs   = (typeof getJobs   === 'function') ? (getJobs()   || []) : [];
+  document.getElementById('storeCount').textContent = stores.length + '개 등록';
+  document.getElementById('jobCount').textContent   = jobs.length + '건';
+}
+
+async function doSync() {
+  const btn = document.getElementById('syncBtn');
+  btn.textContent = '⏳ 동기화 중...';
+  btn.disabled = true;
+  document.getElementById('syncStatus').className = 'val sync-status';
+  document.getElementById('syncStatus').textContent = '동기화 중...';
+  try {
+    await Promise.allSettled([
+      window.syncStoresFromCloud && window.syncStoresFromCloud(),
+      window.syncJobsFromCloud   && window.syncJobsFromCloud(),
+    ]);
+    document.getElementById('syncStatus').className = 'val sync-status ok';
+    document.getElementById('syncStatus').textContent = '✅ 동기화 완료 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'});
+    renderCounts();
+  } catch(e) {
+    document.getElementById('syncStatus').className = 'val sync-status err';
+    document.getElementById('syncStatus').textContent = '⚠ 오류 발생';
+  } finally {
+    btn.textContent = '🔄 지금 동기화';
+    btn.disabled = false;
+  }
+}
+
+function doLogout() {
+  if (!confirm('로그아웃 하시겠습니까?')) return;
+  try {
+    localStorage.removeItem('ns_auth');
+    sessionStorage.clear();
+  } catch(_){}
+  location.href = '/';
+}
+
+(async function init(){
+  renderUser();
+  renderCounts();
+  await doSync();
+})();
+</script>
+</body>
+</html>

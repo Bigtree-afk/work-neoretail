@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2563EB">
+<title>일정 · NeoRetail</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  a,button,[onclick]{touch-action:manipulation;cursor:pointer}
+  :root{
+    --primary:#2563EB; --primary-dark:#1D4ED8;
+    --gray-100:#F3F4F6; --gray-200:#E5E7EB; --gray-400:#9CA3AF;
+    --gray-500:#6B7280; --gray-600:#4B5563; --gray-700:#374151; --gray-800:#1F2937;
+    --success:#16A34A; --warning:#F59E0B; --danger:#DC2626;
+  }
+  html,body{height:100%;background:#F3F4F6}
+  body{font-family:'Pretendard Variable','Pretendard','Apple SD Gothic Neo',sans-serif;color:var(--gray-800);font-size:14px;-webkit-font-smoothing:antialiased}
+  .appbar{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;padding:0 14px;height:52px;gap:10px}
+  .appbar .title{font-size:15px;font-weight:800;flex:1;color:var(--gray-800)}
+  .wrap{padding:14px 14px calc(76px + env(safe-area-inset-bottom))}
+  .filter-row{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px}
+  .flt{padding:6px 14px;border-radius:20px;border:1.5px solid var(--gray-200);background:#fff;font-size:12px;font-weight:700;color:var(--gray-600);white-space:nowrap}
+  .flt.active{background:var(--primary);border-color:var(--primary);color:#fff}
+  .empty{text-align:center;color:var(--gray-400);padding:40px 20px;font-size:14px;line-height:1.6}
+  .card{background:#fff;border-radius:12px;padding:13px 14px;margin-bottom:9px;border-left:4px solid var(--gray-200);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .card.today{border-left-color:#EF4444}
+  .card.soon{border-left-color:#F59E0B}
+  .card.future{border-left-color:#2563EB}
+  .card.past{border-left-color:#9CA3AF;opacity:.75}
+  .card .date-badge{font-size:11px;font-weight:800;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+  .card .date-badge .dday{padding:2px 7px;border-radius:10px;font-size:10px;font-weight:800}
+  .dday-today{background:#FEE2E2;color:#991B1B}
+  .dday-soon{background:#FEF3C7;color:#92400E}
+  .dday-future{background:#EFF6FF;color:#1D4ED8}
+  .dday-past{background:#F3F4F6;color:#6B7280}
+  .card .store{font-size:14px;font-weight:800;color:var(--gray-800);margin-bottom:3px}
+  .card .type{font-size:11px;color:var(--gray-500);margin-bottom:2px}
+  .card .eng{font-size:11px;color:var(--gray-400)}
+  .section-label{font-size:11px;font-weight:800;color:var(--gray-400);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 7px}
+  /* bottom nav */
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--gray-200);display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:9}
+  .bottom-nav .item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;color:var(--gray-400);padding:5px 0;text-decoration:none;font-weight:600;cursor:pointer;background:transparent;border:none;font-family:inherit}
+  .bottom-nav .item.active{color:var(--primary)}
+  .bottom-nav .icn{font-size:19px}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="title">📅 일정</div>
+  <a href="/?desktop=1#schedulehub" style="font-size:12px;color:var(--gray-400);text-decoration:none;font-weight:700">💻 PC</a>
+</header>
+
+<div class="wrap">
+  <div class="filter-row" id="filterRow">
+    <button class="flt active" onclick="setFlt('upcoming',this)">예정</button>
+    <button class="flt" onclick="setFlt('today',this)">오늘</button>
+    <button class="flt" onclick="setFlt('week',this)">이번 주</button>
+    <button class="flt" onclick="setFlt('past',this)">지난 일정</button>
+    <button class="flt" onclick="setFlt('all',this)">전체</button>
+  </div>
+  <div id="schedList"><div class="empty">⏳ 로딩 중...</div></div>
+</div>
+
+<nav class="bottom-nav">
+  <a class="item" href="/m/" data-nav="home"><span class="icn">🏠</span>홈</a>
+  <a class="item active" href="/m/schedule/" data-nav="schedule"><span class="icn">📅</span>일정</a>
+  <a class="item" href="/m/#stores" data-nav="store"><span class="icn">🏪</span>매장</a>
+  <a class="item" href="/m/settings/" data-nav="settings"><span class="icn">⚙️</span>설정</a>
+</nav>
+
+<script src="/m-core.js?v=2026-05-26-schedule"></script>
+<script>
+const esc = window.esc || (s => String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]));
+
+let _flt = 'upcoming';
+
+function setFlt(f, btn) {
+  _flt = f;
+  document.querySelectorAll('.flt').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  render();
+}
+
+function _daysFrom(dateStr) {
+  if (!dateStr) return null;
+  const today = new Date();
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const p = String(dateStr).slice(0,10).split('-').map(Number);
+  if (p.length < 3 || isNaN(p[0])) return null;
+  return Math.round((new Date(p[0],p[1]-1,p[2]).getTime() - t0) / 86400000);
+}
+
+function _collect(jobs) {
+  const items = [];
+  jobs.forEach(j => {
+    const addIf = (dateStr, label, colorKey) => {
+      const d = _daysFrom(dateStr);
+      if (d === null) return;
+      items.push({ job:j, date:String(dateStr).slice(0,10), daysFrom:d, label, colorKey });
+    };
+    if (j.installDate)  addIf(j.installDate,  '설치일',     'install');
+    if (j.softOpenDate) addIf(j.softOpenDate, '가오픈',     'softopen');
+    if (j.openDate)     addIf(j.openDate,     '오픈일',     'open');
+    if (j.asDueDate)    addIf(j.asDueDate,    'AS 처리예정','asdue');
+    if (j.shipDate)     addIf(j.shipDate,     '배송예정',   'ship');
+    if (j.arDue)        addIf(j.arDue,        '수금예정',   'ardue');
+  });
+  return items;
+}
+
+function render() {
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const all = _collect(jobs);
+
+  let items = all;
+  const today = 0, weekEnd = 7;
+  if (_flt === 'today')    items = all.filter(i => i.daysFrom === 0);
+  else if (_flt === 'week') items = all.filter(i => i.daysFrom >= 0 && i.daysFrom < weekEnd);
+  else if (_flt === 'upcoming') items = all.filter(i => i.daysFrom >= 0);
+  else if (_flt === 'past') items = all.filter(i => i.daysFrom < 0);
+
+  items.sort((a,b) => a.daysFrom - b.daysFrom);
+
+  const list = document.getElementById('schedList');
+  if (!items.length) {
+    list.innerHTML = '<div class="empty">📭 해당 일정이 없습니다</div>';
+    return;
+  }
+
+  // 날짜별 그룹
+  const groups = {};
+  items.forEach(i => {
+    if (!groups[i.date]) groups[i.date] = [];
+    groups[i.date].push(i);
+  });
+
+  let html = '';
+  Object.keys(groups).sort().forEach(date => {
+    const grp = groups[date];
+    const d = grp[0].daysFrom;
+    const ddayTxt = d < 0 ? `D+${Math.abs(d)}` : d === 0 ? 'D-Day' : `D-${d}`;
+    const ddayCls = d < 0 ? 'dday-past' : d === 0 ? 'dday-today' : d <= 3 ? 'dday-soon' : 'dday-future';
+    const cardCls = d < 0 ? 'past' : d === 0 ? 'today' : d <= 3 ? 'soon' : 'future';
+
+    grp.forEach(i => {
+      const j = i.job;
+      const store = esc(j.storeName || j.store || '(매장 미지정)');
+      const eng = esc(j.engineer || j.assignee || '');
+      const type = esc(j.type || '');
+      html += `
+      <div class="card ${cardCls}" onclick="location.href='/?desktop=1#newhub'" style="cursor:pointer">
+        <div class="date-badge">
+          <span>${date}</span>
+          <span class="dday ${ddayCls}">${ddayTxt}</span>
+          <span style="font-size:10px;color:var(--gray-400);font-weight:600">${esc(i.label)}</span>
+        </div>
+        <div class="store">${store}</div>
+        ${type ? `<div class="type">${type}</div>` : ''}
+        ${eng ? `<div class="eng">담당: ${eng}</div>` : ''}
+      </div>`;
+    });
+  });
+  list.innerHTML = html;
+}
+
+(async function init(){
+  try { await Promise.allSettled([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud && window.syncJobsFromCloud()]); } catch(_){}
+  render();
+  setInterval(async () => {
+    try { await window.syncJobsFromCloud && window.syncJobsFromCloud(); } catch(_){}
+    render();
+  }, 30000);
+})();
+</script>
+</body>
+</html>
