@@ -373,11 +373,11 @@
     <input type="hidden" id="fAsTargetETC">
     <textarea id="fAsRequest" style="display:none"></textarea>
 
-    <!-- 안내 — 등록 후 thread 에서 요청접수·진행·완료 단계마다 LINE 발송 -->
+    <!-- 안내 — 요청접수 입력 후 thread 에서 진행/완료 추가 -->
     <div class="sec" style="background:#FEF3C7;border-color:#FCD34D">
       <div style="font-size:12.5px;color:#92400E;line-height:1.55">
-        💡 등록 후 <b>요청접수 → 진행 → 완료</b> 단계로 처리됩니다.<br>
-        각 단계마다 <b>📡 LINE 발송</b> 으로 작업자·고객에게 알림 보낼 수 있습니다.
+        💡 아래 <b>📥 요청접수</b> 에 업무 내용을 입력하면 첫 ROOT 로 저장됩니다.<br>
+        등록 후 thread 화면에서 <b>진행 → 완료</b> 단계를 추가하며, 각 단계마다 <b>📡 LINE 발송</b> 가능합니다.
       </div>
     </div>
 
@@ -418,10 +418,16 @@
       </div>
     </div>
 
-    <!-- 메모 -->
-    <div class="sec">
-      <div class="sec-h">📝 추가 메모</div>
-      <textarea class="field-textarea" id="fMemo" placeholder="추가 요청사항 / 현장 특이사항 등"></textarea>
+    <!-- 📥 요청접수 — thread 의 첫 ROOT 로 저장됨 (PC AS 폼과 동일 패턴) -->
+    <div class="sec" style="background:#FEF7F7;border-color:var(--as-border)">
+      <div class="sec-h" style="color:var(--as-dark)">📥 요청접수 <span style="color:var(--danger);font-size:11px">*</span> <span class="hint">— 업무 내용을 입력하세요</span></div>
+      <textarea class="field-textarea" id="fMemo" placeholder="예: 영수증 안 나옴 / 카드결제 오류 / 키오스크 터치 안 됨"></textarea>
+      <!-- ✅ 바로 완료 — 사후 기록(이미 처리된 AS) 또는 즉시 완료 케이스 -->
+      <label style="display:flex;align-items:center;gap:7px;margin-top:9px;padding:9px 12px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;font-size:12.5px;font-weight:700;color:#15803d;cursor:pointer">
+        <input type="checkbox" id="fAsDoneNow" style="accent-color:#15803d;width:16px;height:16px;margin:0">
+        ✅ 바로 완료 처리
+        <span style="margin-left:auto;font-size:10.5px;color:#15803d;font-weight:500">요청접수 + 완료 동시 등록</span>
+      </label>
     </div>
 
     <!-- LINE 체크 -->
@@ -832,7 +838,7 @@ function renderForm(r){
   // 초기화
   ['fStoreSearch','fContactName','fContactRole','fContactPhone','fUnregName','fUnregBiz','fUnregAddr',
    'fAsReceivedAt','fAsDueDate','fAsDueTime','fAsRequest','fMemo'].forEach(id => { const e=$(id); if (e) e.value=''; });
-  ['fAsTargetVAN','fAsTargetPOS','fAsTargetKIO','fAsTargetETC'].forEach(id => { const e=$(id); if (e) e.checked=false; });
+  ['fAsTargetVAN','fAsTargetPOS','fAsTargetKIO','fAsTargetETC','fAsDoneNow','fLineSend'].forEach(id => { const e=$(id); if (e) e.checked=false; });
   $('fUnregMode').checked = false;
   $('fUnregBox').style.display = 'none';
   $('fStorePicked').style.display = 'none';
@@ -879,7 +885,12 @@ function renderForm(r){
       $('fAsDueDate').value = fmtDate(j.asDueDate);
       $('fAsDueTime').value = j.asDueTime || '';
       $('fAsRequest').value = j.asRequest || '';
-      $('fMemo').value = j.memo || j.notes || '';
+      // 📥 요청접수 — 편집 모드에서는 첫 ROOT 텍스트 우선 (없으면 legacy memo/notes)
+      try {
+        const firstRoot = Array.isArray(j.thread)
+          ? j.thread.find(e => e && e.parentId === null) : null;
+        $('fMemo').value = (firstRoot && firstRoot.text) || j.asRequest || j.memo || j.notes || '';
+      } catch(_){ $('fMemo').value = j.memo || j.notes || ''; }
       const targets = Array.isArray(j.asTargets) ? j.asTargets : [];
       $('fAsTargetVAN').checked = targets.includes('VAN');
       $('fAsTargetPOS').checked = targets.includes('POS');
@@ -1160,8 +1171,11 @@ window.onSaveForm = async function(){
   const typeRd = document.querySelector('input[name="fType"]:checked');
   if (!typeRd) { showToast('⚠ 작업 유형(AS sub-category)을 선택하세요'); return; }
   const type = typeRd.value;
-  // AS 요청내용은 등록 후 thread '요청접수' 카드에서 입력 — 폼에서는 더 이상 필수 아님
-  const asRequest = '';
+  // 📥 요청접수 — fMemo 입력란이 thread 의 첫 ROOT 내용. 신규 등록 시에만 필수.
+  //   편집 모드는 thread 가 이미 있을 수 있으므로 빈 값 허용.
+  const reqText = ($('fMemo').value || '').trim();
+  if (!_editingJob && !reqText) { showToast('⚠ 요청접수 내용을 입력하세요'); $('fMemo').focus(); return; }
+  const asRequest = reqText;
 
   const asInfo = {
     receivedAt: ($('fAsReceivedAt').value || '').trim(),
@@ -1175,7 +1189,8 @@ window.onSaveForm = async function(){
       $('fAsTargetETC').checked ? '기타' : null,
     ].filter(Boolean),
   };
-  const memo = ($('fMemo').value || '').trim();
+  // legacy 호환 — j.memo 에도 동일 텍스트 저장 (기존 화면이 memo 를 직접 읽는 경우 대비)
+  const memo = reqText;
   const contactName = ($('fContactName').value || '').trim();
   const contactRole = ($('fContactRole').value || '').trim();
   const contactPhone = ($('fContactPhone').value || '').trim();
@@ -1258,14 +1273,25 @@ window.onSaveForm = async function(){
       const existing = jobs[existingIdx];
       const ts = (window._kstDateTimeStr ? window._kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' '));
       const author = (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자';
+      const rootId = 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7);
       const newRoot = {
         ts, author, status:'요청접수',
         text: asInfo.request || memo || '(요청 내용 없음)',
-        threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+        threadId: rootId,
         parentId: null,
       };
       const existingThread = Array.isArray(existing.thread) ? existing.thread.slice() : [];
       existingThread.push(newRoot);
+      // ✅ 바로 완료 체크 시 — 새 ROOT 아래 완료 child 동시 추가
+      const doneNow = !!($('fAsDoneNow') && $('fAsDoneNow').checked);
+      if (doneNow) {
+        existingThread.push({
+          ts, author, status:'완료',
+          text:'(요청접수와 동시에 완료 처리)',
+          threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+          parentId: rootId,
+        });
+      }
       existing.thread = (window._threadMigrate ? window._threadMigrate(existingThread) : existingThread);
       // AS 메타 — 신값이 있으면 덮어쓰기
       if (asInfo.receivedAt) existing.asReceivedAt = asInfo.receivedAt;
@@ -1314,11 +1340,26 @@ window.onSaveForm = async function(){
     // 새 job 생성
     const ts = (window._kstDateTimeStr ? window._kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' '));
     const author = (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자';
-    const seedThread = asInfo.request ? [{
-      ts, author, status:'요청접수', text: asInfo.request,
-      threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
-      parentId: null,
-    }] : [];
+    const doneNow = !!($('fAsDoneNow') && $('fAsDoneNow').checked);
+    const seedThread = (function(){
+      if (!asInfo.request) return [];
+      const rootId = 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7);
+      const arr = [{
+        ts, author, status:'요청접수', text: asInfo.request,
+        threadId: rootId,
+        parentId: null,
+      }];
+      // ✅ 바로 완료 체크 시 — 완료 child 동시 추가
+      if (doneNow) {
+        arr.push({
+          ts, author, status:'완료',
+          text: '(요청접수와 동시에 완료 처리)',
+          threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+          parentId: rootId,
+        });
+      }
+      return arr;
+    })();
     const newJob = {
       id: 'JOB-' + Date.now().toString(36).toUpperCase(),
       type: 'AS 처리',
@@ -1341,8 +1382,9 @@ window.onSaveForm = async function(){
       equipment,
       equipTotal: 0,
       thread: (window._threadMigrate ? window._threadMigrate(seedThread) : seedThread),
-      status: '접수',
-      completed: false,
+      status: doneNow ? '완료' : '접수',
+      completed: !!doneNow,
+      doneAt: doneNow ? new Date().toISOString() : '',
       attachments: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
