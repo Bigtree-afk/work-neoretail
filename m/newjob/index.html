@@ -1911,7 +1911,7 @@ function _repairNewjobCompletedFlag() {
   // sync 이후 보정 (PC 가 만든 잘못된 완료 플래그도 함께 청소)
   _repairNewjobCompletedFlag();
   // 라우팅
-  if (!location.hash) location.hash = '#home';
+  if (!location.hash) location.hash = '#entry'; // 신규 진입은 entry 직행 — VAN/소모품과 동일 패턴
   renderCurrentView();
   // 데이터 변경 자동 갱신 (다른 탭/PC 와 동기화 — 30초 polling)
   setInterval(async () => {

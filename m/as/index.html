@@ -1751,7 +1751,7 @@ window.onLineSendJob = function(){
   $('fStoreSearch').addEventListener('focus', onStoreSearchInput);
   // 클라우드에서 점포·작업 데이터 동시 풀 — 모바일 첫 진입 시 매장 검색 0건 사고 방지
   try { await Promise.allSettled([window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
-  if (!location.hash) location.hash = '#home';
+  if (!location.hash) location.hash = '#entry'; // AS 진입은 entry 직행 — VAN/소모품과 동일 패턴
   renderCurrentView();
   setInterval(async () => {
     if (document.visibilityState !== 'visible') return;
