@@ -49,6 +49,26 @@
   }
 
   /* ───────────────────────────────────────────────────────────
+   * 닉네임 → 실명 정규화 — whitelist users의 nicknames 배열 기반
+   * 저장/표시 시 항상 이 함수를 통해 이름 정규화
+   * ───────────────────────────────────────────────────────── */
+  function _normalizeDisplayName(name) {
+    if (!name) return name;
+    try {
+      const users = JSON.parse(localStorage.getItem('ns_users') || '[]');
+      for (const u of users) {
+        if (!u.name) continue;
+        // 닉네임 배열에서 일치 여부 확인
+        if (Array.isArray(u.nicknames) && u.nicknames.some(n => String(n).trim() === String(name).trim())) {
+          return u.name;
+        }
+      }
+    } catch(_){}
+    return name;
+  }
+  window._normalizeDisplayName = _normalizeDisplayName;
+
+  /* ───────────────────────────────────────────────────────────
    * 현재 로그인 사용자 이름 — index.html L22196
    * ───────────────────────────────────────────────────────── */
   function _currentAuthName() {
@@ -60,7 +80,7 @@
         const me = users.find(u => (u.id||'').toLowerCase() === (a.id||a.email||'').toLowerCase());
         if (me && me.name) return me.name;
       } catch(_){}
-      return a.name || a.email || '';
+      return _normalizeDisplayName(a.name || a.email || '');
     } catch(e) { return ''; }
   }
 

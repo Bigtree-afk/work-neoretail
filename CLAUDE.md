@@ -586,6 +586,49 @@ LINE 메시지 파싱 cron 은 **3중 방어** 구성:
 
 **관리자 토큰 없는 PC** 라면: 그 PC 의 삭제는 cloud 레지스트리에 등록 안 되지만, 다른 토큰 보유 PC 가 같은 ID 를 한 번이라도 삭제하면 영구 차단됨. 또는 서버측 1차 방어선이 wholesale push 의 부활을 막음 (단, 등록 전까지는 일시적으로 살아날 수 있음).
 
+## 📋 리스트·Hub 기본 표시 규칙 (필수 — 2026-05-22 추가)
+
+**원칙**: 모든 메뉴(PC/모바일)에서 **진행 중(미완료) 건을 기본 화면에 표시**하고, 완료 건은 탭/필터 전환 시 확인.
+
+### 기본 필터 (Default Filter)
+
+| 화면 | 기본 필터 | 비고 |
+|---|---|---|
+| **AS 관리** (`asmgmt`) | `pending` (미처리) | `_asMgmtFilter = 'pending'` |
+| **AS Hub** (`ashub`) | `progress` (진행 중) | `.hub-filter active` = `data-filter="progress"` |
+| **신규 Hub** (`newhub`) | `progress` (진행 중) | 위 동일 |
+| **VAN Hub** (`vanhub`) | `progress` (진행 중) | 위 동일 |
+| **소모품 Hub** | `progress` (진행 중) | 위 동일 |
+
+### 정렬 규칙 (Sort Order)
+
+모든 리스트에서 공통 적용:
+
+1. **미완료 건 → 위 (최신 접수 순 desc)**
+2. **완료 건 → 아래 (최신 완료 순 desc)**
+
+```js
+view.sort((a, b) => {
+  const doneA = isDone(a), doneB = isDone(b);
+  if (doneA !== doneB) return doneA ? 1 : -1;   // 미완료 먼저
+  if (!doneA) return mtime(b) - mtime(a);        // 미완료: 최신 접수 순
+  return completedAt(b) - completedAt(a);         // 완료: 최신 완료 순
+});
+```
+
+### AS 상세 모달 — 완료 버튼 (필수)
+
+AS 카테고리 (`cat === 'as'`) 상세 모달 footer 에는 반드시:
+- **미완료 상태**: `✅ AS 완료 처리` 버튼 → `completeAsJobDirect(jobId)` 호출
+- **완료 상태**: `↩ 진행으로 되돌리기` 버튼 + 완료 시각 표시
+
+단순 안내 텍스트만 두고 버튼 없이 두는 것 금지 — 모바일에서 완료 처리 불가.
+
+### 금지 사항
+- 전체(`all`) 필터를 기본값으로 설정 (완료 건이 상단을 채워 미완료 건 찾기 불편)
+- 진행 중 건을 오래된 순(asc)으로 정렬 (가장 최근 접수 건을 아래 밀어버림)
+- AS 상세 모달에 완료 버튼 없이 텍스트 안내만 표시
+
 ## 🔥 마지막 요청 삭제 → 업무 cascade 삭제 규칙 (2026-05-22 추가)
 
 **문제**: AS 페이지에서 "요청 삭제" 누르면 thread ROOT 만 사라지고 job 본체는 `thread=[]` 인 채로 남음 → 대시보드/매장 정보에 ghost 카드로 표시됨 → 클릭 시 `editNewopen` 이 `lineParsed/asRequest/notes` 에서 자동 시드 + **즉시 saveJobs** → **부활**.
