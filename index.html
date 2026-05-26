@@ -19611,12 +19611,12 @@ ${text.slice(0, 4000)}`;
       }
     } catch(e){ console.warn('vanJob uploader mount failed', e); }
 
-    // 📋 thread 렌더 — 편집 모드에서만, 신규 시 안내문
+    // 📋 thread 렌더 — 신규 모드는 draft (등록 전 요청접수/진행/완료 입력 가능), 편집 모드는 실제 thread
     try {
       const threadBox = document.getElementById('vanJobThread');
       const notSaved  = document.getElementById('vanJobThreadNotSaved');
+      if (notSaved) notSaved.style.display = 'none';  // 안내문은 항상 숨김 — draft 모드로 직접 입력 가능
       if (editJob && editJob.id) {
-        if (notSaved) notSaved.style.display = 'none';
         if (threadBox && typeof window._renderThreadGroups === 'function') {
           window._renderThreadGroups('vanJobThread', editJob.thread || [], {
             editable: true,
@@ -19625,8 +19625,15 @@ ${text.slice(0, 4000)}`;
           });
         }
       } else {
-        if (threadBox) threadBox.innerHTML = '';
-        if (notSaved) notSaved.style.display = '';
+        // 신규 모드 — draft 배열로 등록 전에도 요청접수/진행/완료 기록 가능 (_submitNewRoot 가 window._jobThreadDraft 사용)
+        window._jobThreadDraft = [];
+        if (threadBox && typeof window._renderThreadGroups === 'function') {
+          window._renderThreadGroups('vanJobThread', window._jobThreadDraft, {
+            editable: true,
+            jobId: null,
+            draftMode: true,
+          });
+        }
       }
     } catch(e){ console.warn('[openVanJobModal thread render]', e); }
   };
@@ -19655,7 +19662,9 @@ ${text.slice(0, 4000)}`;
     const editIdEl = get('vanJobEditId'); if (editIdEl) editIdEl.value = '';
     // thread / 푸터 라벨 / 미등록 폼 초기화
     const threadBox = get('vanJobThread'); if (threadBox) threadBox.innerHTML = '';
-    const notSaved  = get('vanJobThreadNotSaved'); if (notSaved) notSaved.style.display = '';
+    const notSaved  = get('vanJobThreadNotSaved'); if (notSaved) notSaved.style.display = 'none';
+    // draft 비우기 — openVanJobModal 에서 다시 채움
+    window._jobThreadDraft = [];
     try {
       const footer = document.querySelector('#vanJobModal .modal-footer .btn.btn-primary');
       if (footer) footer.textContent = '+ VAN 업무 등록';
@@ -19862,22 +19871,14 @@ ${text.slice(0, 4000)}`;
         try { if (window._vanJobUploaderCtl) return window._vanJobUploaderCtl.get() || []; } catch(_){}
         return [];
       })(),
-      thread: [(function(){
-        const root = {
-          threadId: rootId,
-          parentId: null,
-          ts, author: me || engineer || '담당자',
-          status: '요청접수',
-          text: summary,
-        };
-        try {
-          if (window._vanJobUploaderCtl) {
-            const atts = window._vanJobUploaderCtl.get() || [];
-            if (atts.length) root.attachments = atts;
-          }
-        } catch(_){}
-        return root;
-      })()],
+      thread: (function(){
+        // 🚫 자동 ROOT 생성 제거 — 카테고리만으로 임의 '요청접수' 가 박히는 문제 방지
+        //   카드 신청을 한 게 아닌데도 '신규등록 요청접수' 처럼 보여서 혼동을 유발했음.
+        //   사용자가 thread 에 직접 입력한 draft 만 저장.
+        //   요청접수가 필요하면 등록 후 [+ 새 요청 접수] 또는 등록 전 [+ 새 요청 접수] draft 로 명시 입력.
+        const draft = Array.isArray(window._jobThreadDraft) ? window._jobThreadDraft.slice() : [];
+        return (typeof window._threadMigrate === 'function') ? window._threadMigrate(draft) : draft;
+      })(),
       completed: false,
       createdAt: now,
       _whoCreated: me,
@@ -19946,6 +19947,8 @@ ${text.slice(0, 4000)}`;
     // 📡 LINE 발송 체크 상태 (모달 닫기 전에 읽어둠)
     const wantLine = !!document.getElementById('vanJobLineSend')?.checked;
     const savedJobId = newJob.id;
+    // draft 비우기 — 저장된 thread 와 중복 방지
+    window._jobThreadDraft = [];
     closeModal('vanJobModal');
     showToast && showToast(isEdit ? `💾 VAN 업무 저장됨 — ${storeName}` : `✅ VAN 업무 등록 완료 — ${storeName}`);
     // 화면 갱신
