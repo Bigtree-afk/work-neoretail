@@ -10,6 +10,7 @@
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  a,button,[onclick]{touch-action:manipulation;cursor:pointer}
   :root{
     --primary:#2563EB; --primary-dark:#1D4ED8;
     --as:#DC2626; --as-dark:#991B1B; --as-light:#FEE2E2; --as-border:#FCA5A5;
@@ -451,6 +452,9 @@
       </div>
     </div>
 
+    <!-- 🎯 등록된 요청 내용 표시 (thread 가 비어있을 때 asRequest/lineParsed 표시) -->
+    <div id="thRequestInfo"></div>
+
     <div class="new-root-box">
       <div class="sec-h">📥 새 요청접수</div>
       <textarea class="field-textarea" id="thNewRoot" placeholder="요청 사항 입력..."></textarea>
@@ -463,15 +467,18 @@
     </div>
 
     <div id="thGroups"></div>
+
+    <!-- 🎯 AS 완료 처리 버튼 (진행중 작업에만 표시) -->
+    <div id="thCompleteBtn" style="margin-top:10px"></div>
   </div>
 </section>
 
 <!-- BOTTOM NAV — 5 SPA 공통: 홈/일정/매장/LINE/설정 -->
 <nav class="bottom-nav" id="bottomNav">
   <a class="item" href="/m/" data-nav="home"><span class="icn">🏠</span>홈</a>
-  <a class="item" href="/?desktop=1#schedulehub" data-nav="schedule"><span class="icn">📅</span>일정</a>
+  <a class="item" href="/m/schedule/" data-nav="schedule"><span class="icn">📅</span>일정</a>
   <a class="item" href="/m/#stores" data-nav="store"><span class="icn">🏪</span>매장</a>
-  <a class="item" href="/?desktop=1#settings" data-nav="settings"><span class="icn">⚙️</span>설정</a>
+  <a class="item" href="/m/settings/" data-nav="settings"><span class="icn">⚙️</span>설정</a>
 </nav>
 <script>
 /* 🧭 바닥 네비 active — URL hash 가 #stores 면 매장 탭, 그 외엔 home 강조 (정확한 강조보다 단순화 우선)
@@ -1408,7 +1415,39 @@ function renderThread(jobId){
   _thNewRootPicker = (typeof window.mountAttachPicker === 'function')
     ? window.mountAttachPicker(document.getElementById('thNewRootAttach'), { jobId: j.id, category:'as' })
     : null;
+  // 🎯 등록된 요청 내용 — thread 비어있을 때 asRequest/lineParsed 표시
+  const _reqInfoEl = $('thRequestInfo');
+  if (_reqInfoEl) {
+    const _reqText = j.asRequest || j.lineParsed || j.lineRequest || j.notes || '';
+    const _thr = Array.isArray(j.thread) ? j.thread : [];
+    if (_reqText && _thr.length === 0) {
+      const _escaped = esc(_reqText);
+      // JSON.stringify 로 JS 문자열 안전하게 인라인 삽입
+      const _jsonReq = JSON.stringify(_reqText);
+      _reqInfoEl.innerHTML = `
+        <div style="background:#FEF3C7;border:1.5px solid #FCD34D;border-radius:10px;padding:11px 13px;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:800;color:#92400E;margin-bottom:5px">📋 등록된 요청 내용</div>
+          <div style="font-size:13.5px;color:#451A03;line-height:1.6;white-space:pre-wrap">${_escaped}</div>
+          <button class="btn btn-outline" style="margin-top:8px;width:100%;font-size:12px;padding:8px;border-color:#FCD34D;color:#92400E"
+            onclick="var t=document.getElementById('thNewRoot');t.value=${_jsonReq};t.focus();document.querySelector('.new-root-box').scrollIntoView({behavior:'smooth'})">
+            📥 이 내용으로 요청접수 등록
+          </button>
+        </div>`;
+    } else {
+      _reqInfoEl.innerHTML = '';
+    }
+  }
   renderThreadGroups(j);
+  // 🎯 AS 완료 처리 버튼
+  const _doneEl = $('thCompleteBtn');
+  if (_doneEl) {
+    const _isJobDone = window._isJobEffectivelyDone || window._isJobDone || (x => !!(x && (x.status==='완료'||x.status==='처리완료'||x.completed)));
+    if (!_isJobDone(j)) {
+      _doneEl.innerHTML = `<button class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;font-weight:800;background:#16A34A;border-color:#16A34A" onclick="onDirectComplete()">✅ AS 완료 처리</button>`;
+    } else {
+      _doneEl.innerHTML = `<div style="text-align:center;padding:12px 0;color:#16A34A;font-weight:800;font-size:13px">✅ 완료된 작업입니다</div>`;
+    }
+  }
 }
 
 // thread entry 의 attachments 를 카드 내부에 작은 썸네일/파일 칩으로 표시
@@ -1646,6 +1685,50 @@ window.onDelRoot = function(rootId){
   j.updatedAt = Date.now();
   jobs[ix] = j;
   saveJobs(jobs);
+  try { window.pushJobsToCloud(); } catch(_){}
+  renderThread(_currentJobId);
+};
+
+window.onDirectComplete = function(){
+  if (!_currentJobId) return;
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const ix = jobs.findIndex(x => x.id === _currentJobId);
+  if (ix < 0) return;
+  const j = jobs[ix];
+  const storeName = j.storeName || j.store || '이 작업';
+  const note = prompt('"' + storeName + '" AS 완료 처리\n\n처리 내용 (생략 가능):', '');
+  if (note === null) return;  // 취소
+  if (!Array.isArray(j.thread)) j.thread = [];
+  const ts = (window._kstNow ? window._kstNow() : new Date().toISOString().slice(0,16).replace('T',' '));
+  const author = (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자';
+  // 미완료 root 찾기
+  const roots = j.thread.filter(t => !t.parentId);
+  const cbr = new Map();
+  for (const e of j.thread) if (e.parentId) {
+    if (!cbr.has(e.parentId)) cbr.set(e.parentId, []);
+    cbr.get(e.parentId).push(e);
+  }
+  const incompleteRoot = roots.find(r => {
+    const kids = cbr.get(r.threadId) || [];
+    return !kids.some(c => c.status === '완료');
+  });
+  if (incompleteRoot) {
+    // 기존 root 에 완료 child 추가
+    j.thread.push({ threadId: _newThreadId(), parentId: incompleteRoot.threadId, ts, author, status: '완료', text: note || '처리 완료' });
+  } else {
+    // thread 없음 → 원본 요청으로 root + 완료 child 생성
+    const rootId = _newThreadId();
+    const reqText = j.asRequest || j.lineParsed || j.lineRequest || '작업 완료';
+    j.thread.push({ threadId: rootId, parentId: null, ts, author, status: '요청접수', text: reqText });
+    j.thread.push({ threadId: _newThreadId(), parentId: rootId, ts, author, status: '완료', text: note || '처리 완료' });
+  }
+  j.status = '처리완료';
+  j.completed = true;
+  j.completedAt = new Date().toISOString();
+  j.updatedAt = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  showToast('✅ AS 완료 처리 — ' + storeName);
   try { window.pushJobsToCloud(); } catch(_){}
   renderThread(_currentJobId);
 };

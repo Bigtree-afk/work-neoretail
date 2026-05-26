@@ -10,6 +10,7 @@
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  a,button,[onclick]{touch-action:manipulation;cursor:pointer}
   :root{
     --primary:#2563EB;
     --supplies:#F59E0B; --supplies-dark:#D97706;
@@ -281,8 +282,8 @@
         </a>
         <a class="item-card" href='#form?item=2%22%EB%8B%A8%EB%A7%90%EC%9A%A9%EC%A7%80&type=%EC%86%8C%EB%AA%A8%ED%92%88%2F%EB%8B%A8%EB%A7%90%EC%9A%A9%EC%A7%80'>
           <div class="em">📃</div>
-          <div class="nm">2"단말용지</div>
-          <div class="sub">감열지 57×50</div>
+          <div class="nm">이동단말기 용지</div>
+          <div class="sub">57×30</div>
         </a>
         <a class="item-card" href='#form?item=%EA%B0%80%EA%B2%A9%EB%9D%BC%EB%B2%A8&type=%EC%86%8C%EB%AA%A8%ED%92%88%2F%EA%B0%80%EA%B2%A9%EB%9D%BC%EB%B2%A8'>
           <div class="em">🏷️</div>
@@ -514,11 +515,24 @@
   </div>
 </section>
 
+<!-- 🔗 가맹점 연결 바텀시트 -->
+<div id="linkSheet" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45)" onclick="if(event.target===this)closeLinkSheet()">
+  <div style="position:absolute;bottom:0;left:0;right:0;background:#fff;border-radius:18px 18px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom));max-height:80vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;color:#1F2937;flex:1">🔗 등록된 가맹점에 연결</div>
+      <button onclick="closeLinkSheet()" style="background:none;border:none;font-size:20px;color:#9CA3AF;cursor:pointer;padding:0 4px">✕</button>
+    </div>
+    <input id="linkSheetSearch" class="field-input" type="text" placeholder="매장명 / 사업자번호 검색" autocomplete="off"
+      oninput="onLinkSheetSearch()" style="margin-bottom:8px">
+    <div id="linkSheetResults" style="overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch"></div>
+  </div>
+</div>
+
 <nav class="bottom-nav" id="bottomNav">
   <a class="item" href="/m/" data-nav="home"><span class="icn">🏠</span>홈</a>
-  <a class="item" href="/?desktop=1#schedulehub" data-nav="schedule"><span class="icn">📅</span>일정</a>
+  <a class="item" href="/m/schedule/" data-nav="schedule"><span class="icn">📅</span>일정</a>
   <a class="item" href="/m/#stores" data-nav="store"><span class="icn">🏪</span>매장</a>
-  <a class="item" href="/?desktop=1#settings" data-nav="settings"><span class="icn">⚙️</span>설정</a>
+  <a class="item" href="/m/settings/" data-nav="settings"><span class="icn">⚙️</span>설정</a>
 </nav>
 <script>
 /* 🧭 바닥 네비 active — URL hash 가 #stores 면 매장 탭, 그 외엔 home 강조 (정확한 강조보다 단순화 우선)
@@ -543,7 +557,7 @@
 ═══════════════════════════════════════════════════════════ */
 const SUPPLY_ITEMS = {
   '3"포스용지':   { emoji:'🧾', type:'소모품/POS용지',   unit:'박스' },
-  '2"단말용지':   { emoji:'📃', type:'소모품/단말용지',   unit:'롤'   },
+  '이동단말기 용지': { emoji:'📃', type:'소모품/단말용지',   unit:'롤'   },
   '가격라벨':     { emoji:'🏷️', type:'소모품/가격라벨',   unit:'롤'   },
   '프라이스텍':   { emoji:'🪪', type:'소모품/프라이스텍', unit:'롤'   },
   '저울라벨':     { emoji:'⚖️', type:'소모품/저울라벨',   unit:'박스' },
@@ -733,6 +747,14 @@ function renderEntry(){
     const remTxt = remaining > 0 ? ` · <span style="color:#DC2626;font-weight:800">미수 ${remaining.toLocaleString()}원</span>` : '';
     // 한 줄 요약: [날짜] [품목 · 처리구분] · 수량 · 금액 · 미수
     const summaryLine = `[${dateTxt || '-'}] ${esc(itemTxt)} · ${modeLabel(nm)}${qtyTxt ? ' · ' + esc(qtyTxt) : ''}${amtTxt}${remTxt}`;
+    // 🔗 미등록 가맹점 연결 버튼
+    const unregistered = !j.storeId || j.unregistered;
+    const linkRow = unregistered ? `
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid #FEE2E2">
+        <span style="background:#FEF3C7;color:#92400E;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700">미등록</span>
+        <button style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer"
+          onclick="event.stopPropagation();openLinkSheet('${esc(j.id)}')">🔗 가맹점 연결</button>
+      </div>` : '';
     return `
     <div class="card ${cls}" onclick="location.hash='#thread/${esc(j.id)}'">
       <div class="topline">
@@ -741,10 +763,106 @@ function renderEntry(){
         <span class="pill ${cls}">${esc(status)}</span>
       </div>
       <div class="summary">${summaryLine}</div>
+      ${linkRow}
     </div>
     `;
   }).join('');
 }
+
+/* ════════════════════════════════════════════════════════════
+   🔗 가맹점 연결 바텀시트
+═══════════════════════════════════════════════════════════ */
+let _linkSheetJobId = null;
+let _linkSheetTimer = null;
+
+window.openLinkSheet = function(jobId) {
+  _linkSheetJobId = jobId;
+  const sheet = document.getElementById('linkSheet');
+  const inp   = document.getElementById('linkSheetSearch');
+  const res   = document.getElementById('linkSheetResults');
+  if (!sheet) return;
+  inp.value = '';
+  res.innerHTML = '<div style="color:#9CA3AF;text-align:center;padding:20px;font-size:13px">매장명 또는 사업자번호를 입력하세요</div>';
+  sheet.style.display = 'block';
+  setTimeout(() => { try { inp.focus(); } catch(_){} }, 100);
+  // 매장 데이터 동기화 (없으면 즉시 pull)
+  const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+  if (stores.length === 0) {
+    res.innerHTML = '<div style="color:#9CA3AF;text-align:center;padding:20px;font-size:13px">⏳ 매장 데이터 로드 중...</div>';
+    try { window.syncStoresFromCloud && window.syncStoresFromCloud(); } catch(_){}
+  }
+};
+
+window.closeLinkSheet = function() {
+  const sheet = document.getElementById('linkSheet');
+  if (sheet) sheet.style.display = 'none';
+  _linkSheetJobId = null;
+};
+
+window.onLinkSheetSearch = function() {
+  clearTimeout(_linkSheetTimer);
+  _linkSheetTimer = setTimeout(_doLinkSearch, 180);
+};
+
+function _doLinkSearch() {
+  const q = (document.getElementById('linkSheetSearch').value || '').trim();
+  const res = document.getElementById('linkSheetResults');
+  if (!res) return;
+  if (q.length < 1) {
+    res.innerHTML = '<div style="color:#9CA3AF;text-align:center;padding:20px;font-size:13px">매장명 또는 사업자번호를 입력하세요</div>';
+    return;
+  }
+  const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+  const norm = window._normalizeSearch || (s => String(s||'').toLowerCase());
+  const qn = norm(q);
+  const qDigits = q.replace(/\D/g,'');
+  const hits = stores.filter(s => {
+    const nm = norm(s.name || s.storeName || '');
+    const al = (Array.isArray(s.aliases) ? s.aliases : []).map(norm).join(' ');
+    const bz = String(s.biz || s.bizNo || '').replace(/\D/g,'');
+    const cd = norm(s.code || '');
+    if (nm.includes(qn) || al.includes(qn) || cd.includes(qn)) return true;
+    if (qDigits.length >= 3 && bz.includes(qDigits)) return true;
+    return false;
+  }).slice(0, 8);
+  if (!hits.length) {
+    res.innerHTML = `<div style="color:#9CA3AF;text-align:center;padding:20px;font-size:13px">'${esc(q)}' 에 일치하는 매장 없음</div>`;
+    return;
+  }
+  res.innerHTML = hits.map(s => {
+    const biz = String(s.biz || s.bizNo || '');
+    const dataAttr = JSON.stringify({id:s.id||'', name:s.name||s.storeName||'', bizNo:biz, addr:s.addr||''}).replace(/'/g,'&#39;');
+    return `<div onclick='_confirmLinkStore(${dataAttr})'
+      style="padding:12px 14px;border-bottom:1px solid #F3F4F6;cursor:pointer;active:background:#F9FAFB">
+      <div style="font-size:14px;font-weight:700;color:#1F2937">${esc(s.name||s.storeName||'')}</div>
+      <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${esc(biz)}${s.code?' · '+esc(s.code):''}</div>
+    </div>`;
+  }).join('');
+}
+
+window._confirmLinkStore = function(s) {
+  const jobId = _linkSheetJobId;
+  if (!jobId) return;
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const ix = jobs.findIndex(x => x.id === jobId);
+  if (ix < 0) { showToast('⚠ 작업을 찾을 수 없음'); return; }
+  const j = jobs[ix];
+  j.originalStoreName = j.storeName || j.store || '';
+  j.storeId    = s.id || '';
+  j.storeName  = s.name || '';
+  j.store      = s.name || '';
+  if (s.addr) j.address = j.address || s.addr;
+  if (s.bizNo) j.bizNo = j.bizNo || s.bizNo;
+  j.unregistered = false;
+  j.linkedAt   = Date.now();
+  j.updatedAt  = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  closeLinkSheet();
+  showToast('✅ 가맹점 연결 완료 — ' + esc(s.name));
+  try { window.pushJobsToCloud && window.pushJobsToCloud(); } catch(_){}
+  renderEntry();
+};
 
 /* ════════════════════════════════════════════════════════════
    FORM
