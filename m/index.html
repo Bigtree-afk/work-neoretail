@@ -284,11 +284,12 @@ function runStoreSearch() {
   const qDigits = q.replace(/\D/g,'');
   const hits = stores.filter(s => {
     const nm = normSearch(s.name || s.storeName || '');
+    const signage = normSearch(s.signageName || '');
     const aliases = Array.isArray(s.aliases) ? s.aliases.map(normSearch).join(' ') : '';
     const tags    = Array.isArray(s.tags)    ? s.tags.map(normSearch).join(' ')    : '';
     const biz = String(s.biz || s.bizNo || s.bizno || '').replace(/\D/g,'');
     const code = normSearch(s.code || '');
-    if (nm.includes(qn) || aliases.includes(qn) || tags.includes(qn) || code.includes(qn)) return true;
+    if (nm.includes(qn) || signage.includes(qn) || aliases.includes(qn) || tags.includes(qn) || code.includes(qn)) return true;
     if (qDigits.length >= 3 && biz.includes(qDigits)) return true;
     return false;
   }).slice(0, 50);
@@ -299,16 +300,21 @@ function runStoreSearch() {
   }
   results.innerHTML = hits.map(s => {
     const nm = s.name || s.storeName || '(이름 없음)';
+    const sigName = s.signageName || '';
     const biz = s.biz || s.bizNo || s.bizno || '';
     const addr = s.addr || s.address || '';
     const meta = [biz, addr].filter(Boolean).join(' · ').slice(0, 80);
     const tags = Array.isArray(s.tags) && s.tags.length
       ? `<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:3px">${s.tags.map(t=>`<span style="background:#EFF6FF;color:#1D4ED8;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700">${esc(t)}</span>`).join('')}</div>`
       : '';
+    const sigLine = sigName
+      ? `<div style="font-size:11.5px;color:#1d4ed8;font-weight:700;margin-top:1px">🪧 ${esc(sigName)}</div>`
+      : '';
     return `<div class="store-row" onclick="openStoreDetail('${esc(s.id||'')}')">
       <div class="avatar">🏪</div>
       <div class="body">
         <div class="nm">${esc(nm)}</div>
+        ${sigLine}
         <div class="meta">${esc(meta || '주소·사업자번호 없음')}</div>
         ${tags}
       </div>
@@ -324,6 +330,7 @@ window.openStoreDetail = function(storeId) {
   if (!s) { alert('매장을 찾을 수 없습니다'); return; }
   document.getElementById('mStoreName').textContent = s.name || s.storeName || '-';
   const meta = [];
+  if (s.signageName) meta.push('🪧 ' + s.signageName);
   if (s.biz || s.bizNo) meta.push(s.biz || s.bizNo);
   if (s.code) meta.push('코드 ' + s.code);
   document.getElementById('mStoreSub').textContent = meta.join(' · ') || '-';

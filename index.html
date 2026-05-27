@@ -7264,10 +7264,13 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       results.innerHTML = '<div style="padding:14px;text-align:center;color:var(--gray-400);font-size:11px">매칭 매장 없음</div>';
       return;
     }
-    results.innerHTML = matched.map(s => `<div onmousedown="event.preventDefault();_stocktakePickStoreById('${(s.id||'').replace(/'/g,'')}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--gray-100);font-size:12px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">
-      <div style="font-weight:700">${(s.name||'').replace(/[<>&]/g,'')}</div>
-      <div style="font-size:10.5px;color:var(--gray-500)">${(s.biz||'-')} · ${(s.ceo||'-')} · ${(s.addr||'-').slice(0,40)}</div>
-    </div>`).join('');
+    results.innerHTML = matched.map(s => {
+      const sigName = (s.signageName||'').replace(/[<>&]/g,'');
+      return `<div onmousedown="event.preventDefault();_stocktakePickStoreById('${(s.id||'').replace(/'/g,'')}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--gray-100);font-size:12px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">
+        <div style="font-weight:700">${(s.name||'').replace(/[<>&]/g,'')}${sigName ? ` <span style="font-size:11px;color:#1d4ed8;font-weight:600">🪧 ${sigName}</span>` : ''}</div>
+        <div style="font-size:10.5px;color:var(--gray-500)">${(s.biz||'-')} · ${(s.ceo||'-')} · ${(s.addr||'-').slice(0,40)}</div>
+      </div>`;
+    }).join('');
     results.style.display = 'block';
   };
   function _stocktakePickStore(s) {
@@ -7801,18 +7804,14 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       const paidAmt = (typeof j.arPaidAmount === 'number') ? j.arPaidAmount : (isPaid ? amt : 0);
       const isShipped = !!j.shipDate || /발송|배송|shipped/i.test(String(j.note||j.notes||'')) || j.shipped;
 
-      // 품목 표시: 소모품 정규 type 이면 "품목명 수량단위 (j.type)" 형태로 상세 표시
-      //   예: type='소모품/POS용지', supplyQty=1, supplyUnit='개', notes='택배' → 'POS용지 1개 · 택배'
+      // 품목 표시: 소모품 정규 type 이면 "규격 품목명 수량단위 처리구분" 상세 표시
+      //   예: type='소모품/POS용지', supplyQty=2, supplyUnit='박스', mode='support'
+      //       → '3" POS용지 2박스 🎁 지원'
       let itemDisp = j.title || j.type || '-';
       try {
         if (typeof window._supplyItemSummary === 'function') {
-          const sum = window._supplyItemSummary(j);
-          if (sum) {
-            // j.notes / j.title 의 자유 텍스트(예: '택배', '직접 전달') 가 있으면 함께 표시
-            const extra = (j.notes || j.title || '').toString().trim();
-            const extraOk = extra && !extra.startsWith('소모품/');
-            itemDisp = extraOk ? `${sum} · ${extra}` : sum;
-          }
+          const sum = window._supplyItemSummary(j, { withSpec: true, withMode: true });
+          if (sum) itemDisp = sum;
         }
       } catch(_){}
       const row = { store: j.storeName||j.store||'-', item: itemDisp, date, amount: amt, jobId: j.id, mode, isPaid, paidAmt };
@@ -9381,21 +9380,23 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 
       // 컬럼 인덱스 매핑
       const findCol = (patterns) => header.findIndex(h => patterns.some(p => h.includes(p)));
-      const idxCode  = findCol(['거래처코드', '코드']);
-      const idxName  = findCol(['거래처명', '점포명', '상호']);
-      const idxOwner = findCol(['대표자', '대표']);
-      const idxBizno = findCol(['사업자번호', '사업자등록', '사업자']);
-      const idxAddr  = findCol(['주소', '소재지']);
-      const idxPhone = findCol(['전화', '연락처', '휴대']);
+      const idxCode    = findCol(['거래처코드', '코드']);
+      const idxName    = findCol(['거래처명', '점포명', '상호']);
+      const idxSignage = findCol(['매장간판명', '간판명', '간판', '표시명']);
+      const idxOwner   = findCol(['대표자', '대표']);
+      const idxBizno   = findCol(['사업자번호', '사업자등록', '사업자']);
+      const idxAddr    = findCol(['주소', '소재지']);
+      const idxPhone   = findCol(['전화', '연락처', '휴대']);
 
       // 파싱된 점포 객체 목록
       const parsedStores = dataRows.map(r => ({
-        code:    idxCode  >= 0 ? String(r[idxCode]  || '').trim() : '',
-        name:    idxName  >= 0 ? String(r[idxName]  || '').trim() : '',
-        owner:   idxOwner >= 0 ? String(r[idxOwner] || '').trim() : '',
-        bizno:   idxBizno >= 0 ? String(r[idxBizno] || '').trim() : '',
-        address: idxAddr  >= 0 ? String(r[idxAddr]  || '').trim() : '',
-        phone:   idxPhone >= 0 ? String(r[idxPhone] || '').trim() : '',
+        code:        idxCode    >= 0 ? String(r[idxCode]    || '').trim() : '',
+        name:        idxName    >= 0 ? String(r[idxName]    || '').trim() : '',
+        signageName: idxSignage >= 0 ? String(r[idxSignage] || '').trim() : '',
+        owner:       idxOwner   >= 0 ? String(r[idxOwner]   || '').trim() : '',
+        bizno:       idxBizno   >= 0 ? String(r[idxBizno]   || '').trim() : '',
+        address:     idxAddr    >= 0 ? String(r[idxAddr]    || '').trim() : '',
+        phone:       idxPhone   >= 0 ? String(r[idxPhone]   || '').trim() : '',
       })).filter(s => s.name || s.code);
 
       const safeRows = parsedStores.length;
@@ -9534,6 +9535,7 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
         id: s.code ? ('EC-' + s.code) : ('EC-' + Date.now().toString().slice(-5) + i),
         code: s.code || '',
         name: s.name || '',
+        signageName: s.signageName || '',  // 🪧 매장간판명 (이카운트 C열) — 검색·표시·매칭 보조키
         ceo:  s.owner || '',
         tel:  s.phone || '',
         biz:  bizFmt,
@@ -14743,19 +14745,20 @@ ${text.slice(0, 4000)}`;
      예: { type:'소모품/POS용지', supplyQty:1, supplyUnit:'개' } → 'POS용지 1개'
      LINE 발송 본문 / 발송 이력 표시에 공통 사용
   ════════════════════════════════════════════════════════════ */
-  window._supplyItemSummary = function(job) {
+  window._supplyItemSummary = function(job, opts) {
     if (!job) return '';
+    opts = opts || {};
+    // 규격(spec) 포함된 품목 매핑 — hub sub-card 와 동일
     const SUPPLY_DISPLAY = {
-      '소모품/POS용지':   { name: 'POS용지' },
-      '소모품/단말용지':  { name: '이동단말기 용지' },
-      '소모품/가격라벨':  { name: '가격라벨' },
-      '소모품/프라이스텍':{ name: '프라이스텍' },
-      '소모품/저울라벨':  { name: '저울라벨' },
-      '소모품/기타':      { name: '기타' },
+      '소모품/POS용지':   { name: 'POS용지',         spec: '3"'    },
+      '소모품/단말용지':  { name: '이동단말기 용지', spec: '57×30' },
+      '소모품/가격라벨':  { name: '가격라벨',        spec: '40×23' },
+      '소모품/프라이스텍':{ name: '프라이스텍',      spec: '70×35' },
+      '소모품/저울라벨':  { name: '저울라벨',        spec: '58×40' },
+      '소모품/기타':      { name: '기타',            spec: ''      },
     };
     const typeKey = String(job.type||'');
     const disp = SUPPLY_DISPLAY[typeKey];
-    // 소모품 정규 type 이 아니면 (예: '택배', '라벨지' 같은 자유 type) — 품목 정보 없음
     if (!disp) return '';
     // ✏️ '소모품/기타' 는 사용자가 입력한 supplyEtcName 우선
     let itemName = disp.name;
@@ -14770,8 +14773,18 @@ ${text.slice(0, 4000)}`;
       const m = String(job.supplyQty||'').match(/(\d+(?:\.\d+)?)\s*(\S*)/);
       if (m) { qty = parseFloat(m[1])||0; if (!unit && m[2]) unit = m[2]; }
     }
-    const qtyTxt = (qty > 0) ? ` ${qty}${unit||'개'}` : '';
-    return `${itemName}${qtyTxt}`;
+    const qtyTxt = (qty > 0) ? `${qty}${unit||'개'}` : '';
+    // 🔧 규격 prefix — opts.withSpec=true 면 '3" POS용지' 형태로
+    const headPart = (opts.withSpec && disp.spec) ? `${disp.spec} ${itemName}` : itemName;
+    const namePart = qtyTxt ? `${headPart} ${qtyTxt}` : headPart;
+    // 🔧 처리구분 emoji — opts.withMode=true 면 '🎁 지원' / '💰 선불' / '📌 후불' 부착
+    if (opts.withMode) {
+      const mode = job.supplyMode || ((Number(job.amount)||0) > 0 ? 'prepaid' : 'support');
+      const modeMap = { support:'🎁 지원', prepaid:'💰 선불', postpaid:'📌 후불' };
+      const modeTxt = modeMap[mode] || '';
+      return modeTxt ? `${namePart} ${modeTxt}` : namePart;
+    }
+    return namePart;
   };
 
   /* ════════════════════════════════════════════════════════════
@@ -14835,21 +14848,6 @@ ${text.slice(0, 4000)}`;
     if (!headContent) headContent = _bSlice(job.memo || job.notes || job.type || '업무 등록');
 
     // 🏷️ 소모품 — headContent 에 품목명·수량·단위 자동 prefix
-    //   예: type='소모품/POS용지', supplyQty=1, supplyUnit='개', notes='택배'
-    //   → 'POS용지 1개  택배'
-    if (category === 'supply' && typeof window._supplyItemSummary === 'function') {
-      const summary = window._supplyItemSummary(job);
-      if (summary) {
-        // 기존 headContent 가 단순히 type 만 들어있는 경우 (예: '택배') prefix 만 붙임
-        // 사용자가 직접 작성한 메모(예: 'POS용지 2박스 직접 전달') 가 이미 품목명을 포함하면 중복 방지
-        const hcLower = String(headContent||'').toLowerCase();
-        const sumLower = summary.toLowerCase();
-        if (!hcLower.includes(sumLower.split(' ')[0].toLowerCase())) {
-          headContent = _bSlice(`${summary}  ${headContent||''}`.trim());
-        }
-      }
-    }
-
     // rec 객체로 정규화 (job 필드를 _buildEnrichedLineText 가 읽는 키 이름으로 매핑)
     const rec = Object.assign({}, job, {
       storeName: job.storeName || job.store || '',
@@ -14862,9 +14860,24 @@ ${text.slice(0, 4000)}`;
       memo: headContent,
     });
 
-    const defaultText = (typeof window._buildEnrichedLineText === 'function')
-      ? window._buildEnrichedLineText(rec, { scheduleLabel: scheduleLabelMap[category] || '📅 예정', headContent })
-      : `${rec.storeName} : ${(new Date()).toISOString().slice(0,10)} ; ${headContent}`;
+    // 🏷️ 소모품 전용 LINE 메시지 형식 — 매장명 [YYYY-MM-DD] [규격 품목명 수량단위 처리구분] 담당 이름
+    //   예: 도담마트 [2026-05-27] [3" POS용지 2박스 🎁 지원] 담당 이동호
+    //   hub sub-card 와 동일한 표기 규칙(spec + name + qty + mode emoji)을 LINE 본문에도 적용
+    let defaultText;
+    if (category === 'supply' && typeof window._supplyItemSummary === 'function') {
+      const sigName = job.signageName ? `${rec.storeName} ${job.signageName}` : rec.storeName;
+      const shipDate = job.shipDate || job.date
+                    || (job.createdAt ? new Date(job.createdAt).toISOString().slice(0,10) : '')
+                    || (new Date()).toISOString().slice(0,10);
+      const fullItem = window._supplyItemSummary(job, { withSpec: true, withMode: true });
+      const ownerName = rec.owner;
+      const ownerPart = ownerName ? ` 담당 ${ownerName}` : '';
+      defaultText = `${sigName} [${shipDate}] [${fullItem}]${ownerPart}`;
+    } else {
+      defaultText = (typeof window._buildEnrichedLineText === 'function')
+        ? window._buildEnrichedLineText(rec, { scheduleLabel: scheduleLabelMap[category] || '📅 예정', headContent })
+        : `${rec.storeName} : ${(new Date()).toISOString().slice(0,10)} ; ${headContent}`;
+    }
 
     if (typeof window._openLineSendComposer !== 'function') {
       if (typeof showToast === 'function') showToast('⚠ LINE 컴포저가 로드되지 않았습니다');
@@ -16377,6 +16390,7 @@ ${text.slice(0, 4000)}`;
     }
     panel.innerHTML = matches.map(s => {
       const name = esc(s.name || '-');
+      const signage = esc(s.signageName || '');
       const biz  = esc(s.biz || s.bizno || '');
       const ceo  = esc(s.ceo || s.owner || '');
       const tel  = esc(s.tel || s.phone || '');
@@ -16385,7 +16399,7 @@ ${text.slice(0, 4000)}`;
       const args = `${JSON.stringify(name).replace(/"/g,'&quot;')}, ${JSON.stringify(addr).replace(/"/g,'&quot;')}, ${JSON.stringify(biz).replace(/"/g,'&quot;')}, ${JSON.stringify(ceo).replace(/"/g,'&quot;')}`;
       return `<div onclick="pickJobStore(${args})" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--gray-100)" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
-          <div style="font-size:13px;font-weight:700;color:var(--gray-800)">${name}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--gray-800)">${name}${signage ? ` <span style="font-size:11.5px;color:#1d4ed8;font-weight:600">🪧 ${signage}</span>` : ''}</div>
           ${biz ? `<code style="font-size:11px;color:var(--gray-600);background:#F3F4F6;padding:1px 6px;border-radius:3px;font-family:monospace">${biz}</code>` : ''}
         </div>
         ${(ceo || tel) ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">${[ceo, tel].filter(Boolean).join(' · ')}</div>` : ''}
@@ -17027,12 +17041,16 @@ ${text.slice(0, 4000)}`;
     const aliasBadge = aliases.length
       ? `<div style="font-size:10px;color:var(--gray-500);margin-top:2px" title="이전 상호: ${esc(aliases.join(', '))}">↳ (구) ${esc(aliases[0])}${aliases.length>1?` 외 ${aliases.length-1}건`:''}</div>`
       : '';
+    // 🪧 매장간판명 — 상호 옆에 파란색 강조 표시 (혼선 방지)
+    const sigBadge = store.signageName
+      ? `<div style="font-size:11px;color:#1d4ed8;font-weight:600;margin-top:2px">🪧 ${esc(store.signageName)}</div>`
+      : '';
     // 매장 등록일 표시: 명시적 storeRegDate / ecountRegDate 만 표시
     // (createdAt 은 시스템 업로드 시각이라 실제 등록일 아님 → fallback 안 함)
     const regDateDisplay = store.storeRegDate || store.ecountRegDate || '';
     tr.innerHTML = `
       <td style="font-family:monospace;font-size:11px;color:${regDateDisplay?'var(--gray-700)':'var(--gray-300)'};white-space:nowrap" title="${regDateDisplay?'':'매장 등록일 미설정 — 이카운트 일괄 추가 또는 매장 상세에서 입력 가능'}">${esc(regDateDisplay || '—')}</td>
-      <td><b>${esc(store.name)}</b>${aliasBadge}</td>
+      <td><b>${esc(store.name)}</b>${sigBadge}${aliasBadge}</td>
       <td style="font-family:monospace;font-size:11px">${esc(store.biz||'-')}</td>
       <td>${esc(store.ceo||'-')}</td>
       <td style="font-size:11px;color:var(--gray-500)">${esc(store.tel||'-')}</td>
@@ -19747,10 +19765,13 @@ ${text.slice(0, 4000)}`;
       results.innerHTML = '<div style="padding:14px;text-align:center;color:var(--gray-400);font-size:11px">매칭 매장 없음</div>';
       return;
     }
-    results.innerHTML = matched.map(s => `<div onmousedown="event.preventDefault();_vanPickStore('${(s.id||'').replace(/'/g,'')}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--gray-100);font-size:12px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">
-      <div style="font-weight:700">${(s.name||'').replace(/[<>&]/g,'')}</div>
-      <div style="font-size:10.5px;color:var(--gray-500)">${(s.biz||'-')} · ${(s.ceo||'-')} · ${(s.addr||'-').slice(0,40)}</div>
-    </div>`).join('');
+    results.innerHTML = matched.map(s => {
+      const sigName = (s.signageName||'').replace(/[<>&]/g,'');
+      return `<div onmousedown="event.preventDefault();_vanPickStore('${(s.id||'').replace(/'/g,'')}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--gray-100);font-size:12px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">
+        <div style="font-weight:700">${(s.name||'').replace(/[<>&]/g,'')}${sigName ? ` <span style="font-size:11px;color:#1d4ed8;font-weight:600">🪧 ${sigName}</span>` : ''}</div>
+        <div style="font-size:10.5px;color:var(--gray-500)">${(s.biz||'-')} · ${(s.ceo||'-')} · ${(s.addr||'-').slice(0,40)}</div>
+      </div>`;
+    }).join('');
     results.style.display = 'block';
   };
 
@@ -22876,8 +22897,9 @@ ${text.slice(0, 4000)}`;
     panel.innerHTML = matches.slice(0, 100).map((s) => {
       const tagBiz = s.biz || s.bizno ? `<span style="font-family:monospace;font-size:11px;color:var(--gray-500);margin-left:6px">${esc(s.biz || s.bizno)}</span>` : '';
       const sidAttr = String(s.id || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      const sigName = s.signageName ? esc(s.signageName) : '';
       return `<div data-sid="${sidAttr}" onclick="confirmLinkStore(this.getAttribute('data-sid'))" style="padding:10px 14px;border-bottom:1px solid var(--gray-100);cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
-        <div style="font-size:13px;font-weight:700;color:var(--gray-800)">${esc(s.name||'-')}${tagBiz}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--gray-800)">${esc(s.name||'-')}${sigName ? ` <span style="font-size:11.5px;color:#1d4ed8;font-weight:600">🪧 ${sigName}</span>` : ''}${tagBiz}</div>
         <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
           ${s.ceo||s.owner ? `대표 ${esc(s.ceo || s.owner)}` : ''}
           ${s.tel ? ` · ${esc(s.tel)}` : ''}
@@ -23064,6 +23086,7 @@ ${text.slice(0, 4000)}`;
       };
       basicInfoEl.innerHTML = [
         erow('매장명', 'name', displayName),
+        erow('🪧 매장간판명', 'signageName', store?.signageName || ''),
         erow('대표자', 'ceo', displayCeo),
         erow('대표자 연락처', 'ceoTel', displayCeoTel, { tel:true }),
         erow('매장 연락처', 'tel', displayTel, { tel:true }),
@@ -24807,10 +24830,10 @@ ${text.slice(0, 4000)}`;
     if (!s) return [];
     if (scope === 'ceo')      return [s.ceo, s.owner];
     if (scope === 'addr')     return [s.addr, s.address];
-    // 기본 'name_biz' — 상호 + 별칭 + 사업자번호 + 거래처코드 + 태그
+    // 기본 'name_biz' — 상호 + 간판명 + 별칭 + 사업자번호 + 거래처코드 + 태그
     const aliasNames = Array.isArray(s.aliases) ? s.aliases : [];
     const tagNames   = Array.isArray(s.tags)    ? s.tags    : [];
-    return [s.name, ...aliasNames, s.biz, s.bizno, s.code, ...tagNames];
+    return [s.name, s.signageName, ...aliasNames, s.biz, s.bizno, s.code, ...tagNames];
   }
   /* 입력값 normalize + scope 적용해서 매칭 */
   function _matchStore(store, qNorm, scope) {
