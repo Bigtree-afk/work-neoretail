@@ -1400,12 +1400,23 @@ window.onSaveForm = async function(){
   }
   try { window.pushJobsToCloud(); } catch(_){}
 
-  // 등록 직후엔 LINE 발송 호출 X — thread 화면에서 '요청접수' 카드 저장 시점에 발송하도록 위임
-  // (fLineSend 체크 상태는 thread 첫 entry 의 lineSend 칸 기본값으로 전달)
-  if ($('fLineSend').checked) {
-    try { window._pendingLineSendForJob = savedJob.id; } catch(_){}
-  }
+  // 📡 등록 직후 LINE 발송 — '추가 후 LINE 발송' 체크 시 즉시 LINE composer 오픈
+  //   요청접수 ROOT 텍스트가 메시지 본문으로 세팅됨 (사용자가 편집·발송 가능)
+  const wantLine = $('fLineSend') && $('fLineSend').checked;
+  // 먼저 thread 화면으로 이동 — composer 모달이 그 위에 뜨도록
   location.hash = '#thread/' + savedJob.id;
+  if (wantLine) {
+    // 다음 렌더 사이클에 composer 호출 (location.hash 변경 후 view 전환 끝난 뒤)
+    setTimeout(() => {
+      try {
+        // 머지 모드(기존 AS 에 ROOT 추가)도 커버 — 가장 최근 ts 의 ROOT(요청접수) 선택
+        const recentRoot = (Array.isArray(savedJob.thread) ? savedJob.thread : [])
+          .filter(e => e && e.parentId === null)
+          .sort((a,b) => String(b.ts||'').localeCompare(String(a.ts||'')))[0];
+        window._openLineForJob(savedJob, recentRoot ? { entry: recentRoot } : {});
+      } catch(e) { console.warn('[fLineSend] _openLineForJob 실패', e); }
+    }, 120);
+  }
 };
 
 window.onDeleteJob = function(){
