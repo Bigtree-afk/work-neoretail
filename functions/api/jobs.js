@@ -10,15 +10,41 @@
  */
 export async function onRequestGet({ env }) {
   if (!env.STORES_KV) return json({ jobs: [], error: 'KV not bound' }, 200);
-  const data = (await env.STORES_KV.get('jobs', 'json')) || { jobs: [] };
+  // 🛡 KV.get('...', 'json') 은 손상된 JSON (예: BOM 포함) 만나면 unhandled throw →
+  //   handler 가 500 / Cloudflare 1101 에러 반환. wrangler kv put 으로 직접 데이터를
+  //   넣는 경우 PowerShell WriteAllText 가 BOM 을 붙여서 깨질 위험 → try/catch 로 격리.
+  const safeGetJson = async (key, fallback) => {
+    try {
+      const v = await env.STORES_KV.get(key, 'json');
+      return v == null ? fallback : v;
+    } catch (e) {
+      console.warn(`[jobs GET] KV.get('${key}', 'json') 실패:`, e?.message || e);
+      // text 로 재시도 — BOM 제거 후 parse 가능하면 사용
+      try {
+        const raw = await env.STORES_KV.get(key);
+        if (!raw) return fallback;
+        const cleaned = raw.replace(/^﻿/, '').trim();
+        return cleaned ? JSON.parse(cleaned) : fallback;
+      } catch (_) {
+        return fallback;
+      }
+    }
+  };
+  const data = await safeGetJson('jobs', { jobs: [] });
   // 🪦 deleted_jobs 레지스트리 포함 — 클라이언트가 자기 localStorage 정리에 사용
   //    형식: [{ id, deletedAt, reason }]
-  const deleted = (await env.STORES_KV.get('deleted_jobs', 'json')) || [];
+  const deleted = await safeGetJson('deleted_jobs', []);
+  // 🪦 deleted_threads — thread 단위 부활 차단 레지스트리 (보강 B, 2026-05-28)
+  //    형식: [{ threadId, jobId, deletedAt, reason }]
+  //    한 PC 에서 ROOT/child 를 삭제하면 다른 PC 도 자동 차단됨 (admin token 무관)
+  const deletedThreads = await safeGetJson('deleted_threads', []);
+  // 🪦 deleted_thread_children — ROOT 삭제 시 자식까지 차단 (parentId 매칭)
+  const deletedThreadChildren = await safeGetJson('deleted_thread_children', []);
   // 🔁 resync_token — 데이터 대규모 변경 시 모든 클라이언트 force-resync 트리거
   const resyncToken = (await env.STORES_KV.get('resync_token')) || '';
   const out = (data && typeof data === 'object' && !Array.isArray(data))
-    ? { ...data, deleted, resyncToken }
-    : { jobs: Array.isArray(data) ? data : [], deleted, resyncToken };
+    ? { ...data, deleted, deletedThreads, deletedThreadChildren, resyncToken }
+    : { jobs: Array.isArray(data) ? data : [], deleted, deletedThreads, deletedThreadChildren, resyncToken };
   return json(out, 200);
 }
 
@@ -45,6 +71,71 @@ export async function onRequestPost({ request, env }) {
       }
     } catch (_) {}
 
+    // 🪦 deleted_threads / deleted_thread_children 레지스트리 (보강 B, 2026-05-28)
+    //   — incoming body.threadTombstones 를 받아 union 한 뒤 다시 KV 저장
+    //   — 그 다음 incoming jobs 의 thread 에서 매칭 entry 제거 (cloud merge 시에도 적용)
+    let deletedThreadIds = new Set();
+    let deletedThreadChildrenIds = new Set();
+    let threadRegList = [];
+    let childRegList = [];
+    try {
+      const reg = (await env.STORES_KV.get('deleted_threads', 'json')) || [];
+      if (Array.isArray(reg)) {
+        threadRegList = reg.filter(e => e && e.threadId);
+        for (const e of threadRegList) deletedThreadIds.add(String(e.threadId));
+      }
+    } catch (_) {}
+    try {
+      const reg = (await env.STORES_KV.get('deleted_thread_children', 'json')) || [];
+      if (Array.isArray(reg)) {
+        childRegList = reg.filter(e => e && e.threadId);
+        for (const e of childRegList) deletedThreadChildrenIds.add(String(e.threadId));
+      }
+    } catch (_) {}
+    // incoming threadTombstones 머지 — 두 type 으로 입력 가능: { type:'thread'|'thread-children', threadId, jobId, deletedAt, reason }
+    const incomingTombs = Array.isArray(body?.threadTombstones) ? body.threadTombstones : [];
+    let newThreadTombs = 0, newChildTombs = 0;
+    for (const t of incomingTombs) {
+      if (!t || !t.threadId) continue;
+      const tid = String(t.threadId);
+      const entry = {
+        threadId: tid,
+        jobId: t.jobId || null,
+        deletedAt: t.deletedAt || new Date().toISOString(),
+        reason: t.reason || 'client-tombstone'
+      };
+      if (t.type === 'thread-children') {
+        if (!deletedThreadChildrenIds.has(tid)) {
+          deletedThreadChildrenIds.add(tid);
+          childRegList.push(entry);
+          newChildTombs++;
+        }
+      } else {
+        if (!deletedThreadIds.has(tid)) {
+          deletedThreadIds.add(tid);
+          threadRegList.push(entry);
+          newThreadTombs++;
+        }
+      }
+    }
+    // 신규 tombstone 이 있을 때만 KV 갱신
+    if (newThreadTombs > 0) {
+      try { await env.STORES_KV.put('deleted_threads', JSON.stringify(threadRegList)); } catch (_) {}
+    }
+    if (newChildTombs > 0) {
+      try { await env.STORES_KV.put('deleted_thread_children', JSON.stringify(childRegList)); } catch (_) {}
+    }
+    // 🛡 thread filter — incoming/cloud 양쪽 thread 에서 tombstoned entry 제거
+    const filterThread = (thread) => {
+      if (!Array.isArray(thread)) return thread;
+      return thread.filter(e => {
+        if (!e) return false;
+        if (e.threadId && deletedThreadIds.has(String(e.threadId))) return false;
+        if (e.parentId && deletedThreadChildrenIds.has(String(e.parentId))) return false;
+        return true;
+      });
+    };
+
     const cleaned = jobs.filter(j => {
       if (!j || typeof j !== 'object' || !j.id) return false;
       if (deletedIds.has(String(j.id))) return false;  // 부활 차단
@@ -67,27 +158,31 @@ export async function onRequestPost({ request, env }) {
     const byId = new Map();
     for (const j of existingArr) {
       if (j && j.id && !deletedIds.has(String(j.id))) {
-        byId.set(String(j.id), j);
+        // 🪦 cloud 의 기존 job thread 도 deleted_threads 필터 적용 (cleanup 효과)
+        const clone = { ...j, thread: filterThread(j.thread) };
+        byId.set(String(j.id), clone);
       }
     }
     let kept = 0, replaced = 0, added = 0;
     const mtime = (j) => String(j?.updatedAt || j?.lastEditedAt || j?.createdAt || '');
     for (const inc of cleaned) {
       const id = String(inc.id);
+      // 🪦 incoming 의 thread 도 필터 (사용자가 모르고 stale push 한 thread 차단)
+      const incFiltered = { ...inc, thread: filterThread(inc.thread) };
       const ex = byId.get(id);
       if (!ex) {
-        byId.set(id, inc);
+        byId.set(id, incFiltered);
         added++;
         continue;
       }
       const exMt = mtime(ex);
-      const inMt = mtime(inc);
+      const inMt = mtime(incFiltered);
       if (!exMt || inMt > exMt) {
-        byId.set(id, inc);
+        byId.set(id, incFiltered);
         replaced++;
-      } else if (inMt === exMt && JSON.stringify(ex) !== JSON.stringify(inc)) {
+      } else if (inMt === exMt && JSON.stringify(ex) !== JSON.stringify(incFiltered)) {
         // 동일 mtime 인데 내용 다름 — incoming 채택 (last-writer-wins 보조 규칙)
-        byId.set(id, inc);
+        byId.set(id, incFiltered);
         replaced++;
       } else {
         kept++;
@@ -102,7 +197,9 @@ export async function onRequestPost({ request, env }) {
     } catch (e) {
       return json({ error: 'kv_put_failed', detail: String(e), stack: e?.stack || '', size: serialized.length }, 500);
     }
-    return json({ ok: true, count: merged.length, added, replaced, kept, rejectedDeleted: rejected }, 200);
+    return json({ ok: true, count: merged.length, added, replaced, kept,
+                   rejectedDeleted: rejected,
+                   newThreadTombs, newChildTombs }, 200);
   } catch (e) {
     return json({ error: 'handler_exception', detail: String(e), stack: e?.stack || '' }, 500);
   }
