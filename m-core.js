@@ -1182,6 +1182,49 @@
   }
 
   // ── job 객체로 LINE composer 열기 — index.html L13783 ────────
+  /* ───────────────────────────────────────────────────────────
+   * _supplyItemSummary — 소모품 job 의 품목 표시 문자열 생성
+   *   opts.withSpec : '3" POS용지' 처럼 규격 prefix
+   *   opts.withMode : '🎁 지원' / '💰 선불' / '📌 후불' 처리구분 emoji 부착
+   * ───────────────────────────────────────────────────────── */
+  function _supplyItemSummary(job, opts) {
+    if (!job) return '';
+    opts = opts || {};
+    const SUPPLY_DISPLAY = {
+      '소모품/POS용지':   { name: 'POS용지',         spec: '3"'    },
+      '소모품/단말용지':  { name: '이동단말기 용지', spec: '57×30' },
+      '소모품/가격라벨':  { name: '가격라벨',        spec: '40×23' },
+      '소모품/프라이스텍':{ name: '프라이스텍',      spec: '70×35' },
+      '소모품/저울라벨':  { name: '저울라벨',        spec: '58×40' },
+      '소모품/기타':      { name: '기타',            spec: ''      },
+    };
+    const typeKey = String(job.type||'');
+    const disp = SUPPLY_DISPLAY[typeKey];
+    if (!disp) return '';
+    let itemName = disp.name;
+    if (typeKey === '소모품/기타') {
+      const etc = String(job.supplyEtcName||'').trim();
+      if (etc) itemName = etc;
+    }
+    let qty = Number(job.supplyQty);
+    let unit = job.supplyUnit || '';
+    if (!Number.isFinite(qty) || qty === 0) {
+      const m = String(job.supplyQty||'').match(/(\d+(?:\.\d+)?)\s*(\S*)/);
+      if (m) { qty = parseFloat(m[1])||0; if (!unit && m[2]) unit = m[2]; }
+    }
+    const qtyTxt = (qty > 0) ? `${qty}${unit||'개'}` : '';
+    const headPart = (opts.withSpec && disp.spec) ? `${disp.spec} ${itemName}` : itemName;
+    const namePart = qtyTxt ? `${headPart} ${qtyTxt}` : headPart;
+    if (opts.withMode) {
+      const mode = job.supplyMode || ((Number(job.amount)||0) > 0 ? 'prepaid' : 'support');
+      const modeMap = { support:'🎁 지원', prepaid:'💰 선불', postpaid:'📌 후불' };
+      const modeTxt = modeMap[mode] || '';
+      return modeTxt ? `${namePart} ${modeTxt}` : namePart;
+    }
+    return namePart;
+  }
+  global._supplyItemSummary = _supplyItemSummary;
+
   function _openLineForJob(job, opts) {
     if (!job) return;
     opts = opts || {};
@@ -1221,6 +1264,12 @@
     }
     if (!headContent) headContent = _bSlice(job.memo || job.notes || job.type || '업무 등록');
 
+    // 담당자 우선순위 — owner→engineer→assignee→createdBy→_whoCreated
+    //   모바일 m/supplies 는 owner 등을 저장 안 하므로 createdBy fallback 이 핵심
+    let ownerRaw = job.owner || job.engineer || job.assignee || job.createdBy || job._whoCreated || '';
+    if (ownerRaw && typeof _normalizeDisplayName === 'function') {
+      try { ownerRaw = _normalizeDisplayName(ownerRaw) || ownerRaw; } catch(_){}
+    }
     const rec = Object.assign({}, job, {
       storeName: job.storeName || job.store || '',
       status:    (entry && entry.status) || job.status || (job.completed ? '완료' : '진행중'),
@@ -1228,10 +1277,22 @@
       contactName: job.contactName || '',
       contactPhone: job.contactPhone || '',
       contactRole: job.contactRole || '',
-      owner: job.owner || job.engineer || job.assignee || '',
+      owner: ownerRaw,
       memo: headContent,
     });
-    let defaultText = _buildEnrichedLineText(rec, { scheduleLabel: scheduleLabelMap[category] || '📅 예정', headContent });
+    // 🏷️ 소모품 카테고리 — PC 와 동일한 매장명 [날짜] [규격 품목명 수량단위 처리구분] 담당 이름 형식
+    let defaultText;
+    if (category === 'supply' && typeof window._supplyItemSummary === 'function') {
+      const sigName = job.signageName ? `${rec.storeName} ${job.signageName}` : rec.storeName;
+      const shipDate = job.shipDate || job.date
+                    || (job.createdAt ? new Date(job.createdAt).toISOString().slice(0,10) : '')
+                    || (new Date()).toISOString().slice(0,10);
+      const fullItem = window._supplyItemSummary(job, { withSpec: true, withMode: true });
+      const ownerPart = rec.owner ? ` 담당 ${rec.owner}` : '';
+      defaultText = `${sigName} [${shipDate}] [${fullItem}]${ownerPart}`;
+    } else {
+      defaultText = _buildEnrichedLineText(rec, { scheduleLabel: scheduleLabelMap[category] || '📅 예정', headContent });
+    }
     // opts.extraPrefix — 호출 측에서 메시지 본문 앞에 붙이고 싶은 텍스트 (예: 요청접수 내용 + 설치 장비 목록)
     if (opts.extraPrefix && typeof opts.extraPrefix === 'string') {
       defaultText = opts.extraPrefix.trim() + '\n\n' + defaultText;

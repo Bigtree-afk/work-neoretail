@@ -1289,7 +1289,9 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
       <span class="w-date" id="navClockDate">로딩…</span>
       <span class="w-time" id="navClockTime">--:--</span>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="showModal('newJobModal')" style="background:#FF2D1F; box-shadow:3px 3px 0 #1A1614; border-radius:7px; border:none;">+ 새 작업</button>
+    <!-- 🚫 [제거됨] 상단 '+ 새 작업' 버튼 — 카테고리 무관 newJobModal 직진입이라
+         업무 성격별 필드 매핑이 안 맞아 혼선 발생. 카테고리별 hub 의
+         '+ 신규/AS/VAN/소모품 업무 등록' 버튼을 사용하도록 일원화. -->
     <div class="topnav-divider"></div>
     <!-- 비로그인 상태 -->
     <div id="navLoginBtn" style="display:none">
@@ -14870,7 +14872,14 @@ ${text.slice(0, 4000)}`;
                     || (job.createdAt ? new Date(job.createdAt).toISOString().slice(0,10) : '')
                     || (new Date()).toISOString().slice(0,10);
       const fullItem = window._supplyItemSummary(job, { withSpec: true, withMode: true });
-      const ownerName = rec.owner;
+      // 담당자 우선순위: owner → engineer → assignee → createdBy → _whoCreated
+      //   모바일 m/supplies 는 owner/engineer/assignee 를 저장 안 하므로 createdBy 가 핵심 fallback
+      let ownerName = rec.owner || job.engineer || job.assignee
+                    || job.createdBy || job._whoCreated || '';
+      // 닉네임 → 본명 정규화 (m-core / index.html 의 _normalizeDisplayName)
+      if (ownerName && typeof window._normalizeDisplayName === 'function') {
+        try { ownerName = window._normalizeDisplayName(ownerName) || ownerName; } catch(_){}
+      }
       const ownerPart = ownerName ? ` 담당 ${ownerName}` : '';
       defaultText = `${sigName} [${shipDate}] [${fullItem}]${ownerPart}`;
     } else {
