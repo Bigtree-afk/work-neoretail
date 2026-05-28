@@ -1205,7 +1205,9 @@ window.onSaveForm = async function(){
 
   // 신규 등록 + 요청접수 텍스트 → thread 첫 ROOT 시드
   if (!_editingRec && requestText && (!Array.isArray(rec.thread) || rec.thread.length === 0)) {
-    const ts = new Date().toISOString();
+    // 🕐 thread ts 는 KST 로 — 다른 모바일 SPA(_kstNow) 와 통일. UTC ISO 면 9시간 어긋남
+    //   + KST 새벽 등록 시 날짜 전날 표시. (2026-05-28 fix)
+    const ts = (typeof window._kstNow === 'function') ? window._kstNow() : new Date().toISOString().slice(0,16).replace('T',' ');
     const author = (typeof getCurrentUser === 'function' && getCurrentUser()) || rec.owner || '';
     rec.thread = [{
       id: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
