@@ -308,6 +308,19 @@ const CATEGORIES = {
           },
         },
       },
+      '비영리법인(관공서 등)': {
+        emoji: '🏛',
+        docs: [
+          { name: '사업자등록증',       emoji: '📄' },
+          { name: '대표자 신분증',      emoji: '🪪' },
+          { name: '통장 사본',          emoji: '🏦', desc: '법인 직인 날인' },
+          { name: '정관',               emoji: '📜', desc: '원본대조필 필수' },
+          { name: '건물 내/외부 사진',  emoji: '🏪', desc: '내부·외부 각 2장씩' },
+          { name: '복수가맹 신청서',    emoji: '📝', desc: '하단 법인직인만 날인해서 발송', downloadUrl: '/forms/multi-merchant-application.pdf', downloadName: '복수가맹점 신청서.pdf' },
+          { name: '실제소유자 확인 공문', emoji: '🖋', desc: '내용 작성 및 하단 법인직인 날인', downloadUrl: '/forms/beneficial-owner-confirmation.pdf', downloadName: '실제소유자확인 공문.pdf' },
+          { name: '기타',               emoji: '📎' },
+        ],
+      },
     },
   },
   '정보 변경': {
@@ -418,6 +431,33 @@ function render() {
           <span class="opt-emoji">${children[k].emoji || '📂'}</span>
           ${escapeHtml(k)}
         </div>`).join('')}
+    </div>
+    ${path.length === 0 ? renderFormDownloads() : ''}`;
+}
+
+/* 📥 양식 다운로드 — 홈(업무 종류 선택) 화면 하단에 작성용 양식 PDF 제공 */
+const DOWNLOAD_FORMS = [
+  { name: '복수가맹 신청서',       emoji: '📝', desc: '하단 법인직인만 날인해서 발송', url: '/forms/multi-merchant-application.pdf', file: '복수가맹점 신청서.pdf' },
+  { name: '실제소유자 확인 공문',  emoji: '🖋', desc: '내용 작성 및 하단 법인직인 날인', url: '/forms/beneficial-owner-confirmation.pdf', file: '실제소유자확인 공문.pdf' },
+];
+function renderFormDownloads() {
+  return `
+    <div class="step" style="padding:14px 16px;margin-top:14px">
+      <h2 style="margin:0 0 4px;font-size:15px">📥 작성 양식 다운로드</h2>
+      <div style="font-size:11px;color:var(--gray-500);margin-bottom:10px">
+        아래 양식을 받아 작성·날인한 뒤, 위 업무 종류에서 업로드하세요.
+      </div>
+      <div class="doc-list" style="gap:8px">
+        ${DOWNLOAD_FORMS.map(f => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--gray-50);border-radius:8px">
+            <div style="font-size:20px">${f.emoji}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;color:var(--gray-700)">${escapeHtml(f.name)}</div>
+              <div style="font-size:11px;color:var(--gray-500);margin-top:2px">${escapeHtml(f.desc)}</div>
+            </div>
+            <a href="${escapeAttr(f.url)}" download="${escapeAttr(f.file)}" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;padding:8px 13px;background:#2563EB;color:#fff;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">⬇ 다운로드</a>
+          </div>`).join('')}
+      </div>
     </div>`;
 }
 
@@ -439,6 +479,7 @@ function renderDocList(docs) {
               <div style="font-size:13px;font-weight:600;color:var(--gray-700)">${escapeHtml(d.name)}</div>
               ${d.desc ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">${escapeHtml(d.desc)}</div>` : ''}
             </div>
+            ${d.downloadUrl ? `<a href="${escapeAttr(d.downloadUrl)}" download="${escapeAttr(d.downloadName||'')}" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;padding:6px 11px;background:#2563EB;color:#fff;border-radius:7px;font-size:11.5px;font-weight:700;text-decoration:none;white-space:nowrap">⬇ 양식</a>` : ''}
           </div>`).join('')}
       </div>
       <div style="font-size:11px;color:var(--gray-500);margin-top:8px;line-height:1.5">
