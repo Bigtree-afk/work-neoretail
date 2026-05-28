@@ -5892,8 +5892,9 @@
     window._stEditorSetStage(rec.status || '상담');
     // 상담일 기본값 — 신규 등록 시 오늘 (KST), 수정 시 기존 값 유지
     const todayKst = (function(){
-      const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset() + 9*60);
-      return d.toISOString().slice(0,10);
+      // 🕐 KST 날짜 — 브라우저 타임존 무관 절대 보정 (UTC+9). 기존 getTimezoneOffset 방식은
+      //   브라우저가 이미 KST 면 +9h 이중 적용 → 오후 등록이 다음날로 밀리는 버그. (2026-05-28 fix)
+      return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
     })();
     document.getElementById('stEditorConsultDate').value = rec.consultDate || (id ? '' : todayKst);
     document.getElementById('stEditorScheduleDate').value = rec.scheduleDate || '';
@@ -6449,8 +6450,9 @@
     const status = rec.status || '';
     // 처리일 자동: 상태별
     const todayKst = (function(){
-      const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset() + 9*60);
-      return d.toISOString().slice(0,10);
+      // 🕐 KST 날짜 — 브라우저 타임존 무관 절대 보정 (UTC+9). 기존 getTimezoneOffset 방식은
+      //   브라우저가 이미 KST 면 +9h 이중 적용 → 오후 등록이 다음날로 밀리는 버그. (2026-05-28 fix)
+      return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
     })();
     let processDate = '';
     if (status === '마감' || status === '정산' || status === '조사완료') processDate = rec.doneDate || rec.scheduleDate || todayKst;
@@ -13578,8 +13580,9 @@ ${text.slice(0, 4000)}`;
     opts = opts || {};
     const status = rec.status || rec.statusLabel || '';
     const todayKst = (function(){
-      const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset() + 9*60);
-      return d.toISOString().slice(0,10);
+      // 🕐 KST 날짜 — 브라우저 타임존 무관 절대 보정 (UTC+9). 기존 getTimezoneOffset 방식은
+      //   브라우저가 이미 KST 면 +9h 이중 적용 → 오후 등록이 다음날로 밀리는 버그. (2026-05-28 fix)
+      return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
     })();
     const processDate = opts.processDate || rec.doneDate || rec.scheduleDate || rec.consultDate || rec.dueDate || rec.date || todayKst;
     const storeName = rec.storeName || rec.store || '';
@@ -18419,8 +18422,9 @@ ${text.slice(0, 4000)}`;
     try { _vanFillEngineerOptions(); } catch(e){}
     // 업무일 + 가맹 신청일 기본값: 오늘 (KST)
     const today = (function(){
-      const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset() + 9*60);
-      return d.toISOString().slice(0,10);
+      // 🕐 KST 날짜 — 브라우저 타임존 무관 절대 보정 (UTC+9). 기존 getTimezoneOffset 방식은
+      //   브라우저가 이미 KST 면 +9h 이중 적용 → 오후 등록이 다음날로 밀리는 버그. (2026-05-28 fix)
+      return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
     })();
     const d = document.getElementById('vanJobDate');
     if (d && !d.value) d.value = today;

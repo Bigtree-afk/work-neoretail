@@ -959,8 +959,9 @@
     opts = opts || {};
     const status = rec.status || rec.statusLabel || '';
     const todayKst = (function(){
-      const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset() + 9*60);
-      return d.toISOString().slice(0,10);
+      // 🕐 KST 날짜 — 브라우저 타임존 무관 절대 보정 (UTC+9). getTimezoneOffset 방식은
+      //   브라우저가 이미 KST 면 +9h 이중 적용 → 오후 등록이 다음날로 밀림. (2026-05-28 fix)
+      return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
     })();
     const processDate = opts.processDate || rec.doneDate || rec.scheduleDate || rec.consultDate || rec.dueDate || rec.date || todayKst;
     const storeName = rec.storeName || rec.store || '';
