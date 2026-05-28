@@ -12166,6 +12166,7 @@ ${text.slice(0, 4000)}`;
     if (key === 'ceo')  return String(s.ceo || s.owner || '');
     if (key === 'addr') return String(s.addr || s.address || '');
     if (key === 'name') return String(s.name || '');
+    if (key === 'van')  return String(s.van || '');
     if (key === 'regdate') {
       // 명시적 등록일만 사용 (createdAt fallback 안 함)
       return s.storeRegDate || s.ecountRegDate || '';
@@ -12237,11 +12238,73 @@ ${text.slice(0, 4000)}`;
     });
   })();
 
+  /* ── 무한 스크롤(점진적 렌더) ──
+     200개씩 끊어서 렌더하고, 하단 sentinel 행이 화면에 들어오면 다음 묶음을 이어 붙임.
+     기본 목록·검색 결과 모두 공용. */
+  const _STORE_PAGE = 200;
+  const _storeRender = { rows: [], shown: 0, io: null, footFn: null };
+
+  function _storeRenderNextPage() {
+    const tb = document.getElementById('storeListTbody');
+    if (!tb) return;
+    // 이전 footer/sentinel 제거
+    tb.querySelectorAll('tr.__store-foot').forEach(r => r.remove());
+    const rows = _storeRender.rows;
+    const start = _storeRender.shown;
+    const end = Math.min(rows.length, start + _STORE_PAGE);
+    for (let i = start; i < end; i++) {
+      try { if (typeof buildStoreRowEl === 'function') tb.appendChild(buildStoreRowEl(rows[i])); } catch(e){}
+    }
+    _storeRender.shown = end;
+    // 카운트 행
+    const info = document.createElement('tr');
+    info.className = '__store-foot';
+    try { info.innerHTML = _storeRender.footFn ? _storeRender.footFn(end, rows.length) : ''; } catch(e){}
+    tb.appendChild(info);
+    // 더 남았으면 sentinel 추가 → IntersectionObserver 로 다음 페이지 트리거
+    if (end < rows.length) {
+      const sentinel = document.createElement('tr');
+      sentinel.className = '__store-foot';
+      sentinel.innerHTML = '<td colspan="10" style="height:1px;padding:0;border:0"></td>';
+      tb.appendChild(sentinel);
+      if (_storeRender.io) { try { _storeRender.io.disconnect(); } catch(e){} }
+      _storeRender.io = new IntersectionObserver((entries) => {
+        if (entries.some(e => e.isIntersecting)) _storeRenderNextPage();
+      }, { rootMargin: '400px' });
+      _storeRender.io.observe(sentinel);
+    } else if (_storeRender.io) {
+      try { _storeRender.io.disconnect(); } catch(e){}
+      _storeRender.io = null;
+    }
+    try { _updateSortIndicators(); } catch(e){}
+  }
+
+  function _storeRenderList(sortedRows, footFn) {
+    const tb = document.getElementById('storeListTbody');
+    if (!tb) return;
+    if (_storeRender.io) { try { _storeRender.io.disconnect(); } catch(e){} _storeRender.io = null; }
+    _storeRender.rows = sortedRows || [];
+    _storeRender.shown = 0;
+    _storeRender.footFn = footFn;
+    tb.innerHTML = '';
+    _storeRenderNextPage();
+  }
+
   function hydrateSavedStores() {
     try {
       const stores = (typeof getStores === 'function') ? getStores() : [];
       const tb = document.getElementById('storeListTbody');
       if (!tb) return;
+      // 🔍 검색 중이면 기본 목록으로 덮어쓰지 않고 현재 검색 결과를 유지
+      //  (30초 라이브 동기화 / 탭 포커스 시 재렌더가 조회 결과를 지우던 버그 fix)
+      try {
+        const _si = document.getElementById('storeSearchInput');
+        const _q = (_si && _si.value || '').trim();
+        if (_q.length >= 2 && typeof applyStoreFilter === 'function') {
+          applyStoreFilter(_q, { toast: false });
+          return;
+        }
+      } catch(e){}
       // 상단 카운트 라벨 갱신
       try {
         const lbl = document.getElementById('storeListCountLabel');
@@ -12249,17 +12312,11 @@ ${text.slice(0, 4000)}`;
       } catch(e){}
       if (stores.length > 0) {
         const sorted = _sortedStores(stores);
-        tb.innerHTML = '';
-        const showCount = Math.min(sorted.length, 200);
-        sorted.slice(0, showCount).forEach(s => tb.appendChild(buildStoreRowEl(s)));
         const sortLabel = _storeSort
-          ? ` · 정렬: ${({name:'점포명',biz:'사업자번호',ceo:'대표자',addr:'주소',regdate:'매장 등록일'})[_storeSort.key]} ${_storeSort.dir==='asc'?'오름차순↑':'내림차순↓'}`
+          ? ` · 정렬: ${({name:'점포명',biz:'사업자번호',ceo:'대표자',addr:'주소',van:'VAN사',regdate:'매장 등록일'})[_storeSort.key]} ${_storeSort.dir==='asc'?'오름차순↑':'내림차순↓'}`
           : ' · 정렬: 매장 등록일 최신순';
-        const countRow = document.createElement('tr');
-        countRow.style.color = 'var(--gray-400)';
-        countRow.innerHTML = `<td colspan="10" style="text-align:center;padding:10px;font-size:11px;background:#F9FAFB">총 ${stores.length.toLocaleString()}개 점포 · 최신 ${showCount.toLocaleString()}개 표시${sortLabel}</td>`;
-        tb.appendChild(countRow);
-        _updateSortIndicators();
+        _storeRenderList(sorted, (shown, total) =>
+          `<td colspan="10" style="text-align:center;padding:10px;font-size:11px;background:#F9FAFB">총 ${total.toLocaleString()}개 점포 · ${shown.toLocaleString()}개 표시${shown < total ? ' · 스크롤 시 더 보기' : ''}${sortLabel}</td>`);
       } else {
         tb.innerHTML = `<tr id="storeListEmptyRow">
           <td colspan="10" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
@@ -19968,25 +20025,20 @@ ${text.slice(0, 4000)}`;
     } else {
       matched.sort((a,b) => (Number(b.createdAt)||0) - (Number(a.createdAt)||0));
     }
-    tb.innerHTML = '';
-    const renderLimit = 500;
-    matched.slice(0, renderLimit).forEach(s => {
-      try { if (typeof buildStoreRowEl === 'function') tb.appendChild(buildStoreRowEl(s)); } catch(e){}
-    });
-    // 안내 행
-    const info = document.createElement('tr');
-    info.style.color = 'var(--gray-400)';
     if (matched.length === 0) {
-      info.innerHTML = `<td colspan="10" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">
+      // 검색 결과 없음 — 무한 스크롤 해제 후 빈 안내 행만 표시
+      try { if (_storeRender.io) { _storeRender.io.disconnect(); _storeRender.io = null; } } catch(e){}
+      tb.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">
         <div style="font-size:24px;margin-bottom:6px">🔍</div>
         <div><b>"${q}"</b> 검색 결과가 없습니다 (전체 ${stores.length.toLocaleString()}개 중)</div>
-      </td>`;
+      </td></tr>`;
     } else {
-      info.innerHTML = `<td colspan="10" style="text-align:center;padding:10px;font-size:11px;background:#F9FAFB">
-        🔍 <b>"${q}"</b> 검색 결과: <b>${matched.length.toLocaleString()}건</b> (전체 ${stores.length.toLocaleString()}개 중)${matched.length > renderLimit ? ` · 상위 ${renderLimit}개 표시` : ''}
-      </td>`;
+      // 검색 결과도 200개씩 스크롤로 점진 렌더
+      _storeRenderList(matched, (shown, total) =>
+        `<td colspan="10" style="text-align:center;padding:10px;font-size:11px;background:#F9FAFB">
+          🔍 <b>"${q}"</b> 검색 결과: <b>${total.toLocaleString()}건</b> (전체 ${stores.length.toLocaleString()}개 중) · ${shown.toLocaleString()}개 표시${shown < total ? ' · 스크롤 시 더 보기' : ''}
+        </td>`);
     }
-    tb.appendChild(info);
 
     if (opts.toast && typeof showToast === 'function') {
       showToast(`🔍 "${q}" 결과 ${matched.length.toLocaleString()}건`);
