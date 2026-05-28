@@ -172,6 +172,46 @@ job.shipDate = formShipDate || today;
 - [ ] 폼 저장 후 `location.hash = '#thread/' + savedJob.id` 로 복귀
 - [ ] PC `editNewopen(id)` 도 동일 규칙 — 카테고리별 short-circuit (`_editSupplyJob`, `openVanJobModal` 등)
 
+### 🚨 m-core.js / 공용 외부 자산 변경 시 cache-bust 의무 (필수 — 2026-05-28)
+
+**증상**: 모바일 m-core.js 에 보강 B 패치 이식 후 deploy 했지만 iPhone Safari 에서만 동기화 단절. Android 는 정상.
+
+**원인**: m/*.html 의 `<script src="/m-core.js?v=2026-05-22-..."></script>` 의 `?v=` 쿼리가 갱신 안 됨 → 같은 URL 이라 브라우저(특히 iOS Safari)가 캐시된 옛 버전 계속 사용.
+
+**규칙**:
+- `m-core.js` (또는 다른 공용 외부 JS/CSS) 한 줄이라도 수정 시 → **반드시** 모든 참조 페이지의 `?v=YYYY-MM-DD-keyword` 일괄 갱신 + deploy
+- `?v=` 갱신 안 하면 변경이 일부 사용자에게만 적용되어 OS/브라우저별 동작 차이가 보임 → 디버깅 매우 어려움
+- `app.css` 등 다른 외부 자산도 동일 원칙
+
+**참조 페이지 목록** (m-core.js):
+```
+m/index.html
+m/as/index.html
+m/newjob/index.html
+m/van/index.html
+m/supplies/index.html
+m/stocktake/index.html
+m/schedule/index.html
+m/settings/index.html
+```
+
+**자동화 스크립트**: `scripts/bump-mcore.sh` (또는 PowerShell `scripts/bump-mcore.ps1`)
+```bash
+# m-core.js 수정 후 한 줄로 일괄 갱신
+bash scripts/bump-mcore.sh "thread-tomb"
+# → 모든 m/*.html 의 ?v=YYYY-MM-DD-thread-tomb 으로 갱신
+```
+
+**OS 별 캐시 정책 차이 (참고)**:
+- iOS Safari: `?v=` 같은 query string 으로만 cache busting. `Cache-Control: must-revalidate` 도 일부 무시 가능.
+- Android Chrome: `Cache-Control` 비교적 잘 준수. 그러나 의존 X.
+- 결론: **`?v=` 갱신이 유일하게 신뢰할 수 있는 cache busting 수단**.
+
+**OS 별 차이 발견 시 디버깅 순서**:
+1. 양쪽 OS 의 `view-source:` 또는 콘솔에서 `m-core.js` URL 의 `?v=` 비교 → 다르면 캐시 차이
+2. 동일하다면 두 OS 에서 콘솔로 `getJobs()`, `localStorage.getItem('ns_tombstones')` 비교
+3. 동일하다면 OS 별 JS API 차이 점검 (Optional chaining, `crypto.subtle`, `IntersectionObserver` 등)
+
 ### PC 측 동일 규칙
 - 카드/리스트 클릭 → `editNewopen(id)` → 카테고리별 모달 (thread + 메타 통합 뷰)
 - 카테고리별 short-circuit 으로 카테고리 맞는 레이아웃 분기 (CLAUDE.md "업무별 레이아웃 분리 규칙" 참조)
