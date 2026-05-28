@@ -6137,12 +6137,16 @@ ${text.slice(0, 4000)}`;
     setTimeout(_releaseLineLock, 5000);
     const p = _linePending.find(x => x.id === id);
     if (!p) { _releaseLineLock(); return; }
-    // 매장 미연결 + 추가처리 메모 누락 경고
-    if (!p.storeId && !p.store) {
-      if (!confirm('매장이 미연결 상태입니다. 미등록 작업으로 진행할까요?')) return;
+    // 🛡 매장 미특정 차단 (2026-05-28) — storeId 없고 매장명도 없으면 빈 껍데기 작업이 됨.
+    //   LINE 시스템 알림(NICE 인증번호 등)·일반 대화가 파싱된 경우 매장 추출 실패 → 등록 차단.
+    //   (이전엔 confirm 으로 통과 가능 → 매장명 없는 ghost VAN 업무 3건 생성 사고)
+    if (!p.storeId && !(p.store && String(p.store).trim())) {
+      alert('⚠ 매장이 특정되지 않아 등록할 수 없습니다.\n\n매장을 연결하거나 매장명을 입력한 뒤 등록하세요.\n(LINE 인증번호 알림·일반 대화 등 매장 없는 메시지는 업무 등록 대상이 아닙니다 — 등록 대기에서 삭제하세요.)');
+      _releaseLineLock();
+      return;
     }
     if (p.status === '추가처리' && !p.memo) {
-      if (!confirm('추가처리 상태인데 메모가 비어있습니다. 그대로 등록할까요?')) return;
+      if (!confirm('추가처리 상태인데 메모가 비어있습니다. 그대로 등록할까요?')) { _releaseLineLock(); return; }
     }
 
     const jobs = getJobs();
