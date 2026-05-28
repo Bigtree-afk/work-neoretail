@@ -693,23 +693,28 @@
     const jobs = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
     // 🪦 threadTombstones — 로컬 ns_tombstones 의 thread / thread-children 자동 동봉
     //   서버가 deleted_threads / deleted_thread_children KV 에 union 등록 → 다른 PC 자동 차단
-    const threadTombstones = (function(){
-      try {
-        const tombs = JSON.parse(localStorage.getItem('ns_tombstones') || '[]');
-        return tombs
-          .filter(t => t && (t.type === 'thread' || t.type === 'thread-children'))
-          .map(t => ({
-            type: t.type,
-            threadId: t.id,
-            jobId: t.jobId || null,
-            deletedAt: t.ts ? new Date(t.ts).toISOString() : new Date().toISOString(),
-            reason: t.reason || 'client-tombstone'
-          }));
-      } catch { return []; }
-    })();
-    const body = JSON.stringify(threadTombstones.length
-      ? { jobs, threadTombstones }
-      : { jobs });
+    const _allTombs = (function(){ try { return JSON.parse(localStorage.getItem('ns_tombstones') || '[]'); } catch { return []; } })();
+    const threadTombstones = _allTombs
+      .filter(t => t && (t.type === 'thread' || t.type === 'thread-children'))
+      .map(t => ({
+        type: t.type,
+        threadId: t.id,
+        jobId: t.jobId || null,
+        deletedAt: t.ts ? new Date(t.ts).toISOString() : new Date().toISOString(),
+        reason: t.reason || 'client-tombstone'
+      }));
+    // 🪦 jobTombstones (보강 C) — job 단위 삭제도 토큰 없이 서버 deleted_jobs 등록
+    const jobTombstones = _allTombs
+      .filter(t => t && t.type === 'job')
+      .map(t => ({
+        id: t.id,
+        deletedAt: t.ts ? new Date(t.ts).toISOString() : new Date().toISOString(),
+        reason: t.reason || 'client-tombstone'
+      }));
+    const _payload = { jobs };
+    if (threadTombstones.length) _payload.threadTombstones = threadTombstones;
+    if (jobTombstones.length)    _payload.jobTombstones = jobTombstones;
+    const body = JSON.stringify(_payload);
     const h = _fastHash(body);
     if (!opts || !opts.force) {
       if (global._lastJobsPushHash === h) {

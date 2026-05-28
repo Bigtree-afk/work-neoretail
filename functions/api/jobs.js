@@ -62,14 +62,33 @@ export async function onRequestPost({ request, env }) {
     // 🪦 deleted_jobs 레지스트리로 부활 차단 — stale 클라이언트 wholesale POST 가
     //    삭제된 job 을 다시 cloud 에 등록시키는 문제 방지 (샤르르 부활 루프, 2026-05-22)
     let deletedIds = new Set();
+    let jobRegList = [];
     try {
       const reg = (await env.STORES_KV.get('deleted_jobs', 'json')) || [];
       if (Array.isArray(reg)) {
-        for (const e of reg) {
-          if (e && e.id) deletedIds.add(String(e.id));
-        }
+        jobRegList = reg.filter(e => e && e.id);
+        for (const e of jobRegList) deletedIds.add(String(e.id));
       }
     } catch (_) {}
+
+    // 🪦 jobTombstones 무인증 수신 (보강 C, 2026-05-28) — 토큰 없는 기기(모바일 등)도
+    //   job 삭제를 서버 deleted_jobs 레지스트리에 등록 가능. admin-delete(토큰) 채널의
+    //   silent fail 로 job 이 cloud KV 에 남아 다른 기기에서 부활하던 문제 차단.
+    //   형식: body.jobTombstones = [{ id, deletedAt, reason }]
+    const incomingJobTombs = Array.isArray(body?.jobTombstones) ? body.jobTombstones : [];
+    let newJobTombs = 0;
+    for (const t of incomingJobTombs) {
+      if (!t || !t.id) continue;
+      const jid = String(t.id);
+      if (!deletedIds.has(jid)) {
+        deletedIds.add(jid);
+        jobRegList.push({ id: jid, deletedAt: t.deletedAt || new Date().toISOString(), reason: t.reason || 'client-tombstone' });
+        newJobTombs++;
+      }
+    }
+    if (newJobTombs > 0) {
+      try { await env.STORES_KV.put('deleted_jobs', JSON.stringify(jobRegList)); } catch (_) {}
+    }
 
     // 🪦 deleted_threads / deleted_thread_children 레지스트리 (보강 B, 2026-05-28)
     //   — incoming body.threadTombstones 를 받아 union 한 뒤 다시 KV 저장
@@ -199,7 +218,7 @@ export async function onRequestPost({ request, env }) {
     }
     return json({ ok: true, count: merged.length, added, replaced, kept,
                    rejectedDeleted: rejected,
-                   newThreadTombs, newChildTombs }, 200);
+                   newThreadTombs, newChildTombs, newJobTombs }, 200);
   } catch (e) {
     return json({ error: 'handler_exception', detail: String(e), stack: e?.stack || '' }, 500);
   }

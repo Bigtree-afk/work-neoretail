@@ -12869,23 +12869,28 @@ ${text.slice(0, 4000)}`;
     //   서버는 deleted_threads / deleted_thread_children KV 키에 union 등록 후
     //   incoming/cloud jobs 의 thread 에서 자동 제거 → 다른 PC 도 자동 차단됨.
     //   token 인증 불필요 (jobs.js POST 무인증 라우트라 모든 클라이언트가 활용 가능).
-    const threadTombstones = (function(){
-      try {
-        const tombs = JSON.parse(localStorage.getItem('ns_tombstones') || '[]');
-        return tombs
-          .filter(t => t && (t.type === 'thread' || t.type === 'thread-children'))
-          .map(t => ({
-            type: t.type,
-            threadId: t.id,
-            jobId: t.jobId || null,
-            deletedAt: t.ts ? new Date(t.ts).toISOString() : new Date().toISOString(),
-            reason: t.reason || 'client-tombstone'
-          }));
-      } catch { return []; }
-    })();
-    const body = JSON.stringify(threadTombstones.length
-      ? { jobs, threadTombstones }
-      : { jobs });
+    const _allTombs = (function(){ try { return JSON.parse(localStorage.getItem('ns_tombstones') || '[]'); } catch { return []; } })();
+    const threadTombstones = _allTombs
+      .filter(t => t && (t.type === 'thread' || t.type === 'thread-children'))
+      .map(t => ({
+        type: t.type,
+        threadId: t.id,
+        jobId: t.jobId || null,
+        deletedAt: t.ts ? new Date(t.ts).toISOString() : new Date().toISOString(),
+        reason: t.reason || 'client-tombstone'
+      }));
+    // 🪦 jobTombstones (보강 C) — job 단위 삭제도 토큰 없이 서버 deleted_jobs 등록
+    const jobTombstones = _allTombs
+      .filter(t => t && t.type === 'job')
+      .map(t => ({
+        id: t.id,
+        deletedAt: t.ts ? new Date(t.ts).toISOString() : new Date().toISOString(),
+        reason: t.reason || 'client-tombstone'
+      }));
+    const _payload = { jobs };
+    if (threadTombstones.length) _payload.threadTombstones = threadTombstones;
+    if (jobTombstones.length)    _payload.jobTombstones = jobTombstones;
+    const body = JSON.stringify(_payload);
     // ── content-skip: 직전에 push 한 내용과 동일하면 네트워크 호출 자체를 생략 (KV 쓰기 절감)
     const h = window._fastHash(body);
     if (!opts || !opts.force) {

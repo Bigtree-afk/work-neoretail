@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>모바일 진단 — NeoRetail</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+  body{padding:16px;background:#0F172A;color:#E2E8F0;font-size:14px;line-height:1.6}
+  h1{font-size:18px;margin-bottom:14px;color:#60A5FA}
+  .card{background:#1E293B;border:1px solid #334155;border-radius:10px;padding:14px;margin-bottom:12px}
+  .k{font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px}
+  .v{font-size:15px;font-weight:700;color:#F1F5F9;word-break:break-all;margin-top:3px}
+  .ok{color:#34D399}.bad{color:#F87171}.warn{color:#FBBF24}
+  button{width:100%;padding:14px;margin-top:8px;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer}
+  .btn-fix{background:#DC2626;color:#fff}
+  .btn-reload{background:#2563EB;color:#fff}
+  pre{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:10px;font-size:11px;overflow-x:auto;margin-top:6px;color:#CBD5E1}
+</style>
+</head>
+<body>
+<h1>📱 모바일 동기화 진단</h1>
+<div id="out">로딩 중…</div>
+
+<button class="btn-fix" onclick="hardReset()">🧹 강제 초기화 (localStorage 비우고 서버에서 새로 받기)</button>
+<button class="btn-reload" onclick="location.reload()">🔄 새로고침</button>
+
+<script>
+const TEST_STORE = '테스트매장';
+function esc(s){return String(s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));}
+
+async function run() {
+  const out = document.getElementById('out');
+  // 1. 로컬 상태
+  let localJobs = [];
+  try { localJobs = JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch(e){}
+  const localResync = localStorage.getItem('ns_resync_token') || '(없음)';
+  const localTest = localJobs.filter(j => String(j.storeName||j.store||'').includes(TEST_STORE));
+  const mcoreVer = (window.NS_MOBILE_CORE_VERSION || '(m-core.js 로드 안 됨)');
+
+  // 2. 서버 상태
+  let serverResync = '?', serverJobs = '?', serverTest = '?', serverErr = '';
+  try {
+    const r = await fetch('/api/jobs?_cb='+Math.random(), {cache:'no-store'});
+    const d = await r.json();
+    serverResync = d.resyncToken || '(없음)';
+    serverJobs = (d.jobs||[]).length;
+    serverTest = (d.jobs||[]).filter(j => String(j.storeName||j.store||'').includes(TEST_STORE)).length;
+  } catch(e){ serverErr = String(e); }
+
+  // 3. m-core.js 가 어떤 버전 참조하는지 (이 페이지가 로드한 script src)
+  const scriptSrc = Array.from(document.scripts).map(s=>s.src).filter(s=>s.includes('m-core')).join(', ') || '(이 페이지엔 m-core 없음)';
+
+  const tokenMatch = (localResync === serverResync);
+
+  out.innerHTML = `
+    <div class="card">
+      <div class="k">m-core.js 버전</div>
+      <div class="v">${esc(mcoreVer)}</div>
+    </div>
+    <div class="card">
+      <div class="k">로컬 resync_token</div>
+      <div class="v">${esc(localResync)}</div>
+      <div class="k" style="margin-top:8px">서버 resync_token</div>
+      <div class="v">${esc(serverResync)}</div>
+      <div class="k" style="margin-top:8px">토큰 일치</div>
+      <div class="v ${tokenMatch?'warn':'ok'}">${tokenMatch ? '⚠ 같음 — force-resync 안 일어남' : '✓ 다름 — 다음 sync 시 force-resync 발동해야 함'}</div>
+    </div>
+    <div class="card">
+      <div class="k">로컬 ns_jobs 총</div>
+      <div class="v">${localJobs.length}건</div>
+      <div class="k" style="margin-top:8px">로컬 ${TEST_STORE} 작업</div>
+      <div class="v ${localTest.length?'bad':'ok'}">${localTest.length}건 ${localTest.length?'🔴 (잔존)':'✓ (없음)'}</div>
+      ${localTest.length ? `<pre>${esc(JSON.stringify(localTest.map(j=>({id:j.id,type:j.type,thread:(j.thread||[]).length})),null,1))}</pre>` : ''}
+    </div>
+    <div class="card">
+      <div class="k">서버 ns_jobs 총</div>
+      <div class="v">${serverJobs}건</div>
+      <div class="k" style="margin-top:8px">서버 ${TEST_STORE} 작업</div>
+      <div class="v ${serverTest?'bad':'ok'}">${serverTest}건 ${serverTest?'🔴':'✓ (없음 — 서버는 깨끗)'}</div>
+      ${serverErr?`<div class="v bad">서버 오류: ${esc(serverErr)}</div>`:''}
+    </div>
+    <div class="card" style="border-color:#475569">
+      <div class="k">이 페이지가 로드한 m-core script</div>
+      <div class="v" style="font-size:11px">${esc(scriptSrc)}</div>
+    </div>
+  `;
+}
+
+async function hardReset() {
+  if (!confirm('localStorage 의 작업/매장 데이터를 비우고 서버에서 새로 받습니다.\n계속할까요?')) return;
+  try {
+    localStorage.removeItem('ns_jobs');
+    localStorage.removeItem('ns_stores');
+    localStorage.removeItem('ns_resync_token');
+    // 서버에서 새로 받아 저장
+    const r = await fetch('/api/jobs?_cb='+Math.random(), {cache:'no-store'});
+    const d = await r.json();
+    const delIds = new Set((d.deleted||[]).map(e=>String(e.id||'')));
+    const clean = (d.jobs||[]).filter(j => j && j.id && !delIds.has(j.id));
+    localStorage.setItem('ns_jobs', JSON.stringify(clean));
+    if (d.resyncToken) localStorage.setItem('ns_resync_token', d.resyncToken);
+    alert('✅ 초기화 완료 — ' + clean.length + '건 받음. 작업 화면으로 돌아가 확인하세요.');
+    run();
+  } catch(e) {
+    alert('초기화 실패: ' + e.message);
+  }
+}
+
+run();
+</script>
+</body>
+</html>
