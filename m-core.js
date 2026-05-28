@@ -473,10 +473,16 @@
     try {
       const key = 'ns_tombstones';
       const list = JSON.parse(localStorage.getItem(key) || '[]');
-      list.push({ type, id, jobId: jobId || null, ts: Date.now() });
+      // 🛡 중복 차단 — 같은 (type, id, jobId) 가 이미 있으면 push 안 함
+      const targetJob = jobId || null;
+      const dup = list.some(t => t.type === type && t.id === id
+                                  && (t.jobId || null) === targetJob);
+      if (!dup) list.push({ type, id, jobId: targetJob, ts: Date.now() });
       const cutoff = Date.now() - 30*24*3600*1000;
       const fresh = list.filter(t => (t.ts||0) >= cutoff);
-      localStorage.setItem(key, JSON.stringify(fresh));
+      if (!dup || fresh.length !== list.length) {
+        localStorage.setItem(key, JSON.stringify(fresh));
+      }
     } catch(e) { console.warn('[_addTombstone]', e); }
   }
   function _getTombstones() {
@@ -501,7 +507,23 @@
    * 클라우드 동기화 — index.html L12913 / L12993 / L13037
    * ═══════════════════════════════════════════════════════════ */
   function _mergeJobRecord(localJob, cloudJob) {
-    if (!localJob) return cloudJob;
+    if (!localJob) {
+      // 🪦 cloud only — cascade 삭제 직후 cloud 받을 때도 thread tombstone 필터 적용
+      //   (안 하면 사용자가 삭제한 ROOT 가 다음 sync 마다 영구 부활)
+      if (cloudJob && Array.isArray(cloudJob.thread) && cloudJob.thread.length) {
+        const jobIdForTomb = cloudJob.id || null;
+        const filtered = cloudJob.thread.filter(e => {
+          if (!e) return false;
+          if (e.threadId && _isThreadTombstoned(e.threadId, jobIdForTomb)) return false;
+          if (e.parentId && _isThreadChildOfTombstonedRoot(e.parentId, jobIdForTomb)) return false;
+          return true;
+        });
+        if (filtered.length !== cloudJob.thread.length) {
+          return Object.assign({}, cloudJob, { thread: filtered });
+        }
+      }
+      return cloudJob;
+    }
     if (!cloudJob) return localJob;
     const merged = Object.assign({}, cloudJob, localJob);
     // ── thread union
@@ -597,6 +619,11 @@
         try { localStorage.setItem('ns_resync_token', cloudToken); } catch(_){}
         try { _refreshJobsSnap(); } catch(_){}  // 🕐 snapshot 동기화
         for (const id of delIds) { try { _addTombstone('job', id); } catch(_){} }
+        // 🪦 force-resync 시에도 thread tombstone 동기화 (보강 B)
+        const ftThreads = Array.isArray(data?.deletedThreads) ? data.deletedThreads : [];
+        const ftChildren = Array.isArray(data?.deletedThreadChildren) ? data.deletedThreadChildren : [];
+        for (const e of ftThreads) { if (e && e.threadId) { try { _addTombstone('thread', e.threadId, e.jobId || null); } catch(_){} } }
+        for (const e of ftChildren) { if (e && e.threadId) { try { _addTombstone('thread-children', e.threadId, e.jobId || null); } catch(_){} } }
         global._lastJobsPushHash = null;
         try { _selfHealJobStatuses(); } catch(_){}
         return;
@@ -612,6 +639,16 @@
             try { _addTombstone('job', id); } catch(_){}
           }
         }
+      }
+      // 🪦 서버측 thread tombstone 레지스트리 (보강 B, 2026-05-28) — 다른 기기에서 삭제한
+      //    thread / thread-children 을 이 기기에도 자동 등록 (중복 차단으로 누적 폭주 없음)
+      const cloudDeletedThreads = Array.isArray(data?.deletedThreads) ? data.deletedThreads : [];
+      const cloudDeletedThreadChildren = Array.isArray(data?.deletedThreadChildren) ? data.deletedThreadChildren : [];
+      for (const e of cloudDeletedThreads) {
+        if (e && e.threadId) { try { _addTombstone('thread', e.threadId, e.jobId || null); } catch(_){} }
+      }
+      for (const e of cloudDeletedThreadChildren) {
+        if (e && e.threadId) { try { _addTombstone('thread-children', e.threadId, e.jobId || null); } catch(_){} }
       }
       const byId = new Map();
       local.forEach(j => {
@@ -654,7 +691,25 @@
   }
   async function pushJobsToCloud(opts) {
     const jobs = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
-    const body = JSON.stringify({ jobs });
+    // 🪦 threadTombstones — 로컬 ns_tombstones 의 thread / thread-children 자동 동봉
+    //   서버가 deleted_threads / deleted_thread_children KV 에 union 등록 → 다른 PC 자동 차단
+    const threadTombstones = (function(){
+      try {
+        const tombs = JSON.parse(localStorage.getItem('ns_tombstones') || '[]');
+        return tombs
+          .filter(t => t && (t.type === 'thread' || t.type === 'thread-children'))
+          .map(t => ({
+            type: t.type,
+            threadId: t.id,
+            jobId: t.jobId || null,
+            deletedAt: t.ts ? new Date(t.ts).toISOString() : new Date().toISOString(),
+            reason: t.reason || 'client-tombstone'
+          }));
+      } catch { return []; }
+    })();
+    const body = JSON.stringify(threadTombstones.length
+      ? { jobs, threadTombstones }
+      : { jobs });
     const h = _fastHash(body);
     if (!opts || !opts.force) {
       if (global._lastJobsPushHash === h) {
