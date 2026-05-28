@@ -88,6 +88,51 @@ const today = (typeof _kstNow === 'function') ? String(_kstNow()||'').slice(0,10
 job.shipDate = formShipDate || today;
 ```
 
+### 🚨 타임존(KST) 함정 — 절대 금지 패턴 (필수 — 2026-05-28)
+
+**사고 사례**: "오후에 등록한 작업이 다음날 날짜로 기록됨" — 직원 다수 신고.
+
+**원인**: 날짜 기본값 계산에 아래 패턴 사용:
+```js
+// 🔴 절대 금지 — getTimezoneOffset 수동 보정
+const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset() + 9*60);
+return d.toISOString().slice(0,10);
+```
+이 코드는 "브라우저 = UTC" 를 가정한다. 그러나 한국 직원 브라우저는 KST(UTC+9)라
+`getTimezoneOffset() = -540` → **+9시간이 이중 적용되어 +18시간**. KST 오전 6시 이후
+등록(`H+18 ≥ 24`)이 전부 다음날로 밀린다. PC/모바일 6곳에서 발견·수정함.
+
+**또 다른 금지 패턴**:
+```js
+// 🔴 금지 — UTC 날짜를 KST 인 양 사용. KST 새벽(00~09시)이면 전날로 어긋남
+new Date().toISOString().slice(0,10)        // 날짜
+new Date().toISOString()                     // thread ts (9시간 어긋남 + 새벽 전날)
+```
+
+**✅ 올바른 패턴 — 브라우저 타임존 무관 절대 보정**:
+```js
+// KST 날짜 (YYYY-MM-DD)
+new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10)
+
+// KST 일시 (기록용 ts/at) — _kstDateTimeStr / _kstNow / _kstStamp 사용
+//   이들은 Intl.DateTimeFormat({ timeZone:'Asia/Seoul' }) 기반이라 항상 정확
+const ts = (typeof _kstNow === 'function') ? _kstNow() : new Date(Date.now()+9*3600*1000).toISOString().slice(0,16).replace('T',' ');
+```
+
+**점검 명령** (날짜/시각 코드 추가·수정 후 반드시 실행):
+```bash
+# 이중보정 패턴이 새로 들어왔는지
+grep -rn "getTimezoneOffset" index.html m-core.js m/ | grep "setMinutes\|getMinutes"
+# → 결과 0 이어야 함
+```
+
+**규칙 요약**:
+| 용도 | ✅ 올바른 방법 | 🔴 금지 |
+|---|---|---|
+| KST 날짜 | `new Date(Date.now()+9*3600*1000).toISOString().slice(0,10)` | `getTimezoneOffset` 보정, `new Date().toISOString().slice(0,10)` |
+| KST 일시(ts/at) | `_kstNow()` / `_kstDateTimeStr()` / `_kstStamp()` | `new Date().toISOString()` |
+| 시각 절대 timestamp(정렬/계산 전용, 표시 X) | `new Date().toISOString()` 허용 | — |
+
 ## 🔢 카테고리별 hub 정렬 규칙 (필수)
 
 **원칙**: 매장 그룹 내(하위 sub-card) 정렬은 도메인 의미에 맞게 — 사용자가 가장 먼저 처리해야 할 항목이 위에 와야 한다. 단순 createdAt desc 로는 부족.
