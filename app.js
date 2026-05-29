@@ -12300,7 +12300,11 @@ ${text.slice(0, 4000)}`;
       try {
         const _si = document.getElementById('storeSearchInput');
         const _q = (_si && _si.value || '').trim();
-        if (_q.length >= 2 && typeof applyStoreFilter === 'function') {
+        // ⚠ 정규화 결과가 실제로 비어있지 않을 때만 재적용.
+        //  "주식회사"·"(주)" 등은 정규화 시 빈 문자열이 되는데, 이때 재적용하면
+        //  applyStoreFilter → hydrateSavedStores → applyStoreFilter 무한 재귀로 브라우저가 멈춤.
+        const _qNorm = (typeof _normalizeSearch === 'function') ? _normalizeSearch(_q) : _q;
+        if (_q.length >= 2 && _qNorm && typeof applyStoreFilter === 'function') {
           applyStoreFilter(_q, { toast: false });
           return;
         }
