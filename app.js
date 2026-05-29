@@ -5585,6 +5585,17 @@ ${text.slice(0, 4000)}`;
   function _impTime(iso){
     try { const d=new Date(iso); return new Date(d.getTime()+9*3600*1000).toISOString().slice(0,16).replace('T',' '); } catch(_){ return ''; }
   }
+  function _impFilesHtml(files){
+    if (!Array.isArray(files) || !files.length) return '';
+    const cells = files.map(f => {
+      const url = _impEsc(f.url || '');
+      if (f.isImage) {
+        return `<a href="${url}" target="_blank" rel="noopener" title="${_impEsc(f.name)}"><img src="${url}" alt="${_impEsc(f.name)}" style="max-width:120px;max-height:120px;border-radius:6px;border:1px solid #E5E7EB;object-fit:cover"></a>`;
+      }
+      return `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#047857;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:6px;padding:4px 8px;text-decoration:none">📎 ${_impEsc(f.name)}</a>`;
+    }).join('');
+    return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${cells}</div>`;
+  }
 
   async function loadImprovements(){
     const area = document.getElementById('improvementsArea');
@@ -5622,19 +5633,20 @@ ${text.slice(0, 4000)}`;
     for (const it of items){
       const comments = Array.isArray(it.comments) ? it.comments : [];
       const cHtml = comments.map(c =>
-        `<div style="padding:4px 0;border-top:1px dashed #E5E7EB"><span style="font-weight:700;color:#047857">${_impEsc(c.author)}</span> <span style="color:#9CA3AF;font-size:10px">${_impTime(c.at)}</span><br><span style="white-space:pre-wrap">${_impEsc(c.text)}</span></div>`
+        `<div style="padding:4px 0;border-top:1px dashed #E5E7EB"><span style="font-weight:700;color:#047857">${_impEsc(c.author)}</span> <span style="color:#9CA3AF;font-size:10px">${_impTime(c.at)}</span><br><span style="white-space:pre-wrap">${_impEsc(c.text)}</span>${_impFilesHtml(c.files)}</div>`
       ).join('');
       const canDelete = (it.author && it.author === me);
       html += `<tr style="border-bottom:1px solid #F3F4F6;vertical-align:top">
         <td style="padding:8px;font-weight:600;color:#374151">${_impEsc(it.author)}<br><span style="color:#9CA3AF;font-size:10px;font-weight:400">${_impTime(it.createdAt)}</span></td>
         <td style="padding:8px"><span style="background:#D1FAE5;color:#047857;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${_impEsc(it.category||'-')}</span></td>
-        <td style="padding:8px;white-space:pre-wrap;line-height:1.5">${_impEsc(it.content)}</td>
+        <td style="padding:8px;white-space:pre-wrap;line-height:1.5">${_impEsc(it.content)}${_impFilesHtml(it.files)}</td>
         <td style="padding:8px">
           <div>${cHtml || '<span style="color:#9CA3AF;font-size:11px">아직 의견이 없습니다</span>'}</div>
           <div style="display:flex;gap:4px;margin-top:6px;border-top:1px solid #E5E7EB;padding-top:6px">
             <input type="text" id="impC-${it.id}" placeholder="의견 입력…" onkeydown="if(event.key==='Enter'){addImprovementComment('${it.id}')}" style="flex:1;padding:5px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:11px">
             <button class="btn btn-sm" onclick="addImprovementComment('${it.id}')" style="font-size:11px;padding:4px 10px;background:#10B981;color:#fff;border:none;border-radius:6px">등록</button>
           </div>
+          <label style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10px;color:#6B7280;cursor:pointer">📎<input type="file" id="impCF-${it.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.hwp,.txt,.zip" style="font-size:10px;max-width:200px"></label>
         </td>
         <td style="padding:8px;text-align:center">${canDelete ? `<button onclick="deleteImprovement('${it.id}')" title="삭제" style="background:none;border:none;cursor:pointer;color:#EF4444;font-size:14px">🗑</button>` : ''}</td>
       </tr>`;
@@ -5648,9 +5660,16 @@ ${text.slice(0, 4000)}`;
     const category = (document.getElementById('impCategory')?.value || '').trim();
     const content = (document.getElementById('impContent')?.value || '').trim();
     const discuss = (document.getElementById('impDiscuss')?.value || '').trim();
+    const fileInput = document.getElementById('impFiles');
+    const files = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
     if (!content){ alert('개선할 내용을 입력하세요.'); return; }
     try {
-      const r = await fetch('/api/improvements', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({author, category, content}) });
+      const fd = new FormData();
+      fd.append('author', author);
+      fd.append('category', category);
+      fd.append('content', content);
+      for (const f of files) fd.append('files', f);
+      const r = await fetch('/api/improvements', { method:'POST', body: fd });
       if (!r.ok) throw new Error(await r.text());
       // 논의내용을 함께 입력했으면 첫 의견으로 등록
       if (discuss) {
@@ -5665,6 +5684,7 @@ ${text.slice(0, 4000)}`;
       document.getElementById('impContent').value = '';
       document.getElementById('impCategory').value = '';
       const dEl = document.getElementById('impDiscuss'); if (dEl) dEl.value = '';
+      if (fileInput) fileInput.value = '';
       if (typeof showToast==='function') showToast('💡 개선안이 등록되었습니다');
       loadImprovements();
     } catch(e){ alert('등록 실패: ' + e.message); }
@@ -5674,10 +5694,23 @@ ${text.slice(0, 4000)}`;
   async function addImprovementComment(id){
     const inp = document.getElementById('impC-' + id);
     const text = (inp?.value || '').trim();
-    if (!text) return;
+    const fEl = document.getElementById('impCF-' + id);
+    const files = fEl && fEl.files ? Array.from(fEl.files) : [];
+    if (!text && !files.length) return;
     const author = _currentUserName();
     try {
-      const r = await fetch('/api/improvements', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({action:'comment', id, author, text}) });
+      let r;
+      if (files.length) {
+        const fd = new FormData();
+        fd.append('action', 'comment');
+        fd.append('id', id);
+        fd.append('author', author);
+        fd.append('text', text);
+        for (const f of files) fd.append('files', f);
+        r = await fetch('/api/improvements', { method:'POST', body: fd });
+      } else {
+        r = await fetch('/api/improvements', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({action:'comment', id, author, text}) });
+      }
       if (!r.ok) throw new Error(await r.text());
       loadImprovements();
     } catch(e){ alert('의견 등록 실패: ' + e.message); }

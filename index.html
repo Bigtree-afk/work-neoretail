@@ -1543,7 +1543,11 @@
             <label style="font-size:10px;color:#6B7280;display:block;margin-bottom:2px">개선의견 논의 <span style="color:#9CA3AF">(선택 — 등록과 함께 첫 의견으로 남길 수 있습니다)</span></label>
             <textarea id="impDiscuss" rows="2" placeholder="개선할 내용에 대한 의견·논의 사항을 함께 남기려면 입력하세요" style="width:100%;padding:7px 9px;border:1px solid #E5E7EB;border-radius:6px;font-size:13px;background:#fff;resize:vertical"></textarea>
           </div>
-          <div style="text-align:right">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <label style="font-size:11px;color:#6B7280;display:flex;align-items:center;gap:6px;cursor:pointer">
+              📎 파일·이미지 첨부
+              <input type="file" id="impFiles" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.hwp,.txt,.zip" style="font-size:11px">
+            </label>
             <button class="btn btn-primary btn-sm" onclick="submitImprovement()" style="font-size:12px;padding:7px 16px;background:#059669;border-color:#059669">+ 개선안 등록</button>
           </div>
         </div>
@@ -3864,6 +3868,6 @@
   </button>
 </div>
 
-<script src="/app.js?v=2026-05-29-improvements-page2" defer></script>
+<script src="/app.js?v=2026-05-29-improvements-files" defer></script>
 </body>
 </html>
