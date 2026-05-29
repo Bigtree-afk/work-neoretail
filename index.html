@@ -95,6 +95,9 @@
     <a class="nav-item" onclick="showScreen('schedulehub')">
       <span class="nav-icon">📅</span> 일정조회
     </a>
+    <a class="nav-item" onclick="showScreen('improvements')">
+      <span class="nav-icon">💡</span> 개선안
+    </a>
   </div>
 
   <!-- 우측 영역 -->
@@ -153,6 +156,9 @@
   </a>
   <a class="nav-item" onclick="showScreen('schedulehub'); closeMenu()">
     <span class="nav-icon">📅</span> 일정조회
+  </a>
+  <a class="nav-item" onclick="showScreen('improvements'); closeMenu()">
+    <span class="nav-icon">💡</span> 개선안
   </a>
   <div class="nav-section">기존 화면</div>
   <a class="nav-item" onclick="showScreen('newopen'); closeMenu()" style="font-size:11px;opacity:0.7">
@@ -1503,6 +1509,50 @@
     <!-- ═══════════════════════════════════════ -->
     <!-- screen-calendar 는 작업/일정 (screen-jobs)로 통합됨. 유지보수성을 위해 빈 div 만 둠. -->
     <div class="screen" id="screen-calendar" style="display:none"></div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- SCREEN: 사이트 개선안 (모두 공유 / 논의)  -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="screen" id="screen-improvements">
+      <div class="card" style="padding:16px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-weight:700;color:#047857;font-size:15px">💡 사이트 개선안 <span id="improvementsBadge" style="background:#059669;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px">0</span></div>
+          <button class="btn btn-outline btn-sm" onclick="loadImprovements()" style="font-size:11px;padding:5px 10px;border-color:#10B981;color:#047857">🔄 새로고침</button>
+        </div>
+        <div style="font-size:12px;color:#6B7280;margin-bottom:12px">모두가 함께 사이트 개선 아이디어를 기록하고 의견을 나누는 공간입니다. 작성한 내용은 전 직원에게 공유됩니다.</div>
+        <!-- 작성 폼 -->
+        <div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;padding:12px;margin-bottom:14px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <div style="flex:0 0 160px">
+              <label style="font-size:10px;color:#6B7280;display:block;margin-bottom:2px">작성자</label>
+              <input id="impAuthor" type="text" readonly style="width:100%;padding:7px 9px;border:1px solid #E5E7EB;border-radius:6px;font-size:13px;background:#fff;color:#374151;font-weight:600">
+            </div>
+            <div style="flex:0 0 200px">
+              <label style="font-size:10px;color:#6B7280;display:block;margin-bottom:2px">업무 구분</label>
+              <input id="impCategory" type="text" list="impCategoryList" placeholder="예: 점포관리 / AS / VAN" style="width:100%;padding:7px 9px;border:1px solid #E5E7EB;border-radius:6px;font-size:13px;background:#fff">
+              <datalist id="impCategoryList">
+                <option value="신규/오픈"><option value="AS"><option value="VAN"><option value="소모품"><option value="재고조사"><option value="점포관리"><option value="작업목록"><option value="대시보드"><option value="모바일"><option value="속도/성능"><option value="기타">
+              </datalist>
+            </div>
+            <div style="flex:1 1 280px">
+              <label style="font-size:10px;color:#6B7280;display:block;margin-bottom:2px">개선할 내용</label>
+              <textarea id="impContent" rows="2" placeholder="개선이 필요한 내용을 자유롭게 작성하세요" style="width:100%;padding:7px 9px;border:1px solid #E5E7EB;border-radius:6px;font-size:13px;background:#fff;resize:vertical"></textarea>
+            </div>
+          </div>
+          <div style="margin-bottom:8px">
+            <label style="font-size:10px;color:#6B7280;display:block;margin-bottom:2px">개선의견 논의 <span style="color:#9CA3AF">(선택 — 등록과 함께 첫 의견으로 남길 수 있습니다)</span></label>
+            <textarea id="impDiscuss" rows="2" placeholder="개선할 내용에 대한 의견·논의 사항을 함께 남기려면 입력하세요" style="width:100%;padding:7px 9px;border:1px solid #E5E7EB;border-radius:6px;font-size:13px;background:#fff;resize:vertical"></textarea>
+          </div>
+          <div style="text-align:right">
+            <button class="btn btn-primary btn-sm" onclick="submitImprovement()" style="font-size:12px;padding:7px 16px;background:#059669;border-color:#059669">+ 개선안 등록</button>
+          </div>
+        </div>
+        <!-- 그리드 -->
+        <div id="improvementsArea" style="overflow-x:auto;border:1px solid #D1FAE5;border-radius:8px">
+          <div style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">불러오는 중…</div>
+        </div>
+      </div>
+    </div>
 
     <!-- ═══════════════════════════════════════ -->
     <!-- SCREEN: EQUIPMENT                       -->
@@ -3351,40 +3401,6 @@
       <button class="modal-close" onclick="closeModal('myPageModal')">✕</button>
     </div>
     <div class="modal-body" style="overflow-y:auto;flex:1">
-      <!-- 💡 사이트 개선안 (모두 공유 / 논의) -->
-      <div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;padding:12px;margin-bottom:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-          <div style="font-weight:700;color:#047857;font-size:14px">💡 사이트 개선안 <span id="improvementsBadge" style="background:#059669;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px">0</span></div>
-          <button class="btn btn-outline btn-sm" onclick="loadImprovements()" style="font-size:11px;padding:5px 10px;border-color:#10B981;color:#047857">🔄 새로고침</button>
-        </div>
-        <!-- 작성 폼 -->
-        <div style="background:#fff;border:1px solid #D1FAE5;border-radius:6px;padding:10px;margin-bottom:10px">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-            <div style="flex:0 0 140px">
-              <label style="font-size:10px;color:#6B7280;display:block;margin-bottom:2px">작성자</label>
-              <input id="impAuthor" type="text" readonly style="width:100%;padding:6px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:12px;background:#F9FAFB;color:#374151;font-weight:600">
-            </div>
-            <div style="flex:0 0 180px">
-              <label style="font-size:10px;color:#6B7280;display:block;margin-bottom:2px">업무 구분</label>
-              <input id="impCategory" type="text" list="impCategoryList" placeholder="예: 점포관리 / AS / VAN" style="width:100%;padding:6px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:12px">
-              <datalist id="impCategoryList">
-                <option value="신규/오픈"><option value="AS"><option value="VAN"><option value="소모품"><option value="재고조사"><option value="점포관리"><option value="작업목록"><option value="대시보드"><option value="모바일"><option value="속도/성능"><option value="기타">
-              </datalist>
-            </div>
-            <div style="flex:1 1 240px">
-              <label style="font-size:10px;color:#6B7280;display:block;margin-bottom:2px">개선할 내용</label>
-              <textarea id="impContent" rows="2" placeholder="개선이 필요한 내용을 자유롭게 작성하세요" style="width:100%;padding:6px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:12px;resize:vertical"></textarea>
-            </div>
-          </div>
-          <div style="text-align:right">
-            <button class="btn btn-primary btn-sm" onclick="submitImprovement()" style="font-size:11px;padding:6px 14px;background:#059669;border-color:#059669">+ 개선안 등록</button>
-          </div>
-        </div>
-        <!-- 그리드 -->
-        <div id="improvementsArea" style="max-height:420px;overflow-y:auto;background:#fff;border:1px solid #D1FAE5;border-radius:6px">
-          <div style="text-align:center;padding:20px;color:var(--gray-400);font-size:12px">새로고침을 눌러 개선안 목록을 불러오세요.</div>
-        </div>
-      </div>
       <!-- VAN 서류 확인 -->
       <div style="background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;padding:12px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
@@ -3848,6 +3864,6 @@
   </button>
 </div>
 
-<script src="/app.js?v=2026-05-29-improvements" defer></script>
+<script src="/app.js?v=2026-05-29-improvements-page2" defer></script>
 </body>
 </html>

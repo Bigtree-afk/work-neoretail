@@ -438,6 +438,7 @@
     supplieshub: '🏷️ 소모품',
     schedulehub: '📅 일정조회',
     stocktakehub: '📦 재고조사',
+    improvements: '💡 사이트 개선안',
     consult: '상담 조회',
     stores: '점포관리',
     jobs: '작업/일정',
@@ -507,6 +508,9 @@
     }
     if (id === 'stocktakehub' && typeof renderStocktakeHub === 'function') {
       try { renderStocktakeHub(); } catch(e) { console.warn('[stocktakehub] render 실패', e); }
+    }
+    if (id === 'improvements' && typeof loadImprovements === 'function') {
+      try { loadImprovements(); } catch(e) { console.warn('[improvements] load 실패', e); }
     }
   }
 
@@ -2973,7 +2977,6 @@
       try { syncCatalogFromCloud().then(() => renderCatalogAdmin()); } catch(e){}
       try { renderCatalogAdmin(); } catch(e){}
       try { loadVandocsList(); } catch(e){}
-      try { loadImprovements(); } catch(e){}
     }
   }
 
@@ -5644,12 +5647,24 @@ ${text.slice(0, 4000)}`;
     const author = _currentUserName();
     const category = (document.getElementById('impCategory')?.value || '').trim();
     const content = (document.getElementById('impContent')?.value || '').trim();
+    const discuss = (document.getElementById('impDiscuss')?.value || '').trim();
     if (!content){ alert('개선할 내용을 입력하세요.'); return; }
     try {
       const r = await fetch('/api/improvements', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({author, category, content}) });
       if (!r.ok) throw new Error(await r.text());
+      // 논의내용을 함께 입력했으면 첫 의견으로 등록
+      if (discuss) {
+        try {
+          const data = await r.json();
+          const id = data && data.item && data.item.id;
+          if (id) {
+            await fetch('/api/improvements', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({action:'comment', id, author, text: discuss}) });
+          }
+        } catch(_){}
+      }
       document.getElementById('impContent').value = '';
       document.getElementById('impCategory').value = '';
+      const dEl = document.getElementById('impDiscuss'); if (dEl) dEl.value = '';
       if (typeof showToast==='function') showToast('💡 개선안이 등록되었습니다');
       loadImprovements();
     } catch(e){ alert('등록 실패: ' + e.message); }
