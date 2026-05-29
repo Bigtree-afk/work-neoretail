@@ -2973,6 +2973,7 @@
       try { syncCatalogFromCloud().then(() => renderCatalogAdmin()); } catch(e){}
       try { renderCatalogAdmin(); } catch(e){}
       try { loadVandocsList(); } catch(e){}
+      try { loadImprovements(); } catch(e){}
     }
   }
 
@@ -5573,6 +5574,111 @@ ${text.slice(0, 4000)}`;
     } catch(e) {}
     return '익명';
   };
+
+  /* ══════════════════════════════════════════════
+     💡 사이트 개선안 (모두 공유 / 논의) — myPageModal
+     ══════════════════════════════════════════════ */
+  function _impEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function _impTime(iso){
+    try { const d=new Date(iso); return new Date(d.getTime()+9*3600*1000).toISOString().slice(0,16).replace('T',' '); } catch(_){ return ''; }
+  }
+
+  async function loadImprovements(){
+    const area = document.getElementById('improvementsArea');
+    // 작성자 자동 채집
+    try { const a=document.getElementById('impAuthor'); if (a) a.value = _currentUserName(); } catch(_){}
+    if (area) area.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-400);font-size:12px">불러오는 중…</div>';
+    try {
+      const r = await fetch('/api/improvements', { cache:'no-store' });
+      const data = await r.json();
+      renderImprovements(data.items || []);
+    } catch(e){
+      if (area) area.innerHTML = '<div style="text-align:center;padding:20px;color:#DC2626;font-size:12px">목록을 불러오지 못했습니다.</div>';
+    }
+  }
+  window.loadImprovements = loadImprovements;
+
+  function renderImprovements(items){
+    const area = document.getElementById('improvementsArea');
+    const badge = document.getElementById('improvementsBadge');
+    if (badge) badge.textContent = items.length;
+    if (!area) return;
+    if (!items.length){
+      area.innerHTML = '<div style="text-align:center;padding:24px;color:var(--gray-400);font-size:12px">아직 등록된 개선안이 없습니다. 위 폼에서 첫 개선안을 등록해보세요.</div>';
+      return;
+    }
+    const me = _currentUserName();
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      + '<thead style="background:#F0FDF4;position:sticky;top:0;z-index:1"><tr>'
+      + '<th style="padding:8px;text-align:left;width:96px;font-size:11px;border-bottom:1px solid #D1FAE5">작성자</th>'
+      + '<th style="padding:8px;text-align:left;width:110px;font-size:11px;border-bottom:1px solid #D1FAE5">업무 구분</th>'
+      + '<th style="padding:8px;text-align:left;font-size:11px;border-bottom:1px solid #D1FAE5">개선할 내용</th>'
+      + '<th style="padding:8px;text-align:left;font-size:11px;border-bottom:1px solid #D1FAE5;min-width:240px">개선의견 논의</th>'
+      + '<th style="padding:8px;text-align:center;width:40px;font-size:11px;border-bottom:1px solid #D1FAE5"></th>'
+      + '</tr></thead><tbody>';
+    for (const it of items){
+      const comments = Array.isArray(it.comments) ? it.comments : [];
+      const cHtml = comments.map(c =>
+        `<div style="padding:4px 0;border-top:1px dashed #E5E7EB"><span style="font-weight:700;color:#047857">${_impEsc(c.author)}</span> <span style="color:#9CA3AF;font-size:10px">${_impTime(c.at)}</span><br><span style="white-space:pre-wrap">${_impEsc(c.text)}</span></div>`
+      ).join('');
+      const canDelete = (it.author && it.author === me);
+      html += `<tr style="border-bottom:1px solid #F3F4F6;vertical-align:top">
+        <td style="padding:8px;font-weight:600;color:#374151">${_impEsc(it.author)}<br><span style="color:#9CA3AF;font-size:10px;font-weight:400">${_impTime(it.createdAt)}</span></td>
+        <td style="padding:8px"><span style="background:#D1FAE5;color:#047857;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${_impEsc(it.category||'-')}</span></td>
+        <td style="padding:8px;white-space:pre-wrap;line-height:1.5">${_impEsc(it.content)}</td>
+        <td style="padding:8px">
+          <div>${cHtml || '<span style="color:#9CA3AF;font-size:11px">아직 의견이 없습니다</span>'}</div>
+          <div style="display:flex;gap:4px;margin-top:6px;border-top:1px solid #E5E7EB;padding-top:6px">
+            <input type="text" id="impC-${it.id}" placeholder="의견 입력…" onkeydown="if(event.key==='Enter'){addImprovementComment('${it.id}')}" style="flex:1;padding:5px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:11px">
+            <button class="btn btn-sm" onclick="addImprovementComment('${it.id}')" style="font-size:11px;padding:4px 10px;background:#10B981;color:#fff;border:none;border-radius:6px">등록</button>
+          </div>
+        </td>
+        <td style="padding:8px;text-align:center">${canDelete ? `<button onclick="deleteImprovement('${it.id}')" title="삭제" style="background:none;border:none;cursor:pointer;color:#EF4444;font-size:14px">🗑</button>` : ''}</td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    area.innerHTML = html;
+  }
+
+  async function submitImprovement(){
+    const author = _currentUserName();
+    const category = (document.getElementById('impCategory')?.value || '').trim();
+    const content = (document.getElementById('impContent')?.value || '').trim();
+    if (!content){ alert('개선할 내용을 입력하세요.'); return; }
+    try {
+      const r = await fetch('/api/improvements', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({author, category, content}) });
+      if (!r.ok) throw new Error(await r.text());
+      document.getElementById('impContent').value = '';
+      document.getElementById('impCategory').value = '';
+      if (typeof showToast==='function') showToast('💡 개선안이 등록되었습니다');
+      loadImprovements();
+    } catch(e){ alert('등록 실패: ' + e.message); }
+  }
+  window.submitImprovement = submitImprovement;
+
+  async function addImprovementComment(id){
+    const inp = document.getElementById('impC-' + id);
+    const text = (inp?.value || '').trim();
+    if (!text) return;
+    const author = _currentUserName();
+    try {
+      const r = await fetch('/api/improvements', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({action:'comment', id, author, text}) });
+      if (!r.ok) throw new Error(await r.text());
+      loadImprovements();
+    } catch(e){ alert('의견 등록 실패: ' + e.message); }
+  }
+  window.addImprovementComment = addImprovementComment;
+
+  async function deleteImprovement(id){
+    if (!confirm('이 개선안을 삭제하시겠습니까?')) return;
+    try {
+      const r = await fetch('/api/improvements?id=' + encodeURIComponent(id), { method:'DELETE' });
+      if (!r.ok) throw new Error(await r.text());
+      if (typeof showToast==='function') showToast('삭제되었습니다');
+      loadImprovements();
+    } catch(e){ alert('삭제 실패: ' + e.message); }
+  }
+  window.deleteImprovement = deleteImprovement;
 
   /* 작업 메모 추가 (시스템 로그용) — 담당자(engineer)와 기록자(현재 사용자) 다르면 둘 다 기록
      ⚠️ 사용자 입력 메모 추가는 L11977 의 addJobMemo(jobId) 사용. 이름 충돌 방지를 위해
