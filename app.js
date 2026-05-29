@@ -5590,11 +5590,11 @@ ${text.slice(0, 4000)}`;
     const cells = files.map(f => {
       const url = _impEsc(f.url || '');
       if (f.isImage) {
-        return `<a href="${url}" target="_blank" rel="noopener" title="${_impEsc(f.name)}"><img src="${url}" alt="${_impEsc(f.name)}" style="max-width:120px;max-height:120px;border-radius:6px;border:1px solid #E5E7EB;object-fit:cover"></a>`;
+        return `<a href="${url}" target="_blank" rel="noopener" title="${_impEsc(f.name)}"><img src="${url}" alt="${_impEsc(f.name)}"></a>`;
       }
-      return `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#047857;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:6px;padding:4px 8px;text-decoration:none">📎 ${_impEsc(f.name)}</a>`;
+      return `<a href="${url}" target="_blank" rel="noopener" class="imp-file">📎 ${_impEsc(f.name)}</a>`;
     }).join('');
-    return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${cells}</div>`;
+    return `<div class="imp-files">${cells}</div>`;
   }
 
   async function loadImprovements(){
@@ -5622,33 +5622,33 @@ ${text.slice(0, 4000)}`;
       return;
     }
     const me = _currentUserName();
-    let html = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
-      + '<thead style="background:#F0FDF4;position:sticky;top:0;z-index:1"><tr>'
-      + '<th style="padding:8px;text-align:left;width:96px;font-size:11px;border-bottom:1px solid #D1FAE5">작성자</th>'
-      + '<th style="padding:8px;text-align:left;width:110px;font-size:11px;border-bottom:1px solid #D1FAE5">업무 구분</th>'
-      + '<th style="padding:8px;text-align:left;font-size:11px;border-bottom:1px solid #D1FAE5">개선할 내용</th>'
-      + '<th style="padding:8px;text-align:left;font-size:11px;border-bottom:1px solid #D1FAE5;min-width:240px">개선의견 논의</th>'
-      + '<th style="padding:8px;text-align:center;width:40px;font-size:11px;border-bottom:1px solid #D1FAE5"></th>'
+    let html = '<table class="imp-table">'
+      + '<thead><tr>'
+      + '<th style="width:120px">작성자</th>'
+      + '<th style="width:120px">업무 구분</th>'
+      + '<th>개선할 내용</th>'
+      + '<th style="min-width:260px">개선의견 논의</th>'
+      + '<th style="width:44px"></th>'
       + '</tr></thead><tbody>';
     for (const it of items){
       const comments = Array.isArray(it.comments) ? it.comments : [];
       const cHtml = comments.map(c =>
-        `<div style="padding:4px 0;border-top:1px dashed #E5E7EB"><span style="font-weight:700;color:#047857">${_impEsc(c.author)}</span> <span style="color:#9CA3AF;font-size:10px">${_impTime(c.at)}</span><br><span style="white-space:pre-wrap">${_impEsc(c.text)}</span>${_impFilesHtml(c.files)}</div>`
+        `<div class="imp-cmt"><span class="imp-cmt-by">${_impEsc(c.author)}</span><span class="imp-cmt-at">${_impTime(c.at)}</span><span class="imp-cmt-text">${_impEsc(c.text)}</span>${_impFilesHtml(c.files)}</div>`
       ).join('');
       const canDelete = (it.author && it.author === me);
-      html += `<tr style="border-bottom:1px solid #F3F4F6;vertical-align:top">
-        <td style="padding:8px;font-weight:600;color:#374151">${_impEsc(it.author)}<br><span style="color:#9CA3AF;font-size:10px;font-weight:400">${_impTime(it.createdAt)}</span></td>
-        <td style="padding:8px"><span style="background:#D1FAE5;color:#047857;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${_impEsc(it.category||'-')}</span></td>
-        <td style="padding:8px;white-space:pre-wrap;line-height:1.5">${_impEsc(it.content)}${_impFilesHtml(it.files)}</td>
-        <td style="padding:8px">
-          <div>${cHtml || '<span style="color:#9CA3AF;font-size:11px">아직 의견이 없습니다</span>'}</div>
-          <div style="display:flex;gap:4px;margin-top:6px;border-top:1px solid #E5E7EB;padding-top:6px">
-            <input type="text" id="impC-${it.id}" placeholder="의견 입력…" onkeydown="if(event.key==='Enter'){addImprovementComment('${it.id}')}" style="flex:1;padding:5px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:11px">
-            <button class="btn btn-sm" onclick="addImprovementComment('${it.id}')" style="font-size:11px;padding:4px 10px;background:#10B981;color:#fff;border:none;border-radius:6px">등록</button>
+      html += `<tr>
+        <td><span class="imp-author">${_impEsc(it.author)}</span><span class="imp-when">${_impTime(it.createdAt)}</span></td>
+        <td><span class="badge badge-green">${_impEsc(it.category||'-')}</span></td>
+        <td><span class="imp-content">${_impEsc(it.content)}</span>${_impFilesHtml(it.files)}</td>
+        <td>
+          <div class="imp-thread">${cHtml || '<span class="imp-none">아직 의견이 없습니다</span>'}</div>
+          <div class="imp-compose">
+            <input type="text" id="impC-${it.id}" placeholder="의견 입력…" onkeydown="if(event.key==='Enter'){addImprovementComment('${it.id}')}">
+            <button class="btn btn-outline btn-sm" onclick="addImprovementComment('${it.id}')">등록</button>
           </div>
-          <label style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10px;color:#6B7280;cursor:pointer">📎<input type="file" id="impCF-${it.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.hwp,.txt,.zip" style="font-size:10px;max-width:200px"></label>
+          <label class="imp-compose-file">📎 첨부<input type="file" id="impCF-${it.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.hwp,.txt,.zip"></label>
         </td>
-        <td style="padding:8px;text-align:center">${canDelete ? `<button onclick="deleteImprovement('${it.id}')" title="삭제" style="background:none;border:none;cursor:pointer;color:#EF4444;font-size:14px">🗑</button>` : ''}</td>
+        <td style="text-align:center">${canDelete ? `<button class="imp-del" onclick="deleteImprovement('${it.id}')" title="삭제">🗑</button>` : ''}</td>
       </tr>`;
     }
     html += '</tbody></table>';

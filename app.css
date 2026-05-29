@@ -1180,3 +1180,44 @@ body.auth-required #loginModalCloseBtn { display:none !important; }
 .ns-lbox-dl { background:#2563EB; color:#fff; border:none; padding:10px 22px; border-radius:7px; font-size:13px; font-weight:700; cursor:pointer; margin-top:14px; text-decoration:none; display:inline-block }
 .ns-lbox-fallback { text-align:center; color:#fff }
 .ns-lbox-fallback .bigicon { width:90px; height:110px; margin:0 auto 14px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:22px }
+
+/* ═══════════════ 💡 사이트 개선안 보드 ═══════════════ */
+/* 인라인 스타일 대신 공용 토큰(--gray-*, --primary 등) 기반의 일관된 컴포넌트 */
+#screen-improvements .imp-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+#screen-improvements .imp-title { display:flex; align-items:center; gap:8px; font-size:16px; font-weight:800; color:var(--gray-800); }
+#screen-improvements .imp-desc { font-size:13px; color:var(--gray-500); margin-bottom:16px; }
+#screen-improvements .imp-form { background:var(--gray-50); border:1px solid var(--gray-200); border-radius:10px; padding:16px; margin-bottom:18px; }
+#screen-improvements .imp-gridrow { display:grid; grid-template-columns:200px 220px 1fr; gap:14px; margin-bottom:14px; }
+#screen-improvements .imp-field label { display:block; font-size:12px; font-weight:600; color:var(--gray-600); margin-bottom:5px; }
+#screen-improvements .imp-field .imp-hint { font-weight:400; color:var(--gray-400); }
+#screen-improvements .imp-field input, #screen-improvements .imp-field textarea { width:100%; margin:0; }
+#screen-improvements .imp-field textarea { min-height:auto; }
+#screen-improvements .imp-form-foot { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+#screen-improvements .imp-attach { display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--gray-600); cursor:pointer; }
+#screen-improvements .imp-attach input[type=file] { font-size:12px; }
+#screen-improvements .imp-table { width:100%; border-collapse:collapse; font-size:13px; }
+#screen-improvements .imp-table thead th { background:var(--gray-50); text-align:left; font-size:12px; font-weight:700; color:var(--gray-600); padding:11px 14px; border-bottom:1px solid var(--gray-200); position:sticky; top:0; z-index:1; }
+#screen-improvements .imp-table td { padding:14px; border-bottom:1px solid var(--gray-100); vertical-align:top; line-height:1.6; }
+#screen-improvements .imp-table tr:last-child td { border-bottom:none; }
+#screen-improvements .imp-author { font-weight:600; color:var(--gray-700); }
+#screen-improvements .imp-when { display:block; font-size:11px; font-weight:400; color:var(--gray-400); margin-top:3px; }
+#screen-improvements .imp-content { white-space:pre-wrap; color:var(--gray-700); }
+#screen-improvements .imp-thread { display:flex; flex-direction:column; }
+#screen-improvements .imp-cmt { padding:8px 0; border-top:1px dashed var(--gray-200); }
+#screen-improvements .imp-cmt:first-child { border-top:none; padding-top:0; }
+#screen-improvements .imp-cmt-by { font-weight:700; color:var(--gray-700); }
+#screen-improvements .imp-cmt-at { color:var(--gray-400); font-size:11px; margin-left:5px; }
+#screen-improvements .imp-cmt-text { display:block; white-space:pre-wrap; margin-top:3px; color:var(--gray-700); }
+#screen-improvements .imp-none { color:var(--gray-400); font-size:12px; }
+#screen-improvements .imp-compose { display:flex; gap:6px; margin-top:10px; }
+#screen-improvements .imp-compose input[type=text] { flex:1; margin:0; }
+#screen-improvements .imp-compose-file { display:inline-flex; align-items:center; gap:5px; margin-top:6px; font-size:12px; color:var(--gray-500); cursor:pointer; }
+#screen-improvements .imp-compose-file input[type=file] { font-size:11px; max-width:200px; }
+#screen-improvements .imp-files { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+#screen-improvements .imp-files img { max-width:130px; max-height:130px; border-radius:8px; border:1px solid var(--gray-200); object-fit:cover; }
+#screen-improvements .imp-file { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--primary); background:var(--primary-light); border:1px solid #DBEAFE; border-radius:8px; padding:6px 11px; text-decoration:none; }
+#screen-improvements .imp-file:hover { border-color:var(--primary); }
+#screen-improvements .imp-del { background:none; border:none; cursor:pointer; color:var(--danger); font-size:16px; line-height:1; padding:2px; }
+@media (max-width: 680px) {
+  #screen-improvements .imp-gridrow { grid-template-columns:1fr; gap:10px; }
+}
