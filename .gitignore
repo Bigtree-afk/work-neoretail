@@ -2,3 +2,10 @@ sync/.env
 sync/.venv/
 sync/sync.log
 sync/__pycache__/
+
+# 로컬 데이터 덤프 (실데이터/개인정보 — 커밋 금지)
+_j.json
+_s.json
+
+# wrangler 로컬 dev 상태
+.wrangler/

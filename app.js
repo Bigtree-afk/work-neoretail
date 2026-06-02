@@ -16970,9 +16970,11 @@ ${text.slice(0, 4000)}`;
     // 푸터 — 작업 종료 / 진행 되돌리기
     const footerLeft = document.getElementById('newopenDetailFooterLeft');
     if (footerLeft) {
-      footerLeft.innerHTML = isDone
+      const primaryBtn = isDone
         ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-700);border-color:var(--gray-400);font-weight:700" onclick="reopenNewopen('${escFn(jid)}');setTimeout(()=>_editSupplyJob('${escFn(jid)}'),100)">↩ 진행으로 되돌리기</button>`
         : `<button class="btn btn-primary btn-sm" style="background:var(--success);font-weight:700" onclick="completeNewopen('${escFn(jid)}');document.getElementById('newopenDetailModal').classList.remove('show')">✓ 작업 종료</button>`;
+      const deleteBtn = `<button class="btn btn-outline btn-sm" style="color:#DC2626;border-color:#DC2626;font-weight:700;margin-left:6px" onclick="window._deleteSupplyJob('${escFn(jid)}')">🗑 삭제</button>`;
+      footerLeft.innerHTML = primaryBtn + deleteBtn;
     }
 
     // 첨부 uploader mount (편집 모드)
@@ -17000,6 +17002,23 @@ ${text.slice(0, 4000)}`;
     } catch(e) { console.warn('[_editSupplyJob] uploader mount failed', e); }
 
     modal.classList.add('show');
+  };
+
+  // 🗑 소모품 출고 기록 삭제 — 모바일 onDeleteJob 과 동일 패턴 (tombstone 으로 부활 차단)
+  window._deleteSupplyJob = function(jobId) {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const ji = jobs.findIndex(x => x.id === jobId);
+    if (ji < 0) { if (typeof showToast === 'function') showToast('작업을 찾을 수 없습니다'); return; }
+    const j = jobs[ji];
+    const label = `${j.storeName || j.store || '-'} · ${j.type || '소모품'}`;
+    if (!confirm(`이 소모품 출고 기록을 삭제할까요?\n\n${label}\n\n클라우드의 다른 기기에서도 사라지며, 되돌릴 수 없습니다.`)) return;
+    try { if (typeof _addTombstone === 'function') _addTombstone('job', jobId); } catch(_){}
+    jobs.splice(ji, 1);
+    if (typeof saveJobs === 'function') saveJobs(jobs);
+    try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(_){}
+    try { document.getElementById('newopenDetailModal').classList.remove('show'); } catch(_){}
+    if (typeof showToast === 'function') showToast('🗑 소모품 출고 기록이 삭제됐습니다');
+    try { _refreshAllHubsAfterThread(); } catch(_){}
   };
 
   function editNewopen(id) {
