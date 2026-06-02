@@ -105,6 +105,7 @@
   <div class="tabs">
     <div class="tab on" id="tab-appr" onclick="switchTab('appr')">📋 전자결재</div>
     <div class="tab" id="tab-leave" onclick="switchTab('leave')">🌴 연차관리</div>
+    <div class="tab" id="tab-tpl" onclick="switchTab('tpl')" style="display:none;flex:0 0 auto;padding-left:16px;padding-right:16px">🧾 양식 관리</div>
   </div>
 
   <!-- ===== 전자결재 ===== -->
@@ -134,12 +135,23 @@
     <div class="sech">👥 팀 연차 현황 (관리자)</div>
     <table id="teamTbl"><thead><tr><th>직원</th><th>부여</th><th>사용</th><th>잔여</th><th>사용률</th></tr></thead><tbody></tbody></table>
   </section>
+
+  <!-- ===== 양식 관리 (관리자) ===== -->
+  <section id="view-tpl" style="display:none">
+    <div class="row-actions">
+      <div style="font-size:12px;color:var(--g500)">결재 문서 양식(작성 포맷)을 등록·관리합니다. 기안 시 선택한 양식의 필드가 폼으로 표시됩니다.</div>
+      <button class="btn btn-p btn-sm" onclick="openTpl()">＋ 양식 등록</button>
+    </div>
+    <div id="tplList"></div>
+  </section>
 </div>
 
 <!-- 결재 상세 모달 -->
 <div class="ov" id="ovDetail"><div class="modal" id="detailBody"></div></div>
 <!-- 기안 모달 -->
 <div class="ov" id="ovDraft"><div class="modal" id="draftBody"></div></div>
+<!-- 양식 등록/수정 모달 -->
+<div class="ov" id="ovTpl"><div class="modal" id="tplEditBody"></div></div>
 
 <script>
 /* ════════ MOCK 데이터 ════════ */
@@ -176,6 +188,43 @@ function seed(){
     '박현장':{total:15,used:8}, '최팀장':{total:20,used:6}, '한실장':{total:20,used:12}
   }));
 }
+/* ──── 결재 양식(작성 포맷) 템플릿 ──── */
+const TPL_KEY='eap_tpl';
+const FIELD_TYPES=[['text','한 줄'],['textarea','여러 줄'],['date','날짜'],['number','숫자'],['money','금액(원)'],['select','선택목록']];
+function seedTpl(){
+  if(localStorage.getItem(TPL_KEY)) return;
+  const tpls=[
+    {id:'t-basic', name:'기본', cat:'gen', fields:[{label:'내용',type:'textarea'}]},
+    {id:'t-pay', name:'지출결의서', cat:'pay', fields:[
+      {label:'결제방법',type:'select',options:'현금,개인카드,계좌입금,기타'},
+      {label:'수령방법',type:'select',options:'현금,계좌입금'},
+      {label:'사용부서',type:'text'},{label:'작성일자',type:'date'},
+      {label:'은행명',type:'text'},{label:'예금주',type:'text'},{label:'계좌번호',type:'text'},
+      {label:'금액',type:'money'},{label:'사용내역',type:'textarea'}]},
+    {id:'t-trip-req', name:'해외출장신청서', cat:'gen', fields:[
+      {label:'소속',type:'text'},{label:'직위',type:'text'},{label:'성명',type:'text'},
+      {label:'출장 시작일',type:'date'},{label:'출장 종료일',type:'date'},
+      {label:'예정금액',type:'money'},{label:'지급 은행',type:'text'},{label:'지급 계좌',type:'text'},
+      {label:'출장장소',type:'text'},{label:'출장목적',type:'textarea'},{label:'비고',type:'textarea'}]},
+    {id:'t-trip-rep', name:'해외출장보고서', cat:'gen', fields:[
+      {label:'소속',type:'text'},{label:'직위',type:'text'},{label:'성명',type:'text'},
+      {label:'출장 시작일',type:'date'},{label:'출장 종료일',type:'date'},
+      {label:'출장업무내역',type:'textarea'},{label:'참고사항',type:'textarea'}]},
+    {id:'t-leave', name:'연차신청서', cat:'leave', fields:[
+      {label:'연차종류',type:'select',options:'연차,오전반차,오후반차,병가'},
+      {label:'시작일',type:'date'},{label:'종료일',type:'date'},
+      {label:'일수',type:'number'},{label:'사유',type:'textarea'}]},
+    {id:'t-holiday', name:'휴일근무일지', cat:'gen', fields:[
+      {label:'휴일근무자',type:'text'},{label:'근무일자',type:'date'},
+      {label:'휴일근무장소(매장명)',type:'text'},{label:'방문시간',type:'text'},
+      {label:'방문사유',type:'textarea'},{label:'점검사항',type:'textarea'},{label:'비고',type:'text'}]},
+  ];
+  localStorage.setItem(TPL_KEY, JSON.stringify(tpls));
+}
+const getTpls=()=>{ try{return JSON.parse(localStorage.getItem(TPL_KEY)||'[]')}catch(e){return []} };
+const setTpls=t=>localStorage.setItem(TPL_KEY, JSON.stringify(t));
+const tplById=id=>getTpls().find(t=>t.id===id);
+
 const getDocs = () => { try{return JSON.parse(localStorage.getItem(DOC_KEY)||'[]')}catch(e){return []} };
 const setDocs = d => localStorage.setItem(DOC_KEY, JSON.stringify(d));
 const getLeave = () => { try{return JSON.parse(localStorage.getItem(LV_KEY)||'{}')}catch(e){return {}} };
@@ -221,10 +270,10 @@ function reject(id){
 /* ════════ 렌더 ════════ */
 let TAB='appr', SUB='received';
 function switchTab(t){ TAB=t;
-  document.getElementById('tab-appr').classList.toggle('on',t==='appr');
-  document.getElementById('tab-leave').classList.toggle('on',t==='leave');
-  document.getElementById('view-appr').style.display=t==='appr'?'':'none';
-  document.getElementById('view-leave').style.display=t==='leave'?'':'none';
+  ['appr','leave','tpl'].forEach(x=>{
+    document.getElementById('tab-'+x).classList.toggle('on',t===x);
+    document.getElementById('view-'+x).style.display=t===x?'':'none';
+  });
   render();
 }
 function lineHtml(d){
@@ -246,13 +295,31 @@ function docCard(d){
   return `<div class="card" onclick="openDetail('${d.id}')">
     <div class="top"><span class="kind ${k.cls}">${k.label}</span>${isMyTurn(d)?'<span class="kind" style="background:#FEE2E2;color:#991B1B">내 결재 차례</span>':''}${isCC(d)?'<span class="kind" style="background:#E0E7FF;color:#3730A3">👁 참조</span>':''}${stBadge(d)}</div>
     <div class="title">${esc(d.title)}</div>
-    <div class="meta">기안 ${esc(d.drafter)} · ${esc(d.at)}${k.amount?` · <span class="amt">${won(d.amount)}원</span>`:''}${d.kind==='leave'&&d.from?` · ${esc(d.from)}${d.to&&d.to!==d.from?'~'+esc(d.to):''} (${d.days||1}일)`:''}</div>
+    <div class="meta">기안 ${esc(d.drafter)} · ${esc(d.at)}${d.tpl?` · 📄${esc(d.tpl)}`:''}${k.amount&&d.amount?` · <span class="amt">${won(d.amount)}원</span>`:''}${d.kind==='leave'&&d.from?` · ${esc(d.from)}${d.to&&d.to!==d.from?'~'+esc(d.to):''} (${d.days||1}일)`:''}</div>
     ${lineHtml(d)}
   </div>`;
 }
 function render(){
-  if(TAB==='appr') renderAppr(); else renderLeave();
-  document.getElementById('meName').textContent = ME + (ME==='정현우'||ME==='최팀장'||ME==='한실장'?' (결재자)':' (직원)');
+  document.getElementById('tab-tpl').style.display = isAdmin()?'':'none';
+  if(TAB==='tpl' && !isAdmin()){ switchTab('appr'); return; }
+  if(TAB==='appr') renderAppr(); else if(TAB==='leave') renderLeave(); else if(TAB==='tpl') renderTpl();
+  document.getElementById('meName').textContent = ME + (isAdmin()?' (관리자)':(ME==='최팀장'||ME==='한실장'?' (결재자)':' (직원)'));
+}
+/* ──── 양식 관리 렌더 ──── */
+function renderTpl(){
+  const tpls=getTpls();
+  document.getElementById('tplList').innerHTML = tpls.map(t=>{
+    const k=KIND[t.cat]||KIND.gen;
+    const preview = t.fields.slice(0,6).map(f=>esc(f.label)).join(' · ') + (t.fields.length>6?' …':'');
+    return `<div class="card" style="cursor:default">
+      <div class="top"><span class="kind ${k.cls}">${k.label}</span><span style="font-size:11px;color:var(--g400)">필드 ${t.fields.length}</span>
+        <span style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn btn-o btn-sm" onclick="openTpl('${t.id}')">✏️ 수정</button>
+          <button class="btn btn-rej btn-sm" onclick="delTpl('${t.id}')">삭제</button></span></div>
+      <div class="title">${esc(t.name)}</div>
+      <div class="meta">${preview||'필드 없음'}</div>
+    </div>`;
+  }).join('') || '<div class="empty">등록된 양식이 없습니다 — [＋ 양식 등록]</div>';
 }
 function renderAppr(){
   const docs=getDocs();
@@ -293,7 +360,9 @@ function openDetail(id){
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="kind ${k.cls}">${k.label}</span>${stBadge(d)}<button class="btn btn-o btn-sm" style="margin-left:auto" onclick="closeDetail()">닫기</button></div>
     <h3>${esc(d.title)}</h3>
     <div style="font-size:12px;color:var(--g500);margin:2px 0 10px">기안 ${esc(d.drafter)} · ${esc(d.at)}${k.amount?` · <span class="amt">${won(d.amount)}원</span>`:''}${d.kind==='leave'&&d.from?` · ${esc(d.from)}${d.to&&d.to!==d.from?'~'+esc(d.to):''} (${d.days||1}일)`:''}</div>
-    <div style="background:var(--g50);border:1px solid var(--g200);border-radius:10px;padding:12px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;margin-bottom:12px">${esc(d.content)}</div>
+    ${(d.fields&&d.fields.length)
+      ? `<table style="margin-bottom:12px;font-size:13px"><tbody>${d.fields.map(f=>`<tr><th style="width:128px;vertical-align:top;white-space:nowrap">${esc(f.label)}</th><td style="${f.type==='textarea'?'white-space:pre-wrap':''}">${f.type==='money'&&f.value?('<b>'+won(f.value)+'원</b>'):esc(f.value||'-')}</td></tr>`).join('')}</tbody></table>`
+      : `<div style="background:var(--g50);border:1px solid var(--g200);border-radius:10px;padding:12px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;margin-bottom:12px">${esc(d.content||'')}</div>`}
     <div class="sech" style="margin-top:0">결재선</div>${lineHtml(d)}
     ${(d.cc&&d.cc.length)?`<div class="sech">참조</div><div style="font-size:12px;color:var(--g600)">👁 ${d.cc.map(esc).join(', ')}</div>`:''}
     <div class="sech">결재 이력</div><div>${hist}</div>
@@ -307,22 +376,66 @@ function openDetail(id){
 function closeDetail(){ document.getElementById('ovDetail').classList.remove('show'); }
 
 /* ════════ 기안 모달 ════════ */
+/* ──── 양식 등록/수정 ──── */
+let tplFields=[], tplEditId=null;
+function openTpl(id){
+  const t=id?tplById(id):null; tplEditId=id||null;
+  tplFields = t? t.fields.map(f=>({label:f.label,type:f.type,options:f.options||''})) : [{label:'',type:'text',options:''}];
+  document.getElementById('tplEditBody').innerHTML = `
+    <div style="display:flex;align-items:center;margin-bottom:10px"><h3>${id?'✏️ 양식 수정':'＋ 양식 등록'}</h3><button class="btn btn-o btn-sm" style="margin-left:auto" onclick="closeTpl()">닫기</button></div>
+    <div class="fld"><label>양식명</label><input id="tplName" value="${esc(t?t.name:'')}" placeholder="예: 지출결의서 / 휴가신청서"></div>
+    <div class="fld"><label>분류 (뱃지 색상)</label><select id="tplCat">
+      <option value="gen" ${t&&t.cat==='gen'?'selected':''}>📄 일반</option>
+      <option value="pay" ${t&&t.cat==='pay'?'selected':''}>💰 지출결의</option>
+      <option value="buy" ${t&&t.cat==='buy'?'selected':''}>🛒 구매요청</option>
+      <option value="leave" ${t&&t.cat==='leave'?'selected':''}>🌴 휴가</option>
+    </select></div>
+    <div class="sech" style="margin-top:6px">작성 필드 <span style="color:var(--g400);font-weight:600">— 기안 시 이 순서로 입력란 생성</span></div>
+    <div id="tplFieldRows"></div>
+    <button class="btn btn-o btn-sm" style="margin-top:4px" onclick="addTplField()">＋ 필드 추가</button>
+    <button class="btn btn-p" style="width:100%;margin-top:14px" onclick="saveTpl()">💾 양식 저장</button>`;
+  renderTplFields(); document.getElementById('ovTpl').classList.add('show');
+}
+function renderTplFields(){
+  document.getElementById('tplFieldRows').innerHTML = tplFields.map((f,i)=>`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <input data-i="${i}" data-k="label" value="${esc(f.label)}" placeholder="필드명" style="flex:2;min-width:80px;padding:8px;border:1px solid var(--g300);border-radius:8px;font-size:13px">
+      <select data-i="${i}" data-k="type" onchange="syncTplFields();renderTplFields()" style="flex:1;min-width:78px;padding:8px;border:1px solid var(--g300);border-radius:8px;font-size:12px">${FIELD_TYPES.map(([v,l])=>`<option value="${v}" ${f.type===v?'selected':''}>${l}</option>`).join('')}</select>
+      ${f.type==='select'?`<input data-i="${i}" data-k="options" value="${esc(f.options||'')}" placeholder="옵션,쉼표구분" style="flex:2;min-width:80px;padding:8px;border:1px solid var(--g300);border-radius:8px;font-size:12px">`:'<span style="flex:2"></span>'}
+      <button class="btn btn-rej btn-sm" onclick="removeTplField(${i})" style="flex:0 0 auto;padding:8px 10px">✕</button>
+    </div>`).join('');
+}
+function syncTplFields(){ document.querySelectorAll('#tplFieldRows [data-i]').forEach(el=>{ const i=+el.dataset.i,k=el.dataset.k; if(tplFields[i]) tplFields[i][k]=el.value; }); }
+function addTplField(){ syncTplFields(); tplFields.push({label:'',type:'text',options:''}); renderTplFields(); }
+function removeTplField(i){ syncTplFields(); tplFields.splice(i,1); if(!tplFields.length) tplFields.push({label:'',type:'text',options:''}); renderTplFields(); }
+function closeTpl(){ document.getElementById('ovTpl').classList.remove('show'); }
+function saveTpl(){
+  syncTplFields();
+  const name=(document.getElementById('tplName').value||'').trim();
+  if(!name){ alert('양식명을 입력하세요'); return; }
+  const fields=tplFields.filter(f=>(f.label||'').trim()).map(f=>{ const o={label:f.label.trim(),type:f.type}; if(f.type==='select') o.options=f.options||''; return o; });
+  if(!fields.length){ alert('필드를 1개 이상 추가하세요'); return; }
+  const cat=document.getElementById('tplCat').value, tpls=getTpls();
+  if(tplEditId){ const t=tpls.find(x=>x.id===tplEditId); if(t){ t.name=name; t.cat=cat; t.fields=fields; } }
+  else tpls.push({id:'t-'+Date.now().toString(36), name, cat, fields});
+  setTpls(tpls); closeTpl(); render();
+}
+function delTpl(id){ if(!confirm('이 양식을 삭제할까요?')) return; setTpls(getTpls().filter(t=>t.id!==id)); render(); }
+
 let draftLine=[], draftCC=[];
 function openDraft(prefill){
+  const p = prefill||{};
   draftLine = ME==='정현우'?['최팀장']:['정현우'];
   draftCC = [];
-  const p = prefill||{};
+  const tpls=getTpls();
+  const tplId = p.tplId || (tpls[0]&&tpls[0].id) || '';
   document.getElementById('draftBody').innerHTML = `
     <div style="display:flex;align-items:center;margin-bottom:10px"><h3>✏️ 기안 작성</h3><button class="btn btn-o btn-sm" style="margin-left:auto" onclick="closeDraft()">닫기</button></div>
-    <div class="fld"><label>종류</label><select id="dKind" onchange="toggleAmount()">
-      <option value="pay">💰 지출결의</option><option value="buy">🛒 구매요청</option><option value="leave">🌴 휴가</option><option value="gen">📄 일반</option>
-    </select></div>
+    <div class="fld"><label>양식 <span style="color:var(--g400);font-weight:600">— 양식별 작성 항목이 자동 표시</span></label><select id="dTpl" onchange="renderDraftFields(this.value)">${tpls.map(t=>`<option value="${t.id}" ${t.id===tplId?'selected':''}>${esc(t.name)}</option>`).join('')}</select></div>
     <div class="fld"><label>제목</label><input id="dTitle" value="${esc(p.title||'')}" placeholder="결재 제목"></div>
-    <div class="fld" id="amtFld"><label>금액 (원)</label><input id="dAmount" type="number" min="0" placeholder="0"></div>
-    <div class="fld" id="leaveFld" style="display:none"><label>휴가 기간</label><div style="display:flex;gap:6px"><input id="dFrom" type="date" value="${esc(p.from||today())}"><input id="dTo" type="date" value="${esc(p.to||today())}"></div></div>
-    <div class="fld"><label>내용</label><textarea id="dContent" placeholder="상세 내용">${esc(p.content||'')}</textarea></div>
+    <div id="draftFields"></div>
     <div class="fld"><label>결재선 (기안자 본인 → 선택 순서대로)</label>
-      <div class="picker" id="linePicker">${STAFF.filter(n=>n!==ME).map(n=>`<span class="pk ${draftLine.includes(n)?'on':''}" onclick="toggleLine('${n}')">${esc(n)}</span>`).join('')}</div>
+      <div class="picker" id="linePicker">${STAFF.filter(n=>n!==ME).map(n=>`<span class="pk ${draftLine.includes(n)?'on':''}" onclick="toggleLine('${esc(n)}')">${esc(n)}</span>`).join('')}</div>
       <div id="linePreview" style="font-size:11.5px;color:var(--g500);margin-top:7px"></div>
     </div>
     <div class="fld"><label>참조 (열람만 · 결재권 없음 · 선택)</label>
@@ -330,16 +443,26 @@ function openDraft(prefill){
     </div>
     <button class="btn btn-p" style="width:100%" onclick="submitDraft()">📤 상신 (결재 요청)</button>
   `;
-  if(p.kind){ document.getElementById('dKind').value=p.kind; }
-  toggleAmount(); updateLinePreview();
+  renderDraftFields(tplId); updateLinePreview();
   document.getElementById('ovDraft').classList.add('show');
 }
-function closeDraft(){ document.getElementById('ovDraft').classList.remove('show'); }
-function toggleAmount(){
-  const k=document.getElementById('dKind').value;
-  document.getElementById('amtFld').style.display=(k==='pay'||k==='buy')?'':'none';
-  document.getElementById('leaveFld').style.display=(k==='leave')?'':'none';
+// 선택한 양식의 필드를 입력란으로 렌더
+function renderDraftFields(tplId){
+  const t=tplById(tplId), box=document.getElementById('draftFields'); if(!box) return;
+  if(!t){ box.innerHTML=''; return; }
+  const st='width:100%;padding:10px;border:1px solid var(--g300);border-radius:9px;font-size:13.5px;background:#fff';
+  box.innerHTML = t.fields.map((f,i)=>{
+    const a=`id="df-${i}" data-label="${esc(f.label)}" data-type="${f.type}"`;
+    let inp;
+    if(f.type==='textarea') inp=`<textarea ${a} style="${st};min-height:62px;resize:vertical"></textarea>`;
+    else if(f.type==='date') inp=`<input ${a} type="date" value="${today()}" style="${st}">`;
+    else if(f.type==='number'||f.type==='money') inp=`<input ${a} type="number" min="0" placeholder="0" style="${st}">`;
+    else if(f.type==='select'){ const o=(f.options||'').split(',').map(s=>s.trim()).filter(Boolean); inp=`<select ${a} style="${st}">${o.map(x=>`<option>${esc(x)}</option>`).join('')}</select>`; }
+    else inp=`<input ${a} type="text" style="${st}">`;
+    return `<div class="fld"><label>${esc(f.label)}${f.type==='money'?' (원)':''}</label>${inp}</div>`;
+  }).join('');
 }
+function closeDraft(){ document.getElementById('ovDraft').classList.remove('show'); }
 function toggleLine(n){
   const i=draftLine.indexOf(n);
   if(i>=0) draftLine.splice(i,1); else draftLine.push(n);
@@ -355,30 +478,30 @@ function updateLinePreview(){
   document.getElementById('linePreview').textContent = '결재선:  ' + [ME+'(기안)'].concat(draftLine).join('  →  ');
 }
 function submitDraft(){
-  const kind=document.getElementById('dKind').value;
+  const tpl=tplById(document.getElementById('dTpl').value);
   const title=(document.getElementById('dTitle').value||'').trim();
   if(!title){ alert('제목을 입력하세요'); return; }
   if(!draftLine.length){ alert('결재자를 1명 이상 지정하세요'); return; }
-  const docs=getDocs();
-  const line=[{n:ME,role:'기안'}].concat(draftLine.map((n,i)=>({n,role:i===draftLine.length-1?(kind==='leave'?'승인':'전결'):'결재'})));
-  const d={ id:'D'+Date.now().toString(36), kind, title, drafter:ME, at:nowts(),
-    amount:(kind==='pay'||kind==='buy')?(Number(document.getElementById('dAmount').value)||0):0,
-    content:(document.getElementById('dContent').value||'').trim(),
-    cc:draftCC.slice(),
-    line, step:1, status:'wait', history:[{n:ME,act:'기안',at:nowts()}] };
-  if(kind==='leave'){ d.from=document.getElementById('dFrom').value; d.to=document.getElementById('dTo').value;
-    const a=new Date(d.from), b=new Date(d.to); d.days=Math.max(1,Math.round((b-a)/86400000)+1); }
-  docs.unshift(d); setDocs(docs); closeDraft(); SUB='mine'; switchTab('appr'); render();
+  const cat = tpl?tpl.cat:'gen';
+  const fields = Array.from(document.querySelectorAll('#draftFields [data-label]')).map(el=>({label:el.dataset.label,type:el.dataset.type,value:el.value}));
+  const moneyF = fields.find(f=>f.type==='money');
+  const d={ id:'D'+Date.now().toString(36), kind:cat, tpl:tpl?tpl.name:'', tplId:tpl?tpl.id:'', title, drafter:ME, at:nowts(),
+    amount: moneyF?(Number(moneyF.value)||0):0, fields, cc:draftCC.slice(),
+    line:[{n:ME,role:'기안'}].concat(draftLine.map((n,i)=>({n,role:i===draftLine.length-1?(cat==='leave'?'승인':'전결'):'결재'}))),
+    step:1, status:'wait', history:[{n:ME,act:'기안',at:nowts()}] };
+  if(cat==='leave'){ const ds=fields.filter(f=>f.type==='date').map(f=>f.value).filter(Boolean); d.from=ds[0]||today(); d.to=ds[1]||d.from;
+    const dayF=fields.find(f=>f.type==='number'); d.days = (dayF&&Number(dayF.value))? Number(dayF.value) : Math.max(1,Math.round((new Date(d.to)-new Date(d.from))/86400000)+1); }
+  const docs=getDocs(); docs.unshift(d); setDocs(docs); closeDraft(); SUB='mine'; switchTab('appr'); render();
   if(draftLine[0]) pushToast('📡 첫 결재자 '+draftLine[0]+' 님에게 결재 요청 LINE 알림 발송');
 }
-function openLeave(){ switchTab('leave'); openDraft({kind:'leave',title:'연차 신청 ('+today()+')',content:'개인 사유 연차'}); }
+function openLeave(){ const lt=getTpls().find(t=>t.cat==='leave'); switchTab('appr'); openDraft({tplId:lt?lt.id:'', title:'연차 신청 ('+today()+')'}); }
 
 /* 사용자 전환 (목업 데모용) */
 document.getElementById('meName').onclick = function(){
   const i=STAFF.indexOf(ME); ME=STAFF[(i+1)%STAFF.length]; localStorage.setItem(ME_KEY,ME); render();
 };
 
-seed(); render();
+seed(); seedTpl(); render();
 </script>
 </body>
 </html>
