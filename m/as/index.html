@@ -400,6 +400,12 @@
       </div>
     </div>
 
+    <!-- 처리 담당 (이 요청을 처리할 우리 직원) — 매장 담당자(현장 연락처)와 별개 -->
+    <div class="sec">
+      <div class="sec-h">👷 처리 담당 <span class="hint">이 요청 담당 직원</span></div>
+      <select class="field-input" id="fAssignee"><option value="">미배정</option></select>
+    </div>
+
     <!-- 장비 체크리스트 — 평상시 접힘, 헤더 탭하면 펼침 -->
     <div class="sec collapsible" id="fEqSec">
       <div class="sec-h" onclick="toggleEqSec()">
@@ -502,7 +508,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-06-02-auth-gate"></script>
+<script src="/m-core.js?v=2026-06-02-req-assignee"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -850,6 +856,9 @@ function renderForm(r){
   refreshTypeChips();
   refreshAsTargetChips();
 
+  // 처리 담당 select 채움 (신규 = 미배정)
+  try { const a=$('fAssignee'); if(a) a.innerHTML = (window._staffOptionsHtml ? window._staffOptionsHtml('') : '<option value="">미배정</option>'); } catch(_){}
+
   // 자동 접수일시
   try { $('fAsReceivedAt').value = (window._kstDateTimeStr ? window._kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' ')); } catch(_){}
 
@@ -881,6 +890,7 @@ function renderForm(r){
       $('fContactName').value = j.contactName || '';
       $('fContactRole').value = j.contactRole || '';
       $('fContactPhone').value = j.contactPhone || '';
+      try { const a=$('fAssignee'); if(a) a.innerHTML = (window._staffOptionsHtml ? window._staffOptionsHtml(j.engineer||j.assignee||'') : '<option value="">미배정</option>'); } catch(_){}
       $('fAsReceivedAt').value = j.asReceivedAt || '';
       $('fAsDueDate').value = fmtDate(j.asDueDate);
       $('fAsDueTime').value = j.asDueTime || '';
@@ -1194,6 +1204,7 @@ window.onSaveForm = async function(){
   const contactName = ($('fContactName').value || '').trim();
   const contactRole = ($('fContactRole').value || '').trim();
   const contactPhone = ($('fContactPhone').value || '').trim();
+  const assigneeVal = (($('fAssignee') && $('fAssignee').value) || '').trim();  // 처리 담당(직원)
   // 장비 — fixed catalog → equipment row 배열로 변환
   const equipment = EQUIPMENT
     .filter(eq => (_formEquipment[eq.key] || 0) > 0)
@@ -1226,6 +1237,8 @@ window.onSaveForm = async function(){
     j.contactName  = contactName;
     j.contactRole  = contactRole;
     j.contactPhone = contactPhone;
+    // 처리 담당 — 첫 요청접수(ROOT)에 반영 (요청별 담당)
+    try { const _r0 = Array.isArray(j.thread) ? j.thread.find(e => e && e.parentId === null) : null; if (_r0) _r0.assignee = assigneeVal; } catch(_){}
     j.asReceivedAt = asInfo.receivedAt;
     j.asDueDate    = asInfo.dueDate;
     j.asDueTime    = asInfo.dueTime;
@@ -1261,6 +1274,7 @@ window.onSaveForm = async function(){
       const rootId = 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7);
       const arr = [{
         ts, author, status:'요청접수', text: asInfo.request,
+        assignee: assigneeVal,
         threadId: rootId,
         parentId: null,
       }];
@@ -1493,6 +1507,10 @@ function renderThreadGroups(j){
         </div>
         <div class="tg-root">${esc(r.text||'')}</div>
         <div class="tg-author">— ${esc(r.author||'담당자')}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:7px">
+          <span style="font-size:11px;color:var(--gray-500);font-weight:700;white-space:nowrap">👷 처리 담당</span>
+          <select onchange="window._setRequestAssignee && window._setRequestAssignee('${esc(j.id)}','${esc(r.threadId)}',this.value)" style="flex:1;padding:5px 8px;border:1px solid var(--gray-300);border-radius:6px;font-size:12px;font-weight:700;background:#fff;font-family:inherit">${window._staffOptionsHtml ? window._staffOptionsHtml(r.assignee||'') : '<option value="">미배정</option>'}</select>
+        </div>
         ${_renderEntryAttachments(r)}
         ${childHtml}
         ${gs !== '완료' ? `

@@ -1,0 +1,22 @@
+name: Deploy Preview to Cloudflare Pages
+
+# 프리뷰 전용 — feat/req-assignee 브랜치 푸시 시 Cloudflare Pages 의 'preview' 브랜치로 배포.
+# 프로덕션(work.neoretail.net, master)에는 영향 없음. 프리뷰 URL: https://preview.work-neoretail.pages.dev
+on:
+  push:
+    branches: [feat/req-assignee]
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy Preview to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 47fe6e69c0f12d671ca1b1e666916b6a
+          command: pages deploy . --project-name work-neoretail --branch=preview --commit-message "Preview ${{ github.sha }}"

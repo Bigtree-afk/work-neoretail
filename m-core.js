@@ -1574,6 +1574,45 @@
     } catch(e) { console.warn('[_openLineForThreadEntry]', e); }
   }
 
+  /* ───────────────────────────────────────────────────────────
+   * 처리 담당(engineer) 배정 — 모바일 공용 (select 기반)
+   * ───────────────────────────────────────────────────────── */
+  // 직원(ns_users) 목록으로 <option> 생성. selectedName 유지 + 미배정 빈 옵션.
+  function _staffOptionsHtml(selectedName) {
+    const sel = String(selectedName || '');
+    const users = (typeof getUsers === 'function') ? (getUsers() || []) : [];
+    const names = [];
+    const seen = new Set();
+    users.forEach(u => {
+      const nm = (u && (u.name || u.email || '')).trim();
+      if (!nm || seen.has(nm)) return;
+      seen.add(nm); names.push(nm);
+    });
+    // 현재 담당이 직원 목록에 없으면(자유입력/퇴사 등) 옵션으로 보존
+    if (sel && !seen.has(sel)) names.unshift(sel);
+    let html = `<option value="">미배정</option>`;
+    names.forEach(nm => {
+      html += `<option value="${esc(nm)}" ${nm === sel ? 'selected' : ''}>${esc(nm)}</option>`;
+    });
+    return html;
+  }
+  // 요청(요청접수 ROOT) 처리 담당 설정 — thread entry.assignee 에 저장 (요청별 담당)
+  function _setRequestAssignee(jobId, threadId, name) {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const job = jobs.find(j => j && j.id === jobId);
+    if (!job || !Array.isArray(job.thread)) return false;
+    const entry = job.thread.find(e => e && e.threadId === threadId);
+    if (!entry) return false;
+    const newName = String(name || '').trim();
+    if ((entry.assignee || '') === newName) return false;
+    entry.assignee = newName;
+    job.updatedAt = Date.now();
+    if (typeof saveJobs === 'function') saveJobs(jobs);
+    try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(_){}
+    try { if (typeof showToast === 'function') showToast(newName ? '👷 처리 담당: ' + newName : '담당 해제됨'); } catch(_){}
+    return true;
+  }
+
   /* ═══════════════════════════════════════════════════════════
    * window 노출 — PC SPA 와 같은 함수명으로 export
    * ═══════════════════════════════════════════════════════════ */
@@ -1608,6 +1647,10 @@
   global._loginWithGoogleProfile = _loginWithGoogleProfile;
   global._mobileLogout = _mobileLogout;
   global._enforceMobileAuthGate = _enforceMobileAuthGate;
+
+  // 처리 담당 배정 (요청별)
+  global._staffOptionsHtml = _staffOptionsHtml;
+  global._setRequestAssignee = _setRequestAssignee;
 
   // 클라우드 동기화
   global._mergeJobRecord = _mergeJobRecord;

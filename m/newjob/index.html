@@ -324,6 +324,12 @@
       </div>
     </div>
 
+    <!-- 처리 담당 (이 요청을 처리할 우리 직원) — 매장 담당자(현장 연락처)와 별개 -->
+    <div class="sec">
+      <div class="sec-h">👷 처리 담당 <span class="hint">이 요청 담당 직원</span></div>
+      <select class="field-input" id="fAssignee"><option value="">미배정</option></select>
+    </div>
+
     <!-- 작업 유형 -->
     <div class="sec">
       <div class="sec-h">🏷️ 작업 유형</div>
@@ -486,7 +492,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-06-02-auth-gate"></script>
+<script src="/m-core.js?v=2026-06-02-req-assignee"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -723,6 +729,8 @@ function renderForm(r){
   document.querySelectorAll('#fCondRow .cond-chip').forEach(x => x.classList.toggle('on', x.dataset.c === 'new'));
   document.querySelectorAll('input[name="fType"]').forEach(rd => { rd.checked = false; });
   refreshTypeChips();
+  // 처리 담당 select 채움 (신규 = 미배정)
+  try { const a=$('fAssignee'); if(a) a.innerHTML = (window._staffOptionsHtml ? window._staffOptionsHtml('') : '<option value="">미배정</option>'); } catch(_){}
 
   // sub 사전 선택
   if (r.sub) {
@@ -743,6 +751,7 @@ function renderForm(r){
       if (j.storeId) showPicked(_formStore);
       $('fContactName').value = j.contactName || '';
       $('fContactPhone').value = j.contactPhone || '';
+      try { const a=$('fAssignee'); if(a){ const _r0=Array.isArray(j.thread)?j.thread.find(e=>e&&e.parentId===null):null; a.innerHTML = (window._staffOptionsHtml ? window._staffOptionsHtml((_r0&&_r0.assignee)||'') : '<option value="">미배정</option>'); } } catch(_){}
       $('fConsultDate').value = fmtDate(j.consultDate);
       $('fInstallDate').value = fmtDate(j.installDate);
       $('fSoftOpenDate').value = fmtDate(j.softOpenDate);
@@ -1060,6 +1069,7 @@ window.onSaveForm = async function(){
   job.lineCategory = 'open_store';
   job.contactName  = ($('fContactName').value || '').trim();
   job.contactPhone = ($('fContactPhone').value || '').trim();
+  const _assigneeVal = (($('fAssignee') && $('fAssignee').value) || '').trim();  // 이 요청 처리 담당(직원)
   // 상담일은 폼에 노출 X — 신규 등록 시 오늘 자동 기록 (수정 시 기존 값 보존)
   if (!_editingJob && !job.consultDate) {
     // _kstNow() 는 'YYYY-MM-DD HH:MM' 문자열 — 앞 10자만 슬라이스
@@ -1098,6 +1108,7 @@ window.onSaveForm = async function(){
     const author = (window._currentAuthName ? window._currentAuthName() : '담당자') || '담당자';
     _newRootEntry = {
       ts, author, status:'요청접수', text: requestText,
+      assignee: _assigneeVal,   // 이 요청 처리 담당
       threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
       parentId: null,
     };
@@ -1110,6 +1121,9 @@ window.onSaveForm = async function(){
       existing.push(_newRootEntry);
       job.thread = (window._threadMigrate ? window._threadMigrate(existing) : existing);
     }
+  } else if (_assigneeVal) {
+    // 새 요청 없이 담당만 지정 — 첫 요청접수(ROOT)에 반영
+    try { const _r0 = Array.isArray(job.thread) ? job.thread.find(e => e && e.parentId === null) : null; if (_r0) _r0.assignee = _assigneeVal; } catch(_){}
   }
 
   if (!_editingJob) {
@@ -1418,6 +1432,10 @@ function renderThreadGroupsMobile(j){
         </div>
         <div class="tg-root" id="txt-${esc(r.threadId)}">${esc(r.text||'')}</div>
         <div class="tg-author">— ${esc(r.author||'담당자')}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:7px">
+          <span style="font-size:11px;color:var(--gray-500);font-weight:700;white-space:nowrap">👷 처리 담당</span>
+          <select onchange="window._setRequestAssignee && window._setRequestAssignee('${esc(j.id)}','${esc(r.threadId)}',this.value)" style="flex:1;padding:5px 8px;border:1px solid var(--gray-300);border-radius:6px;font-size:12px;font-weight:700;background:#fff;font-family:inherit">${window._staffOptionsHtml ? window._staffOptionsHtml(r.assignee||'') : '<option value="">미배정</option>'}</select>
+        </div>
         ${_renderEntryAttachments(r)}
         ${childHtml}
         ${gs !== '완료' ? `

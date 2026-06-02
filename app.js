@@ -6142,6 +6142,7 @@ ${text.slice(0, 4000)}`;
     emptyMessage: '일치하는 사용자 없음 (이름 입력 후 Enter 로 자유 입력 가능)',
   });
 
+
   /* 검색 상태 — pendId 별 결과/하이라이트 인덱스 — (구버전 호환, 점진 제거) */
   const _storeSearchState = {};
 
@@ -15460,6 +15461,10 @@ ${text.slice(0, 4000)}`;
           detail += `<div style="background:#fff;border:1px solid ${rootMeta.border};border-left:4px solid ${rootMeta.color};border-radius:8px;padding:9px 11px;margin-top:6px">
             <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${escFn(r.text||'')}</div>
             ${(Array.isArray(r.attachments)&&r.attachments.length&&typeof window._renderAttStrip==='function')?window._renderAttStrip(r.attachments,{limit:8,size:40}):''}
+            <div style="display:flex;align-items:center;gap:6px;margin-top:8px">
+              <span style="font-size:11px;color:var(--gray-500);font-weight:700;white-space:nowrap">👷 처리 담당</span>
+              <select onchange="window._threadSetAssignee('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',this.value)" style="flex:1;padding:5px 8px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;font-weight:700;background:#fff;font-family:inherit">${(typeof window._jobStaffOptions==='function')?window._jobStaffOptions(r.assignee||''):'<option value="">미배정</option>'}</select>
+            </div>
             ${editable ? `<div style="margin-top:6px;text-align:right"><button type="button" onclick="window._removeThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',true)" style="background:transparent;border:none;color:var(--gray-400);font-size:11px;cursor:pointer">요청 삭제</button></div>` : ''}
           </div>`;
 
@@ -17203,7 +17208,7 @@ ${text.slice(0, 4000)}`;
             })()}
           </select>
         </div>
-        <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">담당</div><div>${esc(j.engineer || j.assignee || '미배정')}</div></div>
+        <div><div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">👷 처리 담당</div><div style="font-size:11px;color:var(--gray-400)">요청별로 아래 스레드에서 지정</div></div>
         ${(() => {
           // 📌 매장 주요 일정(설치/가오픈/오픈) — AS 카테고리에서는 숨김
           const _cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
@@ -17739,6 +17744,46 @@ ${text.slice(0, 4000)}`;
     try { editNewopen(jobId); } catch(e){}
   }
   window.updateJobType = updateJobType;
+
+  /* 직원(ns_users) → <option> 목록 — 요청 담당 select 용 (PC 는 m-core 미로드라 자체 구현) */
+  function _jobStaffOptions(selected) {
+    const sel = String(selected || '');
+    const users = (typeof getUsers === 'function') ? (getUsers() || []) : [];
+    const names = []; const seen = new Set();
+    users.forEach(u => { const nm = ((u && (u.name || u.email)) || '').trim(); if (!nm || seen.has(nm)) return; seen.add(nm); names.push(nm); });
+    if (sel && !seen.has(sel)) names.unshift(sel);  // 목록에 없는 현재 담당 보존
+    let html = `<option value="">미배정</option>`;
+    names.forEach(nm => { html += `<option value="${esc(nm)}" ${nm === sel ? 'selected' : ''}>${esc(nm)}</option>`; });
+    return html;
+  }
+  window._jobStaffOptions = _jobStaffOptions;
+
+  /* 요청(요청접수 ROOT)별 처리 담당 배정 — thread entry.assignee. 저장 job + draft 모두 처리 */
+  window._threadSetAssignee = function(containerId, jobId, draftMode, threadId, name) {
+    const val = String(name || '').trim();
+    // 등록 폼 draft (저장 전) — 임시 thread 배열 갱신
+    if (draftMode || !jobId) {
+      try {
+        const arr = _getThreadFor(jobId, draftMode, containerId) || [];
+        const e = arr.find(x => x && x.threadId === threadId);
+        if (e) e.assignee = val;
+        _setThreadFor(jobId, draftMode, arr, containerId);
+      } catch(err) { console.warn('[_threadSetAssignee draft]', err); }
+      return;
+    }
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job || !Array.isArray(job.thread)) return;
+    const e = job.thread.find(x => x && x.threadId === threadId);
+    if (!e || (e.assignee || '') === val) return;
+    e.assignee = val;
+    job.updatedAt = Date.now();
+    saveJobs(jobs);
+    try { pushJobsToCloud({ toast:false }); } catch(err){}
+    if (typeof showToast === 'function') showToast(val ? `👷 처리 담당: ${val}` : '담당 해제됨');
+    try { hydrateAsMgmt(); } catch(e){}
+    try { hydrateDashboardJobs(); } catch(e){}
+  };
 
   function updateJobDate(jobId, field, value) {
     if (!['installDate','softOpenDate','openDate'].includes(field)) return;
