@@ -492,7 +492,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-06-02-preview-login"></script>
+<script src="/m-core.js?v=2026-06-02-req-ui"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1432,9 +1432,13 @@ function renderThreadGroupsMobile(j){
         </div>
         <div class="tg-root" id="txt-${esc(r.threadId)}">${esc(r.text||'')}</div>
         <div class="tg-author">— ${esc(r.author||'담당자')}</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-top:7px">
-          <span style="font-size:11px;color:var(--gray-500);font-weight:700;white-space:nowrap">👷 처리 담당</span>
-          <select onchange="window._setRequestAssignee && window._setRequestAssignee('${esc(j.id)}','${esc(r.threadId)}',this.value)" style="flex:1;padding:5px 8px;border:1px solid var(--gray-300);border-radius:6px;font-size:12px;font-weight:700;background:#fff;font-family:inherit">${window._staffOptionsHtml ? window._staffOptionsHtml(r.assignee||'') : '<option value="">미배정</option>'}</select>
+        <div style="display:flex;align-items:center;gap:6px 10px;margin-top:6px;flex-wrap:wrap;font-size:11px;color:var(--gray-500)">
+          <span style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap">👷
+            <select onchange="window._setRequestAssignee && window._setRequestAssignee('${esc(j.id)}','${esc(r.threadId)}',this.value)" style="padding:3px 6px;border:1px solid var(--gray-300);border-radius:5px;font-size:11.5px;font-weight:700;background:#fff;font-family:inherit;max-width:108px">${window._staffOptionsHtml ? window._staffOptionsHtml(r.assignee||'') : '<option value="">미배정</option>'}</select>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap">📅
+            <input type="date" value="${esc((r.dueDate||'').slice(0,10))}" onchange="window._setRequestDueDate && window._setRequestDueDate('${esc(j.id)}','${esc(r.threadId)}',this.value)" style="padding:3px 5px;border:1px solid var(--gray-300);border-radius:5px;font-size:11.5px;background:#fff;font-family:inherit">
+          </span>
         </div>
         ${_renderEntryAttachments(r)}
         ${childHtml}

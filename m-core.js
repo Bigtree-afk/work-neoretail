@@ -1615,6 +1615,22 @@
     try { if (typeof showToast === 'function') showToast(newName ? '👷 처리 담당: ' + newName : '담당 해제됨'); } catch(_){}
     return true;
   }
+  // 요청(요청접수 ROOT) 처리예정일 설정 — thread entry.dueDate
+  function _setRequestDueDate(jobId, threadId, value) {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const job = jobs.find(j => j && j.id === jobId);
+    if (!job || !Array.isArray(job.thread)) return false;
+    const entry = job.thread.find(e => e && e.threadId === threadId);
+    if (!entry) return false;
+    const v = String(value || '').slice(0, 10);
+    if ((entry.dueDate || '') === v) return false;
+    entry.dueDate = v;
+    job.updatedAt = Date.now();
+    if (typeof saveJobs === 'function') saveJobs(jobs);
+    try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(_){}
+    try { if (typeof showToast === 'function') showToast(v ? '📅 처리예정 ' + v : '처리예정 해제'); } catch(_){}
+    return true;
+  }
 
   /* ═══════════════════════════════════════════════════════════
    * window 노출 — PC SPA 와 같은 함수명으로 export
@@ -1654,6 +1670,7 @@
   // 처리 담당 배정 (요청별)
   global._staffOptionsHtml = _staffOptionsHtml;
   global._setRequestAssignee = _setRequestAssignee;
+  global._setRequestDueDate = _setRequestDueDate;
 
   // 클라우드 동기화
   global._mergeJobRecord = _mergeJobRecord;
