@@ -88,6 +88,16 @@
   .pk{padding:7px 11px;border-radius:18px;border:1.5px solid var(--g300);background:#fff;font-size:12px;font-weight:700;cursor:pointer;color:var(--g600)}
   .pk.on{background:var(--p);border-color:var(--p);color:#fff}
   .empty{text-align:center;color:var(--g400);padding:34px 10px;font-size:13px}
+  /* 문서 포맷(양식) — 캡처 이미지 스타일: 제목 + 테두리 표, 라벨칸 음영, 칸 안에 직접 입력 */
+  .docform{border:1px solid var(--g300);border-radius:10px;padding:14px;background:#fff;margin-bottom:6px}
+  .docform-title{text-align:center;font-size:19px;font-weight:900;letter-spacing:5px;color:#111827;margin:2px 0 12px}
+  .docform-tbl{width:100%;border-collapse:collapse;border:1.6px solid #475569;table-layout:fixed}
+  .docform-tbl th{background:#EEF2F7;border:1px solid #94A3B8;padding:9px 8px;width:33%;font-size:12.5px;font-weight:800;text-align:center;color:#1F2937;word-break:keep-all;vertical-align:middle}
+  .docform-tbl td{border:1px solid #94A3B8;padding:3px 7px;vertical-align:middle}
+  .docform-tbl td input,.docform-tbl td select,.docform-tbl td textarea{width:100%;border:none;background:transparent;font-size:13.5px;font-family:inherit;outline:none;padding:5px 3px;color:#111827}
+  .docform-tbl td input:focus,.docform-tbl td select:focus,.docform-tbl td textarea:focus{background:#FFFBEB}
+  .docform-tbl td textarea{min-height:52px;resize:vertical;line-height:1.5}
+  .docform-tbl td.val{white-space:pre-wrap;font-size:13.5px;color:#111827;padding:8px}
   .sech{font-size:12px;font-weight:800;color:var(--g500);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.4px}
 </style>
 </head>
@@ -113,7 +123,10 @@
     <div class="subtabs" id="apprSub"></div>
     <div class="row-actions">
       <div style="font-size:12px;color:var(--g500)" id="apprCount"></div>
-      <button class="btn btn-p btn-sm" onclick="openDraft()">✏️ 기안하기</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-o btn-sm" onclick="genTest10()" title="내가 결재할 테스트 문서 10건 생성">🧪 내 결재 10건</button>
+        <button class="btn btn-p btn-sm" onclick="openDraft()">✏️ 기안하기</button>
+      </div>
     </div>
     <div id="apprList"></div>
   </section>
@@ -379,7 +392,7 @@ function openDetail(id){
     <h3>${esc(d.title)}</h3>
     <div style="font-size:12px;color:var(--g500);margin:2px 0 10px">기안 ${esc(d.drafter)} · ${esc(d.at)}${k.amount?` · <span class="amt">${won(d.amount)}원</span>`:''}${d.kind==='leave'&&d.from?` · ${esc(d.from)}${d.to&&d.to!==d.from?'~'+esc(d.to):''} (${d.days||1}일)`:''}</div>
     ${(d.fields&&d.fields.length)
-      ? `<table style="margin-bottom:12px;font-size:13px"><tbody>${d.fields.map(f=>`<tr><th style="width:128px;vertical-align:top;white-space:nowrap">${esc(f.label)}</th><td style="${f.type==='textarea'?'white-space:pre-wrap':''}">${f.type==='money'&&f.value?('<b>'+won(f.value)+'원</b>'):esc(f.value||'-')}</td></tr>`).join('')}</tbody></table>`
+      ? `<div class="docform" style="margin-bottom:12px"><div class="docform-title">${esc(d.tpl||d.title)}</div><table class="docform-tbl"><colgroup><col style="width:33%"><col></colgroup><tbody>${d.fields.map(f=>`<tr><th>${esc(f.label)}</th><td class="val">${f.type==='money'&&f.value?('<b>'+won(f.value)+'원</b>'):esc(f.value||'-')}</td></tr>`).join('')}</tbody></table></div>`
       : `<div style="background:var(--g50);border:1px solid var(--g200);border-radius:10px;padding:12px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;margin-bottom:12px">${esc(d.content||'')}</div>`}
     <div class="sech" style="margin-top:0">결재선</div>${lineHtml(d)}
     ${(d.cc&&d.cc.length)?`<div class="sech">참조</div><div style="font-size:12px;color:var(--g600)">👁 ${d.cc.map(esc).join(', ')}</div>`:''}
@@ -466,21 +479,22 @@ function openDraft(prefill){
   renderDraftFields(tplId); updateLinePreview();
   document.getElementById('ovDraft').classList.add('show');
 }
-// 선택한 양식의 필드를 입력란으로 렌더
+// 선택한 양식을 '문서 포맷(표)' 형태로 렌더 — 칸 안에 직접 입력
 function renderDraftFields(tplId){
   const t=tplById(tplId), box=document.getElementById('draftFields'); if(!box) return;
   if(!t){ box.innerHTML=''; return; }
-  const st='width:100%;padding:10px;border:1px solid var(--g300);border-radius:9px;font-size:13.5px;background:#fff';
-  box.innerHTML = t.fields.map((f,i)=>{
+  const rows = t.fields.map((f,i)=>{
     const a=`id="df-${i}" data-label="${esc(f.label)}" data-type="${f.type}"`;
     let inp;
-    if(f.type==='textarea') inp=`<textarea ${a} style="${st};min-height:62px;resize:vertical"></textarea>`;
-    else if(f.type==='date') inp=`<input ${a} type="date" value="${today()}" style="${st}">`;
-    else if(f.type==='number'||f.type==='money') inp=`<input ${a} type="number" min="0" placeholder="0" style="${st}">`;
-    else if(f.type==='select'){ const o=(f.options||'').split(',').map(s=>s.trim()).filter(Boolean); inp=`<select ${a} style="${st}">${o.map(x=>`<option>${esc(x)}</option>`).join('')}</select>`; }
-    else inp=`<input ${a} type="text" style="${st}">`;
-    return `<div class="fld"><label>${esc(f.label)}${f.type==='money'?' (원)':''}</label>${inp}</div>`;
+    if(f.type==='textarea') inp=`<textarea ${a} placeholder="입력"></textarea>`;
+    else if(f.type==='date') inp=`<input ${a} type="date" value="${today()}">`;
+    else if(f.type==='number') inp=`<input ${a} type="number" min="0" placeholder="0">`;
+    else if(f.type==='money') inp=`<input ${a} type="number" min="0" placeholder="금액(원)">`;
+    else if(f.type==='select'){ const o=(f.options||'').split(',').map(s=>s.trim()).filter(Boolean); inp=`<select ${a}>${o.map(x=>`<option>${esc(x)}</option>`).join('')}</select>`; }
+    else inp=`<input ${a} type="text" placeholder="입력">`;
+    return `<tr><th>${esc(f.label)}</th><td>${inp}</td></tr>`;
   }).join('');
+  box.innerHTML = `<div class="docform"><div class="docform-title">${esc(t.name)}</div><table class="docform-tbl"><colgroup><col style="width:33%"><col></colgroup><tbody>${rows}</tbody></table></div>`;
 }
 function closeDraft(){ document.getElementById('ovDraft').classList.remove('show'); }
 function toggleLine(n){
@@ -515,6 +529,42 @@ function submitDraft(){
   if(draftLine[0]) pushToast('📡 첫 결재자 '+draftLine[0]+' 님에게 결재 요청 LINE 알림 발송');
 }
 function openLeave(){ const lt=getTpls().find(t=>t.cat==='leave'); switchTab('appr'); openDraft({tplId:lt?lt.id:'', title:'연차 신청 ('+today()+')'}); }
+
+// 🧪 내가 결재할 테스트 문서 10건 생성 (현재 사용자 = 1차 결재자)
+function genTest10(){
+  const tpls=getTpls();
+  let docs=getDocs().filter(d=>!/^T/.test(d.id));  // 이전 테스트건 제거(중복 방지)
+  const drafters=STAFF.filter(n=>n!==ME);
+  const samples=[
+    {tpl:'지출결의서', title:'외주 설치비 정산 요청', v:{'결제방법':'계좌입금','수령방법':'계좌입금','사용부서':'설치팀','은행명':'국민','예금주':'김기사','금액':'850000','사용내역':'엘마트 공릉점 신규 설치 외주 인건비'}},
+    {tpl:'지출결의서', title:'POS 단말기 10대 발주', v:{'결제방법':'계좌입금','수령방법':'계좌입금','사용부서':'영업팀','금액':'3200000','사용내역':'재고 소진 추가 발주(KOCES)'}},
+    {tpl:'해외출장신청서', title:'베트남 매장 셋업 출장 신청', v:{'성명':'박현장','출장장소':'하노이','예정금액':'1500000','출장목적':'신규 매장 POS 셋업 지원'}},
+    {tpl:'해외출장보고서', title:'베트남 출장 결과 보고', v:{'성명':'박현장','출장업무내역':'POS 5대 설치·교육 완료, 잔여 2대 추가 예정'}},
+    {tpl:'연차신청서', title:'연차 신청 (6/15)', v:{'연차종류':'연차','일수':'1','사유':'개인 사유'}},
+    {tpl:'휴일근무일지', title:'일요일 긴급 AS 근무', v:{'휴일근무자':'이엔지니어','휴일근무장소(매장명)':'하모니마트 당동점','방문사유':'POS 다운 긴급 대응','점검사항':'메인보드 교체'}},
+    {tpl:'지출결의서', title:'6월 차량 주유비', v:{'금액':'90000','사용내역':'출장 주유비 정산'}},
+    {tpl:'기본', title:'타 지점 인력 지원 협조 요청', v:{'내용':'6월 3주차 신규 오픈 대응 인력 2명 지원 요청'}},
+    {tpl:'연차신청서', title:'오후 반차 신청 (6/10)', v:{'연차종류':'오후반차','일수':'1','사유':'병원 진료'}},
+    {tpl:'지출결의서', title:'라벨프린터 소모품 발주', v:{'결제방법':'개인카드','수령방법':'계좌입금','사용부서':'물류팀','금액':'180000','사용내역':'저울라벨 20롤'}},
+  ];
+  const base=Date.now();
+  samples.forEach((s,i)=>{
+    let t=tpls.find(x=>x.name===s.tpl);
+    if(!t){ t=tpls.find(x=>x.cat===(s.cat||'gen'))||tpls[0]; }
+    const cat=s.cat||t.cat;
+    const drafter=drafters[i%drafters.length];
+    const fields=(t.fields||[]).map(f=>({label:f.label,type:f.type,value:(s.v[f.label]!==undefined?String(s.v[f.label]):(f.type==='date'?today():''))}));
+    const moneyF=fields.find(f=>f.type==='money');
+    const d={ id:'T'+(base+i).toString(36), kind:cat, tpl:t.name, tplId:t.id, title:s.title, drafter, at:nowts(),
+      amount: moneyF?(Number(moneyF.value)||0):0, fields, cc:[],
+      line:[{n:drafter,role:'기안'},{n:ME,role:cat==='leave'?'승인':'결재'}],
+      step:1, status:'wait', history:[{n:drafter,act:'기안',at:nowts()}] };
+    if(cat==='leave'){ d.from=today(); d.to=today(); d.days=1; }
+    docs.unshift(d);
+  });
+  setDocs(docs); SUB='received'; render();
+  pushToast('🧪 내 결재 대기 10건 생성 완료');
+}
 
 /* 사용자 전환 (목업 데모용) */
 document.getElementById('meName').onclick = function(){
