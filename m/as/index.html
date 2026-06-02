@@ -1411,9 +1411,16 @@ function renderThread(jobId){
   if (_doneEl) {
     const _isJobDone = window._isJobEffectivelyDone || window._isJobDone || (x => !!(x && (x.status==='완료'||x.status==='처리완료'||x.completed)));
     if (!_isJobDone(j)) {
-      _doneEl.innerHTML = `<button class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;font-weight:800;background:#16A34A;border-color:#16A34A" onclick="onDirectComplete()">✅ AS 완료 처리</button>`;
+      // 🔀 버튼 2개 분리 — 등록 직후 실수로 완료되는 사고 방지 (닫기 / 완료 처리)
+      _doneEl.innerHTML = `<div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="location.hash='#entry'">← 닫기</button>
+        <button class="btn btn-primary" style="background:#16A34A;border-color:#16A34A" onclick="onDirectComplete()">✅ AS 완료 처리</button>
+      </div>`;
     } else {
-      _doneEl.innerHTML = `<div style="text-align:center;padding:12px 0;color:#16A34A;font-weight:800;font-size:13px">✅ 완료된 작업입니다</div>`;
+      _doneEl.innerHTML = `<div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-outline" onclick="location.hash='#entry'">← 닫기</button>
+        <div style="flex:1;text-align:center;color:#16A34A;font-weight:800;font-size:13px">✅ 완료된 작업</div>
+      </div>`;
     }
   }
 }
