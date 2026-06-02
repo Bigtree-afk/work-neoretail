@@ -17254,6 +17254,23 @@ ${text.slice(0, 4000)}`;
             })()}
           </div>
         </div>
+        ${(() => {
+          // 🗒 메모 — AS 카테고리에서는 숨김 (AS 는 thread 요청접수·처리기록으로 기록, CLAUDE.md 레이아웃 규칙)
+          const _cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
+          if (_cat === 'as') return '';
+          const _memos = Array.isArray(j.memos) ? j.memos : [];
+          const _memoListHtml = _memos.length === 0 ? '' : `<div style="margin-top:8px;background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:11px;color:var(--gray-500);font-weight:600">🗓 메모 기록 (${_memos.length}건)</div>
+              ${_memos.slice().reverse().map((m, revIdx) => {
+                const idx = _memos.length - 1 - revIdx;
+                return `<div style="display:grid;grid-template-columns:130px 1fr 28px;gap:6px;align-items:start;padding:6px;border:1px solid var(--gray-100);border-radius:6px;background:#FAFAFA">
+                  <div style="font-size:11px;color:var(--gray-500);font-weight:600;white-space:nowrap">${esc(m.at||'')}<div style="font-size:10px;color:var(--gray-400);margin-top:2px;font-weight:400">${esc(m.author||'')}</div></div>
+                  <textarea onchange="updateJobMemoAt('${j.id}',${idx},this.value)" style="width:100%;min-height:34px;padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff;font-family:inherit;resize:vertical">${esc(m.text||'')}</textarea>
+                  <button title="삭제" onclick="if(confirm('이 메모를 삭제하시겠습니까?'))removeJobMemo('${j.id}',${idx})" style="background:none;border:1px solid var(--gray-200);border-radius:5px;padding:4px 6px;cursor:pointer;font-size:12px;color:var(--danger)">×</button>
+                </div>`;
+              }).join('')}
+            </div>`;
+          return `
         <div style="grid-column:1/-1">
           <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;gap:8px">
             <span>🗒 메모 <span style="font-size:10px;color:var(--gray-400)">— 시간 순으로 누적 기록</span></span>
@@ -17262,21 +17279,10 @@ ${text.slice(0, 4000)}`;
             <textarea id="jobMemoInput-${j.id}" placeholder="메모 입력 후 [추가] 클릭 — 줄바꿈 가능 (Shift+Enter)" style="flex:1;min-height:46px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;background:#fff;font-family:inherit;resize:vertical" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addJobMemo('${j.id}')}"></textarea>
             <button class="btn btn-primary btn-sm" style="font-size:12px;padding:8px 14px;font-weight:700;white-space:nowrap" onclick="addJobMemo('${j.id}')">+ 추가</button>
           </div>
-          ${(() => {
-            const memos = Array.isArray(j.memos) ? j.memos : [];
-            if (memos.length === 0) return '';
-            return `<div style="margin-top:8px;background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:6px">
-              <div style="font-size:11px;color:var(--gray-500);font-weight:600">🗓 메모 기록 (${memos.length}건)</div>
-              ${memos.slice().reverse().map((m, revIdx) => {
-                const idx = memos.length - 1 - revIdx;
-                return `<div style="display:grid;grid-template-columns:130px 1fr 28px;gap:6px;align-items:start;padding:6px;border:1px solid var(--gray-100);border-radius:6px;background:#FAFAFA">
-                  <div style="font-size:11px;color:var(--gray-500);font-weight:600;white-space:nowrap">${esc(m.at||'')}<div style="font-size:10px;color:var(--gray-400);margin-top:2px;font-weight:400">${esc(m.author||'')}</div></div>
-                  <textarea onchange="updateJobMemoAt('${j.id}',${idx},this.value)" style="width:100%;min-height:34px;padding:5px 7px;border:1px solid var(--gray-200);border-radius:5px;font-size:12px;background:#fff;font-family:inherit;resize:vertical">${esc(m.text||'')}</textarea>
-                  <button title="삭제" onclick="if(confirm('이 메모를 삭제하시겠습니까?'))removeJobMemo('${j.id}',${idx})" style="background:none;border:1px solid var(--gray-200);border-radius:5px;padding:4px 6px;cursor:pointer;font-size:12px;color:var(--danger)">×</button>
-                </div>`;
-              }).join('')}
-            </div>`;
-          })()}
+          ${_memoListHtml}
+        </div>`;
+        })()}
+        <div style="grid-column:1/-1">
           <div style="margin-top:10px;font-size:11px;color:var(--gray-500);margin-bottom:4px">📷📎 첨부 (작업 전체)</div>
           <div id="jobAttUploader-${j.id}"></div>
         </div>
