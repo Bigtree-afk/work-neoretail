@@ -482,18 +482,29 @@ function openDraft(prefill){
   renderDraftFields(tplId); updateLinePreview();
   document.getElementById('ovDraft').classList.add('show');
 }
+// 천단위 구분기호 — 입력 중 콤마 자동 삽입 (소수점 1개 허용)
+function fmtNum(el){
+  let raw = String(el.value||'').replace(/[^0-9.]/g,'');
+  const parts = raw.split('.');
+  let intp = parts[0].replace(/^0+(?=\d)/,'');
+  intp = intp ? Number(intp).toLocaleString('ko-KR') : '';
+  el.value = parts.length>1 ? (intp||'0')+'.'+parts.slice(1).join('') : intp;
+}
+const _commaFmt = v => { const n=String(v==null?'':v).replace(/,/g,''); return (n!==''&&!isNaN(Number(n))) ? Number(n).toLocaleString('ko-KR') : ''; };
 // 셀 입력/표시 헬퍼 — 입력모드(input) 면 칸 안 입력, 보기모드(view) 면 값 텍스트
 function ci(label,type,vals,mode,opts){
   const v=(vals&&vals[label]!=null)?String(vals[label]):'';
   if(mode==='view'){
     if(type==='money') return v?('<b>'+won(v)+'원</b>'):'<span style="color:#cbd5e1">-</span>';
+    if(type==='number') return v?esc(_commaFmt(v)):'<span style="color:#cbd5e1">-</span>';
     return v? esc(v).replace(/\n/g,'<br>') : '<span style="color:#cbd5e1">-</span>';
   }
   const a=`data-label="${esc(label)}" data-type="${type}"`;
   if(type==='textarea') return `<textarea ${a}>${esc(v)}</textarea>`;
   if(type==='date') return `<input ${a} type="date" value="${esc(v||today())}">`;
-  if(type==='number') return `<input ${a} type="number" min="0" placeholder="0" value="${esc(v)}">`;
-  if(type==='money') return `<input ${a} type="number" min="0" placeholder="금액(원)" value="${esc(v)}">`;
+  // 숫자·금액: type=number 는 콤마 불가 → text + inputmode=numeric + 콤마 자동삽입(1,000 단위)
+  if(type==='number') return `<input ${a} type="text" inputmode="numeric" oninput="fmtNum(this)" placeholder="0" value="${esc(_commaFmt(v))}">`;
+  if(type==='money') return `<input ${a} type="text" inputmode="numeric" oninput="fmtNum(this)" placeholder="금액(원)" value="${esc(_commaFmt(v))}">`;
   if(type==='select'){ const o=(opts||'').split(',').map(s=>s.trim()).filter(Boolean); return `<select ${a}>${o.map(x=>`<option ${x===v?'selected':''}>${esc(x)}</option>`).join('')}</select>`; }
   return `<input ${a} type="text" value="${esc(v)}">`;
 }
@@ -558,7 +569,11 @@ function submitDraft(){
   if(!title){ alert('제목을 입력하세요'); return; }
   if(!draftLine.length){ alert('결재자를 1명 이상 지정하세요'); return; }
   const cat = tpl?tpl.cat:'gen';
-  const fields = Array.from(document.querySelectorAll('#draftFields [data-label]')).map(el=>({label:el.dataset.label,type:el.dataset.type,value:el.value}));
+  const fields = Array.from(document.querySelectorAll('#draftFields [data-label]')).map(el=>{
+    let val=el.value;
+    if(el.dataset.type==='money'||el.dataset.type==='number') val=String(val).replace(/,/g,'');  // 콤마 제거 후 저장
+    return {label:el.dataset.label,type:el.dataset.type,value:val};
+  });
   const moneyF = fields.find(f=>f.type==='money');
   const d={ id:'D'+Date.now().toString(36), kind:cat, tpl:tpl?tpl.name:'', tplId:tpl?tpl.id:'', title, drafter:ME, at:nowts(),
     amount: moneyF?(Number(moneyF.value)||0):0, fields, cc:draftCC.slice(),
