@@ -432,6 +432,40 @@ Autocomplete.register('myKind', {
 </div>
 ```
 
+### 숫자·금액 입력/표시 — 1,000단위 구분기호 (필수)
+
+**원칙**: 금액·수량 등 숫자 데이터는 **입력 중에도, 표시할 때도 1,000단위 콤마(`1,234,567`)** 를 적용한다. 사용자가 큰 금액을 자릿수 착오 없이 입력·확인할 수 있어야 한다.
+
+| 상황 | 규칙 |
+|---|---|
+| **표시(읽기)** | 항상 `Number(v).toLocaleString('ko-KR')` 로 콤마 표기. 금액은 `… 원` 접미사. (예: `1,234,567원`) |
+| **입력** | 🔴 `<input type="number">` **금지** — number 타입은 콤마를 못 넣는다. ✅ `type="text" inputmode="numeric"` + `oninput` 으로 입력 즉시 콤마 자동 삽입 |
+| **저장** | 콤마 제거한 **순수 숫자**(`String(v).replace(/,/g,'')` → `Number`)로 저장. 콤마 포함 문자열을 그대로 저장 금지 |
+| **소수** | 소수점(예: 반차 0.5일)이 필요한 칸은 정수부만 콤마, 소수부 보존 |
+
+**입력 포맷 헬퍼 (권장 패턴)**:
+```js
+// 입력 중 콤마 자동 삽입 (소수점 1개 허용)
+function fmtNum(el){
+  let raw = String(el.value||'').replace(/[^0-9.]/g,'');
+  const p = raw.split('.');
+  let intp = p[0].replace(/^0+(?=\d)/,'');
+  intp = intp ? Number(intp).toLocaleString('ko-KR') : '';
+  el.value = p.length>1 ? (intp||'0')+'.'+p.slice(1).join('') : intp;
+}
+// 저장 직전: const num = Number(String(el.value).replace(/,/g,'')) || 0;
+```
+```html
+<input type="text" inputmode="numeric" oninput="fmtNum(this)" placeholder="금액(원)">
+```
+
+**적용 대상**: 소모품 금액/수량, 재고조사 수수료·인건비·수금, 전자결재 금액 등 **모든 금액·수량 입력칸**. 신규 금액/수량 UI 추가 시 이 규칙 준수.
+
+**금지**:
+- `type="number"` 로 금액 입력 (콤마 미표시)
+- 콤마 포함 문자열을 숫자 계산/저장에 그대로 사용 (NaN 위험 — 반드시 `replace(/,/g,'')` 후 `Number`)
+- 표시 시 콤마 없는 raw 숫자 노출 (예: `1234567원`)
+
 ## 데이터 규칙 (필수)
 
 ### 작업 완료 판정 — `_isJobDone(j)` 헬퍼 사용
