@@ -1292,13 +1292,32 @@
     window.renderScheduleHub();
   };
   window._scheduleHubGetDate = function(j) {
-    // 우선순위: scheduleDate, asDueDate, installDate, softOpenDate, openDate, date
-    const keys = ['scheduleDate','asDueDate','installDate','softOpenDate','openDate','date'];
+    // 우선순위: scheduleDate, asDueDate, asReceivedAt(AS 접수일 — 예정일 없을 때 fallback),
+    //          installDate, softOpenDate, openDate, date
+    const keys = ['scheduleDate','asDueDate','asReceivedAt','installDate','softOpenDate','openDate','date'];
     for (const k of keys) {
       const v = j && j[k];
       if (v && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
     }
     return null;
+  };
+  // 작업 → 캘린더 일정 entry 배열. AS 는 접수일·예정일을 모두 별도 entry 로 노출.
+  window._scheduleHubGetDates = function(j) {
+    const norm = (v) => (v && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) ? v.slice(0,10) : null;
+    const cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
+    if (cat === 'as') {
+      const out = [];
+      const rec = norm(j.asReceivedAt);
+      const due = norm(j.asDueDate);
+      if (rec) out.push({ ymd: rec, role: 'received' });
+      if (due && due !== rec) out.push({ ymd: due, role: 'due' });
+      if (out.length) return out;
+    }
+    const single = window._scheduleHubGetDate(j);
+    return single ? [{ ymd: single, role: 'default' }] : [];
+  };
+  window._scheduleHubRoleLabel = function(role) {
+    return ({ received: '📥 접수', due: '📅 예정' })[role] || '';
   };
   window._scheduleHubCatColor = function(cat) {
     return ({ new:'#3B82F6', as:'#EF4444', van:'#8B5CF6', supplies:'#F59E0B', churn:'#6B7280' })[cat] || '#9CA3AF';
@@ -1339,16 +1358,18 @@
     const lblEl = document.getElementById('scheduleHubMonthLabel');
     if (lblEl) lblEl.textContent = label;
 
-    // 일정이 있는 작업만 추출 (날짜+카테고리 포함)
+    // 일정이 있는 작업만 추출 (날짜+카테고리 포함) — AS 는 접수일·예정일 각각 entry 생성
     const dated = [];
     for (const j of jobs) {
-      const ymd = window._scheduleHubGetDate(j);
-      if (!ymd) continue;
+      const entries = window._scheduleHubGetDates(j);
+      if (!entries.length) continue;
       const cat = window.classifyJobCategory(j);
       if (st.cat !== 'all' && cat !== st.cat) continue;
       const done = (typeof window._isJobDone === 'function') ? !!window._isJobDone(j) : false;
       if (done && !showDone) continue;
-      dated.push({ j, ymd, cat, done });
+      for (const e of entries) {
+        dated.push({ j, ymd: e.ymd, cat, done, role: e.role });
+      }
     }
 
     // 날짜별 그룹
@@ -1376,7 +1397,7 @@
     for (let i=0;i<totalCells;i++) {
       if (i % 7 === 0) calHtml += '<tr>';
       if (i < firstDow || day > daysInMonth) {
-        calHtml += '<td style="height:78px;border:1px solid var(--gray-100);background:#FAFAFA"></td>';
+        calHtml += '<td style="height:96px;border:1px solid var(--gray-100);background:#FAFAFA"></td>';
       } else {
         const m = String(st.month+1).padStart(2,'0');
         const dd = String(day).padStart(2,'0');
@@ -1390,24 +1411,30 @@
         const cellBorder = isSel ? '2px solid #3B82F6' : '1px solid var(--gray-100)';
         const cellBg = isSel ? '#EFF6FF' : '#fff';
 
-        // dots (up to 3 distinct cats)
-        const seen = new Set();
-        let dotsHtml = '';
-        let extraN = 0;
-        for (const it of items) {
-          if (seen.has(it.cat)) continue;
-          if (seen.size >= 3) { extraN = items.length - seen.size; break; }
-          seen.add(it.cat);
+        // 일정 칩 — 매장명 직접 표시 (미완료 먼저, 최대 3건 + 나머지 +N건)
+        const sorted = items.slice().sort((a,b) => (a.done?1:0) - (b.done?1:0));
+        const MAX_CHIPS = 3;
+        let chipsHtml = '';
+        for (const it of sorted.slice(0, MAX_CHIPS)) {
           const c = window._scheduleHubCatColor(it.cat);
-          dotsHtml += `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-right:2px"></span>`;
+          const nm = it.j.storeName || it.j.store || '(미지정)';
+          const roleTxt = window._scheduleHubRoleLabel(it.role);
+          const tip = `${window._scheduleHubCatLabel(it.cat)}${roleTxt ? ' · ' + roleTxt : ''} · ${nm}`;
+          const doneSty = it.done ? 'opacity:0.45;text-decoration:line-through' : '';
+          const rolePrefix = roleTxt ? `<span style="flex:0 0 auto;font-size:8.5px;color:${c};font-weight:700">${esc(roleTxt)}</span>` : '';
+          chipsHtml += `<div onclick="event.stopPropagation();window._scheduleHubOpenJob('${esc(it.j.id||'')}')" title="${esc(tip)}" style="display:flex;align-items:center;gap:3px;margin-top:2px;padding:1px 3px;border-radius:3px;background:${c}1A;cursor:pointer;${doneSty}">
+            <span style="flex:0 0 auto;width:5px;height:5px;border-radius:50%;background:${c}"></span>
+            ${rolePrefix}
+            <span style="flex:1;min-width:0;font-size:9.5px;line-height:1.35;color:var(--gray-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(nm)}</span>
+          </div>`;
         }
-        if (items.length > 0) {
-          dotsHtml = `<div style="margin-top:4px">${dotsHtml}<span style="font-size:10px;color:var(--gray-600);margin-left:2px">${items.length}</span></div>`;
+        if (items.length > MAX_CHIPS) {
+          chipsHtml += `<div style="margin-top:2px;font-size:9.5px;color:var(--gray-500);font-weight:600">+${items.length - MAX_CHIPS}건</div>`;
         }
 
-        calHtml += `<td onclick="window._scheduleHubSelectDate('${ymd}')" style="height:78px;vertical-align:top;padding:4px;border:${cellBorder};background:${cellBg};cursor:pointer">
+        calHtml += `<td onclick="window._scheduleHubSelectDate('${ymd}')" style="height:96px;vertical-align:top;padding:3px 4px;border:${cellBorder};background:${cellBg};cursor:pointer;overflow:hidden">
           <div style="display:flex;justify-content:space-between;align-items:center"><span style="${dayBg};font-size:11.5px">${day}</span></div>
-          ${dotsHtml}
+          ${chipsHtml}
         </td>`;
         day++;
       }
@@ -1477,14 +1504,21 @@
         const storeName = j.storeName || j.store || '(매장 미지정)';
         const sid = j.storeId || '';
         const engineer = j.engineer || j.assignee || '';
-        const time = j.asDueTime || '';
+        // 시각: AS 예정 entry 는 asDueTime, 접수 entry 는 asReceivedAt 의 시:분
+        let time = '';
+        if (it.role === 'due') time = j.asDueTime || '';
+        else if (it.role === 'received') { const t = String(j.asReceivedAt||'').slice(11,16); time = /^\d{2}:\d{2}$/.test(t) ? t : ''; }
+        else time = j.asDueTime || '';
         const title = j.title || j.type || j.workType || '';
+        const roleTxt = window._scheduleHubRoleLabel(it.role);
+        const roleBadge = roleTxt ? `<span style="background:${color}1A;color:${color};padding:1.5px 6px;border-radius:5px;font-size:10.5px;font-weight:700">${esc(roleTxt)}</span>` : '';
         const doneBadge = it.done ? '<span style="background:#D1FAE5;color:#065F46;padding:1.5px 5px;border-radius:4px;font-size:10px;margin-left:4px">완료</span>' : '';
         html += `<div onclick="window._scheduleHubOpenJob('${esc(j.id||'')}')" style="background:#fff;border:1px solid var(--gray-200);border-left:4px solid ${color};border-radius:8px;padding:9px 11px;margin-bottom:6px;cursor:pointer;transition:all .12s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background='#fff'">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
                 <span style="background:${color};color:#fff;padding:1.5px 6px;border-radius:5px;font-size:10.5px;font-weight:700">${esc(catLabel)}</span>
+                ${roleBadge}
                 ${time ? `<span style="font-size:11px;color:var(--gray-600);font-weight:600">⏰ ${esc(time)}</span>` : ''}
                 ${doneBadge}
               </div>
