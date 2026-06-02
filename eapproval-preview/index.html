@@ -392,7 +392,10 @@ function openDetail(id){
     <h3>${esc(d.title)}</h3>
     <div style="font-size:12px;color:var(--g500);margin:2px 0 10px">기안 ${esc(d.drafter)} · ${esc(d.at)}${k.amount?` · <span class="amt">${won(d.amount)}원</span>`:''}${d.kind==='leave'&&d.from?` · ${esc(d.from)}${d.to&&d.to!==d.from?'~'+esc(d.to):''} (${d.days||1}일)`:''}</div>
     ${(d.fields&&d.fields.length)
-      ? `<div class="docform" style="margin-bottom:12px"><div class="docform-title">${esc(d.tpl||d.title)}</div><table class="docform-tbl"><colgroup><col style="width:33%"><col></colgroup><tbody>${d.fields.map(f=>`<tr><th>${esc(f.label)}</th><td class="val">${f.type==='money'&&f.value?('<b>'+won(f.value)+'원</b>'):esc(f.value||'-')}</td></tr>`).join('')}</tbody></table></div>`
+      ? (function(){ const t=tplById(d.tplId); const vals={}; d.fields.forEach(f=>vals[f.label]=f.value);
+          if(t) return `<div style="margin-bottom:12px">${docFormHtml(t,'view',vals)}</div>`;
+          // 양식이 삭제된 경우 — 저장된 필드로 라벨|값 표
+          return `<div class="docform" style="margin-bottom:12px"><div class="docform-title">${esc(d.tpl||d.title)}</div><table class="docform-tbl"><colgroup><col style="width:33%"><col></colgroup>${d.fields.map(f=>`<tr><th>${esc(f.label)}</th><td class="val">${f.type==='money'&&f.value?('<b>'+won(f.value)+'원</b>'):esc(f.value||'-')}</td></tr>`).join('')}</table></div>`; })()
       : `<div style="background:var(--g50);border:1px solid var(--g200);border-radius:10px;padding:12px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;margin-bottom:12px">${esc(d.content||'')}</div>`}
     <div class="sech" style="margin-top:0">결재선</div>${lineHtml(d)}
     ${(d.cc&&d.cc.length)?`<div class="sech">참조</div><div style="font-size:12px;color:var(--g600)">👁 ${d.cc.map(esc).join(', ')}</div>`:''}
@@ -479,22 +482,60 @@ function openDraft(prefill){
   renderDraftFields(tplId); updateLinePreview();
   document.getElementById('ovDraft').classList.add('show');
 }
-// 선택한 양식을 '문서 포맷(표)' 형태로 렌더 — 칸 안에 직접 입력
+// 셀 입력/표시 헬퍼 — 입력모드(input) 면 칸 안 입력, 보기모드(view) 면 값 텍스트
+function ci(label,type,vals,mode,opts){
+  const v=(vals&&vals[label]!=null)?String(vals[label]):'';
+  if(mode==='view'){
+    if(type==='money') return v?('<b>'+won(v)+'원</b>'):'<span style="color:#cbd5e1">-</span>';
+    return v? esc(v).replace(/\n/g,'<br>') : '<span style="color:#cbd5e1">-</span>';
+  }
+  const a=`data-label="${esc(label)}" data-type="${type}"`;
+  if(type==='textarea') return `<textarea ${a}>${esc(v)}</textarea>`;
+  if(type==='date') return `<input ${a} type="date" value="${esc(v||today())}">`;
+  if(type==='number') return `<input ${a} type="number" min="0" placeholder="0" value="${esc(v)}">`;
+  if(type==='money') return `<input ${a} type="number" min="0" placeholder="금액(원)" value="${esc(v)}">`;
+  if(type==='select'){ const o=(opts||'').split(',').map(s=>s.trim()).filter(Boolean); return `<select ${a}>${o.map(x=>`<option ${x===v?'selected':''}>${esc(x)}</option>`).join('')}</select>`; }
+  return `<input ${a} type="text" value="${esc(v)}">`;
+}
+// 양식별 실제 레이아웃 (캡처 이미지 그대로). 미정의 양식은 라벨|값 2열 자동 생성.
+const BG='style="background:#FDE9C8"';
+const LAYOUTS={
+  't-pay':(v,m)=>`<colgroup><col style="width:17%"><col style="width:33%"><col style="width:17%"><col style="width:33%"></colgroup>
+    <tr><th>결제 방법</th><td>${ci('결제방법','select',v,m,'현금,개인카드,계좌입금,기타')}</td><th>수령 방법</th><td>${ci('수령방법','select',v,m,'현금,계좌입금')}</td></tr>
+    <tr><th>사용 부서</th><td>${ci('사용부서','text',v,m)}</td><th>은 행 명</th><td>${ci('은행명','text',v,m)}</td></tr>
+    <tr><th>작성 일자</th><td>${ci('작성일자','date',v,m)}</td><th>예 금 주</th><td>${ci('예금주','text',v,m)}</td></tr>
+    <tr><th>계좌 번호</th><td colspan="3">${ci('계좌번호','text',v,m)}</td></tr>
+    <tr><th>금   액</th><td colspan="3">${m==='view'?ci('금액','money',v,m):('금 &nbsp;'+ci('금액','money',v,m)+'&nbsp; 원')}</td></tr>
+    <tr><th>사용 내역</th><td colspan="3">${ci('사용내역','textarea',v,m)}</td></tr>`,
+  't-trip-req':(v,m)=>`<colgroup><col style="width:17%"><col><col style="width:14%"><col></colgroup>
+    <tr><th ${BG} style="background:#FDE9C8;text-align:left" colspan="4">출장대상자</th></tr>
+    <tr><th ${BG}>소 속</th><th ${BG}>직 위</th><th ${BG} colspan="2">성 명</th></tr>
+    <tr><td>${ci('소속','text',v,m)}</td><td>${ci('직위','text',v,m)}</td><td colspan="2">${ci('성명','text',v,m)}</td></tr>
+    <tr><th ${BG}>출장 기간</th><td colspan="2">${ci('출장 시작일','date',v,m)} ~ ${ci('출장 종료일','date',v,m)}</td><td>(&nbsp;&nbsp;일간 )</td></tr>
+    <tr><th ${BG}>예정 금액</th><td>${ci('예정금액','money',v,m)}</td><th ${BG}>지급</th><td>은행 ${ci('지급 은행','text',v,m)} / 계좌 ${ci('지급 계좌','text',v,m)}</td></tr>
+    <tr><th ${BG}>출장 장소</th><td colspan="3">${ci('출장장소','text',v,m)}</td></tr>
+    <tr><th ${BG} style="height:90px">출장 목적</th><td colspan="3">${ci('출장목적','textarea',v,m)}</td></tr>
+    <tr><th ${BG}>비 고</th><td colspan="3">${ci('비고','textarea',v,m)}</td></tr>`,
+  't-trip-rep':(v,m)=>`<colgroup><col style="width:17%"><col><col style="width:14%"><col></colgroup>
+    <tr><th ${BG} style="background:#FDE9C8;text-align:left" colspan="4">출장대상자</th></tr>
+    <tr><th ${BG}>소 속</th><th ${BG}>직 위</th><th ${BG} colspan="2">성 명</th></tr>
+    <tr><td>${ci('소속','text',v,m)}</td><td>${ci('직위','text',v,m)}</td><td colspan="2">${ci('성명','text',v,m)}</td></tr>
+    <tr><th ${BG}>출장 기간</th><td colspan="3">${ci('출장 시작일','date',v,m)} ~ ${ci('출장 종료일','date',v,m)}</td></tr>
+    <tr><th ${BG} style="height:120px">출장 업무내역</th><td colspan="3">${ci('출장업무내역','textarea',v,m)}</td></tr>
+    <tr><th ${BG} style="height:90px">참고 사항</th><td colspan="3">${ci('참고사항','textarea',v,m)}</td></tr>`,
+};
+// 문서 포맷 렌더 — 레이아웃 정의 있으면 그대로, 없으면 라벨|값 2열
+function docFormHtml(t, mode, vals){
+  vals=vals||{};
+  const inner = LAYOUTS[t.id]
+    ? LAYOUTS[t.id](vals, mode)
+    : '<colgroup><col style="width:33%"><col></colgroup>'+(t.fields||[]).map(f=>`<tr><th>${esc(f.label)}</th><td${mode==='view'?' class="val"':''}>${ci(f.label,f.type,vals,mode,f.options)}</td></tr>`).join('');
+  return `<div class="docform"><div class="docform-title">${esc(t.name)}</div><table class="docform-tbl">${inner}</table></div>`;
+}
+// 선택한 양식을 '문서 포맷' 그대로 렌더 — 칸 안에 직접 입력
 function renderDraftFields(tplId){
   const t=tplById(tplId), box=document.getElementById('draftFields'); if(!box) return;
-  if(!t){ box.innerHTML=''; return; }
-  const rows = t.fields.map((f,i)=>{
-    const a=`id="df-${i}" data-label="${esc(f.label)}" data-type="${f.type}"`;
-    let inp;
-    if(f.type==='textarea') inp=`<textarea ${a} placeholder="입력"></textarea>`;
-    else if(f.type==='date') inp=`<input ${a} type="date" value="${today()}">`;
-    else if(f.type==='number') inp=`<input ${a} type="number" min="0" placeholder="0">`;
-    else if(f.type==='money') inp=`<input ${a} type="number" min="0" placeholder="금액(원)">`;
-    else if(f.type==='select'){ const o=(f.options||'').split(',').map(s=>s.trim()).filter(Boolean); inp=`<select ${a}>${o.map(x=>`<option>${esc(x)}</option>`).join('')}</select>`; }
-    else inp=`<input ${a} type="text" placeholder="입력">`;
-    return `<tr><th>${esc(f.label)}</th><td>${inp}</td></tr>`;
-  }).join('');
-  box.innerHTML = `<div class="docform"><div class="docform-title">${esc(t.name)}</div><table class="docform-tbl"><colgroup><col style="width:33%"><col></colgroup><tbody>${rows}</tbody></table></div>`;
+  box.innerHTML = t? docFormHtml(t,'input',{}) : '';
 }
 function closeDraft(){ document.getElementById('ovDraft').classList.remove('show'); }
 function toggleLine(n){
