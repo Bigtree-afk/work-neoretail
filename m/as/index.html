@@ -1729,6 +1729,12 @@ window.onLineSendJob = function(){
   window.addEventListener('storage', e => {
     if (e.key === 'ns_jobs' || e.key === 'ns_stores') refreshCurrentView();
   });
+  // 👁 앱으로 돌아올 때 즉시 동기화 — 다른 기기(PC)의 삭제/수정이 30초 폴링을 기다리지 않고 바로 반영
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible') return;
+    try { await Promise.allSettled([window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}
+    refreshCurrentView();
+  });
 })();
 </script>
 </body>
