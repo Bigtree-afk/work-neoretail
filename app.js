@@ -6853,7 +6853,10 @@ ${text.slice(0, 4000)}`;
     // Client ID 설정됨: 플레이스홀더 제거 후 실제 Google 버튼 렌더
     if (placeholder) placeholder.style.display = 'none';
     container.style.display = '';
-    if (fallback) fallback.style.display = 'none';
+    // 🔎 프리뷰 도메인(*.pages.dev)은 Google OAuth 승인 원본이 아니라 로그인 불가 →
+    //    개발자(이메일) 로그인 fallback 을 노출해 프리뷰 확인 가능하게 (프로덕션엔 영향 없음)
+    const _isPreviewHost = (location.hostname || '').endsWith('.pages.dev');
+    if (fallback) fallback.style.display = _isPreviewHost ? '' : 'none';
 
     try {
       google.accounts.id.initialize({

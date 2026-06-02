@@ -231,7 +231,10 @@
           box.innerHTML = '';
           google.accounts.id.renderButton(box, { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill', locale: 'ko_KR' });
           _gBtnRendered = true;
-          if (fb) fb.style.display = 'none';
+          // 🔎 프리뷰 도메인(*.pages.dev)은 Google OAuth 승인 원본이 아니라 로그인 불가 →
+          //    개발자(이메일) 로그인 fallback 도 함께 노출 (프로덕션엔 영향 없음)
+          const _isPreviewHost = (location.hostname || '').endsWith('.pages.dev');
+          if (fb) fb.style.display = _isPreviewHost ? '' : 'none';
           return;
         } catch (e) { /* 아래 fallback 로 */ }
       }
