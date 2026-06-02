@@ -1,0 +1,23 @@
+name: Deploy E-Approval Preview to Cloudflare Pages
+
+# 전자결재/연차 목업 전용 — feat/eapproval 브랜치 푸시 시 Cloudflare Pages 의 'eapproval' 별칭으로 배포.
+# 기존 'preview'(요청별 담당) 별칭과 URL 분리. 프로덕션(master)·preview 모두 영향 없음.
+# 프리뷰 URL: https://eapproval.work-neoretail.pages.dev/eapproval-preview/
+on:
+  push:
+    branches: [feat/eapproval]
+
+jobs:
+  deploy-eapproval:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy E-Approval Preview
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 47fe6e69c0f12d671ca1b1e666916b6a
+          command: pages deploy . --project-name work-neoretail --branch=eapproval --commit-message "E-Approval preview ${{ github.sha }}"

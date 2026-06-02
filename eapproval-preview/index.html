@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1D4ED8">
+<title>전자결재 · 연차관리 (프리뷰 목업)</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{
+    --p:#1D4ED8; --p2:#2563EB;
+    --g50:#F9FAFB; --g100:#F3F4F6; --g200:#E5E7EB; --g300:#D1D5DB; --g400:#9CA3AF;
+    --g500:#6B7280; --g600:#4B5563; --g700:#374151; --g800:#1F2937; --g900:#111827;
+    --ok:#16A34A; --warn:#F59E0B; --danger:#DC2626; --info:#0891B2;
+  }
+  html,body{background:var(--g100);color:var(--g800)}
+  body{font-family:'Pretendard Variable','Pretendard','Apple SD Gothic Neo',sans-serif;font-size:14px;-webkit-font-smoothing:antialiased;padding-bottom:40px}
+  a,button,select,input,[onclick]{font-family:inherit}
+  .wrap{max-width:920px;margin:0 auto;padding:0 14px}
+  /* appbar */
+  .appbar{position:sticky;top:0;z-index:30;background:linear-gradient(135deg,#1E3A8A,#2563EB);color:#fff;padding:0 16px;height:56px;display:flex;align-items:center;gap:10px}
+  .appbar .t{font-size:16px;font-weight:800;flex:1}
+  .appbar .badge{font-size:10.5px;background:rgba(255,255,255,.2);padding:3px 9px;border-radius:20px;font-weight:700}
+  .appbar .me{font-size:12px;font-weight:700;opacity:.95}
+  .note{background:#FEF9C3;border:1px solid #FDE047;color:#854D0E;font-size:11.5px;border-radius:10px;padding:9px 13px;margin:12px 0;line-height:1.5}
+  /* tabs */
+  .tabs{display:flex;gap:8px;margin:14px 0 10px}
+  .tab{flex:1;text-align:center;padding:11px;border-radius:11px;background:#fff;border:1.5px solid var(--g200);font-weight:800;font-size:13.5px;color:var(--g600);cursor:pointer}
+  .tab.on{background:var(--p);border-color:var(--p);color:#fff}
+  /* subtabs */
+  .subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{padding:7px 13px;border-radius:20px;background:#fff;border:1.5px solid var(--g200);font-size:12.5px;font-weight:700;color:var(--g600);cursor:pointer}
+  .chip.on{background:#EFF6FF;border-color:var(--p);color:var(--p)}
+  .chip .n{display:inline-block;background:var(--danger);color:#fff;font-size:10px;border-radius:10px;padding:0 5px;margin-left:4px;font-weight:800}
+  /* card */
+  .card{background:#fff;border:1px solid var(--g200);border-radius:12px;padding:13px 15px;margin-bottom:10px;cursor:pointer;transition:box-shadow .12s}
+  .card:hover{box-shadow:0 4px 14px rgba(0,0,0,.07)}
+  .card .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+  .kind{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:6px}
+  .k-pay{background:#FEF3C7;color:#92400E}     /* 지출결의 */
+  .k-buy{background:#DBEAFE;color:#1E40AF}      /* 구매요청 */
+  .k-leave{background:#DCFCE7;color:#166534}    /* 휴가 */
+  .k-gen{background:#F3E8FF;color:#7E22CE}       /* 일반 */
+  .st{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:6px;margin-left:auto}
+  .s-wait{background:#FEF3C7;color:#92400E}
+  .s-ok{background:#DCFCE7;color:#166534}
+  .s-rej{background:#FEE2E2;color:#991B1B}
+  .card .title{font-size:14.5px;font-weight:800;color:var(--g900);margin-bottom:3px}
+  .card .meta{font-size:11.5px;color:var(--g500)}
+  .amt{font-weight:800;color:var(--p)}
+  /* approval line */
+  .line{display:flex;align-items:center;gap:4px;margin-top:9px;flex-wrap:wrap}
+  .step{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:16px;background:var(--g100);color:var(--g600)}
+  .step.done{background:#DCFCE7;color:#166534}
+  .step.cur{background:#FEF3C7;color:#92400E;box-shadow:0 0 0 2px #FDE68A}
+  .step.rej{background:#FEE2E2;color:#991B1B}
+  .arr{color:var(--g300);font-size:11px}
+  /* leave */
+  .lv-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+  .lv{background:#fff;border:1px solid var(--g200);border-radius:12px;padding:14px;text-align:center}
+  .lv .v{font-size:26px;font-weight:900;line-height:1.1}
+  .lv .l{font-size:11.5px;color:var(--g500);font-weight:700;margin-top:3px}
+  .bar{height:9px;background:var(--g200);border-radius:6px;overflow:hidden;margin:10px 0 4px}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,#22C55E,#16A34A)}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13px}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--g100)}
+  th{background:var(--g50);font-size:11.5px;color:var(--g500);font-weight:800}
+  /* buttons */
+  .btn{border:none;border-radius:10px;padding:11px 16px;font-size:13.5px;font-weight:800;cursor:pointer}
+  .btn-p{background:var(--p);color:#fff}
+  .btn-o{background:#fff;color:var(--g700);border:1.5px solid var(--g300)}
+  .btn-ok{background:var(--ok);color:#fff}
+  .btn-rej{background:#fff;color:var(--danger);border:1.5px solid #FCA5A5}
+  .btn-sm{padding:7px 12px;font-size:12px;border-radius:8px}
+  .row-actions{display:flex;justify-content:space-between;align-items:center;margin:6px 0 16px;gap:8px}
+  /* modal */
+  .ov{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:flex-end;justify-content:center;z-index:50}
+  .ov.show{display:flex}
+  .modal{background:#fff;width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px}
+  @media(min-width:600px){.ov{align-items:center}.modal{border-radius:18px}}
+  .modal h3{font-size:16px;font-weight:800;margin-bottom:4px}
+  .fld{margin-bottom:12px}
+  .fld label{display:block;font-size:11.5px;font-weight:800;color:var(--g600);margin-bottom:5px}
+  .fld input,.fld select,.fld textarea{width:100%;padding:10px;border:1px solid var(--g300);border-radius:9px;font-size:13.5px;background:#fff}
+  .fld textarea{min-height:74px;resize:vertical}
+  .picker{display:flex;flex-wrap:wrap;gap:6px}
+  .pk{padding:7px 11px;border-radius:18px;border:1.5px solid var(--g300);background:#fff;font-size:12px;font-weight:700;cursor:pointer;color:var(--g600)}
+  .pk.on{background:var(--p);border-color:var(--p);color:#fff}
+  .empty{text-align:center;color:var(--g400);padding:34px 10px;font-size:13px}
+  .sech{font-size:12px;font-weight:800;color:var(--g500);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.4px}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <span class="t">🗂 전자결재 · 연차</span>
+  <span class="badge">프리뷰 목업</span>
+  <span class="me" id="meName">정현우 (관리자)</span>
+</header>
+
+<div class="wrap">
+  <div class="note">⚠️ <b>디자인 목업 프리뷰</b>입니다. 실제 데이터/서버 연동 없이 브라우저(localStorage) mock 으로 동작합니다. 결재선·승인/반려·연차 신청을 직접 눌러 흐름을 확인해보세요. (사용자 전환: 우측 상단 이름 클릭)</div>
+
+  <div class="tabs">
+    <div class="tab on" id="tab-appr" onclick="switchTab('appr')">📋 전자결재</div>
+    <div class="tab" id="tab-leave" onclick="switchTab('leave')">🌴 연차관리</div>
+  </div>
+
+  <!-- ===== 전자결재 ===== -->
+  <section id="view-appr">
+    <div class="subtabs" id="apprSub"></div>
+    <div class="row-actions">
+      <div style="font-size:12px;color:var(--g500)" id="apprCount"></div>
+      <button class="btn btn-p btn-sm" onclick="openDraft()">✏️ 기안하기</button>
+    </div>
+    <div id="apprList"></div>
+  </section>
+
+  <!-- ===== 연차관리 ===== -->
+  <section id="view-leave" style="display:none">
+    <div class="lv-cards">
+      <div class="lv"><div class="v" style="color:var(--p)" id="lvTotal">15</div><div class="l">부여 연차</div></div>
+      <div class="lv"><div class="v" style="color:var(--warn)" id="lvUsed">0</div><div class="l">사용</div></div>
+      <div class="lv"><div class="v" style="color:var(--ok)" id="lvLeft">15</div><div class="l">잔여</div></div>
+    </div>
+    <div class="bar"><i id="lvBar" style="width:0%"></i></div>
+    <div class="row-actions">
+      <div style="font-size:12px;color:var(--g500)">내 연차 신청 내역</div>
+      <button class="btn btn-p btn-sm" onclick="openLeave()">🌴 연차 신청</button>
+    </div>
+    <div id="leaveList"></div>
+
+    <div class="sech">👥 팀 연차 현황 (관리자)</div>
+    <table id="teamTbl"><thead><tr><th>직원</th><th>부여</th><th>사용</th><th>잔여</th><th>사용률</th></tr></thead><tbody></tbody></table>
+  </section>
+</div>
+
+<!-- 결재 상세 모달 -->
+<div class="ov" id="ovDetail"><div class="modal" id="detailBody"></div></div>
+<!-- 기안 모달 -->
+<div class="ov" id="ovDraft"><div class="modal" id="draftBody"></div></div>
+
+<script>
+/* ════════ MOCK 데이터 ════════ */
+const STAFF = ['정현우','김기사','이엔지니어','박현장','최팀장','한실장'];
+const ME_KEY = 'eap_me', DOC_KEY = 'eap_docs', LV_KEY = 'eap_leave';
+let ME = localStorage.getItem(ME_KEY) || '정현우';
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const won = n => (Number(n)||0).toLocaleString('ko-KR');
+const today = () => new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
+const nowts = () => new Date(Date.now()+9*3600*1000).toISOString().slice(0,16).replace('T',' ');
+
+const KIND = {
+  pay:  {label:'💰 지출결의', cls:'k-pay',  amount:true},
+  buy:  {label:'🛒 구매요청', cls:'k-buy',  amount:true},
+  leave:{label:'🌴 휴가',     cls:'k-leave',amount:false},
+  gen:  {label:'📄 일반',     cls:'k-gen',  amount:false},
+};
+
+function seed(){
+  if(localStorage.getItem(DOC_KEY)) return;
+  const docs = [
+    { id:'D1', kind:'pay', title:'4월 외주 설치비 지출', drafter:'김기사', at:'2026-06-01 09:20', amount:850000,
+      content:'엘마트 공릉점 신규 설치 외주 인건비 정산 요청', line:[{n:'김기사',role:'기안'},{n:'최팀장',role:'결재'},{n:'정현우',role:'전결'}], step:1, status:'wait', history:[{n:'김기사',act:'기안',at:'2026-06-01 09:20'}] },
+    { id:'D2', kind:'buy', title:'POS 단말기 10대 구매', drafter:'이엔지니어', at:'2026-06-01 14:05', amount:3200000,
+      content:'재고 소진으로 POS 단말 10대 추가 발주 요청 (KOCES)', line:[{n:'이엔지니어',role:'기안'},{n:'정현우',role:'결재'}], step:1, status:'wait', history:[{n:'이엔지니어',act:'기안',at:'2026-06-01 14:05'}] },
+    { id:'D3', kind:'leave', title:'연차 신청 (6/12)', drafter:'박현장', at:'2026-05-30 17:40', amount:0, days:1, from:'2026-06-12', to:'2026-06-12',
+      content:'개인 사유 연차 1일', line:[{n:'박현장',role:'기안'},{n:'최팀장',role:'결재'},{n:'정현우',role:'승인'}], step:2, status:'wait', history:[{n:'박현장',act:'기안',at:'2026-05-30 17:40'},{n:'최팀장',act:'승인',at:'2026-05-31 09:10'}] },
+    { id:'D4', kind:'gen', title:'5월 업무보고', drafter:'정현우', at:'2026-05-28 10:00', amount:0,
+      content:'5월 신규/AS 처리 현황 보고', line:[{n:'정현우',role:'기안'},{n:'한실장',role:'결재'}], step:2, status:'ok', history:[{n:'정현우',act:'기안',at:'2026-05-28 10:00'},{n:'한실장',act:'승인',at:'2026-05-28 15:20'}] },
+  ];
+  localStorage.setItem(DOC_KEY, JSON.stringify(docs));
+  localStorage.setItem(LV_KEY, JSON.stringify({
+    '정현우':{total:15,used:2}, '김기사':{total:15,used:5}, '이엔지니어':{total:15,used:0},
+    '박현장':{total:15,used:8}, '최팀장':{total:20,used:6}, '한실장':{total:20,used:12}
+  }));
+}
+const getDocs = () => { try{return JSON.parse(localStorage.getItem(DOC_KEY)||'[]')}catch(e){return []} };
+const setDocs = d => localStorage.setItem(DOC_KEY, JSON.stringify(d));
+const getLeave = () => { try{return JSON.parse(localStorage.getItem(LV_KEY)||'{}')}catch(e){return {}} };
+const setLeave = l => localStorage.setItem(LV_KEY, JSON.stringify(l));
+
+/* ════════ 결재 로직 ════════ */
+// step = 현재 결재 대기 인덱스(line 상). step>=line.length 면 완료. status: wait/ok/rej
+function isMyTurn(d){ return d.status==='wait' && d.line[d.step] && d.line[d.step].n===ME; }
+function approve(id){
+  const docs=getDocs(); const d=docs.find(x=>x.id===id); if(!d) return;
+  d.history.push({n:ME,act:'승인',at:nowts()});
+  d.step++;
+  if(d.step>=d.line.length){ d.status='ok';
+    if(d.kind==='leave' && d.days){ const lv=getLeave(); if(lv[d.drafter]){ lv[d.drafter].used+=d.days; setLeave(lv);} }
+  }
+  setDocs(docs); closeDetail(); render();
+}
+function reject(id){
+  const docs=getDocs(); const d=docs.find(x=>x.id===id); if(!d) return;
+  const op = (document.getElementById('rejOpinion')||{}).value||'';
+  d.history.push({n:ME,act:'반려',at:nowts(),op}); d.status='rej';
+  setDocs(docs); closeDetail(); render();
+}
+
+/* ════════ 렌더 ════════ */
+let TAB='appr', SUB='received';
+function switchTab(t){ TAB=t;
+  document.getElementById('tab-appr').classList.toggle('on',t==='appr');
+  document.getElementById('tab-leave').classList.toggle('on',t==='leave');
+  document.getElementById('view-appr').style.display=t==='appr'?'':'none';
+  document.getElementById('view-leave').style.display=t==='leave'?'':'none';
+  render();
+}
+function lineHtml(d){
+  return '<div class="line">'+d.line.map((s,i)=>{
+    let cls='step'; let ic='○';
+    if(d.status==='rej' && i===d.step){cls+=' rej';ic='✕';}
+    else if(i<d.step){cls+=' done';ic='✓';}
+    else if(i===d.step && d.status==='wait'){cls+=' cur';ic='⏳';}
+    return (i>0?'<span class="arr">→</span>':'')+`<span class="${cls}">${ic} ${esc(s.n)}<span style="opacity:.7;font-weight:600">·${esc(s.role)}</span></span>`;
+  }).join('')+'</div>';
+}
+function stBadge(d){
+  if(d.status==='ok') return '<span class="st s-ok">✅ 완료</span>';
+  if(d.status==='rej') return '<span class="st s-rej">⛔ 반려</span>';
+  return '<span class="st s-wait">⏳ 진행중</span>';
+}
+function docCard(d){
+  const k=KIND[d.kind];
+  return `<div class="card" onclick="openDetail('${d.id}')">
+    <div class="top"><span class="kind ${k.cls}">${k.label}</span>${isMyTurn(d)?'<span class="kind" style="background:#FEE2E2;color:#991B1B">내 결재 차례</span>':''}${stBadge(d)}</div>
+    <div class="title">${esc(d.title)}</div>
+    <div class="meta">기안 ${esc(d.drafter)} · ${esc(d.at)}${k.amount?` · <span class="amt">${won(d.amount)}원</span>`:''}${d.kind==='leave'&&d.from?` · ${esc(d.from)}${d.to&&d.to!==d.from?'~'+esc(d.to):''} (${d.days||1}일)`:''}</div>
+    ${lineHtml(d)}
+  </div>`;
+}
+function render(){
+  if(TAB==='appr') renderAppr(); else renderLeave();
+  document.getElementById('meName').textContent = ME + (ME==='정현우'||ME==='최팀장'||ME==='한실장'?' (결재자)':' (직원)');
+}
+function renderAppr(){
+  const docs=getDocs();
+  const received = docs.filter(isMyTurn);
+  const mine = docs.filter(d=>d.drafter===ME);
+  const done = docs.filter(d=>d.status!=='wait');
+  const subs=[['received','받은 결재',received.length],['mine','올린 결재',mine.length],['done','완료/반려',done.length]];
+  document.getElementById('apprSub').innerHTML = subs.map(([k,l,n])=>`<div class="chip ${SUB===k?'on':''}" onclick="SUB='${k}';render()">${l}${k==='received'&&n?`<span class="n">${n}</span>`:` (${n})`}</div>`).join('');
+  let list = SUB==='received'?received : SUB==='mine'?mine : done;
+  document.getElementById('apprCount').textContent = `${list.length}건`;
+  document.getElementById('apprList').innerHTML = list.length? list.map(docCard).join('') : '<div class="empty">해당 결재가 없습니다</div>';
+}
+function renderLeave(){
+  const lv=getLeave(); const me=lv[ME]||{total:15,used:0};
+  const left=me.total-me.used;
+  document.getElementById('lvTotal').textContent=me.total;
+  document.getElementById('lvUsed').textContent=me.used;
+  document.getElementById('lvLeft').textContent=left;
+  document.getElementById('lvBar').style.width=Math.min(100,Math.round(me.used/me.total*100))+'%';
+  const myLeaves=getDocs().filter(d=>d.kind==='leave'&&d.drafter===ME);
+  document.getElementById('leaveList').innerHTML = myLeaves.length? myLeaves.map(docCard).join('') : '<div class="empty">연차 신청 내역이 없습니다 — [🌴 연차 신청]</div>';
+  document.querySelector('#teamTbl tbody').innerHTML = STAFF.map(n=>{
+    const x=lv[n]||{total:15,used:0}; const pct=Math.round(x.used/x.total*100);
+    return `<tr><td><b>${esc(n)}</b>${n===ME?' <span style="font-size:10px;color:var(--p)">(나)</span>':''}</td><td>${x.total}</td><td>${x.used}</td><td style="font-weight:800;color:${x.total-x.used<=3?'var(--danger)':'var(--ok)'}">${x.total-x.used}</td><td style="color:var(--g500)">${pct}%</td></tr>`;
+  }).join('');
+}
+
+/* ════════ 상세 모달 ════════ */
+function openDetail(id){
+  const d=getDocs().find(x=>x.id===id); if(!d) return;
+  const k=KIND[d.kind];
+  const hist = d.history.map(h=>`<div style="display:flex;gap:8px;font-size:12px;padding:5px 0;border-bottom:1px dotted var(--g200)"><span style="font-weight:800;min-width:62px">${esc(h.n)}</span><span style="color:${h.act==='반려'?'var(--danger)':h.act==='승인'?'var(--ok)':'var(--g600)'};font-weight:700">${esc(h.act)}</span><span style="color:var(--g400);margin-left:auto">${esc(h.at)}</span>${h.op?`<div style="flex-basis:100%;color:var(--g500);font-size:11.5px;padding-left:62px">"${esc(h.op)}"</div>`:''}</div>`).join('');
+  document.getElementById('detailBody').innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="kind ${k.cls}">${k.label}</span>${stBadge(d)}<button class="btn btn-o btn-sm" style="margin-left:auto" onclick="closeDetail()">닫기</button></div>
+    <h3>${esc(d.title)}</h3>
+    <div style="font-size:12px;color:var(--g500);margin:2px 0 10px">기안 ${esc(d.drafter)} · ${esc(d.at)}${k.amount?` · <span class="amt">${won(d.amount)}원</span>`:''}${d.kind==='leave'&&d.from?` · ${esc(d.from)}${d.to&&d.to!==d.from?'~'+esc(d.to):''} (${d.days||1}일)`:''}</div>
+    <div style="background:var(--g50);border:1px solid var(--g200);border-radius:10px;padding:12px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;margin-bottom:12px">${esc(d.content)}</div>
+    <div class="sech" style="margin-top:0">결재선</div>${lineHtml(d)}
+    <div class="sech">결재 이력</div><div>${hist}</div>
+    ${isMyTurn(d)?`
+      <div class="fld" style="margin-top:14px"><label>의견 (반려 시 권장)</label><textarea id="rejOpinion" placeholder="의견을 입력하세요 (선택)"></textarea></div>
+      <div style="display:flex;gap:8px"><button class="btn btn-rej" style="flex:1" onclick="reject('${d.id}')">⛔ 반려</button><button class="btn btn-ok" style="flex:2" onclick="approve('${d.id}')">✅ 승인</button></div>
+    `:`<div style="font-size:12px;color:var(--g400);text-align:center;margin-top:14px">${d.status==='wait'?`현재 <b>${esc((d.line[d.step]||{}).n||'')}</b> 님 결재 대기 중`:'결재가 종료된 문서입니다'}</div>`}
+  `;
+  document.getElementById('ovDetail').classList.add('show');
+}
+function closeDetail(){ document.getElementById('ovDetail').classList.remove('show'); }
+
+/* ════════ 기안 모달 ════════ */
+let draftLine=[];
+function openDraft(prefill){
+  draftLine = ME==='정현우'?['최팀장']:['정현우'];
+  const p = prefill||{};
+  document.getElementById('draftBody').innerHTML = `
+    <div style="display:flex;align-items:center;margin-bottom:10px"><h3>✏️ 기안 작성</h3><button class="btn btn-o btn-sm" style="margin-left:auto" onclick="closeDraft()">닫기</button></div>
+    <div class="fld"><label>종류</label><select id="dKind" onchange="toggleAmount()">
+      <option value="pay">💰 지출결의</option><option value="buy">🛒 구매요청</option><option value="leave">🌴 휴가</option><option value="gen">📄 일반</option>
+    </select></div>
+    <div class="fld"><label>제목</label><input id="dTitle" value="${esc(p.title||'')}" placeholder="결재 제목"></div>
+    <div class="fld" id="amtFld"><label>금액 (원)</label><input id="dAmount" type="number" min="0" placeholder="0"></div>
+    <div class="fld" id="leaveFld" style="display:none"><label>휴가 기간</label><div style="display:flex;gap:6px"><input id="dFrom" type="date" value="${esc(p.from||today())}"><input id="dTo" type="date" value="${esc(p.to||today())}"></div></div>
+    <div class="fld"><label>내용</label><textarea id="dContent" placeholder="상세 내용">${esc(p.content||'')}</textarea></div>
+    <div class="fld"><label>결재선 (기안자 본인 → 선택 순서대로)</label>
+      <div class="picker" id="linePicker">${STAFF.filter(n=>n!==ME).map(n=>`<span class="pk ${draftLine.includes(n)?'on':''}" onclick="toggleLine('${n}')">${esc(n)}</span>`).join('')}</div>
+      <div id="linePreview" style="font-size:11.5px;color:var(--g500);margin-top:7px"></div>
+    </div>
+    <button class="btn btn-p" style="width:100%" onclick="submitDraft()">📤 상신 (결재 요청)</button>
+  `;
+  if(p.kind){ document.getElementById('dKind').value=p.kind; }
+  toggleAmount(); updateLinePreview();
+  document.getElementById('ovDraft').classList.add('show');
+}
+function closeDraft(){ document.getElementById('ovDraft').classList.remove('show'); }
+function toggleAmount(){
+  const k=document.getElementById('dKind').value;
+  document.getElementById('amtFld').style.display=(k==='pay'||k==='buy')?'':'none';
+  document.getElementById('leaveFld').style.display=(k==='leave')?'':'none';
+}
+function toggleLine(n){
+  const i=draftLine.indexOf(n);
+  if(i>=0) draftLine.splice(i,1); else draftLine.push(n);
+  document.querySelectorAll('#linePicker .pk').forEach(el=>el.classList.toggle('on', draftLine.includes(el.textContent)));
+  updateLinePreview();
+}
+function updateLinePreview(){
+  document.getElementById('linePreview').textContent = '결재선:  ' + [ME+'(기안)'].concat(draftLine).join('  →  ');
+}
+function submitDraft(){
+  const kind=document.getElementById('dKind').value;
+  const title=(document.getElementById('dTitle').value||'').trim();
+  if(!title){ alert('제목을 입력하세요'); return; }
+  if(!draftLine.length){ alert('결재자를 1명 이상 지정하세요'); return; }
+  const docs=getDocs();
+  const line=[{n:ME,role:'기안'}].concat(draftLine.map((n,i)=>({n,role:i===draftLine.length-1?(kind==='leave'?'승인':'전결'):'결재'})));
+  const d={ id:'D'+Date.now().toString(36), kind, title, drafter:ME, at:nowts(),
+    amount:(kind==='pay'||kind==='buy')?(Number(document.getElementById('dAmount').value)||0):0,
+    content:(document.getElementById('dContent').value||'').trim(),
+    line, step:1, status:'wait', history:[{n:ME,act:'기안',at:nowts()}] };
+  if(kind==='leave'){ d.from=document.getElementById('dFrom').value; d.to=document.getElementById('dTo').value;
+    const a=new Date(d.from), b=new Date(d.to); d.days=Math.max(1,Math.round((b-a)/86400000)+1); }
+  docs.unshift(d); setDocs(docs); closeDraft(); SUB='mine'; switchTab('appr'); render();
+}
+function openLeave(){ switchTab('leave'); openDraft({kind:'leave',title:'연차 신청 ('+today()+')',content:'개인 사유 연차'}); }
+
+/* 사용자 전환 (목업 데모용) */
+document.getElementById('meName').onclick = function(){
+  const i=STAFF.indexOf(ME); ME=STAFF[(i+1)%STAFF.length]; localStorage.setItem(ME_KEY,ME); render();
+};
+
+seed(); render();
+</script>
+</body>
+</html>
