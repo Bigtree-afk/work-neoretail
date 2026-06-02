@@ -10122,7 +10122,8 @@ ${text.slice(0, 4000)}`;
       contactName: job.contactName || '',
       contactPhone: job.contactPhone || '',
       contactRole: job.contactRole || '',
-      owner: job.owner || job.engineer || job.assignee || '',
+      // (entry 발송 시) entry.author 우선 — 병합/옛 job 메타가 아닌 "지금 보내는 요청" 작성자 (2026-06-02)
+      owner: (entry && entry.author) || job.owner || job.engineer || job.assignee || '',
       memo: headContent,
     });
 
@@ -10147,9 +10148,11 @@ ${text.slice(0, 4000)}`;
       const ownerPart = ownerName ? ` 담당 ${ownerName}` : '';
       defaultText = `${sigName} [${shipDate}] [${fullItem}]${ownerPart}`;
     } else {
+      // entry 발송 시 헤드라인 날짜는 그 entry 작성일(ts) 기준 — 병합된 옛 job 날짜 오염 방지 (2026-06-02)
+      const entryDate = (entry && entry.ts) ? String(entry.ts).slice(0,10) : '';
       defaultText = (typeof window._buildEnrichedLineText === 'function')
-        ? window._buildEnrichedLineText(rec, { scheduleLabel: scheduleLabelMap[category] || '📅 예정', headContent })
-        : `${rec.storeName} : ${(new Date()).toISOString().slice(0,10)} ; ${headContent}`;
+        ? window._buildEnrichedLineText(rec, { scheduleLabel: scheduleLabelMap[category] || '📅 예정', headContent, processDate: entryDate || undefined })
+        : `${rec.storeName} : ${entryDate || (new Date(Date.now()+9*3600*1000)).toISOString().slice(0,10)} ; ${headContent}`;
     }
 
     if (typeof window._openLineSendComposer !== 'function') {
@@ -11454,83 +11457,12 @@ ${text.slice(0, 4000)}`;
 
     const jobs = getJobs();
 
-    // 🔁 AS 통합: 동일 매장에 진행 중 AS 업무가 있으면 별도 업무 생성 X,
-    //    기존 AS 업무의 thread 에 새 요청접수 ROOT 로 추가
+    // 🆕 AS 도 항상 새 작업으로 등록 — 자동 병합 제거 (2026-06-02)
+    //   기존: 같은 매장 AS(완료 포함)에 병합 → 완료된 옛 작업(예: 4/11)에 붙어
+    //   LINE 발송 시 옛 날짜·옛 작성자가 표기되는 사고. 이제 폼 제출은 항상 새 job.
+    //   기존 작업의 추가 진행은 해당 작업 thread 에서 직접 기록(ts=오늘).
+    //   (LINE 자동수입 approvePending 은 '진행 중에만 병합'으로 별도 유지)
     let mergedIntoExisting = null;
-    if (isAs && !job.unregistered) {
-      // Fix C: 완료 AS 도 포함 — 매장당 단일 AS 로그 유지, 진행중 우선
-      const isDoneFn = (typeof window._isJobDone === 'function') ? window._isJobDone : () => false;
-      const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
-      const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
-      const target = normFn(storeName);
-      const candIdxs = [];
-      jobs.forEach((j, idx) => {
-        if (classifyFn(j) !== 'as') return;
-        const sn = (j.storeName || j.store || '').trim();
-        if (!sn) return;
-        if (normFn(sn) === target) candIdxs.push(idx);
-      });
-      let existingIdx = candIdxs.find(i => !isDoneFn(jobs[i]));
-      if (existingIdx === undefined) {
-        candIdxs.sort((a,b) => (jobs[b].createdAt||0) - (jobs[a].createdAt||0));
-        existingIdx = (candIdxs.length > 0) ? candIdxs[0] : -1;
-      }
-      if (existingIdx >= 0) {
-        const existing = jobs[existingIdx];
-        // 새 요청접수 ROOT 생성 — 신규 모달에서 입력한 텍스트 사용
-        const newRootText = (asInfo && asInfo.request) ? asInfo.request.trim()
-                        : (job.notes && job.notes.trim()) ? job.notes.trim()
-                        : '(요청 내용 없음)';
-        const ts = (typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr()
-                  : new Date().toISOString().slice(0,16).replace('T',' ');
-        const author = ((typeof _currentAuthName==='function') ? _currentAuthName() : '담당자') || '담당자';
-        const newRoot = {
-          ts, author, status:'요청접수', text: newRootText,
-          threadId: 'TR-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
-          parentId: null,
-        };
-        // 신규 폼 uploader 의 첨부를 새 ROOT 에 부여 (AS 머지 케이스)
-        try {
-          if (window._newJobUploaderCtl) {
-            const atts = window._newJobUploaderCtl.get() || [];
-            if (atts.length) newRoot.attachments = atts;
-          }
-        } catch(_){}
-        const existingThread = Array.isArray(existing.thread) ? existing.thread.slice() : [];
-        // 신규 등록 폼에서 사용자가 직접 추가한 ROOT/child 가 있다면 함께 머지
-        const draftExtras = Array.isArray(window._jobThreadDraft) ? window._jobThreadDraft.slice() : [];
-        const merged = existingThread.concat([newRoot]).concat(draftExtras);
-        existing.thread = (typeof window._threadMigrate === 'function')
-                        ? window._threadMigrate(merged) : merged;
-        // AS 메타: 최근 접수일/처리예정 등 새 값이 있으면 갱신 (없으면 기존 유지)
-        if (asInfo) {
-          if (asInfo.receivedAt) existing.asReceivedAt = asInfo.receivedAt;
-          if (asInfo.dueDate)    existing.asDueDate    = asInfo.dueDate;
-          if (asInfo.dueTime)    existing.asDueTime    = asInfo.dueTime;
-          if (Array.isArray(asInfo.targets) && asInfo.targets.length) {
-            const cur = Array.isArray(existing.asTargets) ? existing.asTargets : [];
-            existing.asTargets = Array.from(new Set(cur.concat(asInfo.targets)));
-          }
-        }
-        // 투입 장비 머지 (있으면 기존 뒤에 append)
-        if (Array.isArray(job.equipment) && job.equipment.length) {
-          existing.equipment = (Array.isArray(existing.equipment) ? existing.equipment : []).concat(job.equipment);
-          existing.equipTotal = (Number(existing.equipTotal)||0) + (Number(job.equipTotal)||0);
-        }
-        // 현재 진행 중으로 상태 환원
-        if (existing.status === '완료' || existing.completed) {
-          existing.status = '진행중';
-          existing.completed = false;
-        }
-        // type 정규화 — AS 머지된 업무인데 type 이 AS 가 아니면 'AS 처리' 로 통일
-        if (!/AS|에이에스/i.test(existing.type || '')) {
-          if (!existing._originalType) existing._originalType = existing.type || '';
-          existing.type = 'AS 처리';
-        }
-        jobs[existingIdx] = existing;
-        mergedIntoExisting = existing;
-      }
-    }
 
     if (!mergedIntoExisting) {
       jobs.unshift(job);

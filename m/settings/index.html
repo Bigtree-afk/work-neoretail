@@ -6,6 +6,8 @@
 <meta name="theme-color" content="#2563EB">
 <title>설정 · NeoRetail</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<!-- Google Identity Services (모바일 로그인) -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   a,button,[onclick]{touch-action:manipulation;cursor:pointer}
@@ -105,7 +107,7 @@
   </div>
 
   <!-- 로그아웃 -->
-  <div style="margin-top:8px">
+  <div style="margin-top:8px" id="logoutWrap">
     <button class="btn btn-danger" onclick="doLogout()">로그아웃</button>
   </div>
 
@@ -118,13 +120,15 @@
   <a class="item active" href="/m/settings/" data-nav="settings"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-05-28-tz-fix"></script>
+<script src="/m-core.js?v=2026-06-02-auth-gate"></script>
 <script>
 function renderUser() {
+  // 로그인 게이트(m-core.js _enforceMobileAuthGate)가 미로그인 진입을 차단하므로
+  // 이 화면이 보인다는 것은 로그인된 상태. 사용자 정보만 표시.
   try {
     const auth = JSON.parse(localStorage.getItem('ns_auth') || 'null');
     const users = JSON.parse(localStorage.getItem('ns_users') || '[]');
-    if (!auth) { document.getElementById('uName').textContent = '로그인 안 됨'; return; }
+    if (!auth || !auth.loggedIn) { document.getElementById('uName').textContent = '로그인 안 됨'; return; }
     const me = users.find(u => (u.id||'').toLowerCase() === (auth.id||auth.email||'').toLowerCase()) || auth;
     document.getElementById('uName').textContent  = me.name || auth.name || '—';
     document.getElementById('uEmail').textContent = me.email || auth.email || '—';
@@ -166,11 +170,9 @@ async function doSync() {
 
 function doLogout() {
   if (!confirm('로그아웃 하시겠습니까?')) return;
-  try {
-    localStorage.removeItem('ns_auth');
-    sessionStorage.clear();
-  } catch(_){}
-  location.href = '/';
+  try { window._mobileLogout ? window._mobileLogout() : localStorage.removeItem('ns_auth'); } catch(_){}
+  // 로그인 게이트 즉시 복귀
+  try { if (window._enforceMobileAuthGate) window._enforceMobileAuthGate(); else location.reload(); } catch(_){ location.reload(); }
 }
 
 (async function init(){

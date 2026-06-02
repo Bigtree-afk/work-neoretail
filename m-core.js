@@ -85,6 +85,183 @@
   }
 
   /* ───────────────────────────────────────────────────────────
+   * 모바일 Google 로그인 — PC index.html 의 GIS 흐름 이식.
+   *   ns_auth / ns_users / ns_allowed_emails / google_client_id 는
+   *   PC 와 동일 origin localStorage 라 PC 로그인과 완전 호환.
+   * ───────────────────────────────────────────────────────── */
+  const _ADMIN_EMAILS = ['zoolex@gmail.com'];
+
+  function _getGoogleClientId() {
+    return localStorage.getItem('google_client_id') || '';
+  }
+  function _getAllowedEmails() {
+    try { return JSON.parse(localStorage.getItem('ns_allowed_emails') || '[]'); } catch { return []; }
+  }
+  function _isEmailAllowed(email) {
+    const e = String(email || '').toLowerCase();
+    if (_ADMIN_EMAILS.includes(e)) return true;
+    return _getAllowedEmails().map(x => String(x).toLowerCase()).includes(e);
+  }
+  function _decodeJwt(token) {
+    try {
+      const payload = token.split('.')[1];
+      const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+      const decoded = decodeURIComponent(json.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+      return JSON.parse(decoded);
+    } catch (e) { return null; }
+  }
+  // /api/whitelist GET → google_client_id + 화이트리스트 + 사용자 동기화 (PC pullCloudWhitelist 이식)
+  async function _pullAuthConfig() {
+    try {
+      const res = await fetch('/api/whitelist', { cache: 'no-store' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.googleClientId && !_getGoogleClientId()) {
+        try { localStorage.setItem('google_client_id', String(data.googleClientId).trim()); } catch (_) {}
+      }
+      const remoteEmails = Array.isArray(data.emails) ? data.emails : [];
+      const local = _getAllowedEmails().map(x => String(x).toLowerCase());
+      const all = Array.from(new Set([...local, ...remoteEmails.map(x => String(x).toLowerCase())]));
+      try { localStorage.setItem('ns_allowed_emails', JSON.stringify(all)); } catch (_) {}
+      const remoteUsers = Array.isArray(data.users) ? data.users : [];
+      if (remoteUsers.length) {
+        const users = getUsers();
+        const byEmail = new Map(users.map(u => [String(u.email || u.id || '').toLowerCase(), u]));
+        remoteUsers.forEach(ru => {
+          const key = String(ru.email || '').toLowerCase();
+          if (!key) return;
+          const ex = byEmail.get(key);
+          if (ex) {
+            if (!ex.name)  ex.name  = ru.name;
+            if (!ex.title) ex.title = ru.title;
+          } else {
+            users.push({ id: ru.email, email: ru.email, name: ru.name, title: ru.title, role: ru.role || 'staff', provider: 'google' });
+          }
+        });
+        try { localStorage.setItem('ns_users', JSON.stringify(users)); } catch (_) {}
+      }
+      return data;
+    } catch (e) { console.warn('[_pullAuthConfig]', e); return null; }
+  }
+  // Google 프로필로 로그인 — ns_auth + ns_users 기록. { ok, reason, name, role }
+  function _loginWithGoogleProfile(profile) {
+    const email = String(profile && profile.email || '').toLowerCase();
+    const name = (profile && profile.name) || (email ? email.split('@')[0] : '');
+    const picture = (profile && profile.picture) || '';
+    if (!email) return { ok: false, reason: 'no_email' };
+    if (!_isEmailAllowed(email)) return { ok: false, reason: 'not_allowed', email };
+    const role = _ADMIN_EMAILS.includes(email) ? 'admin' : 'staff';
+    const users = getUsers();
+    let u = users.find(x => String(x.id || x.email || '').toLowerCase() === email);
+    if (!u) {
+      u = { id: email, email, name, role, picture, provider: 'google', createdAt: Date.now() };
+      users.push(u);
+    } else {
+      u.name = u.name || name;
+      u.role = role;
+      u.picture = picture || u.picture || '';
+      u.provider = 'google';
+    }
+    try { localStorage.setItem('ns_users', JSON.stringify(users)); } catch (_) {}
+    try { localStorage.setItem('ns_auth', JSON.stringify({ loggedIn: true, id: email, email, name: u.name, role, picture: u.picture || '' })); } catch (_) {}
+    return { ok: true, name: u.name, role };
+  }
+  function _mobileLogout() {
+    try { localStorage.removeItem('ns_auth'); } catch (_) {}
+    try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch (_) {}
+  }
+
+  // 전체 화면 로그인 게이트 — 미로그인 시 콘텐츠 차단 + 로그인 UI. 모든 m/ 페이지 공통(자동 실행).
+  function _enforceMobileAuthGate() {
+    let auth = null;
+    try { auth = JSON.parse(localStorage.getItem('ns_auth') || 'null'); } catch (_) {}
+    const existing = document.getElementById('nsMobileAuthGate');
+    if (auth && auth.loggedIn) {
+      if (existing) existing.remove();
+      try { document.body.style.overflow = ''; } catch (_) {}
+      return;
+    }
+    if (existing) return; // 이미 게이트 표시 중
+    const ov = document.createElement('div');
+    ov.id = 'nsMobileAuthGate';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:#0F172A;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 22px;text-align:center;font-family:inherit;overflow:auto';
+    ov.innerHTML =
+      '<div style="font-size:40px;margin-bottom:8px">🔐</div>' +
+      '<div style="font-size:18px;font-weight:800;margin-bottom:6px">로그인이 필요합니다</div>' +
+      '<div style="font-size:12.5px;color:#94A3B8;line-height:1.6;max-width:300px;margin-bottom:22px">회사 Google 계정으로 로그인해야<br>업무 조회·작성이 가능합니다.</div>' +
+      '<div id="nsGateBtn" style="display:flex;justify-content:center;min-height:44px"></div>' +
+      '<div id="nsGateErr" style="display:none;margin-top:14px;font-size:12px;color:#FCA5A5;background:rgba(220,38,38,.15);border:1px solid rgba(248,113,113,.4);border-radius:8px;padding:9px 12px;line-height:1.5;max-width:300px"></div>' +
+      '<div id="nsGateFallback" style="display:none;margin-top:14px"><button id="nsGateDevBtn" style="background:transparent;color:#CBD5E1;border:1px solid #475569;border-radius:8px;padding:10px 16px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 개발자 모드 로그인 (이메일 입력)</button></div>';
+    document.body.appendChild(ov);
+    try { document.body.style.overflow = 'hidden'; } catch (_) {}
+
+    const showErr = (m) => { const e = document.getElementById('nsGateErr'); if (e) { e.innerHTML = m; e.style.display = ''; } };
+
+    document.getElementById('nsGateDevBtn').onclick = function () {
+      const email = prompt('구글 계정 이메일을 입력하세요 (개발자 모드):', '');
+      if (!email || !email.includes('@')) return;
+      const name = prompt('표시 이름:', email.split('@')[0]) || email.split('@')[0];
+      const r = _loginWithGoogleProfile({ email: email.trim().toLowerCase(), name: name.trim(), picture: '' });
+      if (!r || !r.ok) { showErr(r && r.reason === 'not_allowed' ? '❌ ' + email + ' 계정은 등록되지 않았습니다.' : '로그인 실패'); return; }
+      location.reload();
+    };
+
+    let _gBtnRendered = false;
+    function renderGoogleBtn() {
+      const clientId = _getGoogleClientId();
+      const box = document.getElementById('nsGateBtn');
+      const fb = document.getElementById('nsGateFallback');
+      if (!box) return;
+      // Client ID + GSI 준비되면 → 정식 Google 로그인 버튼 (개발자 모드 숨김)
+      if (clientId && window.google && google.accounts && google.accounts.id) {
+        try {
+          google.accounts.id.initialize({
+            client_id: clientId,
+            callback: function (resp) {
+              const e = document.getElementById('nsGateErr'); if (e) e.style.display = 'none';
+              if (!resp || !resp.credential) { showErr('구글 로그인 응답이 비어 있습니다.'); return; }
+              const info = _decodeJwt(resp.credential);
+              if (!info || !info.email) { showErr('구글 토큰 해석 실패'); return; }
+              const r = _loginWithGoogleProfile({ email: info.email, name: info.name || info.given_name || info.email.split('@')[0], picture: info.picture || '' });
+              if (!r || !r.ok) { showErr(r && r.reason === 'not_allowed' ? '❌ ' + info.email + ' 계정은 등록되지 않았습니다.<br>관리자에게 권한을 요청하세요.' : '로그인 실패'); return; }
+              location.reload();
+            },
+            auto_select: false, ux_mode: 'popup',
+          });
+          box.innerHTML = '';
+          google.accounts.id.renderButton(box, { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill', locale: 'ko_KR' });
+          _gBtnRendered = true;
+          if (fb) fb.style.display = 'none';
+          return;
+        } catch (e) { /* 아래 fallback 로 */ }
+      }
+      // Client ID 자체가 없을 때(로컬/미설정)만 즉시 개발자 모드 노출
+      if (!clientId && fb) fb.style.display = '';
+    }
+
+    // client id·화이트리스트 동기화 후 버튼 렌더
+    _pullAuthConfig().then(renderGoogleBtn).catch(renderGoogleBtn);
+    // GSI 스크립트 동적 로드 (없으면)
+    if (window.google && google.accounts && google.accounts.id) {
+      renderGoogleBtn();
+    } else {
+      let s = document.getElementById('nsGsiScript');
+      if (!s) {
+        s = document.createElement('script');
+        s.id = 'nsGsiScript';
+        s.src = 'https://accounts.google.com/gsi/client';
+        s.async = true; s.defer = true;
+        s.onload = renderGoogleBtn;
+        document.head.appendChild(s);
+      }
+      setTimeout(renderGoogleBtn, 1200);
+      setTimeout(renderGoogleBtn, 2500);
+    }
+    // 최후의 보루: GSI 가 끝내 안 떠도(네트워크 차단 등) 개발자 모드로 로그인 가능하게
+    setTimeout(function () { if (!_gBtnRendered) { const fb = document.getElementById('nsGateFallback'); if (fb) fb.style.display = ''; } }, 4500);
+  }
+
+  /* ───────────────────────────────────────────────────────────
    * Toast — 모바일 친화적 재구현 (index.html L7511)
    * ───────────────────────────────────────────────────────── */
   function showToast(msg) {
@@ -1325,9 +1502,9 @@
     }
     if (!headContent) headContent = _bSlice(job.memo || job.notes || job.type || '업무 등록');
 
-    // 담당자 우선순위 — owner→engineer→assignee→createdBy→_whoCreated
-    //   모바일 m/supplies 는 owner 등을 저장 안 하므로 createdBy fallback 이 핵심
-    let ownerRaw = job.owner || job.engineer || job.assignee || job.createdBy || job._whoCreated || '';
+    // 담당자 우선순위 — (entry 발송 시) entry.author 우선 → owner→engineer→assignee→createdBy→_whoCreated
+    //   병합/옛 job 메타가 아니라 "지금 보내는 요청" 작성자가 담당으로 찍히도록 (2026-06-02)
+    let ownerRaw = (entry && entry.author) || job.owner || job.engineer || job.assignee || job.createdBy || job._whoCreated || '';
     if (ownerRaw && typeof _normalizeDisplayName === 'function') {
       try { ownerRaw = _normalizeDisplayName(ownerRaw) || ownerRaw; } catch(_){}
     }
@@ -1352,7 +1529,9 @@
       const ownerPart = rec.owner ? ` 담당 ${rec.owner}` : '';
       defaultText = `${sigName} [${shipDate}] [${fullItem}]${ownerPart}`;
     } else {
-      defaultText = _buildEnrichedLineText(rec, { scheduleLabel: scheduleLabelMap[category] || '📅 예정', headContent });
+      // entry 발송 시 헤드라인 날짜는 그 entry 작성일(ts) 기준 — 병합된 옛 job 날짜 오염 방지 (2026-06-02)
+      const entryDate = (entry && entry.ts) ? String(entry.ts).slice(0,10) : '';
+      defaultText = _buildEnrichedLineText(rec, { scheduleLabel: scheduleLabelMap[category] || '📅 예정', headContent, processDate: entryDate || undefined });
     }
     // opts.extraPrefix — 호출 측에서 메시지 본문 앞에 붙이고 싶은 텍스트 (예: 요청접수 내용 + 설치 장비 목록)
     if (opts.extraPrefix && typeof opts.extraPrefix === 'string') {
@@ -1421,6 +1600,15 @@
   global._currentAuthName = _currentAuthName;
   global.showToast = showToast;
 
+  // 모바일 Google 로그인
+  global._getGoogleClientId = _getGoogleClientId;
+  global._isEmailAllowed = _isEmailAllowed;
+  global._decodeJwt = _decodeJwt;
+  global._pullAuthConfig = _pullAuthConfig;
+  global._loginWithGoogleProfile = _loginWithGoogleProfile;
+  global._mobileLogout = _mobileLogout;
+  global._enforceMobileAuthGate = _enforceMobileAuthGate;
+
   // 클라우드 동기화
   global._mergeJobRecord = _mergeJobRecord;
   global.syncJobsFromCloud = syncJobsFromCloud;
@@ -1462,4 +1650,9 @@
 
   // 디버그/식별
   global.NS_MOBILE_CORE_VERSION = '1.0.0';
+
+  // 미로그인 시 자동 로그인 게이트 — 모든 m/ 페이지 공통 (열람·작성 차단)
+  function _gateBoot() { try { _enforceMobileAuthGate(); } catch (e) { console.warn('[authGate]', e); } }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _gateBoot);
+  else _gateBoot();
 })(window);
