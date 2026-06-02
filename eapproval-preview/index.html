@@ -162,9 +162,9 @@ function seed(){
   if(localStorage.getItem(DOC_KEY)) return;
   const docs = [
     { id:'D1', kind:'pay', title:'4월 외주 설치비 지출', drafter:'김기사', at:'2026-06-01 09:20', amount:850000,
-      content:'엘마트 공릉점 신규 설치 외주 인건비 정산 요청', line:[{n:'김기사',role:'기안'},{n:'최팀장',role:'결재'},{n:'정현우',role:'전결'}], step:1, status:'wait', history:[{n:'김기사',act:'기안',at:'2026-06-01 09:20'}] },
+      content:'엘마트 공릉점 신규 설치 외주 인건비 정산 요청', cc:['한실장'], line:[{n:'김기사',role:'기안'},{n:'최팀장',role:'결재'},{n:'정현우',role:'전결'}], step:1, status:'wait', history:[{n:'김기사',act:'기안',at:'2026-06-01 09:20'}] },
     { id:'D2', kind:'buy', title:'POS 단말기 10대 구매', drafter:'이엔지니어', at:'2026-06-01 14:05', amount:3200000,
-      content:'재고 소진으로 POS 단말 10대 추가 발주 요청 (KOCES)', line:[{n:'이엔지니어',role:'기안'},{n:'정현우',role:'결재'}], step:1, status:'wait', history:[{n:'이엔지니어',act:'기안',at:'2026-06-01 14:05'}] },
+      content:'재고 소진으로 POS 단말 10대 추가 발주 요청 (KOCES)', cc:['최팀장'], line:[{n:'이엔지니어',role:'기안'},{n:'정현우',role:'결재'}], step:1, status:'wait', history:[{n:'이엔지니어',act:'기안',at:'2026-06-01 14:05'}] },
     { id:'D3', kind:'leave', title:'연차 신청 (6/12)', drafter:'박현장', at:'2026-05-30 17:40', amount:0, days:1, from:'2026-06-12', to:'2026-06-12',
       content:'개인 사유 연차 1일', line:[{n:'박현장',role:'기안'},{n:'최팀장',role:'결재'},{n:'정현우',role:'승인'}], step:2, status:'wait', history:[{n:'박현장',act:'기안',at:'2026-05-30 17:40'},{n:'최팀장',act:'승인',at:'2026-05-31 09:10'}] },
     { id:'D4', kind:'gen', title:'5월 업무보고', drafter:'정현우', at:'2026-05-28 10:00', amount:0,
@@ -184,12 +184,29 @@ const setLeave = l => localStorage.setItem(LV_KEY, JSON.stringify(l));
 /* ════════ 결재 로직 ════════ */
 // step = 현재 결재 대기 인덱스(line 상). step>=line.length 면 완료. status: wait/ok/rej
 function isMyTurn(d){ return d.status==='wait' && d.line[d.step] && d.line[d.step].n===ME; }
+// 권한 — 관리자(데모: 정현우)는 전체 열람, 그 외는 당사자(기안자+결재선+참조자)만
+const ADMINS=['정현우'];
+function isAdmin(){ return ADMINS.includes(ME); }
+function inParty(d){ return d.drafter===ME || (d.line||[]).some(s=>s.n===ME) || (d.cc||[]).includes(ME); }
+function canView(d){ return isAdmin() || inParty(d); }
+function isCC(d){ return (d.cc||[]).includes(ME) && d.drafter!==ME && !(d.line||[]).some(s=>s.n===ME); }
+// 📡 LINE push 시뮬레이션 토스트 (실제 구현 시 Messaging API push)
+function pushToast(msg){
+  let t=document.getElementById('pt'); if(!t){ t=document.createElement('div'); t.id='pt';
+    t.style.cssText='position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#06C755;color:#fff;padding:11px 18px;border-radius:24px;font-size:12.5px;font-weight:800;z-index:99;box-shadow:0 4px 18px rgba(0,0,0,.25);max-width:90vw;text-align:center';
+    document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity='1'; clearTimeout(t._tm); t._tm=setTimeout(()=>t.style.opacity='0',3200);
+}
 function approve(id){
   const docs=getDocs(); const d=docs.find(x=>x.id===id); if(!d) return;
   d.history.push({n:ME,act:'승인',at:nowts()});
   d.step++;
   if(d.step>=d.line.length){ d.status='ok';
     if(d.kind==='leave' && d.days){ const lv=getLeave(); if(lv[d.drafter]){ lv[d.drafter].used+=d.days; setLeave(lv);} }
+    pushToast('📡 기안자 '+d.drafter+' 님에게 최종 승인 LINE 알림 발송');
+  } else {
+    // 📡 다음 결재자에게 차례 알림 (LINE push)
+    const next=d.line[d.step]; if(next) pushToast('📡 다음 결재자 '+next.n+' 님에게 결재 차례 LINE 알림 발송');
   }
   setDocs(docs); closeDetail(); render();
 }
@@ -197,6 +214,7 @@ function reject(id){
   const docs=getDocs(); const d=docs.find(x=>x.id===id); if(!d) return;
   const op = (document.getElementById('rejOpinion')||{}).value||'';
   d.history.push({n:ME,act:'반려',at:nowts(),op}); d.status='rej';
+  pushToast('📡 기안자 '+d.drafter+' 님에게 반려 LINE 알림 발송');
   setDocs(docs); closeDetail(); render();
 }
 
@@ -226,7 +244,7 @@ function stBadge(d){
 function docCard(d){
   const k=KIND[d.kind];
   return `<div class="card" onclick="openDetail('${d.id}')">
-    <div class="top"><span class="kind ${k.cls}">${k.label}</span>${isMyTurn(d)?'<span class="kind" style="background:#FEE2E2;color:#991B1B">내 결재 차례</span>':''}${stBadge(d)}</div>
+    <div class="top"><span class="kind ${k.cls}">${k.label}</span>${isMyTurn(d)?'<span class="kind" style="background:#FEE2E2;color:#991B1B">내 결재 차례</span>':''}${isCC(d)?'<span class="kind" style="background:#E0E7FF;color:#3730A3">👁 참조</span>':''}${stBadge(d)}</div>
     <div class="title">${esc(d.title)}</div>
     <div class="meta">기안 ${esc(d.drafter)} · ${esc(d.at)}${k.amount?` · <span class="amt">${won(d.amount)}원</span>`:''}${d.kind==='leave'&&d.from?` · ${esc(d.from)}${d.to&&d.to!==d.from?'~'+esc(d.to):''} (${d.days||1}일)`:''}</div>
     ${lineHtml(d)}
@@ -238,13 +256,17 @@ function render(){
 }
 function renderAppr(){
   const docs=getDocs();
-  const received = docs.filter(isMyTurn);
-  const mine = docs.filter(d=>d.drafter===ME);
-  const done = docs.filter(d=>d.status!=='wait');
-  const subs=[['received','받은 결재',received.length],['mine','올린 결재',mine.length],['done','완료/반려',done.length]];
+  const received = docs.filter(isMyTurn);                                  // 내 결재 차례
+  const mine = docs.filter(d=>d.drafter===ME);                             // 내가 기안
+  const done = docs.filter(d=>d.status!=='wait' && canView(d));            // 완료/반려 — 당사자만(관리자는 canView=true)
+  const refd = docs.filter(d=>isCC(d));                                    // 나를 참조로 지정한 문서
+  const all  = docs;                                                       // 관리자 전용 전체
+  const subs=[['received','받은 결재',received.length],['mine','올린 결재',mine.length],['ref','참조',refd.length],['done','완료/반려',done.length]];
+  if(isAdmin()) subs.push(['all','전체(관리자)',all.length]);
+  if(!subs.some(s=>s[0]===SUB)) SUB='received';
   document.getElementById('apprSub').innerHTML = subs.map(([k,l,n])=>`<div class="chip ${SUB===k?'on':''}" onclick="SUB='${k}';render()">${l}${k==='received'&&n?`<span class="n">${n}</span>`:` (${n})`}</div>`).join('');
-  let list = SUB==='received'?received : SUB==='mine'?mine : done;
-  document.getElementById('apprCount').textContent = `${list.length}건`;
+  let list = SUB==='received'?received : SUB==='mine'?mine : SUB==='ref'?refd : SUB==='all'?all : done;
+  document.getElementById('apprCount').textContent = `${list.length}건${SUB==='all'?' · 관리자 전체 열람':' · 당사자 한정'}`;
   document.getElementById('apprList').innerHTML = list.length? list.map(docCard).join('') : '<div class="empty">해당 결재가 없습니다</div>';
 }
 function renderLeave(){
@@ -273,6 +295,7 @@ function openDetail(id){
     <div style="font-size:12px;color:var(--g500);margin:2px 0 10px">기안 ${esc(d.drafter)} · ${esc(d.at)}${k.amount?` · <span class="amt">${won(d.amount)}원</span>`:''}${d.kind==='leave'&&d.from?` · ${esc(d.from)}${d.to&&d.to!==d.from?'~'+esc(d.to):''} (${d.days||1}일)`:''}</div>
     <div style="background:var(--g50);border:1px solid var(--g200);border-radius:10px;padding:12px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;margin-bottom:12px">${esc(d.content)}</div>
     <div class="sech" style="margin-top:0">결재선</div>${lineHtml(d)}
+    ${(d.cc&&d.cc.length)?`<div class="sech">참조</div><div style="font-size:12px;color:var(--g600)">👁 ${d.cc.map(esc).join(', ')}</div>`:''}
     <div class="sech">결재 이력</div><div>${hist}</div>
     ${isMyTurn(d)?`
       <div class="fld" style="margin-top:14px"><label>의견 (반려 시 권장)</label><textarea id="rejOpinion" placeholder="의견을 입력하세요 (선택)"></textarea></div>
@@ -284,9 +307,10 @@ function openDetail(id){
 function closeDetail(){ document.getElementById('ovDetail').classList.remove('show'); }
 
 /* ════════ 기안 모달 ════════ */
-let draftLine=[];
+let draftLine=[], draftCC=[];
 function openDraft(prefill){
   draftLine = ME==='정현우'?['최팀장']:['정현우'];
+  draftCC = [];
   const p = prefill||{};
   document.getElementById('draftBody').innerHTML = `
     <div style="display:flex;align-items:center;margin-bottom:10px"><h3>✏️ 기안 작성</h3><button class="btn btn-o btn-sm" style="margin-left:auto" onclick="closeDraft()">닫기</button></div>
@@ -300,6 +324,9 @@ function openDraft(prefill){
     <div class="fld"><label>결재선 (기안자 본인 → 선택 순서대로)</label>
       <div class="picker" id="linePicker">${STAFF.filter(n=>n!==ME).map(n=>`<span class="pk ${draftLine.includes(n)?'on':''}" onclick="toggleLine('${n}')">${esc(n)}</span>`).join('')}</div>
       <div id="linePreview" style="font-size:11.5px;color:var(--g500);margin-top:7px"></div>
+    </div>
+    <div class="fld"><label>참조 (열람만 · 결재권 없음 · 선택)</label>
+      <div class="picker" id="ccPicker">${STAFF.filter(n=>n!==ME).map(n=>`<span class="pk ${draftCC.includes(n)?'on':''}" onclick="toggleCC('${esc(n)}')">${esc(n)}</span>`).join('')}</div>
     </div>
     <button class="btn btn-p" style="width:100%" onclick="submitDraft()">📤 상신 (결재 요청)</button>
   `;
@@ -319,6 +346,11 @@ function toggleLine(n){
   document.querySelectorAll('#linePicker .pk').forEach(el=>el.classList.toggle('on', draftLine.includes(el.textContent)));
   updateLinePreview();
 }
+function toggleCC(n){
+  const i=draftCC.indexOf(n);
+  if(i>=0) draftCC.splice(i,1); else draftCC.push(n);
+  document.querySelectorAll('#ccPicker .pk').forEach(el=>el.classList.toggle('on', draftCC.includes(el.textContent)));
+}
 function updateLinePreview(){
   document.getElementById('linePreview').textContent = '결재선:  ' + [ME+'(기안)'].concat(draftLine).join('  →  ');
 }
@@ -332,10 +364,12 @@ function submitDraft(){
   const d={ id:'D'+Date.now().toString(36), kind, title, drafter:ME, at:nowts(),
     amount:(kind==='pay'||kind==='buy')?(Number(document.getElementById('dAmount').value)||0):0,
     content:(document.getElementById('dContent').value||'').trim(),
+    cc:draftCC.slice(),
     line, step:1, status:'wait', history:[{n:ME,act:'기안',at:nowts()}] };
   if(kind==='leave'){ d.from=document.getElementById('dFrom').value; d.to=document.getElementById('dTo').value;
     const a=new Date(d.from), b=new Date(d.to); d.days=Math.max(1,Math.round((b-a)/86400000)+1); }
   docs.unshift(d); setDocs(docs); closeDraft(); SUB='mine'; switchTab('appr'); render();
+  if(draftLine[0]) pushToast('📡 첫 결재자 '+draftLine[0]+' 님에게 결재 요청 LINE 알림 발송');
 }
 function openLeave(){ switchTab('leave'); openDraft({kind:'leave',title:'연차 신청 ('+today()+')',content:'개인 사유 연차'}); }
 
