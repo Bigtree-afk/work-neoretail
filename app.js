@@ -19637,19 +19637,6 @@ ${text.slice(0, 4000)}`;
         <span style="font-size:11px;color:var(--gray-500)">이전 정보는 자동으로 변경 이력에 보존되고, 검색 시 이전 상호로도 매칭됩니다.</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <div>
-          <label style="font-size:11px;color:var(--gray-600);font-weight:600;display:block;margin-bottom:4px">변경 유형</label>
-          <select id="chgType" style="width:100%;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:13px;background:#fff">
-            <option value="auto">자동 감지 (변경한 필드 기준)</option>
-            <option value="상호 변경">상호 변경</option>
-            <option value="사업자 변경">사업자 변경</option>
-            <option value="대표자 변경">대표자 변경</option>
-            <option value="주소 이전">주소 이전</option>
-            <option value="VAN 변경">VAN 변경</option>
-            <option value="재오픈">재오픈 (전체 변경)</option>
-            <option value="기타">기타</option>
-          </select>
-        </div>
         ${[
           ['name','상호 (점포명)','text'],
           ['biz','사업자등록번호','text'],
@@ -19674,7 +19661,6 @@ ${text.slice(0, 4000)}`;
 
     const saveBtn = document.getElementById('storeChangeSaveBtn');
     saveBtn.onclick = () => {
-      const selType = document.getElementById('chgType').value;
       const newFields = {
         name: document.getElementById('chg_name').value.trim(),
         biz:  document.getElementById('chg_biz').value.trim(),
@@ -19687,13 +19673,9 @@ ${text.slice(0, 4000)}`;
       // 실제 바뀐 필드
       const changed = ['name','biz','ceo','addr','tel','van'].filter(k => (cur[k]||'') !== (newFields[k]||''));
       if (!changed.length) { showToast && showToast('변경된 내용이 없습니다'); return; }
-      // 변경유형 자동판별 — 기본값('자동 감지')이면 실제 변경 필드로 라벨 결정.
-      //   주소만 바꿔도 '상호 변경'으로 찍히던 버그 수정. 사용자가 특정 유형을 명시 선택하면 그 값을 존중.
+      // 변경유형은 선택 없이 '실제 바뀐 필드' 로 자동 결정 (단일 필드 → 해당 라벨, 복수 → '정보 변경').
       const autoMap = { name:'상호 변경', biz:'사업자 변경', ceo:'대표자 변경', addr:'주소 이전', tel:'연락처 변경', van:'VAN 변경' };
-      let type = selType;
-      if (selType === 'auto') {
-        type = (changed.length === 1) ? (autoMap[changed[0]] || '정보 변경') : '정보 변경';
-      }
+      const type = (changed.length === 1) ? (autoMap[changed[0]] || '정보 변경') : '정보 변경';
 
       applyStoreChange(store.id, type, cur, newFields, note);
       closeModal('storeChangeModal');
