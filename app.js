@@ -20872,3 +20872,77 @@ ${text.slice(0, 4000)}`;
     alert(msg);
     return r;
   };
+
+  /* ── 매장 변경이력(changeLog) 라벨 일괄 정정 ──
+     - 옛 인라인 포맷 {field, before, after} → {type, from, to} 로 승격
+     - 자동타입 라벨(상호/사업자/대표자/주소/연락처/VAN/정보 변경)을 실제 바뀐 필드로 정정
+       (주소만 바꿨는데 '상호 변경'으로 찍힌 옛 데이터 교정)
+     - '매장 병합'/'병합 취소'/'재오픈'/'기타'/커스텀 라벨 및 diff 없는 항목은 건드리지 않음
+     - 안전: 라벨/포맷만 수정, 값(from/to)·날짜·작성자 보존. additive 머지라 updatedAt bump 불필요 */
+  function fixChangeLogLabels(opts) {
+    opts = opts || {};
+    const AUTO_TYPES = new Set(['상호 변경','사업자 변경','대표자 변경','주소 이전','연락처 변경','VAN 변경','정보 변경','변경']);
+    const autoMap = { name:'상호 변경', storeName:'상호 변경', signageName:'간판명 변경', biz:'사업자 변경', bizno:'사업자 변경', ceo:'대표자 변경', ceoTel:'대표자 연락처 변경', addr:'주소 이전', address:'주소 이전', tel:'연락처 변경', phone:'연락처 변경', van:'VAN 변경' };
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    let fixed = 0, upgraded = 0, storesTouched = 0;
+    stores.forEach(s => {
+      if (!Array.isArray(s.changeLog) || !s.changeLog.length) return;
+      let touched = false;
+      s.changeLog.forEach(l => {
+        if (!l) return;
+        // (A) 옛 인라인 포맷 승격: {field, before, after} → {type, from, to}
+        if (l.field && !l.from && !l.to) {
+          const t = autoMap[l.field] || `${l.field} 변경`;
+          l.type = t;
+          l.from = { [l.field]: l.before || '' };
+          l.to   = { [l.field]: l.after  || '' };
+          delete l.field; delete l.before; delete l.after;
+          upgraded++; touched = true;
+          return;
+        }
+        // (B) 자동타입 라벨 정정 — diff 로 실제 변경 필드 판별
+        if (l.type && !AUTO_TYPES.has(l.type)) return;   // 병합/재오픈/기타/커스텀 보존
+        const from = l.from || {}, to = l.to || {};
+        const keys = Array.from(new Set([...Object.keys(from), ...Object.keys(to)]));
+        if (!keys.length) return;                         // diff 없음 → 판단 불가, 유지
+        const changed = keys.filter(k => (from[k]||'') !== (to[k]||''));
+        if (!changed.length) return;
+        const correct = (changed.length === 1) ? (autoMap[changed[0]] || l.type || '정보 변경') : '정보 변경';
+        if (correct !== l.type) { l.type = correct; fixed++; touched = true; }
+      });
+      if (touched) storesTouched++;
+    });
+    const total = fixed + upgraded;
+    if (total > 0 && !opts.dryRun) {
+      try { saveStores(stores); } catch(_){}
+      try { pushStoresToCloud({ force:true, toast:false }); } catch(_){}
+      try { if (typeof hydrateSavedStores === 'function') hydrateSavedStores(); } catch(_){}
+    }
+    return { ok:true, fixed, upgraded, total, stores: storesTouched };
+  }
+  window.fixChangeLogLabels = fixChangeLogLabels;
+
+  /* 페이지 로드 후 1회 자동 정정 (idempotent — flag) */
+  setTimeout(() => {
+    try {
+      const FLAG = 'ns_changelog_label_fix_v1';
+      if (localStorage.getItem(FLAG)) return;
+      const r = fixChangeLogLabels();
+      localStorage.setItem(FLAG, String(Date.now()));
+      if (r.total > 0) {
+        console.log(`[changelog-fix] 변경이력 라벨 정정 — 정정 ${r.fixed} · 포맷승격 ${r.upgraded} (${r.stores}개 매장)`);
+        if (typeof showToast === 'function') showToast(`🏷 변경이력 라벨 ${r.total}건 자동 정정 (${r.stores}개 매장)`, 5000);
+      }
+    } catch(e) { console.warn('[changelog-fix] failed:', e); }
+  }, 2500);
+
+  /* 관리자 강제 재실행 — console 또는 버튼 */
+  window.forceFixChangeLogLabels = function() {
+    const dry = fixChangeLogLabels({ dryRun:true });
+    if (dry.total === 0) { alert('정정할 변경이력이 없습니다 (이미 모두 정상).'); return dry; }
+    if (!confirm(`변경이력 라벨 일괄 정정\n\n정정 대상: ${dry.fixed}건 (라벨 교정)\n포맷 승격: ${dry.upgraded}건\n영향 매장: ${dry.stores}개\n\n안전 — 변경 내용/날짜/작성자는 보존, 라벨만 실제 변경 필드로 교정합니다.\n진행할까요?`)) return;
+    const r = fixChangeLogLabels();
+    localStorage.setItem('ns_changelog_label_fix_v1', String(Date.now()));
+    alert(`완료 — 라벨 정정 ${r.fixed}건 · 포맷 승격 ${r.upgraded}건 (${r.stores}개 매장)\n클라우드 동기화 중...`);
+    return r;
+  };
