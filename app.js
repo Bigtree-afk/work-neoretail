@@ -19640,6 +19640,7 @@ ${text.slice(0, 4000)}`;
         <div>
           <label style="font-size:11px;color:var(--gray-600);font-weight:600;display:block;margin-bottom:4px">변경 유형</label>
           <select id="chgType" style="width:100%;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:13px;background:#fff">
+            <option value="auto">자동 감지 (변경한 필드 기준)</option>
             <option value="상호 변경">상호 변경</option>
             <option value="사업자 변경">사업자 변경</option>
             <option value="대표자 변경">대표자 변경</option>
@@ -19686,11 +19687,11 @@ ${text.slice(0, 4000)}`;
       // 실제 바뀐 필드
       const changed = ['name','biz','ceo','addr','tel','van'].filter(k => (cur[k]||'') !== (newFields[k]||''));
       if (!changed.length) { showToast && showToast('변경된 내용이 없습니다'); return; }
-      // 변경유형 자동판별 — 기본값('상호 변경')이면 실제 변경으로 라벨 정정(주소만 바꿔도 '상호 변경'으로 찍히던 버그 수정).
-      //   사용자가 '재오픈/기타' 등 특수 유형을 명시 선택하면 그 값을 존중.
+      // 변경유형 자동판별 — 기본값('자동 감지')이면 실제 변경 필드로 라벨 결정.
+      //   주소만 바꿔도 '상호 변경'으로 찍히던 버그 수정. 사용자가 특정 유형을 명시 선택하면 그 값을 존중.
       const autoMap = { name:'상호 변경', biz:'사업자 변경', ceo:'대표자 변경', addr:'주소 이전', tel:'연락처 변경', van:'VAN 변경' };
       let type = selType;
-      if (selType === '상호 변경') {   // 기본값 → 자동판별로 교체
+      if (selType === 'auto') {
         type = (changed.length === 1) ? (autoMap[changed[0]] || '정보 변경') : '정보 변경';
       }
 
