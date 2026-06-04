@@ -57,7 +57,11 @@ function mergeStoreField(loc, rem, key) {
       if (le && re) return undefined;
       if (le)  return rv;
       if (re)  return lv;
-      return lv;   // 둘 다 있으면 incoming(loc) 이 이김 — 서버 머지 컨텍스트
+      // 둘 다 값 있음 → updatedAt(mtime) 최신 쪽. incoming(loc) 이 최신-또는-동률이면 incoming,
+      //   stale 한 옛 push(incoming 이 더 옛날)면 KV(rem) 유지 → stale push 가 cloud 를 덮어쓰지 못함.
+      //   updatedAt 없거나 동률이면 incoming 이김 = 기존 서버 동작 보존(회귀 방지).
+      const lt = Number(loc && loc.updatedAt) || 0, rt = Number(rem && rem.updatedAt) || 0;
+      return lt >= rt ? lv : rv;
     }
 
     case 'additive-by-id': {

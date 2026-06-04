@@ -62,7 +62,11 @@
         if (le && re) return undefined;
         if (le)  return rv;
         if (re)  return lv;
-        return rv;   // 둘 다 있으면 KV 가 이김
+        // 둘 다 값 있음 → 매장 updatedAt(mtime) 최신 쪽 우선 (jobs per-mtime 패턴).
+        //   로컬 편집이 더 최신이면 로컬 유지 → sync 가 옛 KV 로 되돌리던 버그 해결.
+        //   updatedAt 없거나 동률이면 KV(rem) 유지 = 기존 동작 보존(회귀 방지).
+        const lt = Number(loc && loc.updatedAt) || 0, rt = Number(rem && rem.updatedAt) || 0;
+        return lt > rt ? lv : rv;
       }
 
       case 'additive-by-id': {
@@ -18535,13 +18539,21 @@ ${text.slice(0, 4000)}`;
           committed = true;
           if (save) {
             const next = String(input.value || '').trim();
-            stores[ix][field] = next;
-            // changeLog 추가 (있으면)
-            if (!Array.isArray(stores[ix].changeLog)) stores[ix].changeLog = [];
-            const ts = (typeof _kstStamp === 'function') ? _kstStamp() : new Date().toISOString().slice(0,16).replace('T',' ');
+            // ⚠ stale capture 방지 — 커밋 시점에 최신 stores 재조회 (편집 중 sync 가 갱신했을 수 있음)
+            const fresh = (typeof getStores === 'function') ? (getStores() || []) : stores;
+            const fi = fresh.findIndex(s => s.id === storeId);
+            const tgt = fi >= 0 ? fresh[fi] : stores[ix];
+            const beforeVal = String(tgt[field] || '');
+            if (beforeVal === next) { input.remove(); valSpan.style.display=''; if (btn) btn.style.display=''; return; }
+            tgt[field] = next;
+            tgt.updatedAt = Date.now();   // mtime 스탬프 → sync 가 옛 KV 로 되돌리지 못함(revert 방지)
+            // changeLog 추가 — 모달과 동일 포맷(type/from/to) 으로 통일
+            if (!Array.isArray(tgt.changeLog)) tgt.changeLog = [];
+            const ts = (typeof _kstStamp === 'function') ? _kstStamp() : new Date(Date.now()+9*3600*1000).toISOString().slice(0,16).replace('T',' ');
             const by = (typeof _currentUserName === 'function') ? _currentUserName() : '';
-            stores[ix].changeLog.push({ at: ts, by, field, before: cur, after: next, note: `${label} 수정` });
-            saveStores(stores);
+            const _typeMap = { name:'상호 변경', storeName:'상호 변경', biz:'사업자 변경', bizno:'사업자 변경', ceo:'대표자 변경', addr:'주소 이전', address:'주소 이전', tel:'연락처 변경', phone:'연락처 변경', van:'VAN 변경' };
+            tgt.changeLog.unshift({ at: ts, by, type: _typeMap[field] || `${label} 변경`, from: { [field]: beforeVal }, to: { [field]: next }, note: `${label} 수정` });
+            saveStores(fresh);
             try { if (typeof pushStoresToCloud === 'function') pushStoresToCloud({ toast:false }); } catch(_){}
             if (typeof showToast === 'function') showToast(`✓ ${label} 저장`);
             // valSpan 갱신 — tel 필드는 링크로 재렌더
@@ -18578,6 +18590,7 @@ ${text.slice(0, 4000)}`;
         if (next === null) return;  // 취소
         const newTags = next.split(',').map(t => t.trim()).filter(Boolean);
         stores[ix].tags = newTags;
+        stores[ix].updatedAt = Date.now();   // mtime 스탬프 (revert 방지)
         if (!Array.isArray(stores[ix].changeLog)) stores[ix].changeLog = [];
         const ts = (typeof _kstStamp === 'function') ? _kstStamp() : new Date().toISOString().slice(0,16).replace('T',' ');
         const by = (typeof _currentUserName === 'function') ? _currentUserName() : '';
@@ -19490,10 +19503,11 @@ ${text.slice(0, 4000)}`;
           const diff = [];
           const before = l.from || {};
           const after  = l.to   || {};
-          ['name','biz','ceo','addr','tel','van'].forEach(k => {
-            const labels = { name:'상호', biz:'사업자', ceo:'대표자', addr:'주소', tel:'연락처', van:'VAN' };
+          const labels = { name:'상호', storeName:'상호', signageName:'간판명', biz:'사업자', bizno:'사업자', ceo:'대표자', ceoTel:'대표자 연락처', addr:'주소', address:'주소', tel:'연락처', phone:'연락처', van:'VAN' };
+          // from/to 에 실제 존재하는 모든 키를 표시 (고정 목록 X → signageName/ceoTel 등도 노출)
+          Array.from(new Set([...Object.keys(before), ...Object.keys(after)])).forEach(k => {
             if ((before[k]||'') !== (after[k]||'') && (before[k] || after[k])) {
-              diff.push(`<div style="font-size:11px;color:var(--gray-700)"><b>${labels[k]}</b>: <span style="color:var(--gray-400);text-decoration:line-through">${escFn(before[k]||'-')}</span> → <span style="color:var(--success);font-weight:700">${escFn(after[k]||'-')}</span></div>`);
+              diff.push(`<div style="font-size:11px;color:var(--gray-700)"><b>${labels[k]||k}</b>: <span style="color:var(--gray-400);text-decoration:line-through">${escFn(before[k]||'-')}</span> → <span style="color:var(--success);font-weight:700">${escFn(after[k]||'-')}</span></div>`);
             }
           });
           const isMerge = l.type === '매장 병합';
@@ -19659,7 +19673,7 @@ ${text.slice(0, 4000)}`;
 
     const saveBtn = document.getElementById('storeChangeSaveBtn');
     saveBtn.onclick = () => {
-      const type = document.getElementById('chgType').value;
+      const selType = document.getElementById('chgType').value;
       const newFields = {
         name: document.getElementById('chg_name').value.trim(),
         biz:  document.getElementById('chg_biz').value.trim(),
@@ -19669,9 +19683,16 @@ ${text.slice(0, 4000)}`;
         van:  document.getElementById('chg_van').value.trim(),
       };
       const note = document.getElementById('chgNote').value.trim();
-      // 변경 사항 없는지
-      const anyChange = ['name','biz','ceo','addr','tel','van'].some(k => (cur[k]||'') !== (newFields[k]||''));
-      if (!anyChange) { showToast && showToast('변경된 내용이 없습니다'); return; }
+      // 실제 바뀐 필드
+      const changed = ['name','biz','ceo','addr','tel','van'].filter(k => (cur[k]||'') !== (newFields[k]||''));
+      if (!changed.length) { showToast && showToast('변경된 내용이 없습니다'); return; }
+      // 변경유형 자동판별 — 기본값('상호 변경')이면 실제 변경으로 라벨 정정(주소만 바꿔도 '상호 변경'으로 찍히던 버그 수정).
+      //   사용자가 '재오픈/기타' 등 특수 유형을 명시 선택하면 그 값을 존중.
+      const autoMap = { name:'상호 변경', biz:'사업자 변경', ceo:'대표자 변경', addr:'주소 이전', tel:'연락처 변경', van:'VAN 변경' };
+      let type = selType;
+      if (selType === '상호 변경') {   // 기본값 → 자동판별로 교체
+        type = (changed.length === 1) ? (autoMap[changed[0]] || '정보 변경') : '정보 변경';
+      }
 
       applyStoreChange(store.id, type, cur, newFields, note);
       closeModal('storeChangeModal');
@@ -19700,6 +19721,7 @@ ${text.slice(0, 4000)}`;
     s.addr = after.addr;
     s.tel  = after.tel;
     s.van  = after.van;
+    s.updatedAt = Date.now();   // mtime 스탬프 → sync revert 방지
     // 변경 이력 기록
     if (!Array.isArray(s.changeLog)) s.changeLog = [];
     s.changeLog.unshift({
@@ -19948,6 +19970,8 @@ ${text.slice(0, 4000)}`;
       reroutedJobs,
     });
 
+    survivor.updatedAt = Date.now();   // mtime 스탬프 → sync revert 방지
+
     // 8) 흡수 매장 삭제
     const idx = stores.findIndex(s => s.id === merged.id);
     if (idx >= 0) stores.splice(idx, 1);
@@ -20052,6 +20076,10 @@ ${text.slice(0, 4000)}`;
       note: `병합 취소 — ${entry.mergedSnapshot.name} 매장 복원됨`,
       by:   _currentAuthName(),
     });
+
+    survivor.updatedAt = Date.now();   // mtime 스탬프 → sync revert 방지
+    const _restored = stores.find(s => s.id === entry.mergedSnapshot.id);
+    if (_restored) _restored.updatedAt = Date.now();
 
     saveStores(stores);
     try { pushStoresToCloud({ toast: false }); } catch(e){}
