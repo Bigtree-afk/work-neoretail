@@ -15455,6 +15455,12 @@ ${text.slice(0, 4000)}`;
               ${isCompleted ? `<span style="background:${gMeta.bg};color:${gMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${gMeta.icon} 완료</span>` : (gStatus==='진행' ? `<span style="background:${gMeta.bg};color:${gMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${gMeta.icon} 진행</span>` : '')}
               <span style="margin-left:auto;font-size:14px;color:${rootMeta.color}">${expanded?'▾':'▸'}</span>
             </div>
+            <div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;font-size:11px;color:var(--gray-600)">
+              <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><span style="font-weight:700">👷 처리 담당</span>
+                <select onchange="window._threadSetAssignee('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',this.value)" style="padding:3px 7px;border:1px solid var(--gray-300);border-radius:6px;font-size:11.5px;font-weight:700;background:#fff;font-family:inherit;max-width:130px">${(typeof window._jobStaffOptions==='function')?window._jobStaffOptions(r.assignee||''):'<option value="">미배정</option>'}</select></span>
+              <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><span style="font-weight:700">📅 처리예정</span>
+                <input type="date" value="${escFn((r.dueDate||'').slice(0,10))}" onchange="window._threadSetReqDue('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',this.value)" style="padding:3px 6px;border:1px solid var(--gray-300);border-radius:6px;font-size:11.5px;background:#fff;font-family:inherit"></span>
+            </div>
             ${(summaryText && !expanded) ? `<div style="font-size:12px;color:var(--gray-800);line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escFn(summaryText)}</div>` : ''}
           </div>`;
 
@@ -15464,14 +15470,6 @@ ${text.slice(0, 4000)}`;
           detail += `<div style="background:#fff;border:1px solid ${rootMeta.border};border-left:4px solid ${rootMeta.color};border-radius:8px;padding:9px 11px;margin-top:6px">
             <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${escFn(r.text||'')}</div>
             ${(Array.isArray(r.attachments)&&r.attachments.length&&typeof window._renderAttStrip==='function')?window._renderAttStrip(r.attachments,{limit:8,size:40}):''}
-            <div style="display:flex;align-items:center;gap:6px 14px;margin-top:8px;flex-wrap:wrap;font-size:11px;color:var(--gray-500)">
-              <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><span style="font-weight:700">👷 처리 담당</span>
-                <select onchange="window._threadSetAssignee('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',this.value)" style="padding:4px 7px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;font-weight:700;background:#fff;font-family:inherit;max-width:140px">${(typeof window._jobStaffOptions==='function')?window._jobStaffOptions(r.assignee||''):'<option value="">미배정</option>'}</select>
-              </span>
-              <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><span style="font-weight:700">📅 처리예정</span>
-                <input type="date" value="${escFn((r.dueDate||'').slice(0,10))}" onchange="window._threadSetReqDue('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',this.value)" style="padding:4px 7px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;background:#fff;font-family:inherit">
-              </span>
-            </div>
             ${editable ? `<div style="margin-top:6px;text-align:right"><button type="button" onclick="window._removeThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',true)" style="background:transparent;border:none;color:var(--gray-400);font-size:11px;cursor:pointer">요청 삭제</button></div>` : ''}
           </div>`;
 
