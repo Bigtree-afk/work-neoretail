@@ -934,6 +934,13 @@
   function classifyJobCategory(j) {
     if (!j) return 'as';
     const lc = String(j.lineCategory || '').toLowerCase();
+    // lineCategory 는 정규 8분류 코드 — 명시돼 있으면 type 자유텍스트보다 우선.
+    //   (type="신규/VAN변경" 같은 혼합 텍스트가 open_store 신규를 VAN 으로 뒤집던 오분류 방지)
+    if (lc === 'open_store' || lc === 'new_open' || lc === 'newopen') return 'new';
+    if (lc === 'van_doc') return 'van';
+    if (lc === 'label' || lc === 'equip_out' || lc === 'delivery') return 'supplies';
+    if (lc === 'churn') return 'churn';
+    if (lc === 'pos_as' || lc === 'van_as' || lc === 'device_mgmt' || lc === 'as_pos') return 'as';
     const tp = String(j.type || j.category || '').toLowerCase();
     const all = lc + ' ' + tp;
     if (/label|equip_out|delivery|라벨|영수증|프라이스텍|소모품|택배/.test(all)) return 'supplies';
