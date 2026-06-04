@@ -15455,6 +15455,12 @@ ${text.slice(0, 4000)}`;
               ${isCompleted ? `<span style="background:${gMeta.bg};color:${gMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${gMeta.icon} 완료</span>` : (gStatus==='진행' ? `<span style="background:${gMeta.bg};color:${gMeta.color};border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:800">${gMeta.icon} 진행</span>` : '')}
               <span style="margin-left:auto;font-size:14px;color:${rootMeta.color}">${expanded?'▾':'▸'}</span>
             </div>
+            <div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;font-size:11px;color:var(--gray-600)">
+              <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><span style="font-weight:700">👷 처리 담당</span>
+                <select onchange="window._threadSetAssignee('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',this.value)" style="padding:3px 7px;border:1px solid var(--gray-300);border-radius:6px;font-size:11.5px;font-weight:700;background:#fff;font-family:inherit;max-width:130px">${(typeof window._jobStaffOptions==='function')?window._jobStaffOptions(r.assignee||''):'<option value="">미배정</option>'}</select></span>
+              <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><span style="font-weight:700">📅 처리예정</span>
+                <input type="date" value="${escFn((r.dueDate||'').slice(0,10))}" onchange="window._threadSetReqDue('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',this.value)" style="padding:3px 6px;border:1px solid var(--gray-300);border-radius:6px;font-size:11.5px;background:#fff;font-family:inherit"></span>
+            </div>
             ${(summaryText && !expanded) ? `<div style="font-size:12px;color:var(--gray-800);line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escFn(summaryText)}</div>` : ''}
           </div>`;
 
@@ -15464,10 +15470,6 @@ ${text.slice(0, 4000)}`;
           detail += `<div style="background:#fff;border:1px solid ${rootMeta.border};border-left:4px solid ${rootMeta.color};border-radius:8px;padding:9px 11px;margin-top:6px">
             <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${escFn(r.text||'')}</div>
             ${(Array.isArray(r.attachments)&&r.attachments.length&&typeof window._renderAttStrip==='function')?window._renderAttStrip(r.attachments,{limit:8,size:40}):''}
-            <div style="display:flex;align-items:center;gap:6px;margin-top:8px">
-              <span style="font-size:11px;color:var(--gray-500);font-weight:700;white-space:nowrap">👷 처리 담당</span>
-              <select onchange="window._threadSetAssignee('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',this.value)" style="flex:1;padding:5px 8px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;font-weight:700;background:#fff;font-family:inherit">${(typeof window._jobStaffOptions==='function')?window._jobStaffOptions(r.assignee||''):'<option value="">미배정</option>'}</select>
-            </div>
             ${editable ? `<div style="margin-top:6px;text-align:right"><button type="button" onclick="window._removeThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',true)" style="background:transparent;border:none;color:var(--gray-400);font-size:11px;cursor:pointer">요청 삭제</button></div>` : ''}
           </div>`;
 
@@ -16532,6 +16534,34 @@ ${text.slice(0, 4000)}`;
   }
   window.setAsStatus = setAsStatus;
 
+  /* AS 메인 — 최신 요청접수(ROOT) 기준 담당 조회/배정 (요청별 담당 모델) */
+  function _asLatestRoot(j) {
+    const roots = (Array.isArray(j.thread) ? j.thread : []).filter(e => e && e.parentId === null);
+    if (!roots.length) return null;
+    roots.sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')));
+    return roots[0];
+  }
+  function _asCurrentAssignee(j) {
+    const r = _asLatestRoot(j);
+    return (r && r.assignee) || j.engineer || j.assignee || '';
+  }
+  // AS 메인 리스트에서 담당 즉시 배정 — 최신 요청접수에 반영 (없으면 job 레벨)
+  window._asmgmtAssign = function(jobId, name) {
+    const jobs = getJobs();
+    const job = jobs.find(x => x.id === jobId);
+    if (!job) return;
+    const val = String(name || '').trim();
+    const root = _asLatestRoot(job);
+    if (root) { if ((root.assignee || '') === val) return; root.assignee = val; }
+    else { if ((job.engineer || job.assignee || '') === val) return; job.engineer = val; job.assignee = val; }
+    job.updatedAt = Date.now();
+    saveJobs(jobs);
+    try { pushJobsToCloud({ toast:false }); } catch(e){}
+    if (typeof showToast === 'function') showToast(val ? `👷 담당: ${val}` : '담당 해제됨');
+    try { hydrateAsMgmt(); } catch(e){}
+    try { hydrateDashboardJobs(); } catch(e){}
+  };
+
   function hydrateAsMgmt() {
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const all = jobs.filter(isAsJob);
@@ -16629,7 +16659,11 @@ ${text.slice(0, 4000)}`;
       const lineCatBadge = (j.source === 'line' && j.lineCategory && LINE_TYPE_META[j.lineCategory])
         ? `<span style="margin-left:4px;background:${LINE_TYPE_META[j.lineCategory].bg};color:${LINE_TYPE_META[j.lineCategory].color};font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700" title="Line 분류">${LINE_TYPE_META[j.lineCategory].label}</span>`
         : '';
-      const eng = j.engineer || j.assignee || '<span style="color:var(--danger)">미배정</span>';
+      // 담당 — 진행/미처리 건은 인라인 select 로 즉시 배정 (최신 요청접수 기준), 완료 건은 읽기전용
+      const curAsg = _asCurrentAssignee(j);
+      const eng = done
+        ? (curAsg ? esc(curAsg) : '<span style="color:var(--gray-400)">-</span>')
+        : `<select onclick="event.stopPropagation()" onchange="event.stopPropagation();window._asmgmtAssign('${j.id}',this.value)" style="font-size:11.5px;font-weight:700;padding:3px 6px;border:1px solid ${curAsg?'var(--gray-300)':'var(--danger)'};border-radius:5px;background:#fff;font-family:inherit;max-width:120px" title="담당 배정">${(typeof _jobStaffOptions==='function')?_jobStaffOptions(curAsg):('<option value="">미배정</option>')}</select>`;
       // 상태 사이클 버튼 — 다음 상태로 토글
       const curIdx = AS_STATUS_FLOW.indexOf(curStatus);
       const nextStatus = AS_STATUS_FLOW[(curIdx + 1) % AS_STATUS_FLOW.length];
@@ -17784,6 +17818,32 @@ ${text.slice(0, 4000)}`;
     saveJobs(jobs);
     try { pushJobsToCloud({ toast:false }); } catch(err){}
     if (typeof showToast === 'function') showToast(val ? `👷 처리 담당: ${val}` : '담당 해제됨');
+    try { hydrateAsMgmt(); } catch(e){}
+    try { hydrateDashboardJobs(); } catch(e){}
+  };
+
+  /* 요청(요청접수 ROOT)별 처리예정일 — thread entry.dueDate. 저장 job + draft 모두 처리 */
+  window._threadSetReqDue = function(containerId, jobId, draftMode, threadId, value) {
+    const v = String(value || '').slice(0, 10);
+    if (draftMode || !jobId) {
+      try {
+        const arr = _getThreadFor(jobId, draftMode, containerId) || [];
+        const e = arr.find(x => x && x.threadId === threadId);
+        if (e) e.dueDate = v;
+        _setThreadFor(jobId, draftMode, arr, containerId);
+      } catch(err) { console.warn('[_threadSetReqDue draft]', err); }
+      return;
+    }
+    const jobs = getJobs();
+    const job = jobs.find(j => j.id === jobId);
+    if (!job || !Array.isArray(job.thread)) return;
+    const e = job.thread.find(x => x && x.threadId === threadId);
+    if (!e || (e.dueDate || '') === v) return;
+    e.dueDate = v;
+    job.updatedAt = Date.now();
+    saveJobs(jobs);
+    try { pushJobsToCloud({ toast:false }); } catch(err){}
+    if (typeof showToast === 'function') showToast(v ? `📅 처리예정 ${v}` : '처리예정 해제');
     try { hydrateAsMgmt(); } catch(e){}
     try { hydrateDashboardJobs(); } catch(e){}
   };
