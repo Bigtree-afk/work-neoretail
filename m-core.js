@@ -1739,6 +1739,7 @@
     var RUNNING = currentV();
     if (!RUNNING) return;
     var notified = false;
+    var timer = null;
     var re = new RegExp(scriptName.replace(/[.]/g, '\\.') + '\\?v=([^"\'&\\s]+)');
     function check() {
       if (notified) return;
@@ -1747,12 +1748,12 @@
         .then(function(html){
           var m = html && html.match(re);
           var live = m ? m[1] : '';
-          if (live && live !== RUNNING) { notified = true; _showVersionBanner(); }
+          if (live && live !== RUNNING) { notified = true; if (timer) clearInterval(timer); _showVersionBanner(); }
         })
         .catch(function(){});
     }
     setTimeout(check, 5000);
-    setInterval(check, 5 * 60 * 1000);
+    timer = setInterval(check, 5 * 60 * 1000);
     document.addEventListener('visibilitychange', function(){ if (!document.hidden) check(); });
   }
   function _showVersionBanner() {

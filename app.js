@@ -18028,6 +18028,18 @@ ${text.slice(0, 4000)}`;
     }).formatToParts(d).reduce((a,p)=>{ a[p.type]=p.value; return a; }, {});
     return `${parts.year}.${parts.month}.${parts.day} ${parts.hour}:${parts.minute}`;
   }
+  /* 초단위 KST 스탬프 — 매장 changeLog 전용(같은 필드 1분내 재편집 시 additive 머지 중복키 충돌 방지) */
+  function _kstStampSec() {
+    try {
+      const p = new Intl.DateTimeFormat('ko-KR', {
+        timeZone: 'Asia/Seoul', year:'2-digit', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false,
+      }).formatToParts(new Date()).reduce((a,x)=>{ a[x.type]=x.value; return a; }, {});
+      return `${p.year}.${p.month}.${p.day} ${p.hour}:${p.minute}:${p.second}`;
+    } catch (_) {
+      return new Date(Date.now()+9*3600*1000).toISOString().slice(0,19).replace('T',' ');
+    }
+  }
 
   /* 메모 추가 — 일자/시간 자동 기록 */
   function addJobMemo(jobId) {
@@ -18551,14 +18563,21 @@ ${text.slice(0, 4000)}`;
             // ⚠ stale capture 방지 — 커밋 시점에 최신 stores 재조회 (편집 중 sync 가 갱신했을 수 있음)
             const fresh = (typeof getStores === 'function') ? (getStores() || []) : stores;
             const fi = fresh.findIndex(s => s.id === storeId);
-            const tgt = fi >= 0 ? fresh[fi] : stores[ix];
+            // ⚠ 편집 중 매장이 fresh 에서 사라짐(병합/삭제 동기화) → orphan 객체에 써서 saveStores(fresh) 로
+            //    유실되는 것 방지. 저장하지 말고 사용자에게 알림 후 원복.
+            if (fi < 0) {
+              if (typeof showToast === 'function') showToast('⚠ 저장 실패 — 편집 중 매장 정보가 변경되었습니다. 다시 시도해 주세요');
+              input.remove(); valSpan.style.display=''; if (btn) btn.style.display='';
+              return;
+            }
+            const tgt = fresh[fi];
             const beforeVal = String(tgt[field] || '');
             if (beforeVal === next) { input.remove(); valSpan.style.display=''; if (btn) btn.style.display=''; return; }
             tgt[field] = next;
             tgt.updatedAt = Date.now();   // mtime 스탬프 → sync 가 옛 KV 로 되돌리지 못함(revert 방지)
             // changeLog 추가 — 모달과 동일 포맷(type/from/to) 으로 통일
             if (!Array.isArray(tgt.changeLog)) tgt.changeLog = [];
-            const ts = (typeof _kstStamp === 'function') ? _kstStamp() : new Date(Date.now()+9*3600*1000).toISOString().slice(0,16).replace('T',' ');
+            const ts = (typeof _kstStampSec === 'function') ? _kstStampSec() : new Date(Date.now()+9*3600*1000).toISOString().slice(0,19).replace('T',' ');
             const by = (typeof _currentUserName === 'function') ? _currentUserName() : '';
             const _typeMap = { name:'상호 변경', storeName:'상호 변경', biz:'사업자 변경', bizno:'사업자 변경', ceo:'대표자 변경', addr:'주소 이전', address:'주소 이전', tel:'연락처 변경', phone:'연락처 변경', van:'VAN 변경' };
             tgt.changeLog.unshift({ at: ts, by, type: _typeMap[field] || `${label} 변경`, from: { [field]: beforeVal }, to: { [field]: next }, note: `${label} 수정` });
@@ -18601,7 +18620,7 @@ ${text.slice(0, 4000)}`;
         stores[ix].tags = newTags;
         stores[ix].updatedAt = Date.now();   // mtime 스탬프 (revert 방지)
         if (!Array.isArray(stores[ix].changeLog)) stores[ix].changeLog = [];
-        const ts = (typeof _kstStamp === 'function') ? _kstStamp() : new Date().toISOString().slice(0,16).replace('T',' ');
+        const ts = (typeof _kstStampSec === 'function') ? _kstStampSec() : new Date(Date.now()+9*3600*1000).toISOString().slice(0,19).replace('T',' ');
         const by = (typeof _currentUserName === 'function') ? _currentUserName() : '';
         stores[ix].changeLog.push({ at:ts, by, field:'tags', before:cur, after:newTags.join(', '), note:'태그 수정' });
         saveStores(stores);
@@ -20887,7 +20906,10 @@ ${text.slice(0, 4000)}`;
      - 자동타입 라벨(상호/사업자/대표자/주소/연락처/VAN/정보 변경)을 실제 바뀐 필드로 정정
        (주소만 바꿨는데 '상호 변경'으로 찍힌 옛 데이터 교정)
      - '매장 병합'/'병합 취소'/'재오픈'/'기타'/커스텀 라벨 및 diff 없는 항목은 건드리지 않음
-     - 안전: 라벨/포맷만 수정, 값(from/to)·날짜·작성자 보존. additive 머지라 updatedAt bump 불필요 */
+     - 안전: 라벨/포맷만 수정, 값(from/to)·날짜·작성자 보존. updatedAt bump 안 함(필드 값은 안 바꾸므로).
+     - ⚠ 다중기기 수렴: changeLog 머지 중복키가 at|note 라 'type 만' 바꾼 정정은, 아직 정정을
+       안 돌린 기기의 옛 라벨 항목이 머지에서 먼저 채택돼 일시적으로 되돌아갈 수 있음.
+       각 기기가 로드 시 1회(flag) 정정을 돌리므로 결국 모두 수렴(eventually consistent). */
   function fixChangeLogLabels(opts) {
     opts = opts || {};
     const AUTO_TYPES = new Set(['상호 변경','사업자 변경','대표자 변경','주소 이전','연락처 변경','VAN 변경','정보 변경','변경']);
@@ -20923,8 +20945,10 @@ ${text.slice(0, 4000)}`;
     });
     const total = fixed + upgraded;
     if (total > 0 && !opts.dryRun) {
+      // saveStores 가 dirty=true + push 예약. force 안 씀 → dirty/해시-스킵 echo 보호 유지
+      //   (N대 기기가 force 로 전체배열을 동시에 KV 에 쓰는 증폭/put-한도 위험 제거).
       try { saveStores(stores); } catch(_){}
-      try { pushStoresToCloud({ force:true, toast:false }); } catch(_){}
+      try { pushStoresToCloud({ toast:false }); } catch(_){}
       try { if (typeof hydrateSavedStores === 'function') hydrateSavedStores(); } catch(_){}
     }
     return { ok:true, fixed, upgraded, total, stores: storesTouched };
@@ -20973,6 +20997,7 @@ ${text.slice(0, 4000)}`;
     const RUNNING = currentV();
     if (!RUNNING) return;   // 버전 못 읽으면 비활성(안전)
     let notified = false;
+    let timer = null;
     const re = new RegExp(scriptName.replace(/[.]/g, '\\.') + '\\?v=([^"\'&\\s]+)');
     async function check() {
       if (notified) return;
@@ -20982,11 +21007,11 @@ ${text.slice(0, 4000)}`;
         const html = await res.text();
         const m = html.match(re);
         const live = m ? m[1] : '';
-        if (live && live !== RUNNING) { notified = true; _showVersionBanner(); }
+        if (live && live !== RUNNING) { notified = true; if (timer) clearInterval(timer); _showVersionBanner(); }
       } catch (_) {}
     }
     setTimeout(check, 5000);
-    setInterval(check, 5 * 60 * 1000);
+    timer = setInterval(check, 5 * 60 * 1000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
   }
   function _showVersionBanner() {
