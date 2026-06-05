@@ -20955,3 +20955,53 @@ ${text.slice(0, 4000)}`;
     alert(`완료 — 라벨 정정 ${r.fixed}건 · 포맷 승격 ${r.upgraded}건 (${r.stores}개 매장)\n클라우드 동기화 중...`);
     return r;
   };
+
+  /* ── 🔄 새 버전 배포 감지 → 새로고침 안내 ──
+     실행중 버전 = 로드된 app.js 의 ?v=, 최신 버전 = 현재 페이지 HTML 을 no-store 로 다시 받아 파싱.
+     배포마다 bump 하는 ?v= 를 그대로 버전 마커로 사용(추가 파일·이중 bump 불필요).
+     SPA 라 탭을 안 닫으면 옛 코드가 계속 도는 문제를 메움 — PC/모바일 공통 패턴(여기는 app.js=PC). */
+  function _setupVersionWatch(scriptName) {
+    function readV(srcHaystack) {
+      const m = String(srcHaystack || '').match(/[?&]v=([^&"'\s]+)/);
+      return m ? m[1] : '';
+    }
+    function currentV() {
+      const tags = Array.from(document.querySelectorAll('script[src]'));
+      const t = tags.find(s => (s.getAttribute('src') || '').indexOf(scriptName) >= 0);
+      return t ? readV(t.getAttribute('src')) : '';
+    }
+    const RUNNING = currentV();
+    if (!RUNNING) return;   // 버전 못 읽으면 비활성(안전)
+    let notified = false;
+    const re = new RegExp(scriptName.replace(/[.]/g, '\\.') + '\\?v=([^"\'&\\s]+)');
+    async function check() {
+      if (notified) return;
+      try {
+        const res = await fetch(location.pathname + '?_vc=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) return;
+        const html = await res.text();
+        const m = html.match(re);
+        const live = m ? m[1] : '';
+        if (live && live !== RUNNING) { notified = true; _showVersionBanner(); }
+      } catch (_) {}
+    }
+    setTimeout(check, 5000);
+    setInterval(check, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  }
+  function _showVersionBanner() {
+    if (document.getElementById('nsVersionBanner')) return;
+    const bar = document.createElement('div');
+    bar.id = 'nsVersionBanner';
+    bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483600;background:#1D4ED8;color:#fff;padding:12px 16px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:700;box-shadow:0 -2px 14px rgba(0,0,0,0.25)';
+    bar.innerHTML = '🔄 새 버전이 배포되었습니다 — 새로고침하면 최신 기능이 적용됩니다.'
+      + '<button id="nsVerReload" style="background:#fff;color:#1D4ED8;border:none;border-radius:7px;padding:7px 16px;font-weight:800;font-size:13px;cursor:pointer">지금 새로고침</button>'
+      + '<button id="nsVerLater" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.55);border-radius:7px;padding:7px 12px;font-size:13px;cursor:pointer">나중에</button>';
+    document.body.appendChild(bar);
+    const rl = document.getElementById('nsVerReload');
+    const lt = document.getElementById('nsVerLater');
+    if (rl) rl.onclick = () => { try { location.reload(); } catch(_) { location.href = location.href; } };
+    if (lt) lt.onclick = () => bar.remove();
+  }
+  window._showVersionBanner = _showVersionBanner;
+  setTimeout(() => { try { _setupVersionWatch('app.js'); } catch(_){} }, 100);

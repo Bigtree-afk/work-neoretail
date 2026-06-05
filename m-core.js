@@ -1725,4 +1725,50 @@
   function _gateBoot() { try { _enforceMobileAuthGate(); } catch (e) { console.warn('[authGate]', e); } }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _gateBoot);
   else _gateBoot();
+
+  /* ── 🔄 새 버전 배포 감지 → 새로고침 안내 (모바일 공통) ──
+     실행중 버전 = 로드된 m-core.js 의 ?v=, 최신 = 현재 m/ 페이지 HTML 을 no-store 로 받아 파싱.
+     배포마다 bump 하는 ?v= 를 버전 마커로 사용. PC(app.js)와 동일 패턴. */
+  function _setupVersionWatch(scriptName) {
+    function readV(src) { const m = String(src || '').match(/[?&]v=([^&"'\s]+)/); return m ? m[1] : ''; }
+    function currentV() {
+      const tags = Array.prototype.slice.call(document.querySelectorAll('script[src]'));
+      const t = tags.find(function(s){ return (s.getAttribute('src') || '').indexOf(scriptName) >= 0; });
+      return t ? readV(t.getAttribute('src')) : '';
+    }
+    var RUNNING = currentV();
+    if (!RUNNING) return;
+    var notified = false;
+    var re = new RegExp(scriptName.replace(/[.]/g, '\\.') + '\\?v=([^"\'&\\s]+)');
+    function check() {
+      if (notified) return;
+      fetch(location.pathname + '?_vc=' + Date.now(), { cache: 'no-store' })
+        .then(function(res){ return res.ok ? res.text() : ''; })
+        .then(function(html){
+          var m = html && html.match(re);
+          var live = m ? m[1] : '';
+          if (live && live !== RUNNING) { notified = true; _showVersionBanner(); }
+        })
+        .catch(function(){});
+    }
+    setTimeout(check, 5000);
+    setInterval(check, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', function(){ if (!document.hidden) check(); });
+  }
+  function _showVersionBanner() {
+    if (document.getElementById('nsVersionBanner')) return;
+    var bar = document.createElement('div');
+    bar.id = 'nsVersionBanner';
+    bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483600;background:#1D4ED8;color:#fff;padding:12px 16px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:700;box-shadow:0 -2px 14px rgba(0,0,0,0.25)';
+    bar.innerHTML = '🔄 새 버전이 배포되었습니다 — 새로고침하면 최신 기능이 적용됩니다.'
+      + '<button id="nsVerReload" style="background:#fff;color:#1D4ED8;border:none;border-radius:7px;padding:8px 16px;font-weight:800;font-size:13px;cursor:pointer">지금 새로고침</button>'
+      + '<button id="nsVerLater" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.55);border-radius:7px;padding:8px 12px;font-size:13px;cursor:pointer">나중에</button>';
+    document.body.appendChild(bar);
+    var rl = document.getElementById('nsVerReload');
+    var lt = document.getElementById('nsVerLater');
+    if (rl) rl.onclick = function(){ try { location.reload(); } catch(e) { location.href = location.href; } };
+    if (lt) lt.onclick = function(){ bar.remove(); };
+  }
+  global._showVersionBanner = _showVersionBanner;
+  setTimeout(function(){ try { _setupVersionWatch('m-core.js'); } catch(e){} }, 100);
 })(window);
