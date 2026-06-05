@@ -31,6 +31,9 @@ const STORE_FIELD_POLICY = {
   memos:          'additive-time-sorted',
   changeLog:      'additive-time-sorted',
   aliases:        'aliases-union',
+  // per-field mtime — 필드별 편집 시각 맵(키별 max) / 매장 mtime(최신값). 클라이언트와 동일.
+  fieldUpdatedAt: 'max-by-key',
+  updatedAt:      'max-number',
 };
 
 function _isEmptyValue(v) {
@@ -40,6 +43,13 @@ function _isEmptyValue(v) {
   return false;
 }
 function _normPhone(p) { return String(p||'').replace(/\D/g,''); }
+/* per-field mtime 비교 시각 — fieldUpdatedAt 있으면 누락 키는 0(미편집), 없으면 매장 updatedAt fallback */
+function _fieldTs(store, key) {
+  if (store && store.fieldUpdatedAt && typeof store.fieldUpdatedAt === 'object') {
+    return Number(store.fieldUpdatedAt[key]) || 0;
+  }
+  return Number(store && store.updatedAt) || 0;
+}
 
 function mergeStoreField(loc, rem, key) {
   const policy = STORE_FIELD_POLICY[key] || 'prefer-non-empty';
@@ -51,17 +61,31 @@ function mergeStoreField(loc, rem, key) {
       if (!_isEmptyValue(rv)) return rv;
       return lv;
 
+    case 'max-number': {
+      const mx = Math.max(Number(lv)||0, Number(rv)||0);
+      return mx || undefined;
+    }
+
+    case 'max-by-key': {
+      const lo = (lv && typeof lv === 'object') ? lv : {};
+      const ro = (rv && typeof rv === 'object') ? rv : {};
+      const out = {};
+      new Set([...Object.keys(lo), ...Object.keys(ro)]).forEach(k => {
+        out[k] = Math.max(Number(lo[k])||0, Number(ro[k])||0);
+      });
+      return Object.keys(out).length ? out : undefined;
+    }
+
     case 'prefer-non-empty':
     default: {
       const le = _isEmptyValue(lv), re = _isEmptyValue(rv);
       if (le && re) return undefined;
       if (le)  return rv;
       if (re)  return lv;
-      // 둘 다 값 있음 → updatedAt(mtime) 최신 쪽. incoming(loc) 이 최신-또는-동률이면 incoming,
-      //   stale 한 옛 push(incoming 이 더 옛날)면 KV(rem) 유지 → stale push 가 cloud 를 덮어쓰지 못함.
-      //   updatedAt 없거나 동률이면 incoming 이김 = 기존 서버 동작 보존(회귀 방지).
-      const lt = Number(loc && loc.updatedAt) || 0, rt = Number(rem && rem.updatedAt) || 0;
-      return lt >= rt ? lv : rv;
+      // 둘 다 값 있음 → per-field mtime (fieldUpdatedAt[key]). incoming(loc) 이 최신-또는-동률이면 incoming,
+      //   stale 한 옛 push 면 KV(rem) 유지. 서로 다른 필드 동시편집 보존(#1). 레거시는 updatedAt fallback.
+      const lts = _fieldTs(loc, key), rts = _fieldTs(rem, key);
+      return lts >= rts ? lv : rv;
     }
 
     case 'additive-by-id': {

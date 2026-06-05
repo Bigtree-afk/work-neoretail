@@ -29,6 +29,9 @@
     changeLog:      'additive-time-sorted',
     // 별칭 — 양쪽 합쳐서 유니크
     aliases:        'aliases-union',
+    // per-field mtime — 필드별 편집 시각 맵(키별 max 유지) / 매장 mtime(최신값 유지)
+    fieldUpdatedAt: 'max-by-key',
+    updatedAt:      'max-number',
     // 그 외 (storeName, biz, ceo, address, phone, pos, kiosk 등) → 'prefer-non-empty' (기본)
   };
 
@@ -41,6 +44,26 @@
   }
   // 전화번호 정규화 (숫자만)
   function _normPhone(p) { return String(p||'').replace(/\D/g,''); }
+
+  /* per-field mtime 비교 시각 — prefer-non-empty 충돌 해소용.
+     ★ fieldUpdatedAt 가 '있으면' 누락 키는 0(미편집=경쟁 안 함). '아예 없을' 때만 매장 updatedAt 로 fallback.
+        (이 fallback 규칙이 핵심: 안 그러면 '주소만 고친 쪽'이 updatedAt 때문에 대표자까지 이김) */
+  function _fieldTs(store, key) {
+    if (store && store.fieldUpdatedAt && typeof store.fieldUpdatedAt === 'object') {
+      return Number(store.fieldUpdatedAt[key]) || 0;
+    }
+    return Number(store && store.updatedAt) || 0;
+  }
+  /* 매장 편집 스탬프 — updatedAt(매장) + fieldUpdatedAt[field](필드별) 동시 기록. 편집 지점 공용. */
+  function _touchStore(store, fields) {
+    if (!store) return store;
+    const now = Date.now();
+    store.updatedAt = now;
+    if (!store.fieldUpdatedAt || typeof store.fieldUpdatedAt !== 'object') store.fieldUpdatedAt = {};
+    (Array.isArray(fields) ? fields : [fields]).forEach(f => { if (f) store.fieldUpdatedAt[f] = now; });
+    return store;
+  }
+  window._touchStore = _touchStore;
 
   /* 단일 필드 머지 — 정책에 따라 loc/rem 합치기 */
   function mergeStoreField(loc, rem, key) {
@@ -56,17 +79,34 @@
         if (!_isEmptyValue(rv)) return rv;
         return lv;
 
+      case 'max-number': {
+        // 두 숫자 중 큰 값 (updatedAt 등) — 머지 후 최신 시각 유지
+        const mx = Math.max(Number(lv)||0, Number(rv)||0);
+        return mx || undefined;
+      }
+
+      case 'max-by-key': {
+        // {키:ts} 맵 — 키별 max 유지 (fieldUpdatedAt)
+        const lo = (lv && typeof lv === 'object') ? lv : {};
+        const ro = (rv && typeof rv === 'object') ? rv : {};
+        const out = {};
+        new Set([...Object.keys(lo), ...Object.keys(ro)]).forEach(k => {
+          out[k] = Math.max(Number(lo[k])||0, Number(ro[k])||0);
+        });
+        return Object.keys(out).length ? out : undefined;
+      }
+
       case 'prefer-non-empty':
       default: {
         const le = _isEmptyValue(lv), re = _isEmptyValue(rv);
         if (le && re) return undefined;
         if (le)  return rv;
         if (re)  return lv;
-        // 둘 다 값 있음 → 매장 updatedAt(mtime) 최신 쪽 우선 (jobs per-mtime 패턴).
-        //   로컬 편집이 더 최신이면 로컬 유지 → sync 가 옛 KV 로 되돌리던 버그 해결.
-        //   updatedAt 없거나 동률이면 KV(rem) 유지 = 기존 동작 보존(회귀 방지).
-        const lt = Number(loc && loc.updatedAt) || 0, rt = Number(rem && rem.updatedAt) || 0;
-        return lt > rt ? lv : rv;
+        // 둘 다 값 있음 → per-field mtime (fieldUpdatedAt[key]) 최신 쪽 우선.
+        //   서로 다른 필드 동시편집 보존(#1). 없으면 매장 updatedAt fallback → 레거시 동작.
+        //   동률/불명이면 KV(rem) 유지 = 기존 동작 보존(회귀 방지).
+        const lts = _fieldTs(loc, key), rts = _fieldTs(rem, key);
+        return lts > rts ? lv : rv;
       }
 
       case 'additive-by-id': {
@@ -18574,7 +18614,7 @@ ${text.slice(0, 4000)}`;
             const beforeVal = String(tgt[field] || '');
             if (beforeVal === next) { input.remove(); valSpan.style.display=''; if (btn) btn.style.display=''; return; }
             tgt[field] = next;
-            tgt.updatedAt = Date.now();   // mtime 스탬프 → sync 가 옛 KV 로 되돌리지 못함(revert 방지)
+            _touchStore(tgt, field);   // per-field mtime 스탬프 → 다른 필드 동시편집 보존 + revert 방지
             // changeLog 추가 — 모달과 동일 포맷(type/from/to) 으로 통일
             if (!Array.isArray(tgt.changeLog)) tgt.changeLog = [];
             const ts = (typeof _kstStampSec === 'function') ? _kstStampSec() : new Date(Date.now()+9*3600*1000).toISOString().slice(0,19).replace('T',' ');
@@ -18618,7 +18658,7 @@ ${text.slice(0, 4000)}`;
         if (next === null) return;  // 취소
         const newTags = next.split(',').map(t => t.trim()).filter(Boolean);
         stores[ix].tags = newTags;
-        stores[ix].updatedAt = Date.now();   // mtime 스탬프 (revert 방지)
+        _touchStore(stores[ix], 'tags');   // per-field mtime 스탬프
         if (!Array.isArray(stores[ix].changeLog)) stores[ix].changeLog = [];
         const ts = (typeof _kstStampSec === 'function') ? _kstStampSec() : new Date(Date.now()+9*3600*1000).toISOString().slice(0,19).replace('T',' ');
         const by = (typeof _currentUserName === 'function') ? _currentUserName() : '';
@@ -19732,7 +19772,10 @@ ${text.slice(0, 4000)}`;
     s.addr = after.addr;
     s.tel  = after.tel;
     s.van  = after.van;
-    s.updatedAt = Date.now();   // mtime 스탬프 → sync revert 방지
+    // 실제 바뀐 필드만 per-field mtime 스탬프 (name 은 빈 값이면 유지하므로 제외)
+    const _chg = ['name','biz','ceo','addr','tel','van'].filter(k =>
+      (String(before[k]||'') !== String(after[k]||'')) && !(k === 'name' && !after.name));
+    _touchStore(s, _chg);
     // 변경 이력 기록
     if (!Array.isArray(s.changeLog)) s.changeLog = [];
     s.changeLog.unshift({
@@ -19981,7 +20024,8 @@ ${text.slice(0, 4000)}`;
       reroutedJobs,
     });
 
-    survivor.updatedAt = Date.now();   // mtime 스탬프 → sync revert 방지
+    // 병합으로 채워진 필드 + 매장 mtime 스탬프 (per-field)
+    _touchStore(survivor, Object.keys(filledFields || {}));
 
     // 8) 흡수 매장 삭제
     const idx = stores.findIndex(s => s.id === merged.id);
@@ -20088,9 +20132,10 @@ ${text.slice(0, 4000)}`;
       by:   _currentAuthName(),
     });
 
-    survivor.updatedAt = Date.now();   // mtime 스탬프 → sync revert 방지
+    // 병합 취소로 되돌린 필드 + 매장 mtime 스탬프
+    _touchStore(survivor, Object.keys(entry.filledFields || {}));
     const _restored = stores.find(s => s.id === entry.mergedSnapshot.id);
-    if (_restored) _restored.updatedAt = Date.now();
+    if (_restored) _touchStore(_restored, []);
 
     saveStores(stores);
     try { pushStoresToCloud({ toast: false }); } catch(e){}
