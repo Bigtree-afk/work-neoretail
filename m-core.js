@@ -686,6 +686,23 @@
   /* ═══════════════════════════════════════════════════════════
    * 클라우드 동기화 — index.html L12913 / L12993 / L13037
    * ═══════════════════════════════════════════════════════════ */
+  /* thread 콘텐츠 기반 중복 제거 — PC app.js 와 동일(SSOT). threadId 가 달라도
+     (ts·text·status·author·ROOT여부) 동일하면 1개로, 드롭 항목은 parentId 재매핑. */
+  function _dedupeThread(thread) {
+    if (!Array.isArray(thread) || thread.length < 2) return thread;
+    const keyOf = e => [e.ts||'', e.text||'', e.status||'', e.author||'', (e.parentId==null?'R':'C')].join('');
+    const seen = new Map(), remap = new Map(), out = [];
+    for (const e of thread) {
+      if (!e) continue;
+      const k = keyOf(e);
+      const surv = seen.get(k);
+      if (surv) { if (e.threadId && surv.threadId && e.threadId !== surv.threadId) remap.set(e.threadId, surv.threadId); continue; }
+      seen.set(k, e); out.push(e);
+    }
+    if (remap.size) out.forEach(e => { if (e.parentId && remap.has(e.parentId)) e.parentId = remap.get(e.parentId); });
+    return out;
+  }
+
   function _mergeJobRecord(localJob, cloudJob) {
     if (!localJob) {
       // 🪦 cloud only — cascade 삭제 직후 cloud 받을 때도 thread tombstone 필터 적용
@@ -698,8 +715,9 @@
           if (e.parentId && _isThreadChildOfTombstonedRoot(e.parentId, jobIdForTomb)) return false;
           return true;
         });
-        if (filtered.length !== cloudJob.thread.length) {
-          return Object.assign({}, cloudJob, { thread: filtered });
+        const deduped = _dedupeThread(filtered);
+        if (deduped.length !== cloudJob.thread.length) {
+          return Object.assign({}, cloudJob, { thread: deduped });
         }
       }
       return cloudJob;
@@ -741,7 +759,7 @@
       if (e.parentId && _isThreadChildOfTombstonedRoot(e.parentId, jobIdForTomb)) return false;
       return true;
     });
-    merged.thread = _merged.sort((a,b) => String(a.ts||'').localeCompare(String(b.ts||'')));
+    merged.thread = _dedupeThread(_merged.sort((a,b) => String(a.ts||'').localeCompare(String(b.ts||''))));
     // ── memos union
     const mSeen = new Map();
     [...(cloudJob.memos||[]), ...(localJob.memos||[])].forEach(m => {
@@ -1108,7 +1126,7 @@
   /* ═══════════════════════════════════════════════════════════
    * LINE 발송 — index.html L13676 ~ L14098
    * ═══════════════════════════════════════════════════════════ */
-  const _LINE_HEAD_BYTES = 140;
+  const _LINE_HEAD_BYTES = 600;   // 처리내용 헤더 한도 — 200자(한글 기준 ≈600byte)까지 허용 (이전 140)
   function _byteLen(s) {
     s = String(s == null ? '' : s);
     let n = 0;

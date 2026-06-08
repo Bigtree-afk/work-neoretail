@@ -5659,7 +5659,9 @@ ${text.slice(0, 4000)}`;
           const me = users.find(u => (u.id||'').toLowerCase() === (auth.id||auth.email||'').toLowerCase());
           if (me && me.name) return me.name;
         } catch(_){}
-        return auth.name || auth.displayName || auth.email || '익명';
+        // 이메일 매칭 실패 시 표시이름/닉네임 fallback — 닉네임은 실명으로 정규화 (예: '미디'→'박재민')
+        const raw = auth.name || auth.displayName || auth.email || '익명';
+        return (typeof window._normalizeDisplayName === 'function') ? (window._normalizeDisplayName(raw) || raw) : raw;
       }
     } catch(e) {}
     return '익명';
@@ -9009,6 +9011,33 @@ ${text.slice(0, 4000)}`;
   window._addTombstone = _addTombstone;
   window._isTombstoned = _isTombstoned;
 
+  /* thread 콘텐츠 기반 중복 제거 — threadId 가 달라도 (ts·text·status·author·ROOT여부) 동일하면 1개로.
+     비멱등 마이그레이션이 재-prefix 한 threadId(TR-mig-X-TR-mig-X 등)로 생긴 중복을 치유.
+     드롭된 항목의 threadId 를 살아남은 항목으로 parentId 재매핑(고아 child 방지). */
+  function _dedupeThread(thread) {
+    if (!Array.isArray(thread) || thread.length < 2) return thread;
+    const keyOf = e => [e.ts||'', e.text||'', e.status||'', e.author||'', (e.parentId==null?'R':'C')].join('');
+    const seen = new Map();    // key -> survivor entry
+    const remap = new Map();   // dropped threadId -> survivor threadId
+    const out = [];
+    for (const e of thread) {
+      if (!e) continue;
+      const k = keyOf(e);
+      const surv = seen.get(k);
+      if (surv) {
+        if (e.threadId && surv.threadId && e.threadId !== surv.threadId) remap.set(e.threadId, surv.threadId);
+        continue;   // 중복 → 드롭
+      }
+      seen.set(k, e);
+      out.push(e);
+    }
+    if (remap.size) {
+      out.forEach(e => { if (e.parentId && remap.has(e.parentId)) e.parentId = remap.get(e.parentId); });
+    }
+    return out;
+  }
+  window._dedupeThread = _dedupeThread;
+
   function _mergeJobRecord(localJob, cloudJob) {
     if (!localJob) {
       // 🪦 cloud only — localJob 이 없는 케이스(예: cascade 삭제 직후) 라도
@@ -9022,8 +9051,9 @@ ${text.slice(0, 4000)}`;
           if (e.parentId && _isThreadChildOfTombstonedRoot(e.parentId, jobIdForTomb)) return false;
           return true;
         });
-        if (filtered.length !== cloudJob.thread.length) {
-          return Object.assign({}, cloudJob, { thread: filtered });
+        const deduped = _dedupeThread(filtered);
+        if (deduped.length !== cloudJob.thread.length) {
+          return Object.assign({}, cloudJob, { thread: deduped });
         }
       }
       return cloudJob;
@@ -9068,7 +9098,7 @@ ${text.slice(0, 4000)}`;
       if (e.parentId && _isThreadChildOfTombstonedRoot(e.parentId, jobIdForTomb)) return false;
       return true;
     });
-    merged.thread = _merged.sort((a,b) => String(a.ts||'').localeCompare(String(b.ts||'')));
+    merged.thread = _dedupeThread(_merged.sort((a,b) => String(a.ts||'').localeCompare(String(b.ts||''))));
     // ── memos: at+text union
     const mSeen = new Map();
     [...(cloudJob.memos||[]), ...(localJob.memos||[])].forEach(m => {
@@ -9961,7 +9991,7 @@ ${text.slice(0, 4000)}`;
      · 헤더 본문(headContent) 최대 140byte
      · 한 LINE 메시지 전체는 LINE API 한도 4900자 유지 (서버측)
    ════════════════════════════════════════════════════════════ */
-  window._LINE_HEAD_BYTES = 140;
+  window._LINE_HEAD_BYTES = 600;   // 처리내용 헤더 한도 — 200자(한글 기준 ≈600byte)까지 허용 (이전 140)
   window._byteLen = function(s) {
     s = String(s == null ? '' : s);
     let n = 0;
@@ -10889,6 +10919,17 @@ ${text.slice(0, 4000)}`;
       const canonicalIdx = items[0].idx;
       const others = items.slice(1);
 
+      // 이미 통합된 canonical 은 재통합하지 않음 (재-prefix/중복/불필요 churn 방지).
+      //   부활한 원본만 tombstone 후 제거. (멱등성 가드)
+      if (canonical._asAggregated) {
+        others.forEach(o => {
+          if (o.j && o.j.id && typeof _addTombstone === 'function') _addTombstone('job', o.j.id);
+          toRemove.add(o.idx);
+          removedJobs++;
+        });
+        return;
+      }
+
       let mergedThread = Array.isArray(canonical.thread) ? canonical.thread.slice() : [];
       // canonical 자체에 thread 가 없으면 자기 자신의 asRequest/notes 로 ROOT 시드
       if (mergedThread.length === 0) {
@@ -10969,10 +11010,11 @@ ${text.slice(0, 4000)}`;
         removedJobs++;
       });
 
-      // 스레드 정규화
+      // 스레드 정규화 + 콘텐츠 중복 제거 (재-prefix 로 생긴 동일 내용 중복 collapse)
       if (typeof window._threadMigrate === 'function') {
         mergedThread = window._threadMigrate(mergedThread);
       }
+      mergedThread = _dedupeThread(mergedThread);
       canonical.thread = mergedThread;
 
       // 상태 재평가
@@ -21022,6 +21064,73 @@ ${text.slice(0, 4000)}`;
     const r = fixChangeLogLabels();
     localStorage.setItem('ns_changelog_label_fix_v1', String(Date.now()));
     alert(`완료 — 라벨 정정 ${r.fixed}건 · 포맷 승격 ${r.upgraded}건 (${r.stores}개 매장)\n클라우드 동기화 중...`);
+    return r;
+  };
+
+  /* ── 🧹 작업 데이터 1회 치유 — thread 중복 제거(#2) + 작성자 가명→실명(#1) ──
+     - _dedupeThread 로 콘텐츠 중복 ROOT/child collapse (마이그레이션 재-prefix 잔재 정리)
+     - ns_users.nicknames 맵으로 stored author/engineer/assignee/createdBy/completedBy/memos 정정
+     - per-job mtime 으로 변경분만 push (stale 보호). 기기당 1회(flag ns_jobs_heal_v1). */
+  function _nickToRealMap() {
+    const map = {};
+    try {
+      const users = JSON.parse(localStorage.getItem('ns_users') || '[]');
+      users.forEach(u => {
+        if (u && u.name && Array.isArray(u.nicknames)) {
+          u.nicknames.forEach(n => { const k = String(n||'').trim(); if (k) map[k] = u.name; });
+        }
+      });
+    } catch(_){}
+    return map;
+  }
+  window.healJobsData = function(opts) {
+    opts = opts || {};
+    const nick = _nickToRealMap();
+    const fix = (v) => { const s = String(v||'').trim(); return (s && nick[s]) ? nick[s] : v; };
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    let threadDeduped = 0, namesFixed = 0, jobsTouched = 0;
+    jobs.forEach(j => {
+      if (!j) return;
+      let touched = false;
+      if (Array.isArray(j.thread) && j.thread.length > 1) {
+        const before = j.thread.length;
+        const dd = _dedupeThread(j.thread.slice());
+        if (dd.length !== before) { j.thread = dd; threadDeduped += (before - dd.length); touched = true; }
+      }
+      (j.thread || []).forEach(e => { if (e) { const nv = fix(e.author); if (nv !== e.author) { e.author = nv; namesFixed++; touched = true; } } });
+      ['engineer','assignee','createdBy','completedBy','lastEditedBy'].forEach(k => {
+        const nv = fix(j[k]); if (j[k] && nv !== j[k]) { j[k] = nv; namesFixed++; touched = true; }
+      });
+      (j.memos || []).forEach(m => { if (m) ['assignee','recordedBy','by','author'].forEach(k => {
+        const nv = fix(m[k]); if (m[k] && nv !== m[k]) { m[k] = nv; namesFixed++; touched = true; }
+      }); });
+      if (touched) jobsTouched++;
+    });
+    if ((threadDeduped + namesFixed) > 0 && !opts.dryRun) {
+      try { saveJobs(jobs); } catch(_){}
+      try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud({ toast:false }); } catch(_){}
+    }
+    return { ok:true, threadDeduped, namesFixed, jobs: jobsTouched };
+  };
+  setTimeout(() => {
+    try {
+      const FLAG = 'ns_jobs_heal_v1';
+      if (localStorage.getItem(FLAG)) return;
+      const r = window.healJobsData();
+      localStorage.setItem(FLAG, String(Date.now()));
+      if ((r.threadDeduped + r.namesFixed) > 0) {
+        console.log(`[heal] thread중복 ${r.threadDeduped} · 이름정정 ${r.namesFixed} (${r.jobs}개 작업)`);
+        if (typeof showToast === 'function') showToast(`🧹 데이터 정리 — 중복 ${r.threadDeduped}건 · 이름 ${r.namesFixed}건`, 5000);
+      }
+    } catch(e) { console.warn('[heal] failed:', e); }
+  }, 3000);
+  window.forceHealJobsData = function() {
+    const dry = window.healJobsData({ dryRun:true });
+    if ((dry.threadDeduped + dry.namesFixed) === 0) { alert('정리할 항목이 없습니다 (이미 정상).'); return dry; }
+    if (!confirm(`작업 데이터 정리\n\nthread 중복 제거: ${dry.threadDeduped}건\n작성자 이름 정정: ${dry.namesFixed}건\n영향 작업: ${dry.jobs}개\n\n진행할까요?`)) return;
+    const r = window.healJobsData();
+    localStorage.setItem('ns_jobs_heal_v1', String(Date.now()));
+    alert(`완료 — 중복 ${r.threadDeduped}건 · 이름 ${r.namesFixed}건 정정 (${r.jobs}개 작업)\n클라우드 동기화 중...`);
     return r;
   };
 
