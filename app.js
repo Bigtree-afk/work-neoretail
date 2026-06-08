@@ -9181,6 +9181,7 @@ ${text.slice(0, 4000)}`;
         try { localStorage.setItem('ns_resync_token', cloudToken); } catch(_){}
         // 🕐 cloud-pulled 상태로 snapshot 동기화 — 다음 saveJobs 가 cloud job 을 "변경됨" 으로 오인 안 함
         try { _refreshJobsSnap(); } catch(_){}
+        try { _selfHealJobStatuses(); } catch(_){}   // 🩹 status 자동 승격(모바일과 동일)
         // deleted 도 tombstone 등록
         for (const id of delIds) { try { _addTombstone('job', id); } catch(_){} }
         // push 캐시 리셋
@@ -9252,6 +9253,8 @@ ${text.slice(0, 4000)}`;
       localStorage.setItem('ns_jobs', JSON.stringify(merged));
       // 🕐 머지 결과로 snapshot 갱신 — 다음 saveJobs 가 cloud-pulled job 을 "변경됨" 으로 오인 안 함
       try { _refreshJobsSnap(); } catch(_){}
+      // 🩹 thread 완료건 status 자동 승격 (모바일과 동일) — status drift 통일
+      try { _selfHealJobStatuses(); } catch(_){}
       // 로컬이 클라우드보다 많거나, 머지 결과 thread/memos 가 cloud 와 다르면 즉시 푸시
       // → 다른 PC 의 stale cloud 가 다시 덮어쓰지 못하게 빠르게 재동기화
       if (merged.length > cloud.length || mergedCount > 0) {
@@ -9260,6 +9263,59 @@ ${text.slice(0, 4000)}`;
     } catch(e) { /* 네트워크 실패 무시 */ }
   }
   window.syncJobsFromCloud = syncJobsFromCloud;
+
+  /* _selfHealJobStatuses — thread 전체 완료된 작업의 status 를 완료계열로 영구 승격(+push).
+     모바일(m-core)과 동일 로직(SSOT) — PC만 미보유라 status drift 가 있던 것 통일.
+     forward-only(미완료→완료)만, 역방향 환원 없음(CLAUDE.md 완료 환원 금지). thread=0/신규 openDate 가드. */
+  function _selfHealJobStatuses() {
+    try {
+      const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+      let dirty = false;
+      const _today = (typeof _kstNow === 'function') ? String(_kstNow()||'').slice(0,10)
+                    : new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
+      const _mig = (typeof window._threadMigrate === 'function') ? window._threadMigrate : (a=>a);
+      const _doneFn = (typeof window._isJobDone === 'function') ? window._isJobDone : (j=>!!(j&&(j.completed||/완료/.test(j.status||''))));
+      const _cls = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : (()=>'as');
+      for (const j of jobs) {
+        if (!j || !Array.isArray(j.thread) || j.thread.length === 0) continue;
+        const norm = _mig(j.thread);
+        const roots = norm.filter(e => e && e.parentId == null);
+        if (roots.length === 0) continue;
+        const allDone = roots.every(r => norm.some(k => k.parentId === r.threadId && k.status === '완료'));
+        const cat = _cls(j);
+        let blockAutoDone = false;
+        if (cat === 'new') { const od = String(j.openDate||'').slice(0,10); if (od && od >= _today) blockAutoDone = true; }
+        if (allDone && !blockAutoDone && !_doneFn(j)) {
+          j.status = (cat === 'as') ? '처리완료' : '완료';
+          j.completed = true;
+          j.completedAt = j.completedAt || new Date().toISOString();
+          dirty = true;
+        }
+      }
+      if (dirty) { try { saveJobs(jobs); } catch(_){} try { schedulePushJobsToCloud(); } catch(_){} }
+      return dirty;
+    } catch(e) { return false; }
+  }
+  window._selfHealJobStatuses = _selfHealJobStatuses;
+
+  /* 🔁 전 기기 강제 수렴 — resync_token bump (관리자 토큰 보유 기기 전용).
+     실행 시 모든 기기가 다음 sync(최대 30초)에 로컬 ns_jobs 를 클라우드 기준으로 재초기화 → 즉시 일괄 수렴.
+     미push 로컬 편집 소실 위험이 있으니 모든 기기가 저장·동기화된 상태에서 실행. */
+  window.forceGlobalResync = async function() {
+    const token = (typeof getCloudSyncToken === 'function') ? getCloudSyncToken() : '';
+    if (!token) { alert('관리자 동기화 토큰이 없는 기기입니다 (이 기능은 토큰 보유 PC 전용).'); return { ok:false, reason:'no-token' }; }
+    if (!confirm('전 기기 강제 수렴(resync_token bump)\n\n모든 기기가 다음 동기화 때 로컬 작업목록을 클라우드 기준으로 재초기화합니다.\n미동기(미push) 로컬 편집이 있으면 소실될 수 있으니, 모든 기기가 저장·동기화된 상태에서 실행하세요.\n\n진행할까요?')) return;
+    try {
+      const res = await fetch('/api/admin-delete', {
+        method:'POST',
+        headers:{ 'content-type':'application/json', 'authorization':'Bearer '+token },
+        body: JSON.stringify({ bumpToken:true, reason:'manual-global-resync' }),
+      });
+      if (!res.ok) { alert('실패 ('+res.status+') — 토큰/권한을 확인하세요'); return { ok:false, status:res.status }; }
+      alert('✅ resync_token bump 완료 — 모든 기기가 다음 동기화(최대 30초)에 클라우드 기준으로 자동 수렴합니다.');
+      return { ok:true };
+    } catch(e) { alert('실패 (네트워크): ' + e); return { ok:false, error:String(e) }; }
+  };
 
   /* ── 🔧 작업 삭제 정합화(B) — 로컬 전용 job tombstone(클라우드 미등록) 제거 → 클라우드 union 재구성 ──
      기기마다 다른 stale 로컬 삭제표식이 클라우드 작업을 숨겨 PC↔모바일 건수가 어긋나던 문제 해소.
