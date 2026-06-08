@@ -304,8 +304,8 @@
     <!-- 🎯 필터 탭: 진행중(접수+진행) / 완료 / 모두 -->
     <div class="as-filter-row" id="asFilterRow">
       <button type="button" class="as-flt active" data-flt="prog" onclick="setAsFilter('prog')"><span class="ic">🔄</span><span class="lb">진행중</span><span class="cnt" id="fltCntProg">0</span></button>
+      <button type="button" class="as-flt" data-flt="all"  onclick="setAsFilter('all')"><span class="ic">📋</span><span class="lb">전체</span><span class="cnt" id="fltCntAll">0</span></button>
       <button type="button" class="as-flt" data-flt="done" onclick="setAsFilter('done')"><span class="ic">✅</span><span class="lb">완료</span><span class="cnt" id="fltCntDone">0</span></button>
-      <button type="button" class="as-flt" data-flt="all"  onclick="setAsFilter('all')"><span class="ic">📋</span><span class="lb">모두</span><span class="cnt" id="fltCntAll">0</span></button>
     </div>
     <div id="entryJobList"></div>
   </div>
@@ -716,14 +716,12 @@ function renderEntry(){
     const aDone = isDone(a) ? 1 : 0;
     const bDone = isDone(b) ? 1 : 0;
     if (aDone !== bDone) return aDone - bDone;  // 미완료 우선
-    // 같은 그룹 내 — 미완료는 처리예정일 임박순, 완료는 완료시각 최신순
+    // 같은 그룹 내 — 미완료는 '최근 등록 순'(접수일시→createdAt desc), 완료는 완료시각 최신순
+    //   PC asmgmt(_mtime) 와 통일: asReceivedAt(ms) 우선, 없으면 createdAt.
     if (!aDone) {
-      const da = _daysUntil(a.asDueDate);
-      const db = _daysUntil(b.asDueDate);
-      if (da === null && db === null) return (b.createdAt||0) - (a.createdAt||0);
-      if (da === null) return 1;
-      if (db === null) return -1;
-      return da - db;
+      const ra = Date.parse(String(a.asReceivedAt||'').replace(' ','T')) || Number(a.createdAt) || 0;
+      const rb = Date.parse(String(b.asReceivedAt||'').replace(' ','T')) || Number(b.createdAt) || 0;
+      return rb - ra;
     } else {
       const ta = Date.parse(a.completedAt||a.doneAt||'') || a.createdAt || 0;
       const tb = Date.parse(b.completedAt||b.doneAt||'') || b.createdAt || 0;

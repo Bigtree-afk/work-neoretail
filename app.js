@@ -2981,7 +2981,7 @@
       searchId: 'supplieshubSearch',
       cats: ['supplies'],
       cardCat: 'supplies',
-      cntMap: { all:'supplieshubCntAll', done:'supplieshubCntDone', ar:'supplieshubCntAr' },
+      cntMap: { prog:'supplieshubCntProg', all:'supplieshubCntAll', done:'supplieshubCntDone', ar:'supplieshubCntAr' },
     });
   };
   (function _bindSuppliesHubEvents(){
@@ -16679,7 +16679,7 @@ ${text.slice(0, 4000)}`;
   /* ══════════════════════════════════════════════
      AS 관리 — 별도 화면
   ══════════════════════════════════════════════ */
-  let _asMgmtFilter = 'all';   // 기본: 진행+완료 함께 표시(완료는 아래) — 모바일 m/as 와 통일
+  let _asMgmtFilter = 'pending';   // 기본: 진행 중(미처리) — 탭 순서 진행중:전체:완료:... 통일
 
   function isAsJob(j) {
     // 모바일과 동일하게 classifyJobCategory 로 판정 (type 텍스트 /AS/ 판정은 lineCategory=pos_as 인데
