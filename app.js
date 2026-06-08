@@ -16615,7 +16615,7 @@ ${text.slice(0, 4000)}`;
   /* ══════════════════════════════════════════════
      AS 관리 — 별도 화면
   ══════════════════════════════════════════════ */
-  let _asMgmtFilter = 'pending';
+  let _asMgmtFilter = 'all';   // 기본: 진행+완료 함께 표시(완료는 아래) — 모바일 m/as 와 통일
 
   function isAsJob(j) {
     return j && /AS/i.test(j.type || '');
