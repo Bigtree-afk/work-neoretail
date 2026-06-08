@@ -8966,7 +8966,9 @@ ${text.slice(0, 4000)}`;
     // 🛡 cloud deleted_jobs 레지스트리에도 등록 — 다른 기기의 stale localStorage 가
     //    wholesale POST 로 부활시키는 문제 차단 (샤르르 부활 루프, 2026-05-22)
     if (type === 'job' && id) {
-      try { _cloudDeleteJobIds([id]); } catch(_){}
+      try { _cloudDeleteJobIds([id]); } catch(_){}   // 토큰 보유 시 즉시 등록
+      // 토큰 없어도 jobTombstones 동봉 push 로 전파되도록 push 예약 (reconcile 완료 후 동봉됨)
+      try { if (typeof schedulePushJobsToCloud === 'function') schedulePushJobsToCloud(); } catch(_){}
     }
   }
   // 클라우드 deleted_jobs 등록 — 토큰 없으면 silent skip (서버측 jobs.js 가 추가 방어선)
@@ -9247,6 +9249,53 @@ ${text.slice(0, 4000)}`;
   }
   window.syncJobsFromCloud = syncJobsFromCloud;
 
+  /* ── 🔧 작업 삭제 정합화(B) — 로컬 전용 job tombstone(클라우드 미등록) 제거 → 클라우드 union 재구성 ──
+     기기마다 다른 stale 로컬 삭제표식이 클라우드 작업을 숨겨 PC↔모바일 건수가 어긋나던 문제 해소.
+     클라우드 deleted_jobs 의 진짜 삭제는 보존. 1회 자동(flag) + 수동 forceReconcileJobs(). */
+  async function reconcileJobTombstones() {
+    let cloudDel = new Set();
+    let ok = false;
+    try {
+      const res = await fetch('/api/jobs', { cache:'no-store' });
+      if (res.ok) { const d = await res.json(); (Array.isArray(d.deleted)?d.deleted:[]).forEach(e => { const id = String((e && e.id) || e || ''); if (id) cloudDel.add(id); }); ok = true; }
+    } catch(_){}
+    if (!ok) return { removed: 0, ok: false };   // 클라우드 레지스트리 못 받으면 아무것도 지우지 않음(legit 삭제 보호)
+    let removed = 0;
+    try {
+      const list = JSON.parse(localStorage.getItem('ns_tombstones') || '[]');
+      const kept = list.filter(t => { if (t && t.type === 'job' && !cloudDel.has(String(t.id))) { removed++; return false; } return true; });
+      if (removed) localStorage.setItem('ns_tombstones', JSON.stringify(kept));
+    } catch(_){}
+    try { window._lastJobsPushHash = null; } catch(_){}
+    try { if (typeof syncJobsFromCloud === 'function') await syncJobsFromCloud(); } catch(_){}
+    return { removed, ok: true };
+  }
+  window.reconcileJobTombstones = reconcileJobTombstones;
+  window.forceReconcileJobs = async function() {
+    const r = await reconcileJobTombstones();
+    if (!r.ok) { alert('정합화 실패 — 클라우드 연결을 확인하세요 (변경 없음)'); return r; }
+    try { localStorage.setItem('ns_jobtomb_reconcile_v1', String(Date.now())); } catch(_){}
+    try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(_){}
+    try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(_){}
+    alert('정합화 완료 — 로컬 전용 삭제표식 ' + r.removed + '건 제거 후 클라우드 기준 재동기화');
+    return r;
+  };
+  setTimeout(async () => {
+    try {
+      const FLAG = 'ns_jobtomb_reconcile_v1';
+      if (localStorage.getItem(FLAG)) return;
+      const r = await reconcileJobTombstones();
+      if (!r.ok) return;   // 실패 시 flag 미설정 → 다음 로드 재시도
+      localStorage.setItem(FLAG, String(Date.now()));
+      if (r.removed > 0) {
+        console.log('[reconcile] 로컬전용 삭제표식 ' + r.removed + '건 제거 → 클라우드 union 정합화');
+        try { if (typeof showToast === 'function') showToast('🔧 작업 목록 정합화 — 로컬 전용 삭제표식 ' + r.removed + '건 정리', 5000); } catch(_){}
+        try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(_){}
+        try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(_){}
+      }
+    } catch(e) { console.warn('[reconcile]', e); }
+  }, 4000);
+
   /* ════════════════════════════════════════════════════════════
      🎯 _recomputeJobStatus(job) — thread 기반 status 재평가 (공용 헬퍼)
      호출 시점: thread 편집, AS 머지, child 추가/삭제 등 thread 가 바뀐 직후
@@ -9353,7 +9402,10 @@ ${text.slice(0, 4000)}`;
       }));
     const _payload = { jobs };
     if (threadTombstones.length) _payload.threadTombstones = threadTombstones;
-    if (jobTombstones.length)    _payload.jobTombstones = jobTombstones;
+    // jobTombstones 는 reconcile(로컬 전용 stale 삭제표식 정리) 완료 후에만 전파 →
+    //   옛 stale 삭제가 클라우드로 번져 살아있는 작업이 전 기기 삭제되는 deletion-wins 방지.
+    let _reconciledPC = false; try { _reconciledPC = !!localStorage.getItem('ns_jobtomb_reconcile_v1'); } catch(_){}
+    if (jobTombstones.length && _reconciledPC) _payload.jobTombstones = jobTombstones;
     const body = JSON.stringify(_payload);
     // ── content-skip: 직전에 push 한 내용과 동일하면 네트워크 호출 자체를 생략 (KV 쓰기 절감)
     const h = window._fastHash(body);
