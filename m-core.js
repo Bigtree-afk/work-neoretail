@@ -1547,13 +1547,29 @@
     if (ownerRaw && typeof _normalizeDisplayName === 'function') {
       try { ownerRaw = _normalizeDisplayName(ownerRaw) || ownerRaw; } catch(_){}
     }
+    // 거래처 담당 연락처 — 작업에 입력돼 있으면 그대로, 없으면 매장(store)에 등록된 연락처로 fallback
+    //   (contacts[] 대표 → 없으면 대표자 연락처). LINE 메시지에 거래처 연락처가 항상 동봉되도록.
+    let _cName = job.contactName || '', _cPhone = job.contactPhone || '', _cRole = job.contactRole || '';
+    if (!_cName && !_cPhone) {
+      try {
+        const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+        const _n = s => String(s||'').toLowerCase().replace(/\s+/g,'');
+        const st = (job.storeId && stores.find(s => s && s.id === job.storeId))
+                || stores.find(s => s && _n(s.storeName || s.name) === _n(job.storeName || job.store));
+        if (st) {
+          const sc = Array.isArray(st.contacts) ? (st.contacts.find(c => c && c.primary) || st.contacts[0]) : null;
+          if (sc && (sc.name || sc.phone)) { _cName = sc.name || ''; _cPhone = sc.phone || ''; _cRole = sc.role || ''; }
+          else if (st.ceo || st.ceoTel || st.tel || st.phone) { _cName = st.ceo || ''; _cPhone = st.ceoTel || st.tel || st.phone || ''; _cRole = _cRole || '대표'; }
+        }
+      } catch(_){}
+    }
     const rec = Object.assign({}, job, {
       storeName: job.storeName || job.store || '',
       status:    (entry && entry.status) || job.status || (job.completed ? '완료' : '진행중'),
       scheduleDate: job.scheduleDate || job.asDueDate || job.installDate || job.softOpenDate || job.openDate || job.date || '',
-      contactName: job.contactName || '',
-      contactPhone: job.contactPhone || '',
-      contactRole: job.contactRole || '',
+      contactName: _cName,
+      contactPhone: _cPhone,
+      contactRole: _cRole,
       owner: ownerRaw,
       memo: headContent,
     });
