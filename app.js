@@ -11183,16 +11183,11 @@ ${text.slice(0, 4000)}`;
         // 부팅 시 자동 type 복구 — 신규 계열은 무조건 되돌림
         try { window.restoreOriginalJobType(); } catch(e){}
         if (typeof getJobs !== 'function' || typeof saveJobs !== 'function') return;
-        const result = window.migrateAsJobsToAggregate();
-        if (!result.skipped && result.mergedStores > 0) {
-          const msg = `🔁 AS 업무 통합 완료 — ${result.mergedStores}개 매장의 ${result.removedJobs + result.mergedStores}건을 매장당 1건으로 집계 (요청은 thread 에 누적)`;
-          if (typeof showToast === 'function') showToast(msg);
-          console.info('[AS 마이그레이션]', result);
-          try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
-          try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(e){}
-          try { if (typeof window.renderAsHub === 'function') window.renderAsHub(); } catch(e){}
-        }
-      } catch(e) { console.warn('[AS 마이그레이션 실패]', e); }
+        // ⚠ AS 통합 마이그레이션 자동실행 폐지 (모델 A) — 모바일은 통합 안 해 PC↔모바일 건수 불일치 +
+        //   비멱등 재-prefix 중복 + tombstone/ reconcile 충돌의 근원이었음. AS 는 요청별 작업으로 통일.
+        //   기존 통합 canonical 데이터는 그대로 보존(thread 누적 유지). 수동 필요시 window.migrateAsJobsToAggregate().
+        // const result = window.migrateAsJobsToAggregate();  // ← 자동실행 중단
+      } catch(e) { console.warn('[AS 마이그레이션 skip]', e); }
     }, 1500);
   });
 
@@ -16618,7 +16613,11 @@ ${text.slice(0, 4000)}`;
   let _asMgmtFilter = 'all';   // 기본: 진행+완료 함께 표시(완료는 아래) — 모바일 m/as 와 통일
 
   function isAsJob(j) {
-    return j && /AS/i.test(j.type || '');
+    // 모바일과 동일하게 classifyJobCategory 로 판정 (type 텍스트 /AS/ 판정은 lineCategory=pos_as 인데
+    //   type 에 'AS' 없는 작업을 누락 → PC↔모바일 AS 집합 불일치. CLAUDE.md: type 텍스트로 분류 금지)
+    if (!j) return false;
+    if (typeof window.classifyJobCategory === 'function') return window.classifyJobCategory(j) === 'as';
+    return /AS/i.test(j.type || '');
   }
 
   function openAsJob() {
