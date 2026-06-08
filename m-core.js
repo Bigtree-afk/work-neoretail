@@ -864,7 +864,9 @@
       let mergedCount = 0;
       cloud.forEach(j => {
         if (!j || !j.id) return;
-        if (_isJobTombstoned(j.id)) return;
+        // ☁️ 클라우드 job 은 서버 deleted_jobs(cloudDeletedIds) 만으로 판단 — 로컬 tombstone 무시.
+        //   (PC app.js 와 동일. 로컬 전용 stale tombstone 이 유효한 클라우드 job 을 가려 PC↔모바일
+        //    ns_jobs 가 갈리던 근본원인 제거. 삭제 권위는 서버 deleted_jobs 레지스트리.)
         if (cloudDeletedIds.has(j.id)) return;
         const existing = byId.get(j.id);
         if (existing) mergedCount++;

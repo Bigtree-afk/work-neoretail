@@ -888,7 +888,7 @@
         const txt = (r.text || '').replace(/\s+/g,' ').slice(0, 70);
         const meta = j.asDueDate ? `예정 ${j.asDueDate}${j.asDueTime?' '+j.asDueTime:''}` : '';
         const onclick = j.id ? `editNewopen('${escFn(j.id)}')` : '';
-        const lineBtn = j.id ? `<button class="hub-line-btn" title="📡 이 요청 LINE 발송" onclick="event.stopPropagation();window._hubLineSend('${escFn(j.id)}','${escFn(r.threadId||'')}')">📡</button>` : '';
+        const lineBtn = (j.id && !r._synthetic) ? `<button class="hub-line-btn" title="📡 이 요청 LINE 발송" onclick="event.stopPropagation();window._hubLineSend('${escFn(j.id)}','${escFn(r.threadId||'')}')">📡</button>` : '';
         return `<div class="hub-sj" onclick="${onclick}">
           <div class="sjl">
             <span class="sjtag ${cat}" style="${done?'opacity:0.6':''}">${done?'✅ 완료':'📥 요청접수'}</span>
@@ -1150,9 +1150,21 @@
   /* ─── 공용 hub 렌더 generator (AS/VAN/Supplies 공유) ─── */
   // ROOT(요청접수) 단위 헬퍼 — AS/신규처럼 thread 그룹화된 카테고리에서 사용
   function _jobRoots(j) {
-    return (Array.isArray(j.thread) ? j.thread : []).filter(e => e && e.parentId === null);
+    if (!j) return [];
+    const roots = (Array.isArray(j.thread) ? j.thread : []).filter(e => e && e.parentId === null);
+    if (roots.length > 0) return roots;
+    // thread ROOT 가 없는 skeleton(LINE/수동 등록 직후 thread=0) → 가상 ROOT 1개로 취급.
+    //   AS/신규 Hub 가 ROOT 단위라 thread=0 작업이 카드·카운트에서 통째 누락되던 문제 해결.
+    const txt = String(j.asRequest || j.notes || j.lineParsed || j.lineRequest || j.lineRaw || j.memo || '').replace(/\s+/g,' ').trim();
+    let ts = (j.asReceivedAt || '').slice(0,16).replace('T',' ');
+    if (!ts && j.createdAt) { const t = Number(j.createdAt) || Date.parse(j.createdAt); if (t) ts = new Date(t).toISOString().slice(0,16).replace('T',' '); }
+    return [{ _synthetic: true, threadId: '_virt-' + (j.id||''), parentId: null, text: txt || '(요청 내용 없음)', ts, author: j.engineer || j.assignee || '' }];
   }
   function _rootIsDone(j, root) {
+    // 가상 ROOT(thread=0 skeleton)는 job 자체의 완료 판정을 따름 (status/완료 정합)
+    if (root && root._synthetic) {
+      return !!(window._isJobEffectivelyDone ? window._isJobEffectivelyDone(j) : (j.completed || /완료/.test(j.status||'')));
+    }
     return (j.thread||[]).some(e => e && e.parentId === root.threadId && e.status === '완료');
   }
   function _jobIncompleteRoots(j) { return _jobRoots(j).filter(r => !_rootIsDone(j, r)); }
@@ -12722,8 +12734,9 @@ ${text.slice(0, 4000)}`;
     if (asBody) {
       const effectivelyDone = window._isJobEffectivelyDone || _isJobDone;
       const asJobs = jobs.filter(j => {
-        const t = (j.type || '').toLowerCase();
-        if (!/as|에이에스/i.test(t)) return false;
+        // AS 판정을 classifyJobCategory 로 통일 (type 정규식 X) — AS관리탭·모바일과 동일 집합
+        const cls = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
+        if (cls !== 'as') return false;
         if (effectivelyDone(j)) return false;
         // 🛡 ghost 차단 — thread 모두 삭제된 (tombstone 된) AS 는 대시보드에서 숨김 (2026-05-22)
         try {
