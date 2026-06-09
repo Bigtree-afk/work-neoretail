@@ -3029,7 +3029,7 @@
       else if (r.status==='수금완료') { paidCnt++; salesTotal+=r.amount; collected+=r.amount; }
       else if (r.status==='미수') { arCnt++; salesTotal+=r.amount; collected+=r.paid; outstandingTotal+=r.outstanding; }
     });
-    const card = (label,val,color) => `<div style="flex:1;min-width:120px;background:#fff;border:1px solid var(--gray-200);border-left:4px solid ${color};border-radius:8px;padding:10px 12px"><div style="font-size:11px;color:var(--gray-500);font-weight:700">${label}</div><div style="font-size:16px;font-weight:800;color:${color};margin-top:3px">${val}</div></div>`;
+    const card = (label,val,color) => `<div style="flex:0 0 auto;background:#fff;border:1px solid var(--gray-200);border-left:3px solid ${color};border-radius:6px;padding:6px 10px"><div style="font-size:10.5px;color:var(--gray-500);font-weight:700">${label}</div><div style="font-size:14px;font-weight:800;color:${color};margin-top:1px">${val}</div></div>`;
     const sumEl = document.getElementById('supReportSummary');
     if (sumEl) sumEl.innerHTML =
         card('판매 총액', fmt(salesTotal)+'원', '#1D4ED8')

@@ -1962,17 +1962,17 @@
       <div class="modal-title">📊 소모품 판매·지원 집계</div>
       <button class="modal-close" onclick="closeModal('suppliesReportModal')">✕</button>
     </div>
-    <div style="padding:14px 18px;overflow:auto">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
-        <span style="font-size:12px;font-weight:700;color:var(--gray-600)">기간</span>
-        <input type="date" id="supReportStart" onchange="renderSuppliesReport()" style="border:1.5px solid var(--gray-200);border-radius:7px;padding:5px 8px;font-size:12.5px">
-        <span style="color:var(--gray-400)">~</span>
-        <input type="date" id="supReportEnd" onchange="renderSuppliesReport()" style="border:1.5px solid var(--gray-200);border-radius:7px;padding:5px 8px;font-size:12.5px">
-        <button class="btn btn-primary btn-sm" onclick="renderSuppliesReport()" style="font-size:12px;padding:5px 12px;font-weight:700">조회</button>
-        <button class="btn btn-outline btn-sm" onclick="supReportQuick('this')" style="font-size:12px;padding:5px 10px">당월</button>
-        <button class="btn btn-outline btn-sm" onclick="supReportQuick('last')" style="font-size:12px;padding:5px 10px">지난달</button>
+    <div style="padding:12px 14px;overflow:auto">
+      <div style="display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <span style="font-size:11.5px;font-weight:700;color:var(--gray-600);margin-right:2px">기간</span>
+        <input type="date" id="supReportStart" onchange="renderSuppliesReport()" style="width:138px;border:1px solid var(--gray-300);border-radius:6px;padding:4px 6px;font-size:12px">
+        <span style="color:var(--gray-400);font-size:11px">~</span>
+        <input type="date" id="supReportEnd" onchange="renderSuppliesReport()" style="width:138px;border:1px solid var(--gray-300);border-radius:6px;padding:4px 6px;font-size:12px">
+        <button class="btn btn-primary btn-sm" onclick="renderSuppliesReport()" style="font-size:11.5px;padding:4px 10px;font-weight:700">조회</button>
+        <button class="btn btn-outline btn-sm" onclick="supReportQuick('this')" style="font-size:11.5px;padding:4px 8px">당월</button>
+        <button class="btn btn-outline btn-sm" onclick="supReportQuick('last')" style="font-size:11.5px;padding:4px 8px">지난달</button>
       </div>
-      <div id="supReportSummary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+      <div id="supReportSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
       <div style="overflow:auto;border:1px solid var(--gray-200);border-radius:8px">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead><tr style="background:var(--gray-50);color:var(--gray-600);font-size:11px">
@@ -3913,6 +3913,6 @@
   </button>
 </div>
 
-<script src="/app.js?v=2026-06-09-supplies-fix" defer></script>
+<script src="/app.js?v=2026-06-09-compact" defer></script>
 </body>
 </html>
