@@ -921,7 +921,7 @@
     if (threadTombstones.length) _payload.threadTombstones = threadTombstones;
     // jobTombstones 는 reconcile(로컬 전용 stale 삭제표식 정리) 완료 후에만 전파 → 옛 stale 삭제가
     //   클라우드로 번져 살아있는 작업이 전 기기에서 삭제되는 사고(deletion-wins) 방지.
-    let _reconciled = false; try { _reconciled = !!localStorage.getItem('ns_jobtomb_reconcile_v1'); } catch(_){}
+    let _reconciled = false; try { _reconciled = !!localStorage.getItem('ns_jobtomb_reconcile_v2'); } catch(_){}
     if (jobTombstones.length && _reconciled) _payload.jobTombstones = jobTombstones;
     const body = JSON.stringify(_payload);
     const h = _fastHash(body);
@@ -1748,13 +1748,13 @@
   global.forceReconcileJobs = async function() {
     const r = await reconcileJobTombstones();
     if (!r.ok) { alert('정합화 실패 — 클라우드 연결을 확인하세요 (변경 없음)'); return r; }
-    try { localStorage.setItem('ns_jobtomb_reconcile_v1', String(Date.now())); } catch(_){}
+    try { localStorage.setItem('ns_jobtomb_reconcile_v2', String(Date.now())); } catch(_){}
     alert('정합화 완료 — 로컬 전용 삭제표식 ' + r.removed + '건 제거 후 클라우드 기준 재동기화');
     return r;
   };
   setTimeout(async () => {
     try {
-      const FLAG = 'ns_jobtomb_reconcile_v1';
+      const FLAG = 'ns_jobtomb_reconcile_v2';
       if (localStorage.getItem(FLAG)) return;
       const r = await reconcileJobTombstones();
       if (!r.ok) return;   // 실패 시 flag 미설정 → 다음 로드 재시도
