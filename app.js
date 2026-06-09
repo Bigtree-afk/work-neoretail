@@ -3000,9 +3000,22 @@
         if (isPaid) { status = '수금완료'; collectDate = j.arPaidAt ? String(j.arPaidAt).slice(0,10) : d10; }
         else { status = '미수'; outstanding = remaining; if (paid>0) collectDate = j.arPaidAt ? String(j.arPaidAt).slice(0,10) : ''; }
       }
-      let item = String(j.type||'소모품').replace(/^소모품\//,'');
+      // 출고 품목 — ① 정규 소모품(소모품/POS용지 등): 규격+품목+수량 요약.
+      //   ② 비정규(라벨지/택배/장비출고 등 LINE 유입): 요청접수 내용에 실제 품목이 있으므로 그걸로 표기.
+      const typeLabel = String(j.type||'소모품').replace(/^소모품\//,'');
+      let item = '';
       try { if (typeof window._supplyItemSummary==='function') { const s = window._supplyItemSummary(j, {withSpec:true, withMode:false}); if (s) item = s; } } catch(_){}
-      rows.push({ id:j.id, date:d10, store:(j.storeName||j.store||'-'), item, mode, status, amount:amt, paid, outstanding, collectDate, owner:(j.engineer||j.assignee||'') });
+      if (!item) {
+        const firstRoot = (Array.isArray(j.thread) ? j.thread.find(e=>e && e.parentId===null) : null);
+        const reqText = String((firstRoot && firstRoot.text) || j.asRequest || j.lineParsed || j.lineRequest || j.notes || j.memo || j.lineRaw || '').replace(/\s+/g,' ').trim();
+        // 수량/단위가 별도 필드에 있으면 덧붙임
+        let qtyTxt = '';
+        const q = Number(j.supplyQty);
+        if (Number.isFinite(q) && q>0) qtyTxt = ` ${q}${j.supplyUnit||'개'}`;
+        else { const m = String(j.supplyQty||'').match(/(\d+(?:\.\d+)?)\s*(\S*)/); if (m) qtyTxt = ` ${m[1]}${m[2]||''}`; }
+        item = reqText ? `${typeLabel} · ${reqText.slice(0,70)}${qtyTxt}` : `${typeLabel}${qtyTxt}`;
+      }
+      rows.push({ id:j.id, date:d10, store:(j.storeName||j.store||'-'), item, typeLabel, mode, status, amount:amt, paid, outstanding, collectDate, owner:(j.engineer||j.assignee||'') });
     }
     rows.sort((a,b)=> b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)));
     return rows;
