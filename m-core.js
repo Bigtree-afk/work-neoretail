@@ -1295,7 +1295,7 @@
       let _dt = opts.defaultText || '';
       try {
         const _sender = (typeof _currentAuthName === 'function') ? (_currentAuthName() || '') : '';
-        if (_sender && !_dt.startsWith('[' + _sender + ']')) _dt = '[' + _sender + ']\n' + _dt;
+        if (_sender && !_dt.startsWith('[' + _sender + ']')) _dt = '[' + _sender + '] ' + _dt;
       } catch(_){}
       ta.value = _dt;
     })();

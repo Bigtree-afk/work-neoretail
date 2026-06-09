@@ -10428,7 +10428,7 @@ ${text.slice(0, 4000)}`;
       try {
         const _sender = (typeof window._currentUserName === 'function') ? (window._currentUserName() || '')
                       : ((typeof window._currentAuthName === 'function') ? (window._currentAuthName() || '') : '');
-        if (_sender && _sender !== '익명' && !_dt.startsWith('[' + _sender + ']')) _dt = '[' + _sender + ']\n' + _dt;
+        if (_sender && _sender !== '익명' && !_dt.startsWith('[' + _sender + ']')) _dt = '[' + _sender + '] ' + _dt;
       } catch(_){}
       ta.value = _dt;
     })();
