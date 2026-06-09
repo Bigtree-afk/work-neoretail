@@ -1885,27 +1885,43 @@
         .then(function(html){
           var m = html && html.match(re);
           var live = m ? m[1] : '';
-          if (live && live !== RUNNING) { notified = true; if (timer) clearInterval(timer); _showVersionBanner(); }
+          if (live && live !== RUNNING) {
+            notified = true; if (timer) clearInterval(timer);
+            try { sessionStorage.setItem('ns_version_stale', '1'); } catch(e){}  // 풀다운/새로고침에도 즉시 재표시
+            _showVersionBanner();
+          } else if (live && live === RUNNING) {
+            try { sessionStorage.removeItem('ns_version_stale'); } catch(e){}  // 진짜 최신 → 플래그 제거
+          }
         })
         .catch(function(){});
     }
-    setTimeout(check, 5000);
+    // 직전 '구버전' 표시됐었다면 즉시 재확인(캐시된 옛 코드로 풀다운 새로고침해도 배너가 사라지지 않게)
+    var _wasStale = false; try { _wasStale = sessionStorage.getItem('ns_version_stale') === '1'; } catch(e){}
+    setTimeout(check, _wasStale ? 0 : 5000);
     timer = setInterval(check, 5 * 60 * 1000);
     document.addEventListener('visibilitychange', function(){ if (!document.hidden) check(); });
   }
+  // 🔄 완전 새로고침(캐시 무력화) — 페이지 URL 에 _u 붙여 HTML 부터 새로 받음 → 새 ?v= 로드. iOS Safari 캐시 회피.
+  function _hardReloadForUpdate() {
+    try {
+      var u = new URL(location.href);
+      u.searchParams.set('_u', String(Date.now()));   // 기존 쿼리·해시 보존
+      location.href = u.toString();
+    } catch(e) { try { location.reload(); } catch(e2) { location.href = location.href; } }
+  }
+  // 모바일 — 상단 강제 배너 ('나중에' 없음). 풀다운 새로고침으로도 안 사라지고, '지금 업데이트' 눌러야 사라짐.
   function _showVersionBanner() {
     if (document.getElementById('nsVersionBanner')) return;
     var bar = document.createElement('div');
     bar.id = 'nsVersionBanner';
-    bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483600;background:#1D4ED8;color:#fff;padding:12px 16px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:700;box-shadow:0 -2px 14px rgba(0,0,0,0.25)';
-    bar.innerHTML = '🔄 새 버전이 배포되었습니다 — 새로고침하면 최신 기능이 적용됩니다.'
-      + '<button id="nsVerReload" style="background:#fff;color:#1D4ED8;border:none;border-radius:7px;padding:8px 16px;font-weight:800;font-size:13px;cursor:pointer">지금 새로고침</button>'
-      + '<button id="nsVerLater" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.55);border-radius:7px;padding:8px 12px;font-size:13px;cursor:pointer">나중에</button>';
+    bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483600;background:#1D4ED8;color:#fff;'
+      + 'padding:calc(env(safe-area-inset-top, 0px) + 11px) 14px 11px;display:flex;flex-wrap:wrap;align-items:center;'
+      + 'justify-content:center;gap:9px;font-size:13.5px;font-weight:700;box-shadow:0 2px 14px rgba(0,0,0,0.3)';
+    bar.innerHTML = '🔄 새 버전이 나왔습니다 — 눌러서 업데이트하세요'
+      + '<button id="nsVerReload" style="background:#fff;color:#1D4ED8;border:none;border-radius:7px;padding:8px 16px;font-weight:800;font-size:13px;cursor:pointer">지금 업데이트</button>';
     document.body.appendChild(bar);
     var rl = document.getElementById('nsVerReload');
-    var lt = document.getElementById('nsVerLater');
-    if (rl) rl.onclick = function(){ try { location.reload(); } catch(e) { location.href = location.href; } };
-    if (lt) lt.onclick = function(){ bar.remove(); };
+    if (rl) rl.onclick = _hardReloadForUpdate;
   }
   global._showVersionBanner = _showVersionBanner;
   setTimeout(function(){ try { _setupVersionWatch('m-core.js'); } catch(e){} }, 100);

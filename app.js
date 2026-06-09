@@ -21595,26 +21595,44 @@ ${text.slice(0, 4000)}`;
         const html = await res.text();
         const m = html.match(re);
         const live = m ? m[1] : '';
-        if (live && live !== RUNNING) { notified = true; if (timer) clearInterval(timer); _showVersionBanner(); }
+        if (live && live !== RUNNING) {
+          notified = true; if (timer) clearInterval(timer);
+          try { sessionStorage.setItem('ns_version_stale', '1'); } catch(_){}  // 풀다운/새로고침에도 즉시 재표시되도록 표시
+          _showVersionBanner();
+        } else if (live && live === RUNNING) {
+          try { sessionStorage.removeItem('ns_version_stale'); } catch(_){}  // 진짜 최신 → 잔여 플래그 제거
+        }
       } catch (_) {}
     }
-    setTimeout(check, 5000);
+    // 직전에 '구버전' 으로 떴었다면(=캐시된 옛 코드로 새로고침/풀다운해도 사라진 것처럼 보이는 것 방지) 즉시 재확인
+    let _wasStale = false; try { _wasStale = sessionStorage.getItem('ns_version_stale') === '1'; } catch(_){}
+    setTimeout(check, _wasStale ? 0 : 5000);
     timer = setInterval(check, 5 * 60 * 1000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
   }
+  // 🔄 완전 새로고침(캐시 무력화) — 페이지 URL 에 _u 파라미터를 붙여 HTML 부터 새로 받음 → 새 ?v= 스크립트 로드.
+  //   iOS Safari 등 캐시 강한 환경에서 일반 reload 가 옛 코드를 다시 쓰는 문제 회피.
+  function _hardReloadForUpdate() {
+    try {
+      const u = new URL(location.href);
+      u.searchParams.set('_u', String(Date.now()));   // 기존 쿼리(desktop=1 등)·해시 보존
+      location.href = u.toString();
+    } catch(_) { try { location.reload(); } catch(e) { location.href = location.href; } }
+  }
+  // PC — 화면 중앙 강제 모달 (닫기/나중에 없음, 클릭해야만 진행)
   function _showVersionBanner() {
-    if (document.getElementById('nsVersionBanner')) return;
-    const bar = document.createElement('div');
-    bar.id = 'nsVersionBanner';
-    bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483600;background:#1D4ED8;color:#fff;padding:12px 16px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:700;box-shadow:0 -2px 14px rgba(0,0,0,0.25)';
-    bar.innerHTML = '🔄 새 버전이 배포되었습니다 — 새로고침하면 최신 기능이 적용됩니다.'
-      + '<button id="nsVerReload" style="background:#fff;color:#1D4ED8;border:none;border-radius:7px;padding:7px 16px;font-weight:800;font-size:13px;cursor:pointer">지금 새로고침</button>'
-      + '<button id="nsVerLater" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.55);border-radius:7px;padding:7px 12px;font-size:13px;cursor:pointer">나중에</button>';
-    document.body.appendChild(bar);
+    if (document.getElementById('nsVersionModal')) return;
+    const ov = document.createElement('div');
+    ov.id = 'nsVersionModal';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(15,23,42,0.80);display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML = '<div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:32px 26px;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,0.45);font-family:inherit">'
+      + '<div style="font-size:46px;margin-bottom:12px">🔄</div>'
+      + '<div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:10px">새 버전이 배포되었습니다</div>'
+      + '<div style="font-size:13.5px;color:#475569;line-height:1.65;margin-bottom:24px">최신 기능과 동기화 개선을 적용하려면 업데이트가 필요합니다.<br>아래 버튼을 누르면 <b>완전히 새로고침</b>됩니다.</div>'
+      + '<button id="nsVerReload" style="background:#1D4ED8;color:#fff;border:none;border-radius:11px;padding:15px 28px;font-weight:800;font-size:15px;cursor:pointer;width:100%">지금 업데이트</button></div>';
+    document.body.appendChild(ov);
     const rl = document.getElementById('nsVerReload');
-    const lt = document.getElementById('nsVerLater');
-    if (rl) rl.onclick = () => { try { location.reload(); } catch(_) { location.href = location.href; } };
-    if (lt) lt.onclick = () => bar.remove();
+    if (rl) rl.onclick = _hardReloadForUpdate;
   }
   window._showVersionBanner = _showVersionBanner;
   setTimeout(() => { try { _setupVersionWatch('app.js'); } catch(_){} }, 100);
