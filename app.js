@@ -1288,12 +1288,30 @@
       }
       return max;
     };
-    displayed.forEach(g => { g._lastTouch = _groupLastTouch(g); g._hasProg = g.jobs.some(j => !_hubDoneFn(j)); });
+    // 등록일 = 그룹 내 작업의 createdAt(없으면 첫 ROOT ts) 최대값
+    const _groupRegTime = (g) => {
+      let max = 0;
+      for (const j of g.jobs) {
+        let t = _toMs(j.createdAt) || _toMs(j.asReceivedAt);
+        if (!t && Array.isArray(j.thread)) { const r = j.thread.find(e=>e&&e.parentId==null); if (r) t = _toMs(r.ts); }
+        max = Math.max(max, t);
+      }
+      return max;
+    };
+    const _sortBy = opts.sortBy || 'recent';   // 'recent'(최근 등록순, 기본) | 'name'(매장명순)
+    displayed.forEach(g => {
+      g._lastTouch = _groupLastTouch(g);
+      g._regTime = _groupRegTime(g);
+      g._hasProg = g.jobs.some(j => !_hubDoneFn(j));
+    });
     displayed.sort((a,b) => {
       // 진행중 우선 (true = 0, false = 1 → asc)
       if (a._hasProg !== b._hasProg) return a._hasProg ? -1 : 1;
-      // 같은 진행 상태면 최근 활동 desc
-      return (b._lastTouch||0) - (a._lastTouch||0);
+      if (_sortBy === 'name') {
+        return String(a.storeName||'').localeCompare(String(b.storeName||''), 'ko');
+      }
+      // 기본: 최근 등록일 desc (등록일 동일/없으면 최근 활동 desc fallback)
+      return (b._regTime||0) - (a._regTime||0) || (b._lastTouch||0) - (a._lastTouch||0);
     });
     container.innerHTML = displayed.map(g => _hubRenderGroup(g, opts.cardCat, { urgentIfPending: !!opts.urgentIfPending, byRoots: !!opts.byRoots })).join('');
     // expand 상태 복원 — 사용자가 펼쳐둔 매장이 백그라운드 sync 로 닫히지 않도록
@@ -1321,8 +1339,17 @@
       urgentIfPending: true,
       byRoots: false,    // AS — 작업(job) 단위 카드 (대시보드와 카운트 통일)
       countByJob: true,  // 카운트도 작업 단위 = 메인 대시보드와 동일(18)
+      sortBy: (window._asHubSort || 'recent'),  // 'recent'(최근 등록순) | 'name'(매장명순)
       cntMap: { all:'ashubCntAll', prog:'ashubCntProg', done:'ashubCntDone', urgent:'ashubCntUrg' },
     });
+  };
+  // AS hub 정렬 라디오 — 기본 최근 등록순, 매장명순 토글
+  window._asHubSort = window._asHubSort || 'recent';
+  window.setAsHubSort = function(mode) {
+    window._asHubSort = (mode === 'name') ? 'name' : 'recent';
+    document.querySelectorAll('#ashubFilters .ashub-sort').forEach(b =>
+      b.classList.toggle('active', b.dataset.sort === window._asHubSort));
+    if (typeof renderAsHub === 'function') renderAsHub();
   };
   (function _bindAsHubEvents(){
     document.addEventListener('click', (ev) => {

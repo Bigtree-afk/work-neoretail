@@ -290,6 +290,9 @@
   .hub-filter.active{background:var(--primary);color:#fff;border-color:var(--primary)}
   .hub-filter:hover:not(.active){background:var(--gray-200)}
   .hub-filter span{font-size:10px;opacity:0.85;margin-left:3px}
+  .ashub-sort{font-size:11px;background:var(--gray-100);border:1px solid var(--gray-200);border-radius:6px;padding:3px 9px;cursor:pointer;font-weight:700;color:var(--gray-500);font-family:inherit}
+  .ashub-sort.active{background:#fee2e2;color:#b91c1c;border-color:#b91c1c}
+  .ashub-sort:hover:not(.active){background:var(--gray-200)}
   .hub-group{background:#fff;border:1.5px solid var(--gray-200);border-radius:10px;overflow:hidden;transition:box-shadow .12s}
   .hub-group.cat-new{border-left:4px solid var(--success)}
   .hub-group.cat-as{border-left:4px solid var(--warning)}
