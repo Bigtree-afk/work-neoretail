@@ -995,7 +995,8 @@
             modeTxt = '🎁 지원'; modeColor = '#15803d';
           } else if (mode === 'prepaid') {
             modeTxt = '💰 선불'; modeColor = '#06B6D4';
-            amtTxt = ` · ${fmt(amt)}원`;
+            // 선불 = 판매(발송) 시 수금 → 수금일 함께 표기
+            amtTxt = ` · ${fmt(amt)}원${date ? ` · 수금 ${escFn(date)}` : ''}`;
           } else if (mode === 'postpaid') {
             if (j.arPaid || (amt>0 && remaining === 0)) {
               modeTxt = '✅ 수금완료'; modeColor = '#15803d';
@@ -2974,6 +2975,91 @@
       arRows, prepaidRows, supportRows, postpaidPaidRows,
     };
   }
+
+  /* ─── 소모품 판매·지원 집계 리포트 (기간 지정 조회) ─── */
+  function _supplyReportRows(startYmd, endYmd) {
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    const supplies = jobs.filter(j => window.classifyJobCategory(j) === 'supplies');
+    const rows = [];
+    for (const j of supplies) {
+      const dRaw = j.shipDate || j.date || (j.createdAt ? new Date(Number(j.createdAt)||Date.parse(j.createdAt)||Date.now()).toISOString().slice(0,10) : '');
+      const d10 = String(dRaw).slice(0,10);
+      if (!d10) continue;
+      if (startYmd && d10 < startYmd) continue;
+      if (endYmd && d10 > endYmd) continue;
+      const amt = parseInt(String(j.amount||j.price||'0').replace(/[^\d]/g,''),10) || 0;
+      let mode = j.supplyMode;
+      if (!mode) { const blob = String(j.payment||j.note||j.notes||''); mode = /후불|미수|postpaid/i.test(blob) ? 'postpaid' : (amt>0 ? 'prepaid' : 'support'); }
+      const paid = Number(j.arPaidAmount)||0;
+      const remaining = Math.max(0, amt - paid);
+      const isPaid = !!j.arPaid || (amt>0 && remaining===0);
+      let status, collectDate = '', outstanding = 0;
+      if (mode === 'support') { status = '지원'; }
+      else if (mode === 'prepaid') { status = '수금완료'; collectDate = d10; }   // 선불 = 발송(판매) 시 수금 → 수금일 = 발송일
+      else { // postpaid
+        if (isPaid) { status = '수금완료'; collectDate = j.arPaidAt ? String(j.arPaidAt).slice(0,10) : d10; }
+        else { status = '미수'; outstanding = remaining; if (paid>0) collectDate = j.arPaidAt ? String(j.arPaidAt).slice(0,10) : ''; }
+      }
+      let item = String(j.type||'소모품').replace(/^소모품\//,'');
+      try { if (typeof window._supplyItemSummary==='function') { const s = window._supplyItemSummary(j, {withSpec:true, withMode:false}); if (s) item = s; } } catch(_){}
+      rows.push({ id:j.id, date:d10, store:(j.storeName||j.store||'-'), item, mode, status, amount:amt, paid, outstanding, collectDate, owner:(j.engineer||j.assignee||'') });
+    }
+    rows.sort((a,b)=> b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)));
+    return rows;
+  }
+  window.supReportQuick = function(which) {
+    const now = new Date(); let y=now.getFullYear(), m=now.getMonth();
+    if (which==='last') { m-=1; if(m<0){m=11;y-=1;} }
+    const first = `${y}-${String(m+1).padStart(2,'0')}-01`;
+    const last  = `${y}-${String(m+1).padStart(2,'0')}-${String(new Date(y,m+1,0).getDate()).padStart(2,'0')}`;
+    const sEl=document.getElementById('supReportStart'); if(sEl) sEl.value=first;
+    const eEl=document.getElementById('supReportEnd');   if(eEl) eEl.value=last;
+    window.renderSuppliesReport();
+  };
+  window.renderSuppliesReport = function() {
+    const escFn = (typeof esc==='function') ? esc : (s=>String(s==null?'':s));
+    const fmt = n => (Number(n)||0).toLocaleString('ko-KR');
+    const start = (document.getElementById('supReportStart')||{}).value || '';
+    const end   = (document.getElementById('supReportEnd')||{}).value || '';
+    const rows = _supplyReportRows(start, end);
+    // 요약 집계
+    let salesTotal=0, collected=0, outstandingTotal=0, supportCnt=0, paidCnt=0, arCnt=0;
+    rows.forEach(r => {
+      if (r.status==='지원') supportCnt++;
+      else if (r.status==='수금완료') { paidCnt++; salesTotal+=r.amount; collected+=r.amount; }
+      else if (r.status==='미수') { arCnt++; salesTotal+=r.amount; collected+=r.paid; outstandingTotal+=r.outstanding; }
+    });
+    const card = (label,val,color) => `<div style="flex:1;min-width:120px;background:#fff;border:1px solid var(--gray-200);border-left:4px solid ${color};border-radius:8px;padding:10px 12px"><div style="font-size:11px;color:var(--gray-500);font-weight:700">${label}</div><div style="font-size:16px;font-weight:800;color:${color};margin-top:3px">${val}</div></div>`;
+    const sumEl = document.getElementById('supReportSummary');
+    if (sumEl) sumEl.innerHTML =
+        card('판매 총액', fmt(salesTotal)+'원', '#1D4ED8')
+      + card('수금 완료', fmt(collected)+'원', '#15803d')
+      + card('미수 잔액', fmt(outstandingTotal)+'원', '#B45309')
+      + card('지원 건수', supportCnt+'건', '#0EA5E9')
+      + card('판매/미수 건수', paidCnt+' / '+arCnt+'건', '#6B7280');
+    const body = document.getElementById('supReportBody');
+    if (body) {
+      if (!rows.length) { body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--gray-400);font-size:12px">해당 기간에 소모품 판매·지원 내역이 없습니다</td></tr>`; }
+      else body.innerHTML = rows.map(r => {
+        const c = r.status==='수금완료'?{bg:'#DCFCE7',co:'#15803d'}:(r.status==='미수'?{bg:'#FEF3C7',co:'#B45309'}:{bg:'#DBEAFE',co:'#1D4ED8'});
+        return `<tr style="border-bottom:1px solid var(--gray-100)">
+          <td style="padding:7px 8px;white-space:nowrap">${escFn(r.date)}</td>
+          <td style="padding:7px 8px">${escFn(r.store)}</td>
+          <td style="padding:7px 8px">${escFn(r.item)}${r.owner?` <span style="color:var(--gray-400);font-size:11px">· ${escFn(r.owner)}</span>`:''}</td>
+          <td style="padding:7px 8px;text-align:right;font-weight:700">${r.amount?fmt(r.amount)+'원':'-'}</td>
+          <td style="padding:7px 8px;text-align:center"><span style="background:${c.bg};color:${c.co};font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px">${r.status}</span></td>
+          <td style="padding:7px 8px;text-align:right;color:#B45309">${r.outstanding?fmt(r.outstanding)+'원':'-'}</td>
+          <td style="padding:7px 8px;white-space:nowrap;color:var(--gray-600)">${escFn(r.collectDate||'-')}</td>
+        </tr>`;
+      }).join('');
+    }
+  };
+  window.openSuppliesReport = function() {
+    const sEl=document.getElementById('supReportStart'), eEl=document.getElementById('supReportEnd');
+    if (sEl && !sEl.value) window.supReportQuick('this');  // 기본 당월
+    if (typeof showModal==='function') showModal('suppliesReportModal');
+    window.renderSuppliesReport();
+  };
 
   window.renderSuppliesHub = function() {
     const stats = _suppliesStats();

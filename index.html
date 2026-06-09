@@ -274,6 +274,42 @@
       </div>
 
       <!-- MODAL: 대시보드 통계 카드 클릭 시 — 작업 목록 -->
+      <!-- 📊 소모품 판매·지원 집계 -->
+      <div class="modal-overlay" id="suppliesReportModal">
+        <div class="modal" style="max-width:980px;width:96vw;max-height:90vh;display:flex;flex-direction:column;background:#fff">
+          <div class="modal-header">
+            <div class="modal-title">📊 소모품 판매·지원 집계</div>
+            <button class="modal-close" onclick="closeModal('suppliesReportModal')">✕</button>
+          </div>
+          <div style="padding:14px 18px;overflow:auto">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+              <span style="font-size:12px;font-weight:700;color:var(--gray-600)">기간</span>
+              <input type="date" id="supReportStart" onchange="renderSuppliesReport()" style="border:1.5px solid var(--gray-200);border-radius:7px;padding:5px 8px;font-size:12.5px">
+              <span style="color:var(--gray-400)">~</span>
+              <input type="date" id="supReportEnd" onchange="renderSuppliesReport()" style="border:1.5px solid var(--gray-200);border-radius:7px;padding:5px 8px;font-size:12.5px">
+              <button class="btn btn-primary btn-sm" onclick="renderSuppliesReport()" style="font-size:12px;padding:5px 12px;font-weight:700">조회</button>
+              <button class="btn btn-outline btn-sm" onclick="supReportQuick('this')" style="font-size:12px;padding:5px 10px">당월</button>
+              <button class="btn btn-outline btn-sm" onclick="supReportQuick('last')" style="font-size:12px;padding:5px 10px">지난달</button>
+            </div>
+            <div id="supReportSummary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+            <div style="overflow:auto;border:1px solid var(--gray-200);border-radius:8px">
+              <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead><tr style="background:var(--gray-50);color:var(--gray-600);font-size:11px">
+                  <th style="padding:8px;text-align:left">발송일</th>
+                  <th style="padding:8px;text-align:left">매장</th>
+                  <th style="padding:8px;text-align:left">품목</th>
+                  <th style="padding:8px;text-align:right">금액</th>
+                  <th style="padding:8px;text-align:center">구분</th>
+                  <th style="padding:8px;text-align:right">미수</th>
+                  <th style="padding:8px;text-align:left">수금일</th>
+                </tr></thead>
+                <tbody id="supReportBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="modal-overlay" id="dashListModal" >
         <div class="modal" style="max-width:760px;width:92vw;max-height:80vh;display:flex;flex-direction:column;background:#fff">
           <div class="modal-header">
@@ -1069,7 +1105,10 @@
           <button class="hub-filter" data-filter="ar">미수 <span id="supplieshubCntAr">0</span></button>
           <input id="supplieshubSearch" placeholder="🔍 매장명 검색..." style="border:1px solid var(--gray-300);border-radius:7px;padding:5px 10px;font-size:11.5px;width:180px;font-family:inherit;margin-left:6px">
         </div>
-        <button class="btn btn-primary btn-sm" onclick="openNewJobFor('supplies')" style="font-size:11.5px;padding:6px 12px;font-weight:800">+ 소모품 등록</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" onclick="openSuppliesReport()" style="font-size:11.5px;padding:6px 12px;font-weight:800">📊 판매 집계</button>
+          <button class="btn btn-primary btn-sm" onclick="openNewJobFor('supplies')" style="font-size:11.5px;padding:6px 12px;font-weight:800">+ 소모품 등록</button>
+        </div>
       </div>
       <div id="supplieshubContainer" style="display:flex;flex-direction:column;gap:10px"></div>
     </div>
@@ -3872,6 +3911,6 @@
   </button>
 </div>
 
-<script src="/app.js?v=2026-06-09-3features" defer></script>
+<script src="/app.js?v=2026-06-09-supplies-report" defer></script>
 </body>
 </html>
