@@ -895,6 +895,14 @@
     if (_pushJobsTimer) clearTimeout(_pushJobsTimer);
     _pushJobsTimer = setTimeout(() => { pushJobsToCloud(); }, 5000);
   }
+  // 🔁 푸시 실패 시 자동 재시도 — 일시 오류(네트워크/서버)로 작업이 로컬에만 묶이는 것 방지.
+  //   KV 한도초과는 제외(익일 해제). 최대 4회 백오프(8s,16s,24s,32s). 성공 시 카운터 리셋.
+  function _scheduleJobPushRetry() {
+    global._pushRetryN = (global._pushRetryN || 0) + 1;
+    if (global._pushRetryN > 4) return;
+    const delay = Math.min(60000, 8000 * global._pushRetryN);
+    setTimeout(() => { try { pushJobsToCloud(); } catch(_){} }, delay);
+  }
   async function pushJobsToCloud(opts) {
     const jobs = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
     // 🪦 threadTombstones — 로컬 ns_tombstones 의 thread / thread-children 자동 동봉
@@ -957,14 +965,17 @@
         } else if (opts && opts.toast) {
           showToast(`⚠ 클라우드 푸시 실패 (${res.status})`);
         }
+        if (!limitHit) _scheduleJobPushRetry();   // 일시 실패 → 자동 재시도 (한도초과 제외)
         return { ok:false, status:res.status, limitHit };
       }
       const data = await res.json();
       global._lastJobsPushHash = h;
+      global._pushRetryN = 0;   // 성공 → 재시도 카운터 리셋
       if (opts && opts.toast) showToast(`☁ 동기화 완료 (${data.count}건)`);
       return { ok:true, ...data };
     } catch(e) {
       if (opts && opts.toast) showToast('⚠ 푸시 실패 (네트워크)');
+      _scheduleJobPushRetry();   // 네트워크 오류 → 자동 재시도
       return { ok:false, error:String(e) };
     }
   }

@@ -9752,6 +9752,14 @@ ${text.slice(0, 4000)}`;
         return { ok:true, skipped:true, count: jobs.length };
       }
     }
+    // 🔁 푸시 실패 시 자동 재시도 — 일시 오류로 작업이 로컬에만 묶이는 것 방지.
+    //   KV 한도초과 제외, 최대 4회 백오프(8s,16s,24s,32s). 성공 시 카운터 리셋.
+    const _retryPush = () => {
+      window._pushRetryN = (window._pushRetryN || 0) + 1;
+      if (window._pushRetryN > 4) return;
+      const delay = Math.min(60000, 8000 * window._pushRetryN);
+      setTimeout(() => { try { window.pushJobsToCloud(); } catch(_){} }, delay);
+    };
     try {
       const res = await fetch('/api/jobs', {
         method:'POST',
@@ -9770,14 +9778,17 @@ ${text.slice(0, 4000)}`;
         } else if (opts && opts.toast && typeof showToast === 'function') {
           showToast(`⚠ 작업 클라우드 푸시 실패 (${res.status}): ${detail.slice(0,80)}`);
         }
+        if (!limitHit) _retryPush();   // 일시 실패 → 자동 재시도
         return { ok:false, status:res.status, limitHit };
       }
       const data = await res.json();
       window._lastJobsPushHash = h;
+      window._pushRetryN = 0;   // 성공 → 재시도 카운터 리셋
       if (opts && opts.toast && typeof showToast === 'function') showToast(`☁ 작업 클라우드 동기화 완료 (${data.count}건)`);
       return { ok:true, ...data };
     } catch(e) {
       if (opts && opts.toast && typeof showToast === 'function') showToast('⚠ 작업 클라우드 푸시 실패 (네트워크)');
+      _retryPush();   // 네트워크 오류 → 자동 재시도
       return { ok:false, error:String(e) };
     }
   }
