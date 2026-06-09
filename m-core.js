@@ -884,7 +884,18 @@
       try { _refreshJobsSnap(); } catch(_){}  // 🕐 snapshot 동기화
       // 🩹 sync 후 status 와 thread 정합성 자동 보정 — 옛 데이터의 drift 자가 치료
       try { _selfHealJobStatuses(); } catch(_){}
-      if (merged.length > cloud.length || mergedCount > 0) {
+      // 🛟 누락 안전망 — '로컬엔 있는데 클라우드엔 없는 최근(3일) 작업'을 id 집합으로 정확히 감지해 push.
+      //   기존 count 비교는 로컬-only 와 cloud-only 가 개수로 상쇄되면 놓침. 서버 id-upsert+mtime+deleted 필터로
+      //   중복/부활/덮어쓰기 불가. 최근·tombstone제외·deleted제외 → 옛 stale 대량 재등록·echo 차단.
+      const _cloudIdSet = new Set(cloud.map(j => j && j.id).filter(Boolean));
+      const _NOW = Date.now(), _RECENT_MS = 3*24*3600*1000;
+      const _msOf = (v) => { const n = Number(v) || Date.parse(v); return n || 0; };
+      const _hasUnpushedRecent = merged.some(j => j && j.id
+        && !_cloudIdSet.has(j.id)
+        && !cloudDeletedIds.has(j.id)
+        && !_isJobTombstoned(j.id)
+        && (_NOW - (_msOf(j.createdAt) || _msOf(j.updatedAt))) < _RECENT_MS);
+      if (_hasUnpushedRecent || merged.length > cloud.length || mergedCount > 0) {
         schedulePushJobsToCloud();
       }
     } catch(e) { /* 네트워크 실패 무시 */ }

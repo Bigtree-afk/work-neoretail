@@ -9480,9 +9480,20 @@ ${text.slice(0, 4000)}`;
       try { _refreshJobsSnap(); } catch(_){}
       // 🩹 thread 완료건 status 자동 승격 (모바일과 동일) — status drift 통일
       try { _selfHealJobStatuses(); } catch(_){}
-      // 로컬이 클라우드보다 많거나, 머지 결과 thread/memos 가 cloud 와 다르면 즉시 푸시
-      // → 다른 PC 의 stale cloud 가 다시 덮어쓰지 못하게 빠르게 재동기화
-      if (merged.length > cloud.length || mergedCount > 0) {
+      // 🛟 누락 안전망 — '로컬엔 있는데 클라우드엔 없는 최근(3일) 작업'을 id 집합으로 정확히 감지해 push.
+      //   기존 count 비교(merged.length>cloud.length)는 로컬-only 와 cloud-only 가 개수로 상쇄되면 놓침.
+      //   안전: 서버가 id-upsert(Map)+mtime 병합+deleted_jobs 필터 → 중복/부활/덮어쓰기 불가.
+      //   조건에 최근·tombstone제외·deleted제외 → 옛 stale 대량 재등록·echo 차단.
+      const _cloudIdSet = new Set(cloud.map(j => j && j.id).filter(Boolean));
+      const _NOW = Date.now(), _RECENT_MS = 3*24*3600*1000;
+      const _msOf = (v) => { const n = Number(v) || Date.parse(v); return n || 0; };
+      const _hasUnpushedRecent = merged.some(j => j && j.id
+        && !_cloudIdSet.has(j.id)
+        && !cloudDeletedIds.has(j.id)
+        && !_isJobTombstoned(j.id)
+        && (_NOW - (_msOf(j.createdAt) || _msOf(j.updatedAt))) < _RECENT_MS);
+      // 로컬이 클라우드보다 많거나, 머지 결과 thread/memos 가 cloud 와 다르거나, 최근 누락분이 있으면 즉시 푸시
+      if (_hasUnpushedRecent || merged.length > cloud.length || mergedCount > 0) {
         schedulePushJobsToCloud();
       }
     } catch(e) { /* 네트워크 실패 무시 */ }
