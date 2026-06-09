@@ -17236,9 +17236,11 @@ ${text.slice(0, 4000)}`;
         <div>
           <div style="font-size:10.5px;color:var(--gray-500);font-weight:600;margin-bottom:3px">🏪 점포명</div>
           <input type="text" value="${escFn(j.storeName||j.store||'')}" onchange="updateJobStoreName('${escFn(jid)}',this.value)" style="${inputSty};width:100%;font-weight:700">
-          <div style="font-size:10.5px;color:var(--gray-500);margin-top:3px">
-            ${j.storeId ? `<span style="color:#065F46">✓ 등록 매장 ${escFn(j.storeId)}</span>` : `<span style="color:#92400E">⚠ 미등록</span>`}
-            ${j.contactPhone ? ` · 📞 ${escFn(j.contactPhone)}` : ''}
+          <div style="font-size:10.5px;color:var(--gray-500);margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            ${j.storeId ? `<span style="color:#065F46">✓ 등록 매장 연결됨</span>` : `<span style="color:#92400E">⚠ 미등록 매장</span>`}
+            <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 9px;font-weight:700;${j.storeId?'':'background:#FEF3C7;color:#92400E;border-color:#FCD34D'}" onclick="linkRegisteredStore('${escFn(jid)}')">${j.storeId ? '🔁 매장 변경' : '🔗 매장 연결'}</button>
+            ${j.storeId ? `<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:3px 8px;color:var(--gray-500)" onclick="unlinkStore('${escFn(jid)}')">🔓 연결 해제</button>` : ''}
+            ${j.contactPhone ? `<span style="margin-left:auto">📞 ${escFn(j.contactPhone)}</span>` : ''}
           </div>
         </div>
         <div>
@@ -18706,6 +18708,15 @@ ${text.slice(0, 4000)}`;
     showToast && showToast(`✅ ${picked.name} 으로 연결됨`);
     try { hydrateNewopen('all'); } catch(e){}
     try { hydrateDashboardJobs(); } catch(e){}
+    try { if (typeof window.renderSuppliesHub === 'function') window.renderSuppliesHub(); } catch(e){}
+    try { if (typeof window.renderAsHub === 'function') window.renderAsHub(); } catch(e){}
+    // 소모품 상세 모달이 열려 있으면 즉시 갱신 (매장 연결 상태 반영)
+    try {
+      const dm = document.getElementById('newopenDetailModal');
+      if (dm && dm.classList.contains('show') && (typeof window.classifyJobCategory === 'function') && window.classifyJobCategory(job) === 'supplies' && typeof window._editSupplyJob === 'function') {
+        window._editSupplyJob(jobId);
+      }
+    } catch(e){}
   }
   window.confirmLinkStore = confirmLinkStore;
   window.hydrateNewopen = hydrateNewopen;
