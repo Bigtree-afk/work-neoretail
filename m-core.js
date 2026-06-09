@@ -1290,7 +1290,15 @@
     const labelDict = {stocktake:'📦 재고조사', as:'🔧 AS', newjob:'🆕 신규', van:'📑 VAN', supply:'🛒 소모품', memo:'📝 메모'};
     const categoryLabel = opts.categoryLabel || labelDict[category] || '메시지';
     catBar.textContent = categoryLabel;
-    ta.value = opts.defaultText || '';
+    // 📩 발송자(현재 로그인 사용자) 이름을 맨 앞에 (neo_work 공용 계정 발송 시 누가 보냈는지 표시)
+    (function(){
+      let _dt = opts.defaultText || '';
+      try {
+        const _sender = (typeof _currentAuthName === 'function') ? (_currentAuthName() || '') : '';
+        if (_sender && !_dt.startsWith('[' + _sender + ']')) _dt = '[' + _sender + ']\n' + _dt;
+      } catch(_){}
+      ta.value = _dt;
+    })();
     const attachments = Array.isArray(opts.attachments) ? opts.attachments.slice() : [];
     const images = attachments.filter(a => a && a.kind === 'image' && /^https:/.test(a.url||''));
     const files  = attachments.filter(a => a && a.kind === 'file'  && /^https:/.test(a.url||''));
