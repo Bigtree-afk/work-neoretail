@@ -1198,17 +1198,30 @@
     const groups = _hubGroupByStore(j => catSet.has(window.classifyJobCategory(j)));
 
     let displayed = groups.filter(g => !search || g.storeName.toLowerCase().includes(search));
+    // 소모품 카드 필터용 술어 (미수 / 발송대기) — 대시보드 카드 정의와 동일
+    const _arFn = (j) => (typeof window._supIsOutstanding === 'function')
+      ? window._supIsOutstanding(j)
+      : /후불|미수|outstanding/i.test(String(j.payment||j.note||j.notes||''));
+    const _shipFn = (j) => (typeof window._supIsPendingShip === 'function')
+      ? window._supIsPendingShip(j)
+      : (!j.shipDate && !_hubDoneFn(j));
     // ROOT 기반 필터 (AS/신규) — 그룹 안의 ROOT 가 진행/완료 인지로 판정
     if (opts.byRoots) {
       if (filter === 'progress') displayed = displayed.filter(g => _groupIncomplete(g).length > 0);
       else if (filter === 'done') displayed = displayed.filter(g => _groupRoots(g).length > 0 && _groupIncomplete(g).length === 0);
       else if (filter === 'urgent') displayed = displayed.filter(g => g.jobs.some(j => !_hubDoneFn(j) && _hubDday(j).urgent));
-      else if (filter === 'ar') displayed = displayed.filter(g => g.jobs.some(j => /후불|미수|outstanding/i.test(String(j.payment||j.note||j.notes||''))));
+      else if (filter === 'ar') displayed = displayed.filter(g => g.jobs.some(_arFn));
     } else {
       if (filter === 'progress') displayed = displayed.filter(g => g.jobs.some(j => !_hubDoneFn(j)));
       else if (filter === 'done') displayed = displayed.filter(g => g.jobs.every(j => _hubDoneFn(j)));
       else if (filter === 'urgent') displayed = displayed.filter(g => g.jobs.some(j => !_hubDoneFn(j) && _hubDday(j).urgent));
-      else if (filter === 'ar') displayed = displayed.filter(g => g.jobs.some(j => /후불|미수|outstanding/i.test(String(j.payment||j.note||j.notes||''))));
+      else if (filter === 'ar') displayed = displayed.filter(g => g.jobs.some(_arFn));
+      else if (filter === 'ship') displayed = displayed.filter(g => g.jobs.some(_shipFn));
+    }
+    // 🏷️ 카드 필터(미수/발송대기) — '해당 내역만' 보이도록 그룹 내 작업도 매칭 건만 남김
+    if (filter === 'ar' || filter === 'ship') {
+      const _p = (filter === 'ar') ? _arFn : _shipFn;
+      displayed = displayed.map(g => Object.assign({}, g, { jobs: g.jobs.filter(_p) })).filter(g => g.jobs.length);
     }
 
     // 카운트 갱신 — byRoots 면 ROOT 단위, 아니면 매장 단위
@@ -1242,7 +1255,8 @@
         prog: groups.filter(g => g.jobs.some(j => !_hubDoneFn(j))).length,
         done: groups.filter(g => g.jobs.every(j => _hubDoneFn(j))).length,
         urgent: groups.filter(g => g.jobs.some(j => !_hubDoneFn(j) && _hubDday(j).urgent)).length,
-        ar: groups.filter(g => g.jobs.some(j => /후불|미수/i.test(String(j.payment||j.note||j.notes||'')))).length,
+        ar: groups.filter(g => g.jobs.some(_arFn)).length,
+        ship: groups.filter(g => g.jobs.some(_shipFn)).length,
       };
     }
     if (opts.cntMap) Object.entries(opts.cntMap).forEach(([k, id]) => {
@@ -3150,6 +3164,34 @@
     window.renderSuppliesReport();
   };
 
+  // 소모품 술어 — 대시보드 카드(미수금/발송대기) 정의와 동일 (필터에서 재사용)
+  window._supIsOutstanding = function(j) {
+    let mode = j.supplyMode;
+    if (!mode) {
+      const blob = String(j.payment||j.note||j.notes||'');
+      mode = /후불|미수|postpaid/i.test(blob) ? 'postpaid'
+           : ((parseInt(String(j.amount||j.price||'0').replace(/[^\d]/g,''),10)||0) > 0 ? 'prepaid' : 'support');
+    }
+    if (mode !== 'postpaid' || j.arPaid) return false;
+    const amt = parseInt(String(j.amount||j.price||'0').replace(/[^\d]/g,''),10) || 0;
+    const paid = Number(j.arPaidAmount)||0;
+    return (amt - paid) > 0;
+  };
+  window._supIsPendingShip = function(j) {
+    const isShipped = !!j.shipDate || /발송|배송|shipped/i.test(String(j.note||j.notes||'')) || j.shipped;
+    const done = (typeof window._isJobEffectivelyDone === 'function')
+      ? window._isJobEffectivelyDone(j) : !!(j.completed || /완료/.test(String(j.status||'')));
+    return !isShipped && !done;
+  };
+  // 상단 카드 클릭 → 리스트를 해당 필터로 전환 + 리스트로 스크롤
+  window.supFilterCard = function(kind) {
+    const f = (kind === 'ar') ? 'ar' : (kind === 'ship') ? 'ship' : 'all';
+    const bar = document.getElementById('supplieshubFilters');
+    if (bar) bar.querySelectorAll('.hub-filter').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+    if (typeof renderSuppliesHub === 'function') renderSuppliesHub();
+    try { const c = document.getElementById('supplieshubContainer'); if (c) c.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_){}
+  };
+
   window.renderSuppliesHub = function() {
     const stats = _suppliesStats();
     const fmt = n => (Number(n)||0).toLocaleString();
@@ -3178,7 +3220,7 @@
       searchId: 'supplieshubSearch',
       cats: ['supplies'],
       cardCat: 'supplies',
-      cntMap: { prog:'supplieshubCntProg', all:'supplieshubCntAll', done:'supplieshubCntDone', ar:'supplieshubCntAr' },
+      cntMap: { prog:'supplieshubCntProg', all:'supplieshubCntAll', done:'supplieshubCntDone', ar:'supplieshubCntAr', ship:'supplieshubCntShip' },
     });
   };
   (function _bindSuppliesHubEvents(){

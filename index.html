@@ -1008,21 +1008,23 @@
           <div style="font-size:22px;font-weight:900;color:var(--gray-900);margin-top:5px" id="supSalesAmount">0<span style="font-size:11px;font-weight:700;color:var(--gray-500);margin-left:3px">원</span></div>
           <div style="font-size:11px;color:var(--gray-600);margin-top:3px" id="supSalesSub">데이터 없음</div>
         </div>
-        <div style="background:#fff;border:1.5px solid var(--gray-200);border-left:4px solid var(--danger);border-radius:12px;padding:14px 16px;cursor:pointer" onclick="openSuppliesArDetail()">
+        <div style="background:#fff;border:1.5px solid var(--gray-200);border-left:4px solid var(--danger);border-radius:12px;padding:14px 16px;cursor:pointer" onclick="supFilterCard('ar')" title="미수 내역만 보기">
           <div style="font-size:11px;color:var(--gray-500);font-weight:700">📌 미수금</div>
           <div style="font-size:22px;font-weight:900;color:var(--danger);margin-top:5px" id="supArAmount">0<span style="font-size:11px;font-weight:700;color:var(--gray-500);margin-left:3px">원</span></div>
           <div style="font-size:11px;color:var(--gray-600);margin-top:3px" id="supArSub">데이터 없음</div>
-          <span style="font-size:11px;color:var(--primary);font-weight:800;text-decoration:underline;margin-top:4px;display:inline-block">내역보기 →</span>
+          <span style="font-size:11px;color:var(--primary);font-weight:800;text-decoration:underline;margin-top:4px;display:inline-block">미수만 보기 →</span>
         </div>
-        <div style="background:#fff;border:1.5px solid var(--gray-200);border-left:4px solid #06B6D4;border-radius:12px;padding:14px 16px">
+        <div style="background:#fff;border:1.5px solid var(--gray-200);border-left:4px solid #06B6D4;border-radius:12px;padding:14px 16px;cursor:pointer" onclick="supFilterCard('ship')" title="발송 대기 내역만 보기">
           <div style="font-size:11px;color:var(--gray-500);font-weight:700">🚚 발송 대기</div>
           <div style="font-size:22px;font-weight:900;color:var(--gray-900);margin-top:5px" id="supShipCount">0<span style="font-size:11px;font-weight:700;color:var(--gray-500);margin-left:3px">건</span></div>
           <div style="font-size:11px;color:var(--gray-600);margin-top:3px" id="supShipSub">미발송 건수</div>
+          <span style="font-size:11px;color:#06B6D4;font-weight:800;text-decoration:underline;margin-top:4px;display:inline-block">발송대기만 보기 →</span>
         </div>
-        <div style="background:#fff;border:1.5px solid var(--gray-200);border-left:4px solid var(--primary);border-radius:12px;padding:14px 16px">
+        <div style="background:#fff;border:1.5px solid var(--gray-200);border-left:4px solid var(--primary);border-radius:12px;padding:14px 16px;cursor:pointer" onclick="supFilterCard('all')" title="전체 거래 보기">
           <div style="font-size:11px;color:var(--gray-500);font-weight:700">📊 전체 거래</div>
           <div style="font-size:22px;font-weight:900;color:var(--gray-900);margin-top:5px" id="supTotalCount">0<span style="font-size:11px;font-weight:700;color:var(--gray-500);margin-left:3px">건</span></div>
           <div style="font-size:11px;color:var(--gray-600);margin-top:3px" id="supTotalSub">누적</div>
+          <span style="font-size:11px;color:var(--primary);font-weight:800;text-decoration:underline;margin-top:4px;display:inline-block">전체 보기 →</span>
         </div>
       </div>
 
@@ -1071,6 +1073,7 @@
           <button class="hub-filter" data-filter="all">전체 <span id="supplieshubCntAll">0</span></button>
           <button class="hub-filter" data-filter="done">완료 <span id="supplieshubCntDone">0</span></button>
           <button class="hub-filter" data-filter="ar">미수 <span id="supplieshubCntAr">0</span></button>
+          <button class="hub-filter" data-filter="ship">🚚 발송대기 <span id="supplieshubCntShip">0</span></button>
           <input id="supplieshubSearch" placeholder="🔍 매장명 검색..." style="border:1px solid var(--gray-300);border-radius:7px;padding:5px 10px;font-size:11.5px;width:180px;font-family:inherit;margin-left:6px">
         </div>
         <div style="display:flex;gap:6px">
@@ -3932,6 +3935,6 @@
   </button>
 </div>
 
-<script src="/app.js?v=2026-06-09-forceupd" defer></script>
+<script src="/app.js?v=2026-06-10-supcards" defer></script>
 </body>
 </html>
