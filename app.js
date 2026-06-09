@@ -1327,6 +1327,17 @@
       if (a._hasProg !== b._hasProg) return a._hasProg ? -1 : 1;
       return (b._regTime||0) - (a._regTime||0) || (b._lastTouch||0) - (a._lastTouch||0);
     });
+    // 🛡 자글거림(flicker) 방지 — 렌더 결과가 직전과 동일하면 innerHTML 재구축 스킵.
+    //   백그라운드 동기화(30초)마다 전체 재구축돼 깜빡이던 문제 해결. 카운트 badge 는 위에서 이미 갱신됨.
+    //   signature = 필터/정렬/검색 반영된 displayed 의 핵심 식별자(매장·작업·상태·thread수·mtime).
+    const _sig = JSON.stringify(displayed.map(g => [
+      g.storeId || g.storeName, g._hasProg,
+      g.jobs.map(j => [j.id, j.status, j.completed?1:0, j.updatedAt||0, (Array.isArray(j.thread)?j.thread.length:0)])
+    ]));
+    if (container.__hubSig === _sig && container.childElementCount > 0 && !container.querySelector('.hub-empty')) {
+      return;  // 내용 동일 → 재구축·재정렬 스킵 (현재 DOM·펼침 상태 유지)
+    }
+    container.__hubSig = _sig;
     container.innerHTML = displayed.map(g => _hubRenderGroup(g, opts.cardCat, { urgentIfPending: !!opts.urgentIfPending, byRoots: !!opts.byRoots })).join('');
     // expand 상태 복원 — 사용자가 펼쳐둔 매장이 백그라운드 sync 로 닫히지 않도록
     if (_prevExpanded.size > 0 || _prevExpandedByName.size > 0) {
@@ -9562,6 +9573,39 @@ ${text.slice(0, 4000)}`;
     alert('정합화 완료 — 로컬 전용 삭제표식 ' + r.removed + '건 제거 후 클라우드 기준 재동기화');
     return r;
   };
+  /* 🔄 클라우드 기준 강제 동기화 (토큰 불필요, 이 기기 한정).
+     기기별 미수렴(작업 누락·매장명 stale·로컬 전용 삭제표식 숨김) 을 한 번에 해소.
+     순서: ① 로컬 전용 삭제표식 정합화 ② 로컬 작업 클라우드로 푸시(유실 방지)
+           ③ 클라우드 전체 작업으로 ns_jobs 재구축(+살아있는 작업의 로컬 삭제표식 제거)
+           ④ 매장 데이터 재동기화 ⑤ 새로고침 */
+  window.forceCloudRepull = async function(opts) {
+    opts = opts || {};
+    if (!opts.silent && !confirm('이 기기를 클라우드 기준으로 강제 동기화합니다.\n\n• 로컬 작업은 먼저 클라우드로 안전하게 올린 뒤\n• 클라우드 전체를 다시 받아 화면을 맞춥니다.\n\n진행할까요?')) return;
+    const toast = (m, t) => { try { if (typeof showToast === 'function') showToast(m, t); } catch(_){} };
+    toast('🔄 클라우드 기준 동기화 중...', 4000);
+    try { if (typeof reconcileJobTombstones === 'function') { const r = await reconcileJobTombstones(); if (r && r.ok) localStorage.setItem('ns_jobtomb_reconcile_v2', String(Date.now())); } } catch(e){ console.warn('[repull] reconcile', e); }
+    try { if (typeof pushJobsToCloud === 'function') await pushJobsToCloud({ force:true }); } catch(e){ console.warn('[repull] push', e); }
+    let clean = null;
+    try {
+      const res = await fetch('/api/jobs', { cache:'no-store' });
+      const r = await res.json();
+      const del = new Set((r.deleted || []).map(e => String((e && e.id) || e)));
+      clean = (r.jobs || []).filter(j => j && j.id && !del.has(j.id));
+    } catch(e) { console.warn('[repull] fetch', e); toast('⚠ 클라우드 작업 수신 실패 — 잠시 후 다시 시도하세요', 5000); return; }
+    try {
+      // 클라우드에 살아있는 작업의 로컬 삭제표식 제거 → 재구축 후 다시 숨겨지는 것 방지
+      const liveIds = new Set(clean.map(j => j.id));
+      let tomb = JSON.parse(localStorage.getItem('ns_tombstones') || '[]');
+      tomb = tomb.filter(t => !(t && t.type === 'job' && liveIds.has(t.id)));
+      localStorage.setItem('ns_tombstones', JSON.stringify(tomb));
+    } catch(_){}
+    try { localStorage.setItem('ns_jobs', JSON.stringify(clean)); } catch(_){}
+    try { if (typeof _refreshJobsSnap === 'function') _refreshJobsSnap(); } catch(_){}
+    try { if (typeof syncFromCloud === 'function') await syncFromCloud(); } catch(e){ console.warn('[repull] store sync', e); }
+    toast('✅ 클라우드 기준 동기화 완료 — 새로고침합니다', 3000);
+    setTimeout(() => location.reload(), 700);
+  };
+
   setTimeout(async () => {
     try {
       const FLAG = 'ns_jobtomb_reconcile_v2';

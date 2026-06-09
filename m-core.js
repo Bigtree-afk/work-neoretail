@@ -1752,6 +1752,31 @@
     alert('정합화 완료 — 로컬 전용 삭제표식 ' + r.removed + '건 제거 후 클라우드 기준 재동기화');
     return r;
   };
+  /* 🔄 클라우드 기준 강제 동기화 (모바일) — PC forceCloudRepull 과 동일 정책. 토큰 불필요. */
+  global.forceCloudRepull = async function(opts) {
+    opts = opts || {};
+    if (!opts.silent && !confirm('이 기기를 클라우드 기준으로 강제 동기화합니다.\n\n• 로컬 작업을 클라우드로 먼저 올린 뒤\n• 클라우드 전체를 다시 받아 맞춥니다.\n\n진행할까요?')) return;
+    try { const r = await reconcileJobTombstones(); if (r && r.ok) localStorage.setItem('ns_jobtomb_reconcile_v2', String(Date.now())); } catch(e){}
+    try { if (typeof pushJobsToCloud === 'function') await pushJobsToCloud({ force:true }); } catch(e){}
+    let clean = null;
+    try {
+      const res = await fetch('/api/jobs', { cache:'no-store' });
+      const r = await res.json();
+      const del = new Set((r.deleted || []).map(e => String((e && e.id) || e)));
+      clean = (r.jobs || []).filter(j => j && j.id && !del.has(j.id));
+    } catch(e) { alert('⚠ 클라우드 작업 수신 실패 — 잠시 후 다시 시도하세요'); return; }
+    try {
+      const liveIds = new Set(clean.map(j => j.id));
+      let tomb = JSON.parse(localStorage.getItem('ns_tombstones') || '[]');
+      tomb = tomb.filter(t => !(t && t.type === 'job' && liveIds.has(t.id)));
+      localStorage.setItem('ns_tombstones', JSON.stringify(tomb));
+    } catch(_){}
+    try { localStorage.setItem('ns_jobs', JSON.stringify(clean)); } catch(_){}
+    try { if (typeof _refreshJobsSnap === 'function') _refreshJobsSnap(); } catch(_){}
+    try { if (typeof syncStoresFromCloud === 'function') await syncStoresFromCloud(); } catch(e){}
+    alert('✅ 클라우드 기준 동기화 완료 — 새로고침합니다');
+    setTimeout(() => location.reload(), 500);
+  };
   setTimeout(async () => {
     try {
       const FLAG = 'ns_jobtomb_reconcile_v2';

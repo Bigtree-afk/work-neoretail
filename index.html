@@ -3040,6 +3040,21 @@
       <!-- 구분선 -->
       <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
 
+      <!-- 🔄 데이터 동기화 (기기별 미수렴 복구) -->
+      <div class="admin-section">
+        <div class="admin-section-title">🔄 데이터 동기화</div>
+        <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:12px">
+          <div style="font-size:12px;color:#92400E;line-height:1.6;margin-bottom:10px">
+            기기마다 AS·작업 건수나 매장명이 <b>다르게 보일 때</b> 누르세요.<br>
+            이 기기의 작업을 클라우드로 먼저 올린 뒤 <b>클라우드 전체를 다시 받아</b> 맞춥니다. (안전 — 유실 없음)
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="if(window.forceCloudRepull)window.forceCloudRepull()" style="font-size:12px;padding:8px 16px;font-weight:800">🔄 클라우드 기준 강제 동기화</button>
+        </div>
+      </div>
+
+      <!-- 구분선 -->
+      <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+
       <!-- AI 설정 (기존 기능 이동) -->
       <div class="admin-section">
         <div class="admin-section-title" onclick="toggleAdminSection('apiKey')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
@@ -3917,6 +3932,6 @@
   </button>
 </div>
 
-<script src="/app.js?v=2026-06-09-as-sort2" defer></script>
+<script src="/app.js?v=2026-06-09-as-flicker" defer></script>
 </body>
 </html>
