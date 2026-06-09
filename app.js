@@ -9728,10 +9728,22 @@ ${text.slice(0, 4000)}`;
       }));
     const _payload = { jobs };
     if (threadTombstones.length) _payload.threadTombstones = threadTombstones;
-    // jobTombstones 는 reconcile(로컬 전용 stale 삭제표식 정리) 완료 후에만 전파 →
-    //   옛 stale 삭제가 클라우드로 번져 살아있는 작업이 전 기기 삭제되는 deletion-wins 방지.
+    // jobTombstones 전파 규칙:
+    //   ① reconcile 완료(flag) → 전체 전파.
+    //   ② reconcile 전이라도 '방금(10분 내) 사용자가 삭제한 건'은 전파 — flag 미설정 기기에서
+    //      삭제가 통째로 안 올라가던 문제 fix. 옛 stale 대량삭제는 시간창으로 차단(deletion-wins 방지).
     let _reconciledPC = false; try { _reconciledPC = !!localStorage.getItem('ns_jobtomb_reconcile_v2'); } catch(_){}
-    if (jobTombstones.length && _reconciledPC) _payload.jobTombstones = jobTombstones;
+    if (jobTombstones.length) {
+      if (_reconciledPC) {
+        _payload.jobTombstones = jobTombstones;
+      } else {
+        const _now = Date.now();
+        const fresh = _allTombs
+          .filter(t => t && t.type === 'job' && (_now - (t.ts || 0)) < 600000)
+          .map(t => ({ id: t.id, deletedAt: t.ts ? new Date(t.ts).toISOString() : new Date().toISOString(), reason: t.reason || 'client-tombstone' }));
+        if (fresh.length) _payload.jobTombstones = fresh;
+      }
+    }
     const body = JSON.stringify(_payload);
     // ── content-skip: 직전에 push 한 내용과 동일하면 네트워크 호출 자체를 생략 (KV 쓰기 절감)
     const h = window._fastHash(body);
