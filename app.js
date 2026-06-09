@@ -1014,6 +1014,18 @@
                     + `<span style="color:var(--gray-800);font-weight:800">]</span>`
                     + `<span style="color:${modeColor};font-size:11px;font-weight:600">${amtTxt}</span>`
                     + (who ? ` <span style="color:var(--gray-600);font-size:11px;font-weight:700">[요청 ${escFn(who)}]</span>` : '');
+        } else if (cat === 'as') {
+          // AS 작업(job) 단위 카드 — 첫 ROOT(원본 요청) 우선 표시 + 미처리 요청 수 배지 + 예정일.
+          //   완료된 건도 원본 요청을 보여줘 어떤 건이었는지 파악 가능 (CLAUDE.md 완료 노출 규칙)
+          const _roots = _jobRoots(j);
+          const _first = _roots.find(r => r && r.parentId === null) || _roots[0];
+          const reqTxt = String((_first && _first.text) || j.asRequest || j.lineRequest || j.lineParsed || j.notes || j.memo || '(요청 내용 없음)').replace(/\s+/g,' ').slice(0,70);
+          const _inc = _jobIncompleteRoots(j).length;
+          const multiReq = (_roots.length > 1)
+            ? ` <span style="background:#FEF3C7;color:#92400E;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;vertical-align:middle">요청 ${_roots.length}${_inc?` · 미처리 ${_inc}`:''}</span>`
+            : '';
+          const dueTxt = j.asDueDate ? ` <span style="color:#b45309;font-size:11px;font-weight:600">· 예정 ${escFn(j.asDueDate)}${j.asDueTime?' '+escFn(j.asDueTime):''}</span>` : '';
+          titleHtml = `<span style="color:var(--gray-800);font-weight:700">${escFn(reqTxt)}</span>${multiReq}${dueTxt}`;
         } else {
           // 비-소모품 — 기존 표시
           titleHtml = `${escFn(j.title || j.type || '업무')}`;
@@ -1213,6 +1225,17 @@
         urgent: urgentRoots.length,
         ar: groups.filter(g => g.jobs.some(j => /후불|미수/i.test(String(j.payment||j.note||j.notes||'')))).length,
       };
+    } else if (opts.countByJob) {
+      // 작업(job) 단위 카운트 — AS: 대시보드(메인)와 동일 기준으로 통일.
+      //   한 작업에 미처리 요청(ROOT)이 여러 개여도 1건. (CLAUDE.md AS 카운트 단위 = 작업)
+      const allJobs = groups.flatMap(g => g.jobs);
+      cnts = {
+        all: allJobs.length,
+        prog: allJobs.filter(j => !_hubDoneFn(j)).length,
+        done: allJobs.filter(j => _hubDoneFn(j)).length,
+        urgent: allJobs.filter(j => !_hubDoneFn(j) && _hubDday(j).urgent).length,
+        ar: groups.filter(g => g.jobs.some(j => /후불|미수/i.test(String(j.payment||j.note||j.notes||'')))).length,
+      };
     } else {
       cnts = {
         all: groups.length,
@@ -1296,7 +1319,8 @@
       cats: ['as', 'churn'],
       cardCat: 'as',
       urgentIfPending: true,
-      byRoots: true,  // AS — 요청접수 ROOT 단위로 카운트·표시
+      byRoots: false,    // AS — 작업(job) 단위 카드 (대시보드와 카운트 통일)
+      countByJob: true,  // 카운트도 작업 단위 = 메인 대시보드와 동일(18)
       cntMap: { all:'ashubCntAll', prog:'ashubCntProg', done:'ashubCntDone', urgent:'ashubCntUrg' },
     });
   };
@@ -12854,9 +12878,11 @@ ${text.slice(0, 4000)}`;
     const newOpenThisMonth = newAllThisMonth.filter(j => !isDone(j)).length;
     const newDoneThisMonth = newAllThisMonth.length - newOpenThisMonth;
     const inProgress = jobs.filter(j => !isDone(j)).length;
-    const asCount = jobs.filter(j => /as|에이에스/i.test(j.type||'') && !isDone(j)).length;
+    // AS 카운트 — CLAUDE.md 규칙: type 텍스트 regex 금지, classifyJobCategory 사용 (AS hub 와 동일 기준)
+    const isAsCat = (j) => _classifyJob ? _classifyJob(j) === 'as' : /as|에이에스/i.test(j.type||'');
+    const asCount = jobs.filter(j => isAsCat(j) && !isDone(j)).length;
     const asOver48 = jobs.filter(j => {
-      if (!/as|에이에스/i.test(j.type||'') || isDone(j)) return false;
+      if (!isAsCat(j) || isDone(j)) return false;
       const ts = j.createdAt ? new Date(j.createdAt).getTime() : 0;
       return ts && (Date.now() - ts) > 48*3600*1000;
     }).length;
