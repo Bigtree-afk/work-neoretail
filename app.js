@@ -1315,7 +1315,25 @@
   window._scheduleHubState = window._scheduleHubState || {
     year: null, month: null, // 0-based month
     cat: 'all',
+    scope: 'all',       // 'all' 전체 일정 | 'mine' 내 일정
     selectedDate: null, // 'YYYY-MM-DD'
+  };
+  window._scheduleHubSetScope = function(el, scope) {
+    const st = window._scheduleHubState;
+    st.scope = scope;
+    try {
+      el.parentElement.querySelectorAll('.sched-scope').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+    } catch(e){}
+    window.renderScheduleHub();
+  };
+  // "내 일정" 판정 — 현재 사용자가 담당/생성/처리/thread 작성자/요청별 담당 중 하나
+  window._scheduleHubIsMine = function(j) {
+    const me = (typeof _currentUserName === 'function') ? _currentUserName() : '';
+    if (!me || me === '익명') return false;
+    if ([j.engineer, j.assignee, j.createdBy, j.completedBy, j.owner, j.lastEditedBy].some(x => x && x === me)) return true;
+    if (Array.isArray(j.thread) && j.thread.some(e => e && (e.assignee === me || e.author === me))) return true;
+    return false;
   };
   window._scheduleHubInitState = function() {
     const st = window._scheduleHubState;
@@ -1430,6 +1448,7 @@
       if (!entries.length) continue;
       const cat = window.classifyJobCategory(j);
       if (st.cat !== 'all' && cat !== st.cat) continue;
+      if (st.scope === 'mine' && !window._scheduleHubIsMine(j)) continue;   // 내 일정만
       const done = (typeof window._isJobDone === 'function') ? !!window._isJobDone(j) : false;
       if (done && !showDone) continue;
       for (const e of entries) {
@@ -1450,7 +1469,10 @@
     const todayY = today.getFullYear(), todayM = today.getMonth(), todayD = today.getDate();
 
     const dows = ['일','월','화','수','목','금','토'];
-    let calHtml = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px"><thead><tr>';
+    // 토·일 칸은 좁게(10%), 평일(월~금)은 넓게(16%) — 업무일 가독성 우선
+    let calHtml = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px">'
+      + '<colgroup><col style="width:10%"><col style="width:16%"><col style="width:16%"><col style="width:16%"><col style="width:16%"><col style="width:16%"><col style="width:10%"></colgroup>'
+      + '<thead><tr>';
     for (let i=0;i<7;i++) {
       const color = (i===0)?'#EF4444':(i===6?'#3B82F6':'var(--gray-700)');
       calHtml += `<th style="padding:6px 2px;font-size:11.5px;color:${color};font-weight:700;border-bottom:1.5px solid var(--gray-200)">${dows[i]}</th>`;
@@ -5533,6 +5555,11 @@ ${text.slice(0, 4000)}`;
      Line 등록 대기 큐 — 대시보드 배너 + 검토 모달
   ════════════════════════════════════════ */
   let _linePending = [];
+  let _linePendingFilter = 'all';   // Line 등록대기 — 카테고리 필터 (all | lineCategory)
+  window.setLinePendingFilter = function(cat) {
+    _linePendingFilter = cat || 'all';
+    try { renderLinePendingList(); } catch(_){}
+  };
 
   async function refreshLinePendingBanner() {
     try {
@@ -5874,6 +5901,29 @@ ${text.slice(0, 4000)}`;
       return;
     }
 
+    // ── 카테고리 필터 바 (현재 대기 항목에 존재하는 카테고리 + 전체) — 담당자가 카테고리별로 처리 ──
+    const _catCount = {};
+    _linePending.forEach(p => { const c = p.lineCategory || 'ignore'; _catCount[c] = (_catCount[c]||0) + 1; });
+    const _catOrder = ['pos_as','van_as','device_mgmt','open_store','van_doc','label','equip_out','delivery','ignore','as_pos_van'];
+    const _present = _catOrder.filter(c => _catCount[c]);
+    const _chip = (key, label, count, active, color, bg) => {
+      const sty = active
+        ? `background:${color||'#1D4ED8'};color:#fff;border-color:${color||'#1D4ED8'}`
+        : `background:${bg||'#fff'};color:${color||'var(--gray-700)'};border-color:var(--gray-300)`;
+      return `<button onclick="window.setLinePendingFilter('${key}')" style="${sty};border:1.5px solid;border-radius:14px;padding:4px 12px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap">${label} <span style="opacity:0.8">${count}</span></button>`;
+    };
+    let _barHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">';
+    _barHtml += _chip('all', '전체', _linePending.length, _linePendingFilter === 'all', '#374151');
+    _present.forEach(c => { const m = LINE_TYPE_META[c] || LINE_TYPE_META.ignore; _barHtml += _chip(c, m.label, _catCount[c], _linePendingFilter === c, m.color, m.bg); });
+    _barHtml += '</div>';
+
+    // 필터 적용
+    const _view = (_linePendingFilter === 'all') ? _linePending : _linePending.filter(p => (p.lineCategory || 'ignore') === _linePendingFilter);
+    if (!_view.length) {
+      list.innerHTML = _barHtml + `<div style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:12px">이 카테고리에 대기 업무가 없습니다 — '전체'로 보기</div>`;
+      return;
+    }
+
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     const users = (typeof getUsers === 'function') ? (getUsers() || []) : [];
 
@@ -5886,7 +5936,7 @@ ${text.slice(0, 4000)}`;
     // 담당자 옵션 (사용자 + 자유 입력)
     const userOpts = users.map(u => `<option value="${esc(u.name||u.email||'')}">${esc(u.name||u.email||'')}</option>`).join('');
 
-    list.innerHTML = _linePending.map((p, idx) => {
+    list.innerHTML = _barHtml + _view.map((p, idx) => {
       const meta = LINE_TYPE_META[p.lineCategory] || LINE_TYPE_META.ignore;
       const stMeta = PENDING_STATUS_META[p.status] || PENDING_STATUS_META['접수'];
       const isUpdate = p.action === 'update' && p.targetJobId;

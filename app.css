@@ -582,6 +582,10 @@
   }
   .filter-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
+  /* 일정조회 — 전체/내 일정 토글 */
+  .sched-scope { color: var(--gray-500); transition: all .15s; }
+  .sched-scope.active { background: var(--primary); color: #fff; }
+
   /* ── STOCKTAKE STAGE CHIPS (재고조사 진행 단계 인터페이스) ── */
   .st-stage-chip {
     padding: 7px 13px; border-radius: 999px; font-size: 12.5px; font-weight: 700;

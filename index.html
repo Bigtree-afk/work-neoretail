@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
-<link rel="stylesheet" href="/app.css?v=20260529-nonoise">
+<link rel="stylesheet" href="/app.css?v=20260609-sched-scope">
 <!-- Google Identity Services (Sign in with Google) -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <!-- heic2any (iPhone HEIC → JPEG 변환) — 필요 시 로드 -->
@@ -1137,12 +1137,16 @@
           <div class="filter-chip" data-cat="van" onclick="window._scheduleHubSetCat(this,'van')">📑 VAN</div>
           <div class="filter-chip" data-cat="supplies" onclick="window._scheduleHubSetCat(this,'supplies')">🏷️ 소모품</div>
         </div>
-        <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--gray-600);margin-left:auto;cursor:pointer">
+        <div id="scheduleHubScope" style="display:inline-flex;gap:4px;margin-left:auto;background:#fff;border:1.5px solid var(--gray-200);border-radius:10px;padding:3px">
+          <div class="sched-scope active" data-scope="all" onclick="window._scheduleHubSetScope(this,'all')" style="cursor:pointer;font-size:12px;font-weight:700;padding:4px 12px;border-radius:7px">전체 일정</div>
+          <div class="sched-scope" data-scope="mine" onclick="window._scheduleHubSetScope(this,'mine')" style="cursor:pointer;font-size:12px;font-weight:700;padding:4px 12px;border-radius:7px">내 일정</div>
+        </div>
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--gray-600);cursor:pointer">
           <input type="checkbox" id="scheduleHubShowDone" onchange="window.renderScheduleHub && window.renderScheduleHub()"> 완료 포함
         </label>
       </div>
 
-      <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px" id="scheduleHubGrid">
+      <div style="display:grid;grid-template-columns:minmax(0,2.8fr) minmax(0,1fr);gap:14px" id="scheduleHubGrid">
         <!-- 캘린더 -->
         <div class="card" style="padding:12px">
           <div id="scheduleHubCalendar"></div>
@@ -3868,6 +3872,6 @@
   </button>
 </div>
 
-<script src="/app.js?v=2026-06-09-line-sender-inline" defer></script>
+<script src="/app.js?v=2026-06-09-3features" defer></script>
 </body>
 </html>

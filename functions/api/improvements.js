@@ -22,8 +22,8 @@
 
 const KEY = 'improvements';
 const MAX_ITEMS = 1000;
-const MAX_FILE_BYTES = 24_000_000;
-const MAX_TOTAL_BYTES = 50_000_000;
+const MAX_FILE_BYTES = 24_000_000;       // 파일당 — Cloudflare KV 값 한도(25MB) 근처라 유지
+const MAX_TOTAL_BYTES = 1_000_000_000;   // 합계 한도 대폭 상향(50MB→1GB) — 첨부 개수 사실상 무제한
 
 function newId() {
   return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
