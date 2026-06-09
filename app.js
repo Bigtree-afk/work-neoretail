@@ -1299,18 +1299,32 @@
       return max;
     };
     const _sortBy = opts.sortBy || 'recent';   // 'recent'(최근 등록순, 기본) | 'name'(매장명순)
+    // 매장명 정렬 키 — 법인 표기(㈜/(주)/주식회사 등)·앞 기호 제거해 '의미있는 상호'로 정렬.
+    //   예: "(주)비앤씨리테일" / "비앤씨리테일주식회사" → 둘 다 "비앤씨리테일" → 함께·가나다 정확.
+    const _storeSortKey = (name) => {
+      let s = String(name||'').trim();
+      s = s.replace(/㈜/g,'')
+           .replace(/\(\s*(주|유|재|사|합|특|복)\s*\)/g,'')
+           .replace(/(주식회사|유한회사|유한책임회사|합자회사|합명회사|사단법인|재단법인|농업회사법인|영농조합법인)/g,'');
+      s = s.replace(/^[\s()\[\]{}·.,\-_/＊*'"]+/,'').trim();
+      return s || String(name||'').trim();
+    };
     displayed.forEach(g => {
       g._lastTouch = _groupLastTouch(g);
       g._regTime = _groupRegTime(g);
       g._hasProg = g.jobs.some(j => !_hubDoneFn(j));
+      g._nameKey = _storeSortKey(g.storeName);
     });
     displayed.sort((a,b) => {
-      // 진행중 우선 (true = 0, false = 1 → asc)
-      if (a._hasProg !== b._hasProg) return a._hasProg ? -1 : 1;
       if (_sortBy === 'name') {
-        return String(a.storeName||'').localeCompare(String(b.storeName||''), 'ko');
+        // 매장명순 — 정규화 상호 기준 가나다(숫자 자연 정렬). 동일 상호면 진행중 우선.
+        const c = a._nameKey.localeCompare(b._nameKey, 'ko', { numeric:true, sensitivity:'base' });
+        if (c !== 0) return c;
+        if (a._hasProg !== b._hasProg) return a._hasProg ? -1 : 1;
+        return (b._regTime||0) - (a._regTime||0);
       }
-      // 기본: 최근 등록일 desc (등록일 동일/없으면 최근 활동 desc fallback)
+      // 최근 등록순(기본): 진행중 우선 → 등록일 desc (없으면 최근 활동 desc)
+      if (a._hasProg !== b._hasProg) return a._hasProg ? -1 : 1;
       return (b._regTime||0) - (a._regTime||0) || (b._lastTouch||0) - (a._lastTouch||0);
     });
     container.innerHTML = displayed.map(g => _hubRenderGroup(g, opts.cardCat, { urgentIfPending: !!opts.urgentIfPending, byRoots: !!opts.byRoots })).join('');
