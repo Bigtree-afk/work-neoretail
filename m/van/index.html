@@ -438,9 +438,9 @@
       <textarea class="field-textarea" id="thNewRoot" placeholder="요청 사항 입력..."></textarea>
       <!-- 사진·파일 첨부 picker (m-core mountAttachPicker) -->
       <div id="thNewRootAttach"></div>
-      <div class="tg-btn-row" style="margin-top:7px;display:flex;gap:7px;align-items:center">
-        <label class="line-mini" style="margin-right:auto;font-size:11.5px"><input type="checkbox" id="thNewRootLine"> 📡 추가 후 LINE 발송</label>
-        <button class="btn btn-primary" style="flex:0;padding:9px 16px;font-size:13px" onclick="onAddRoot()">등록</button>
+      <div class="tg-btn-row" style="margin-top:7px;display:flex;gap:7px">
+        <button class="btn btn-primary" style="flex:1;padding:11px;font-size:13px;font-weight:800" onclick="onAddRoot(false)">등록</button>
+        <button class="btn" style="flex:1;padding:11px;font-size:13px;font-weight:800;background:var(--line);color:#fff;border:none" onclick="onAddRoot(true)">📡 등록 후 LINE</button>
       </div>
     </div>
 
@@ -474,7 +474,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-06-09-forceupd"></script>
+<script src="/m-core.js?v=2026-06-10-van-mobile-2btn"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1235,7 +1235,7 @@ function renderThread(jobId){
   const applyD = j.franchiseApplyDate || j.date || '';
   $('thType').textContent = (j.type || 'VAN') + (applyD ? ' · 신청 ' + fmtDate(applyD) : '') + (j.contactName?' · '+j.contactName:'');
   $('thNewRoot').value = '';
-  $('thNewRootLine').checked = false;
+  { const _l = $('thNewRootLine'); if (_l) _l.checked = false; }  // 체크박스 제거됨 — null 가드
   // 새 요청접수 첨부 picker — 매 렌더마다 재마운트
   if (_thNewRootPicker) try { _thNewRootPicker.destroy(); } catch(_){}
   _thNewRootPicker = (typeof window.mountAttachPicker === 'function')
@@ -1316,9 +1316,9 @@ function renderThreadGroupsMobile(j){
           </div>
           <textarea class="field-textarea" id="ch_text_${r.threadId}" placeholder="처리 내용 입력..."></textarea>
           <div id="ch_attach_${esc(r.threadId)}"></div>
-          <div class="tg-btn-row">
-            <label class="line-mini"><input type="checkbox" id="ch_line_${r.threadId}"> 📡 추가 후 LINE 발송</label>
-            <button class="btn btn-primary" onclick="onAddChild('${esc(r.threadId)}')">추가</button>
+          <div class="tg-btn-row" style="display:flex;gap:7px">
+            <button class="btn btn-primary" style="flex:1;font-weight:800" onclick="onAddChild('${esc(r.threadId)}',false)">등록</button>
+            <button class="btn" style="flex:1;font-weight:800;background:var(--line);color:#fff;border:none" onclick="onAddChild('${esc(r.threadId)}',true)">📡 등록 후 LINE</button>
           </div>
         </div>
         ` : ''}
@@ -1353,7 +1353,7 @@ function _newThreadId(){
   return 'TR-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
 }
 
-window.onAddRoot = function(){
+window.onAddRoot = function(lineOverride){
   const text = ($('thNewRoot').value || '').trim();
   if (!text) { showToast('⚠ 요청 내용을 입력하세요'); return; }
   const jobs = getJobs();
@@ -1376,7 +1376,8 @@ window.onAddRoot = function(){
   j.updatedAt = Date.now();
   jobs[ix] = j;
   saveJobs(jobs);
-  if ($('thNewRootLine').checked) {
+  const _wantLine = (typeof lineOverride === 'boolean') ? lineOverride : !!($('thNewRootLine') && $('thNewRootLine').checked);
+  if (_wantLine) {
     try { window._openLineForJob(j, { entry, category:'van' }); } catch(_){}
   }
   showToast('✓ 등록');
@@ -1384,7 +1385,7 @@ window.onAddRoot = function(){
   renderThread(_currentJobId);
 };
 
-window.onAddChild = function(rootId){
+window.onAddChild = function(rootId, lineOverride){
   const text = ($('ch_text_' + rootId).value || '').trim();
   if (!text) { showToast('⚠ 내용을 입력하세요'); return; }
   const status = (document.querySelector(`input[name="ch_${rootId}"]:checked`) || {}).value || '진행';
@@ -1426,7 +1427,8 @@ window.onAddChild = function(rootId){
   j.updatedAt = Date.now();
   jobs[ix] = j;
   saveJobs(jobs);
-  if ($('ch_line_' + rootId).checked) {
+  const _wantLine = (typeof lineOverride === 'boolean') ? lineOverride : !!($('ch_line_' + rootId) && $('ch_line_' + rootId).checked);
+  if (_wantLine) {
     try { window._openLineForJob(j, { entry, category:'van' }); } catch(_){}
   }
   showToast('✓ 추가');
