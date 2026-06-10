@@ -15648,7 +15648,8 @@ ${text.slice(0, 4000)}`;
     }
   }
 
-  window.saveVanJob = function() {
+  window.saveVanJob = function(opts) {
+    opts = opts || {};
     const cat = document.querySelector('#vanCatList .van-cat-chip.active')?.dataset.cat || 'VAN/신규등록';
     let storeId = '', storeName = '', store = null;
     if (_vanUnregMode) {
@@ -15796,12 +15797,26 @@ ${text.slice(0, 4000)}`;
     }
     // 즉시 cloud push (debounce 우회)
     try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
-    // 📡 LINE 발송 체크 상태 (모달 닫기 전에 읽어둠)
-    const wantLine = !!document.getElementById('vanJobLineSend')?.checked;
+    // 📡 LINE 발송 — opts.wantLine 우선(요청접수 [등록 후 LINE 발송] 버튼), 없으면 구 체크박스 fallback
+    const wantLine = (typeof opts.wantLine === 'boolean')
+      ? opts.wantLine
+      : !!document.getElementById('vanJobLineSend')?.checked;
     const savedJobId = newJob.id;
     // draft 비우기 — 저장된 thread 와 중복 방지
     window._jobThreadDraft = [];
-    closeModal('vanJobModal');
+    if (opts.keepOpen) {
+      // footer 없는 인라인 등록 — 모달 유지, 편집 모드로 전환해 진행/완료 이어서 기록
+      try { const eidEl = document.getElementById('vanJobEditId'); if (eidEl) eidEl.value = savedJobId; } catch(_){}
+      try {
+        const jobs3 = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+        const fresh3 = jobs3.find(j => j.id === savedJobId);
+        if (fresh3 && typeof window._renderThreadGroups === 'function') {
+          window._renderThreadGroups('vanJobThread', fresh3.thread || [], { editable:true, jobId: savedJobId, draftMode:false });
+        }
+      } catch(_){}
+    } else {
+      closeModal('vanJobModal');
+    }
     showToast && showToast(isEdit ? `💾 VAN 업무 저장됨 — ${storeName}` : `✅ VAN 업무 등록 완료 — ${storeName}`);
     // 화면 갱신
     try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(e){}
@@ -15816,6 +15831,25 @@ ${text.slice(0, 4000)}`;
         }
       } catch(e) { console.warn('[saveVanJob LINE send]', e); }
     }
+  };
+
+  // ✕ 닫기 — 편집 모드(기존 VAN job)면 폼 메타를 저장하고 닫음. 신규 미저장 draft 는 그냥 닫힘.
+  window._vanCloseSave = function() {
+    try {
+      const editId = (document.getElementById('vanJobEditId')?.value || '').trim();
+      if (editId && typeof window.saveVanJob === 'function') {
+        window.saveVanJob({ keepOpen: true });   // 메타 저장(모달 유지 후 아래에서 닫음)
+      }
+    } catch(e) { console.warn('[_vanCloseSave]', e); }
+    try { closeModal('vanJobModal'); } catch(_){}
+  };
+
+  // ⛶ 최대화/복원 토글
+  window._toggleVanMaximize = function() {
+    try {
+      const modal = document.querySelector('#vanJobModal .modal');
+      if (modal) modal.classList.toggle('van-max');
+    } catch(e){}
   };
 
   /* ─── 요청사항/처리 기록 스레드 (그룹형 — ROOT '요청접수' + children '진행'/'완료') ─── */
@@ -16379,6 +16413,20 @@ ${text.slice(0, 4000)}`;
     // 첨부 draft 초기화
     delete window._threadFormAttachments[attKey];
     delete window._threadFormUploaderCtl[attKey];
+
+    // 📑 VAN 신규(draft) — 요청접수 [등록] 이 곧 VAN 업무 생성 (하단 footer 없음, 인라인 저장).
+    //   매장 미선택이면 막고, 선택됐으면 이 ROOT 를 draft 에 넣어 saveVanJob 으로 생성 → 모달 유지(편집모드).
+    if (draftMode && containerId === 'vanJobThread') {
+      const hasStore = (typeof _vanUnregMode !== 'undefined' && _vanUnregMode)
+        ? !!(document.getElementById('vanUnregName')?.value || '').trim()
+        : !!(typeof _vanPickedStore !== 'undefined' && _vanPickedStore);
+      if (!hasStore) { try { showToast('매장을 먼저 선택하세요'); } catch(e){} return; }
+      window._jobThreadDraft = Array.isArray(window._jobThreadDraft) ? window._jobThreadDraft : [];
+      window._jobThreadDraft.push(entry);
+      try { if (typeof window.saveVanJob === 'function') window.saveVanJob({ wantLine, keepOpen: true }); }
+      catch(e) { console.warn('[van newroot create]', e); }
+      return;
+    }
 
     // Fix A: AS draftMode → 즉시 live job 생성 또는 기존 AS 에 append
     if (draftMode && window._currentJobContext === 'as') {

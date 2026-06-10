@@ -457,6 +457,8 @@
   .modal-overlay.show { display: flex; }
   /* 📡 LINE 발송 컴포저 — 다른 모달(업무창)보다 항상 위에 고정 (닫기 전까지 최상위) */
   #lineSendComposerModal { z-index: 2147483000; }
+  /* ⛶ VAN 모달 최대화 */
+  #vanJobModal .modal.van-max { width: 97vw !important; max-width: 97vw !important; height: 94vh !important; max-height: 94vh !important; }
   .modal { background: #FFF8E7; border-radius: 12px; box-shadow: 6px 6px 0 #1A1614; width: 560px; max-height: 85vh; overflow-y: auto; }
   .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
   .modal-title { font-size: 16px; font-weight: 700; }

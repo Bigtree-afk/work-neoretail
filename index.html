@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
-<link rel="stylesheet" href="/app.css?v=2026-06-10-vanfix1">
+<link rel="stylesheet" href="/app.css?v=2026-06-10-vanmodal2">
 <!-- Google Identity Services (Sign in with Google) -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <!-- heic2any (iPhone HEIC → JPEG 변환) — 필요 시 로드 -->
@@ -2420,9 +2420,12 @@
     <div class="modal-header">
       <div>
         <div class="modal-title">📑 VAN 업무 등록 <span style="background:#DBEAFE;color:#1d4ed8;font-size:11px;padding:3px 10px;border-radius:12px;font-weight:700;margin-left:6px">VAN</span></div>
-        <div style="font-size:11px;color:var(--gray-400);margin-top:2px">신규 폼과 분리 — 카드사 가맹 + 복수 VAN + 간편결제 통합</div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:2px">요청접수 [등록] 으로 저장 — 진행/완료는 카드에서 이어서 기록</div>
       </div>
-      <button class="modal-close" onclick="closeModal('vanJobModal')">✕</button>
+      <div style="display:flex;gap:4px;align-items:flex-start">
+        <button class="modal-close" id="vanMaxBtn" title="창 최대화/복원" onclick="window._toggleVanMaximize&&window._toggleVanMaximize()">⛶</button>
+        <button class="modal-close" title="닫기" onclick="window._vanCloseSave?window._vanCloseSave():closeModal('vanJobModal')">✕</button>
+      </div>
     </div>
     <div class="modal-body">
       <div style="padding:10px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;font-size:11.5px;color:#1e40af;margin-bottom:14px;line-height:1.6">
@@ -2593,19 +2596,11 @@
       <div class="form-group">
         <div id="vanJobThread"></div>
         <div id="vanJobThreadNotSaved" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;padding:10px 13px;border-radius:8px;font-size:12.5px;margin-top:6px">
-          💡 등록 후 진행 단계 (요청접수 → 진행 → 완료) 기록이 가능합니다. 우선 [+ VAN 업무 등록]으로 저장하세요.
+          💡 매장 선택 후 [＋ 새 요청 접수] → 요청 내용 입력 → [등록] 으로 저장됩니다. 진행/완료는 등록 후 카드에서 이어서 기록.
         </div>
       </div>
     </div>
-    <div class="modal-footer" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
-      <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:14px;cursor:pointer;font-size:11.5px;font-weight:700;color:#06A647">
-        <input type="checkbox" id="vanJobLineSend" style="accent-color:#06C755;margin:0"> 📡 등록 후 LINE 발송
-      </label>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-outline" onclick="closeModal('vanJobModal')">취소</button>
-        <button class="btn btn-primary" onclick="saveVanJob()">+ VAN 업무 등록</button>
-      </div>
-    </div>
+    <!-- footer 제거 — 저장은 요청접수/진행/완료 카드의 [등록]/[📡 등록 후 LINE 발송] 버튼으로. 닫기는 상단 ✕ -->
   </div>
 </div>
 
@@ -3935,6 +3930,6 @@
   </button>
 </div>
 
-<script src="/app.js?v=2026-06-10-twobtn" defer></script>
+<script src="/app.js?v=2026-06-10-vanmodal2" defer></script>
 </body>
 </html>
