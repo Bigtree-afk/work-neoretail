@@ -3,136 +3,177 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VAN 등록 개선안 목업</title>
+<title>VAN 등록 개선안 목업 v2</title>
 <style>
   :root{
-    --primary:#2563EB; --primary-dark:#1D4ED8; --success:#16A34A; --danger:#DC2626;
+    --primary:#2563EB; --primary-dark:#1D4ED8; --success:#16A34A; --danger:#DC2626; --line:#06C755;
     --gray-100:#F3F4F6; --gray-200:#E5E7EB; --gray-300:#D1D5DB; --gray-400:#9CA3AF;
     --gray-500:#6B7280; --gray-600:#4B5563; --gray-700:#374151; --gray-800:#1F2937; --gray-900:#111827;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;background:#EEF2F7;color:var(--gray-800);font-size:14px;padding:24px;line-height:1.5}
+  body{font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;background:#EEF2F7;color:var(--gray-800);font-size:14px;padding:22px;line-height:1.5}
   h1{font-size:19px;margin-bottom:4px}
-  .sub{color:var(--gray-500);font-size:13px;margin-bottom:20px}
-  .cols{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;max-width:1100px;margin:0 auto}
-  @media(max-width:880px){.cols{grid-template-columns:1fr}}
-  .panel{background:#fff;border:1px solid var(--gray-200);border-radius:14px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.06)}
-  .ph{padding:11px 16px;font-weight:800;font-size:13px;color:#fff}
-  .ph.asis{background:#9CA3AF}
-  .ph.tobe{background:linear-gradient(90deg,#1D4ED8,#2563EB)}
-  .pbody{padding:16px}
-  /* modal look */
-  .mhead{display:flex;align-items:center;justify-content:space-between;padding:0 0 12px;border-bottom:1px solid var(--gray-200);margin-bottom:14px}
-  .mtitle{font-size:16px;font-weight:800;display:flex;align-items:center;gap:7px}
-  .tag{background:#DBEAFE;color:#1d4ed8;font-size:11px;padding:3px 10px;border-radius:12px;font-weight:700}
-  .x{color:var(--gray-400);font-size:18px;cursor:pointer}
-  .fg{margin-bottom:13px}
-  .fg label{display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:5px}
-  .inp{width:100%;padding:9px 11px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;font-family:inherit}
-  textarea.inp{resize:vertical;line-height:1.5}
-  .sect{background:#F9FAFB;border:1px solid var(--gray-200);border-radius:10px;padding:12px 14px;margin-bottom:13px}
-  .sect-t{font-size:12.5px;font-weight:800;color:var(--gray-800);margin-bottom:9px}
-  .chips{display:flex;flex-wrap:wrap;gap:6px}
-  .chip{padding:6px 12px;border:1.5px solid var(--gray-200);border-radius:18px;background:#fff;font-size:12px;font-weight:600;color:var(--gray-700)}
-  .chip.on{background:#DBEAFE;border-color:#1d4ed8;color:#1d4ed8}
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .req{border:1.5px solid #BFDBFE;background:#EFF6FF}
-  .footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-top:13px;border-top:1px solid var(--gray-200);margin-top:14px}
-  .btn{padding:10px 18px;border-radius:9px;font-size:13.5px;font-weight:800;border:none;cursor:pointer;font-family:inherit}
-  .btn-o{background:#fff;color:var(--gray-700);border:1.5px solid var(--gray-300)}
-  .btn-p{background:var(--primary);color:#fff}
-  .line-opt{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;font-size:12px;font-weight:700;color:#06A647}
-  .note{font-size:11.5px;color:var(--gray-500);margin-top:6px}
-  .badge-new{background:#DCFCE7;color:#166534;font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px;margin-left:5px}
-  .badge-del{background:#FEE2E2;color:#991B1B;font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px;margin-left:5px;text-decoration:line-through}
-  .strike{opacity:.55}
-  .diff{max-width:1100px;margin:0 auto 18px;background:#fff;border:1px solid var(--gray-200);border-radius:12px;padding:14px 18px}
-  .diff h3{font-size:13px;margin-bottom:8px}
+  .sub{color:var(--gray-500);font-size:13px;margin-bottom:18px}
+  .wrap{max-width:760px;margin:0 auto}
+  .diff{background:#fff;border:1px solid var(--gray-200);border-radius:12px;padding:14px 18px;margin-bottom:18px}
+  .diff h3{font-size:13px;margin-bottom:9px}
   .diff table{width:100%;border-collapse:collapse;font-size:12.5px}
   .diff th,.diff td{padding:7px 9px;border-bottom:1px solid var(--gray-100);text-align:left;vertical-align:top}
   .diff th{background:#F9FAFB;color:var(--gray-600);font-weight:700}
   .yes{color:#166534;font-weight:700}.no{color:#991B1B;font-weight:700}
-  .warn{background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:12px}
+
+  /* ── 모달 목업 ── */
+  .modal{background:#fff;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.18);overflow:hidden}
+  .mtop{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:linear-gradient(90deg,#1D4ED8,#2563EB);color:#fff}
+  .mtop .t{font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .mtop .tag{background:rgba(255,255,255,.22);font-size:11px;padding:2px 9px;border-radius:11px;font-weight:700}
+  .mtop .icons{display:flex;gap:6px}
+  .iconbtn{width:30px;height:30px;border-radius:8px;border:none;background:rgba(255,255,255,.18);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .iconbtn:hover{background:rgba(255,255,255,.32)}
+  .mbody{padding:16px;max-height:none}
+
+  .fg{margin-bottom:12px}
+  .fg label{display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:5px}
+  .inp{width:100%;padding:9px 11px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;font-family:inherit}
+  textarea.inp{resize:vertical;line-height:1.5}
+  .sect{background:#F9FAFB;border:1px solid var(--gray-200);border-radius:10px;padding:11px 13px;margin-bottom:12px}
+  .sect-t{font-size:12px;font-weight:800;color:var(--gray-700);margin-bottom:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{padding:5px 11px;border:1.5px solid var(--gray-200);border-radius:18px;background:#fff;font-size:12px;font-weight:600;color:var(--gray-700)}
+  .chip.on{background:#DBEAFE;border-color:#1d4ed8;color:#1d4ed8}
+
+  /* 요청 카드 */
+  .thread-head{display:flex;align-items:center;justify-content:space-between;margin:6px 0 10px}
+  .thread-head .ttl{font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px}
+  .btn-newreq{background:var(--primary);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:800;cursor:pointer}
+  .reqcard{border:1.5px solid #BFDBFE;border-left:5px solid #1d4ed8;border-radius:11px;padding:0;margin-bottom:13px;overflow:hidden;background:#fff}
+  .reqcard .rc-head{background:#EFF6FF;padding:9px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px}
+  .pill{background:#1d4ed8;color:#fff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:11px;display:inline-flex;align-items:center;gap:4px}
+  .jobtag{background:#FEF3C7;color:#92400E;font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px}
+  .mini{font-size:11px;color:var(--gray-500)}
+  .selbox{padding:4px 8px;border:1px solid var(--gray-300);border-radius:6px;font-size:12px;background:#fff}
+  .rc-req{padding:11px 13px;font-size:13.5px;font-weight:600;color:var(--gray-800);border-bottom:1px dashed var(--gray-200)}
+  .rc-proc{padding:11px 13px}
+  .stat-row{display:flex;align-items:center;gap:16px;margin-bottom:9px;font-size:12.5px;font-weight:700}
+  .radio{display:inline-flex;align-items:center;gap:5px}
+  .equip{background:#F9FAFB;border:1px dashed var(--gray-300);border-radius:7px;padding:8px;text-align:center;color:var(--gray-400);font-size:11.5px;margin-bottom:9px}
+  .att{border:1px dashed var(--gray-300);border-radius:7px;padding:9px;color:var(--gray-500);font-size:11.5px;margin:9px 0}
+
+  /* 액션 2버튼 */
+  .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .btn{padding:11px 16px;border-radius:9px;font-size:13px;font-weight:800;border:none;cursor:pointer;font-family:inherit}
+  .btn-reg{background:var(--primary);color:#fff;flex:1;min-width:120px}
+  .btn-line{background:var(--line);color:#fff;flex:1;min-width:150px}
+  .note{font-size:11.5px;color:var(--gray-500);margin-top:7px}
+  .badge-new{background:#DCFCE7;color:#166534;font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px;margin-left:5px}
+  .badge-del{background:#FEE2E2;color:#991B1B;font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px;margin-left:5px}
+  .callout{background:#F0FDF4;border:1px solid #BBF7D0;border-radius:9px;padding:10px 13px;font-size:12px;color:#166534;margin-top:8px}
 </style>
 </head>
 <body>
-  <h1>📑 VAN 업무 등록 — 개선안 목업</h1>
-  <div class="sub">왼쪽 = 현재(AS-IS) / 오른쪽 = 개선(TO-BE). 실제 코드 반영 전 미리보기입니다.</div>
+<div class="wrap">
+  <h1>📑 VAN 업무 등록 — 개선안 목업 v2</h1>
+  <div class="sub">요청접수→등록→진행→완료 포맷 유지 · 단계별 [등록]/[등록 후 LINE 발송] · 요청건별 별도 업무 · footer 제거, 상단 아이콘만</div>
 
   <div class="diff">
-    <h3>핵심 변경 요약</h3>
+    <h3>변경 요약</h3>
     <table>
-      <tr><th style="width:30%">항목</th><th>현재 (AS-IS)</th><th>개선 (TO-BE)</th></tr>
-      <tr><td>요청접수 입력</td><td class="no">thread에 draft로 추가 → "등록된 듯" 보이나 미저장. 닫기 누르면 유실</td><td class="yes">폼의 "요청 내용" 정식 필드 → 등록 버튼 1번으로 함께 저장</td></tr>
-      <tr><td>저장 버튼</td><td class="no">"+ VAN 업무 등록" (위 요청접수와 중복 느낌)</td><td class="yes">"등록" 단일 액션 (유일한 저장)</td></tr>
-      <tr><td>취소 버튼</td><td class="no">"취소" — 등록 취소로 오해</td><td class="yes">"닫기" — 작성 중단=창 닫기로 명확</td></tr>
-      <tr><td>LINE 발송</td><td class="no">footer 체크박스 + (요청접수 단계) 중복</td><td class="yes">요청 내용 옆 한 곳으로 일원화 (footer 체크 제거)</td></tr>
-      <tr><td>status / 작성자</td><td class="no">status 미설정(undefined) · 작성자 비표준(_whoCreated)</td><td class="yes">status='접수' 설정 · createdBy=현재 사용자 기록</td></tr>
-      <tr><td>LINE 컴포저</td><td class="no">업무 창과 같은 z-index → 가려질 수 있음</td><td class="yes">항상 최상위 고정(닫기 전까지 맨 앞)</td></tr>
+      <tr><th style="width:32%">항목</th><th>현재</th><th>개선</th></tr>
+      <tr><td>단계 처리 버튼</td><td class="no">"+ 기록 추가" + "☐ 추가 후 LINE 발송" 체크박스</td><td class="yes">[등록] · [📡 등록 후 LINE 발송] 두 버튼 (등록=발송없음 / LINE=등록+발송팝업)</td></tr>
+      <tr><td>여러 요청접수</td><td class="no">한 업무 안에 여러 ROOT 누적</td><td class="yes">각 요청접수 = <b>별도 업무</b>로 구분·관리</td></tr>
+      <tr><td>하단 footer</td><td class="no">취소 / 변경 저장 / 등록 후 LINE 발송</td><td class="yes">footer 전부 <b>제거</b></td></tr>
+      <tr><td>상단</td><td class="no">제목 + ✕</td><td class="yes">제목 + <b>⛶ 최대화 · ✕ 닫기</b> 아이콘만</td></tr>
+      <tr><td>저장 방식</td><td class="no">하단 버튼으로 일괄 저장(닫기 시 유실)</td><td class="yes">각 [등록] 버튼이 즉시 저장 (유실 없음)</td></tr>
+      <tr><td>status/작성자</td><td class="no">undefined / 비표준</td><td class="yes">'접수' 설정 / createdBy 기록</td></tr>
     </table>
   </div>
 
-  <div class="cols">
-    <!-- AS-IS -->
-    <div class="panel">
-      <div class="ph asis">현재 (AS-IS)</div>
-      <div class="pbody">
-        <div class="mhead"><div class="mtitle">📑 VAN 업무 등록 <span class="tag">VAN</span></div><div class="x">✕</div></div>
-        <div class="fg"><label>점포 검색</label><input class="inp" placeholder="🔍 매장명 검색"></div>
-        <div class="sect"><div class="sect-t">VAN사 / TID</div><div class="chips"><span class="chip on">신규등록</span><span class="chip">재신고</span><span class="chip">정산</span></div></div>
-        <div class="sect req"><div class="sect-t">📋 요청사항 · 처리 기록</div>
-          <div style="background:#fff;border:1px dashed #93C5FD;border-radius:7px;padding:8px;font-size:12px;color:#1d4ed8">＋ 새 요청 접수 <span style="color:var(--gray-400)">(추가하면 아래 목록에 뜸 — 하지만 아직 저장 안 됨!)</span></div>
-          <div class="warn" style="margin-top:8px;margin-bottom:0">💡 등록 후 진행 단계 기록 가능. 우선 [+ VAN 업무 등록]으로 저장하세요.</div>
-        </div>
-        <div class="footer">
-          <span class="line-opt">☑ 📡 등록 후 LINE 발송</span>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-o">취소</button>
-            <button class="btn btn-p">+ VAN 업무 등록</button>
-          </div>
-        </div>
-        <div class="note" style="color:#991B1B">⚠ 요청접수를 추가(draft)하고 "취소"를 누르면 입력이 전부 사라짐 → "등록했는데 안 됨" 증상의 원인.</div>
+  <!-- TO-BE 모달 -->
+  <div class="modal">
+    <!-- 상단: 아이콘만 -->
+    <div class="mtop">
+      <div class="t">📑 VAN 업무 등록 <span class="tag">VAN</span></div>
+      <div class="icons">
+        <button class="iconbtn" title="최대화">⛶</button>
+        <button class="iconbtn" title="닫기">✕</button>
       </div>
     </div>
+    <div class="mbody">
+      <!-- 메타 (간략) -->
+      <div class="fg"><label>점포</label><input class="inp" value="오케이마트 상계점" readonly></div>
+      <div class="sect"><div class="sect-t">VAN사 / TID</div>
+        <div class="chips"><span class="chip on">신규등록</span><span class="chip">재신고</span><span class="chip">정산</span></div>
+      </div>
 
-    <!-- TO-BE -->
-    <div class="panel">
-      <div class="ph tobe">개선 (TO-BE)</div>
-      <div class="pbody">
-        <div class="mhead"><div class="mtitle">📑 VAN 업무 등록 <span class="tag">VAN</span></div><div class="x">✕</div></div>
-        <div class="fg"><label>점포 검색</label><input class="inp" placeholder="🔍 매장명 검색"></div>
-        <div class="sect"><div class="sect-t">VAN사 / TID</div><div class="chips"><span class="chip on">신규등록</span><span class="chip">재신고</span><span class="chip">정산</span></div></div>
+      <!-- 요청사항 · 처리 기록 -->
+      <div class="thread-head">
+        <div class="ttl">📋 요청사항 · 처리 기록 <span class="mini">(요청 2건 = 업무 2건)</span></div>
+        <button class="btn-newreq">＋ 새 요청 접수</button>
+      </div>
 
-        <!-- 요청 내용 = 정식 폼 필드 -->
-        <div class="fg">
-          <label>📝 요청 내용 (요청접수) <span class="badge-new">폼 필드로</span></label>
-          <textarea class="inp" rows="3" placeholder="예: 신규 카드가맹 신청 요청 — KOCES TID 발급 필요"></textarea>
-          <div style="margin-top:8px">
-            <label class="line-opt" style="cursor:pointer"><input type="checkbox" checked> 📡 등록 후 LINE 발송 <span class="badge-new">여기 한 곳</span></label>
-          </div>
-          <div class="note">등록을 누르면 이 내용이 <b>요청접수 기록(ROOT)</b>으로 함께 저장됩니다. 진행/완료 단계는 등록 후 이어서 기록.</div>
+      <!-- 요청 #1 (별도 업무) -->
+      <div class="reqcard">
+        <div class="rc-head">
+          <span class="pill">🔴 요청접수</span>
+          <span class="jobtag">업무 #1</span>
+          <span class="mini">이동호 · 2026-06-10 14:22</span>
+          <span style="margin-left:auto"></span>
+          <span class="mini">처리담당</span> <select class="selbox"><option>미배정</option></select>
+          <span class="mini">처리예정</span> <input class="selbox" type="date" style="width:140px">
         </div>
+        <div class="rc-req">가맹신규, 간편결제 신청 완료</div>
+        <div class="rc-proc">
+          <div class="stat-row">상태:
+            <span class="radio"><input type="radio" name="s1" checked> 🔵 진행</span>
+            <span class="radio"><input type="radio" name="s1"> ✅ 완료</span>
+            <span style="margin-left:auto"><button class="chip">🔧 + 장비 추가</button></span>
+          </div>
+          <div class="equip">투입 장비 없음 — 우측 [+ 장비 추가]</div>
+          <textarea class="inp" rows="2" placeholder="처리 내용을 입력하세요..."></textarea>
+          <div class="att">📎 첨부 (사진+파일) · 총 0B · 최대 30개</div>
+          <div class="acts">
+            <button class="btn btn-reg">등록</button>
+            <button class="btn btn-line">📡 등록 후 LINE 발송</button>
+          </div>
+          <div class="note">· <b>등록</b> = LINE 발송 없이 이 단계(진행/완료) 저장 · <b>등록 후 LINE 발송</b> = 저장 + LINE 발송 팝업(최상위)이 떠서 메시지 확인·발송</div>
+        </div>
+      </div>
 
-        <div class="footer">
-          <span style="font-size:11.5px;color:var(--gray-400)">📡 footer LINE 체크 <span class="badge-del">제거</span></span>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-o">닫기</button>
-            <button class="btn btn-p">등록</button>
+      <!-- 요청 #2 (별도 업무) -->
+      <div class="reqcard" style="border-left-color:#06A647;border-color:#BBF7D0">
+        <div class="rc-head" style="background:#F0FDF4">
+          <span class="pill" style="background:#06A647">🔴 요청접수</span>
+          <span class="jobtag">업무 #2</span>
+          <span class="mini">한소현 · 2026-06-10 15:10</span>
+          <span style="margin-left:auto"></span>
+          <span class="mini">처리담당</span> <select class="selbox"><option>김기사</option></select>
+          <span class="mini">처리예정</span> <input class="selbox" type="date" style="width:140px">
+        </div>
+        <div class="rc-req">단말기 통신 오류 — 재설정 요청</div>
+        <div class="rc-proc">
+          <div class="stat-row">상태:
+            <span class="radio"><input type="radio" name="s2" checked> 🔵 진행</span>
+            <span class="radio"><input type="radio" name="s2"> ✅ 완료</span>
+          </div>
+          <textarea class="inp" rows="2" placeholder="처리 내용을 입력하세요..."></textarea>
+          <div class="acts">
+            <button class="btn btn-reg">등록</button>
+            <button class="btn btn-line">📡 등록 후 LINE 발송</button>
           </div>
         </div>
-        <div class="note" style="color:#166534">✓ 요청 내용은 폼의 일부 → "등록" 한 번으로 저장. "닫기"는 작성 중단일 뿐이라 혼란 없음.</div>
+      </div>
+
+      <div class="callout">
+        💡 <b>요청접수 1건 = 업무 1건</b>. "＋ 새 요청 접수"를 누를 때마다 같은 매장의 <b>새로운 업무</b>가 생기며 각각 진행/완료를 독립 관리합니다.<br>
+        🚫 하단 footer 없음 — 모든 저장은 각 카드의 <b>[등록]</b> 버튼으로 즉시 처리. 창은 상단 <b>⛶/✕</b> 아이콘으로만 조작.
       </div>
     </div>
   </div>
 
-  <div class="diff" style="margin-top:18px">
-    <h3>📡 "등록 후 LINE 발송" 동작 (TO-BE)</h3>
-    <div style="font-size:12.5px;color:var(--gray-600)">체크 후 [등록] → 저장 완료 → <b>LINE 발송창이 화면 최상위에 고정</b>되어 뜸(업무 창보다 앞). 메시지 확인·편집 후 발송하거나 닫기 전까지 맨 앞 유지.</div>
-  </div>
-
-  <div class="diff" style="margin-top:14px;background:#F0F9FF;border-color:#BAE6FD">
+  <div class="diff" style="margin-top:18px;background:#F0F9FF;border-color:#BAE6FD">
     <h3>적용 범위</h3>
-    <div style="font-size:12.5px;color:var(--gray-700)">VAN · 신규 · AS · 소모품 · 재고조사 등록 모달 + 모바일 SPA 동일 패턴 통일 (요청접수=폼 필드 / 단일 등록 / 닫기 / LINE 일원화 / status·작성자 기록 / 컴포저 최상위)</div>
+    <div style="font-size:12.5px;color:var(--gray-700)">VAN · 신규 · AS · 소모품 · 재고조사 등록/상세 모달 + 모바일 SPA 동일 패턴 통일</div>
   </div>
+</div>
 </body>
 </html>
