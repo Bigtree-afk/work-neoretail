@@ -581,7 +581,13 @@
     return 'as';
   };
 
-  // 🔢 사업자등록번호 입력 자동 포맷 — 숫자만 입력해도 XXX-XX-XXXXX (3-2-5) 자동 삽입
+  // 🔢 사업자등록번호 표시용 포맷 — 10자리 숫자면 XXX-XX-XXXXX, 아니면 원본 그대로(비표준 값 보존)
+  window._bizFmt = function(v) {
+    const d = String(v || '').replace(/\D/g, '');
+    if (d.length === 10) return d.slice(0,3) + '-' + d.slice(3,5) + '-' + d.slice(5);
+    return String(v || '');
+  };
+  // 🔢 사업자등록번호 입력 자동 포맷 — 숫자만 입력해도 XXX-XX-XXXXX (3-2-5) 자동 삽입 (부분 입력도 단계 포맷)
   window._fmtBizNo = function(el) {
     if (!el) return;
     const d = String(el.value || '').replace(/\D/g, '').slice(0, 10);
@@ -590,6 +596,37 @@
     else if (d.length > 3) out = d.slice(0,3) + '-' + d.slice(3);
     el.value = out;
   };
+
+  // 🔢 기존 매장 사업자번호 일괄 표준화 (1회, idempotent) — 이카운트 import 등으로 들어온
+  //   미정규화(10자리 raw 등) biz 를 XXX-XX-XXXXX 로 변환. 변경된 매장만 fieldUpdatedAt.biz 갱신 후 저장(push)
+  //   → 모든 표시 지점(목록/상세/검색)이 자동으로 규격화된 값을 보여줌.
+  setTimeout(function _bizFmtMigrate() {
+    try {
+      if (localStorage.getItem('ns_biz_fmt_v1')) return;
+      const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+      if (!stores.length) { return; }  // 아직 매장 로드 전 → 플래그 안 남기고 다음 기회에
+      let changed = 0;
+      stores.forEach(s => {
+        if (!s) return;
+        const cur = String(s.biz || s.bizno || '');
+        const d = cur.replace(/\D/g, '');
+        if (d.length === 10) {
+          const fmt = d.slice(0,3) + '-' + d.slice(3,5) + '-' + d.slice(5);
+          if (s.biz !== fmt) {
+            s.biz = fmt;
+            try { if (typeof _touchStore === 'function') _touchStore(s, ['biz']); } catch(_){}
+            changed++;
+          }
+        }
+      });
+      localStorage.setItem('ns_biz_fmt_v1', String(Date.now()));
+      if (changed > 0 && typeof saveStores === 'function') {
+        saveStores(stores);   // dirty + push (per-field merge 로 다른 기기에도 전파)
+        console.log('[bizfmt] 사업자번호 표준화 ' + changed + '개 매장');
+        try { if (typeof hydrateSavedStores === 'function') hydrateSavedStores(); } catch(_){}
+      }
+    } catch(e) { console.warn('[bizfmt migrate]', e); }
+  }, 4000);
 
   /* ── 카테고리 이동 (F-3) ── */
   // 잘못 분류된 업무를 다른 메뉴 카테고리로 이동
