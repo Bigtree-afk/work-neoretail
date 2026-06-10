@@ -1908,7 +1908,7 @@
         <!-- 사업자번호 -->
         <div class="form-group" style="margin:0">
           <label>사업자등록번호 <span class="field-badge warn" id="badge-biz" style="display:none">⚠ 확인필요</span></label>
-          <input type="text" id="f-biz" placeholder="000-00-00000">
+          <input type="text" id="f-biz" inputmode="numeric" maxlength="12" placeholder="000-00-00000" oninput="window._fmtBizNo&&window._fmtBizNo(this)">
         </div>
         <!-- 주소 (full width) -->
         <div class="form-group" style="margin:0;grid-column:1/-1">
@@ -2479,7 +2479,7 @@
           <div style="font-size:11px;color:#92400E;font-weight:700;margin-bottom:6px">⚠ 미등록 가맹점 모드 — 정식 등록 전 임시 입력</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <div><div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">점포명</div><input type="text" id="vanUnregName" placeholder="가맹점 상호"></div>
-            <div><div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">사업자번호</div><input type="text" id="vanUnregBiz" placeholder="123-45-67890"></div>
+            <div><div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">사업자번호</div><input type="text" id="vanUnregBiz" inputmode="numeric" maxlength="12" placeholder="123-45-67890" oninput="window._fmtBizNo&&window._fmtBizNo(this)"></div>
             <div><div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">대표자</div><input type="text" id="vanUnregCeo" placeholder="대표자 성함"></div>
             <div><div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">연락처</div><input type="text" id="vanUnregTel" placeholder="010-0000-0000"></div>
             <div style="grid-column:1/-1"><div style="font-size:10px;color:#92400E;font-weight:600;margin-bottom:3px">주소</div><input type="text" id="vanUnregAddr" placeholder="가맹점 주소"></div>
@@ -3930,6 +3930,6 @@
   </button>
 </div>
 
-<script src="/app.js?v=2026-06-10-vansticky" defer></script>
+<script src="/app.js?v=2026-06-10-bizfix" defer></script>
 </body>
 </html>

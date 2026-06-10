@@ -581,6 +581,16 @@
     return 'as';
   };
 
+  // 🔢 사업자등록번호 입력 자동 포맷 — 숫자만 입력해도 XXX-XX-XXXXX (3-2-5) 자동 삽입
+  window._fmtBizNo = function(el) {
+    if (!el) return;
+    const d = String(el.value || '').replace(/\D/g, '').slice(0, 10);
+    let out = d;
+    if (d.length > 5)      out = d.slice(0,3) + '-' + d.slice(3,5) + '-' + d.slice(5);
+    else if (d.length > 3) out = d.slice(0,3) + '-' + d.slice(3);
+    el.value = out;
+  };
+
   /* ── 카테고리 이동 (F-3) ── */
   // 잘못 분류된 업무를 다른 메뉴 카테고리로 이동
   // lineCategory 를 캐노니컬 토큰으로 강제 설정해 classifyJobCategory 결과를 바꿈
@@ -19427,10 +19437,10 @@ ${text.slice(0, 4000)}`;
         if (storeIdKey && (j.storeId === storeIdKey)) return true;
         const s = (j.store || j.storeName || '').trim();
         if (!s) return false;
-        // (2) 정규화 매칭 (본명 또는 aliases)
+        // (2) 정규화 매칭 (본명 또는 aliases) — 정확 일치만
         if (matchNorms.has(normFn(s))) return true;
-        // (3) fallback: 부분 일치 (구버전 데이터 호환)
-        if (nameKey && (s === nameKey || s.includes(nameKey) || nameKey.includes(s))) return true;
+        // (3) ❌ 부분 문자열 포함 매칭 제거 — "오케이마트" ⊂ "여주오케이마트" 처럼 다른 매장의
+        //     작업이 섞여 들어오던 교차 오매칭의 원인. storeId + 정규화 정확일치(본명/aliases)만 신뢰.
         return false;
       });
       // 최신순 정렬
