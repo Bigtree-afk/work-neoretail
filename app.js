@@ -15705,6 +15705,8 @@ ${text.slice(0, 4000)}`;
       id: 'JOB-'+now.toString(36).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase(),
       type: cat,
       lineCategory: 'van_doc',
+      status: '접수',   // 🐛 fix: status 미설정(undefined) → 화면/필터 누락되던 문제
+      createdBy: (typeof _currentUserName === 'function' ? (_currentUserName() || '익명') : (me || '익명')),  // 🐛 fix: 작성자 표준 필드 기록
       storeId,
       storeName,
       store: storeName,
@@ -15754,6 +15756,8 @@ ${text.slice(0, 4000)}`;
           // 기존 id/createdAt/thread 보존, 폼 값으로 덮어쓰기 (thread 는 별도 _setThreadFor 로 관리됨)
           newJob.id = existing.id;
           newJob.createdAt = existing.createdAt || newJob.createdAt;
+          newJob.createdBy = existing.createdBy || newJob.createdBy;   // 작성자 보존
+          newJob.status = existing.status || newJob.status;             // status 보존
           newJob.thread = Array.isArray(existing.thread) ? existing.thread : newJob.thread;
           newJob.memos  = Array.isArray(existing.memos)  ? existing.memos  : newJob.memos;
           newJob.lineHistory = Array.isArray(existing.lineHistory) ? existing.lineHistory : [];
