@@ -15976,15 +15976,11 @@ ${text.slice(0, 4000)}`;
     const newRootAttId = containerId + '__newroot_att';
     const newRootFormHtml = newRootOpen ? `
       <div style="background:#fff;border:1px solid #BFDBFE;border-top:none;padding:10px 12px">
-        <div style="display:flex;gap:6px">
-          <textarea id="${escFn(containerId)}__newroot" placeholder="새 요청 내용을 입력하세요..." style="flex:1;min-height:46px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
-          <button type="button" class="btn btn-primary btn-sm" onclick="window._submitNewRoot('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode})" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">등록</button>
-        </div>
+        <textarea id="${escFn(containerId)}__newroot" placeholder="새 요청 내용을 입력하세요..." style="width:100%;min-height:48px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
         <div id="${escFn(newRootAttId)}" style="margin-top:6px"></div>
-        <div style="margin-top:6px;display:flex;align-items:center;gap:5px">
-          <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:14px;cursor:pointer;font-size:11px;font-weight:700;color:#06A647">
-            <input type="checkbox" id="${escFn(containerId)}__newroot_line" style="accent-color:#06C755;margin:0"> 📡 등록 후 LINE 발송
-          </label>
+        <div style="margin-top:8px;display:flex;gap:7px">
+          <button type="button" class="btn btn-primary btn-sm" onclick="window._submitNewRoot('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},false)" style="flex:1;padding:9px;font-size:12.5px;font-weight:800">등록</button>
+          <button type="button" class="btn btn-sm" onclick="window._submitNewRoot('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},true)" style="flex:1;padding:9px;font-size:12.5px;font-weight:800;background:#06C755;color:#fff;border:none">📡 등록 후 LINE 발송</button>
         </div>
       </div>` : '';
 
@@ -16083,15 +16079,11 @@ ${text.slice(0, 4000)}`;
                 <button type="button" onclick="window._openChildEquipAdd('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}','${escFn(formId)}')" style="margin-left:auto;background:#fff;color:#1E40AF;border:1px solid #1E40AF;border-radius:14px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer">🔧 ＋ 장비 추가</button>
               </div>
               <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:6px">${eqListHtml}</div>
-              <div style="display:flex;gap:6px">
-                <textarea id="${escFn(formId)}_text" placeholder="처리 내용을 입력하세요..." style="flex:1;min-height:42px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
-                <button type="button" class="btn btn-primary btn-sm" onclick="window._submitChild('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}','${escFn(formId)}')" style="white-space:nowrap;align-self:flex-end;padding:7px 14px;font-size:11.5px">＋ 기록 추가</button>
-              </div>
+              <textarea id="${escFn(formId)}_text" placeholder="처리 내용을 입력하세요..." style="width:100%;min-height:44px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
               <div id="${escFn(formId)}_att" style="margin-top:6px"></div>
-              <div style="margin-top:6px;display:flex;align-items:center;gap:5px">
-                <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:14px;cursor:pointer;font-size:11px;font-weight:700;color:#06A647">
-                  <input type="checkbox" id="${escFn(formId)}_line" style="accent-color:#06C755;margin:0"> 📡 추가 후 LINE 발송
-                </label>
+              <div style="margin-top:8px;display:flex;gap:7px">
+                <button type="button" class="btn btn-primary btn-sm" onclick="window._submitChild('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}','${escFn(formId)}',false)" style="flex:1;padding:9px;font-size:12.5px;font-weight:800">등록</button>
+                <button type="button" class="btn btn-sm" onclick="window._submitChild('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}','${escFn(formId)}',true)" style="flex:1;padding:9px;font-size:12.5px;font-weight:800;background:#06C755;color:#fff;border:none">📡 등록 후 LINE 발송</button>
               </div>
             </div>`;
           }
@@ -16364,14 +16356,16 @@ ${text.slice(0, 4000)}`;
   };
 
   // 새 ROOT 제출 — AS draft 모드인 경우 즉시 live 저장으로 전환 (Fix A)
-  window._submitNewRoot = function(containerId, jobId, draftMode) {
+  window._submitNewRoot = function(containerId, jobId, draftMode, lineOverride) {
     const ta = document.getElementById(containerId + '__newroot');
     const text = (ta && ta.value || '').trim();
     if (!text) { try { showToast('내용을 입력하세요'); } catch(e){} return; }
     const ts = _kstNow();
     const who = _whoNow();
-    // 📡 LINE 발송 체크 상태 (저장 후 컴포저 열기)
-    const wantLine = !!document.getElementById(containerId + '__newroot_line')?.checked;
+    // 📡 LINE 발송 — [등록 후 LINE 발송] 버튼이면 true / [등록] 이면 false. (구 체크박스 fallback)
+    const wantLine = (typeof lineOverride === 'boolean')
+      ? lineOverride
+      : !!document.getElementById(containerId + '__newroot_line')?.checked;
     // 첨부 회수
     const attKey = '__newroot__' + (jobId || 'draft');
     window._threadFormAttachments = window._threadFormAttachments || {};
@@ -16533,11 +16527,13 @@ ${text.slice(0, 4000)}`;
   };
 
   // child 제출
-  window._submitChild = function(containerId, jobId, draftMode, rootId, formId) {
+  window._submitChild = function(containerId, jobId, draftMode, rootId, formId, lineOverride) {
     const ta = document.getElementById(formId + '_text');
     const text = (ta && ta.value || '').trim();
-    // 📡 LINE 발송 체크 상태
-    const wantLine = !!document.getElementById(formId + '_line')?.checked;
+    // 📡 LINE 발송 — [등록 후 LINE 발송] 버튼이면 lineOverride=true, [등록] 이면 false. (구 체크박스 fallback)
+    const wantLine = (typeof lineOverride === 'boolean')
+      ? lineOverride
+      : !!document.getElementById(formId + '_line')?.checked;
     // 폼별 투입 장비 임시 목록 회수
     window._threadChildEquipDraft = window._threadChildEquipDraft || {};
     const eqList = (window._threadChildEquipDraft[formId] || []).slice();
