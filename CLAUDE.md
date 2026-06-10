@@ -636,6 +636,30 @@ function fmtNum(el){
 - bulk patch endpoint (예: `/api/stores-patch-ecount`) 결과가 client push 에 덮이는 race condition
 - KV 의 신규 데이터가 30~60초간 사라졌다 나타났다 반복
 
+### 🏪 매장 ↔ 작업 매칭 규칙 (필수 — 2026-06-10, 오케이마트 교차오염 사고)
+
+**원칙**: 매장 상세·이력 등에서 "이 매장의 작업"을 고를 때 매칭은 **오직 두 가지만**:
+1. **storeId 정확 일치** (`job.storeId === store.id`)
+2. **정규화 이름 정확 일치** (본명 또는 `aliases` — `_normalizeSearch` 후 `===`)
+
+**🔴 절대 금지 — 부분 문자열 포함 매칭**:
+```js
+// 🔴 금지: 다른 매장 작업이 섞여 들어옴
+if (s.includes(nameKey) || nameKey.includes(s)) return true;
+```
+- `"오케이마트"` ⊂ `"오케이마트주식회사"`, `"그린마트"` ⊂ `"현대그린마트(목동)"`, `"백제한우"` ⊂ `"백제한우 부평점"` 처럼 **상호가 다른 상호의 부분문자열인 모든 쌍**에서 교차오염 발생. (2026-06-10 감사: 작업 보유 매장 기준 **286쌍**이 영향권이었음 — 병합 안 했는데 합쳐져 보이는 사고.)
+
+**storeId 무결성**: 작업의 `storeId` 는 **그 작업 storeName 과 정규화 이름이 일치하는 매장**을 가리켜야 한다. storeId 가 엉뚱한 매장을 가리키면(오연결) 정확일치 매칭에서도 잘못된 매장에 노출됨. 자동 연결·import 시 이름 검증 필수.
+
+**점검 명령**:
+```bash
+# 부분일치 store 매칭이 새로 들어왔는지 (검색창 .includes(search) 제외)
+grep -rnE "includes\(nameKey\)|nameKey\.includes|s\.includes\(.*[Ss]tore" app.js m-core.js
+# → 매장-작업 매칭부에 0 이어야 함
+```
+
+**구현 위치**: 매장 상세 작업 이력(`_hubRenderGroup`/store detail `matched`), hub 그룹화(`_hubGroupByStore` — 이미 storeId/정규화 키), 신규/AS 자동 통합(`saveNewJob`/`approvePending` — 정규화 정확일치 사용).
+
 ## 운영 규칙
 
 ### 🚨 파싱 오류 알림 (필수)
