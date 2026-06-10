@@ -57,10 +57,17 @@
   .stat-row{display:flex;align-items:center;gap:14px;margin:4px 0 9px;font-size:12.5px;font-weight:700}
   .radio{display:inline-flex;align-items:center;gap:5px}
   .att{border:1px dashed var(--gray-300);border-radius:8px;padding:9px;color:var(--gray-400);font-size:11px;margin:9px 0;text-align:center}
+  /* 처리 이력 (진행/완료 일자) — 심플 */
+  .timeline{margin:2px 0 10px}
+  .tl-item{font-size:11.5px;color:var(--gray-700);padding:5px 9px;border-left:3px solid var(--gray-300);background:#FAFBFC;border-radius:0 6px 6px 0;margin-bottom:5px}
+  .tl-item.prog{border-left-color:#2563EB}
+  .tl-item.done{border-left-color:#16A34A;background:#F0FDF4}
+  .tl-d{font-weight:800;color:var(--gray-500);margin:0 3px}
+  .tl-who{color:var(--gray-400);font-size:10.5px}
 
-  /* 모바일 — 액션 2버튼 풀폭 스택 */
-  .acts{display:flex;flex-direction:column;gap:8px;margin-top:6px}
-  .btn{padding:13px;border-radius:10px;font-size:14px;font-weight:800;border:none;cursor:pointer;font-family:inherit;width:100%}
+  /* 모바일 — 액션 2버튼 한 줄 */
+  .acts{display:flex;flex-direction:row;gap:8px;margin-top:6px}
+  .btn{padding:12px 10px;border-radius:10px;font-size:13px;font-weight:800;border:none;cursor:pointer;font-family:inherit;flex:1}
   .btn-reg{background:var(--primary);color:#fff}
   .btn-line{background:var(--line);color:#fff}
   .note{font-size:11px;color:var(--gray-500);margin-top:8px;line-height:1.55}
@@ -122,6 +129,11 @@
           </div>
           <div class="rc-req">가맹신규, 간편결제 신청 완료</div>
           <div class="rc-proc">
+            <!-- 처리 이력 (진행/완료 일자 자동 기록) — 최신순 한 줄씩 -->
+            <div class="timeline">
+              <div class="tl-item done">✅ 완료 <span class="tl-d">06-11 09:00</span> 설치 완료·정상 확인 <span class="tl-who">· 김기사</span></div>
+              <div class="tl-item prog">🔵 진행 <span class="tl-d">06-10 14:30</span> 현장 방문·TID 발급 <span class="tl-who">· 김기사</span></div>
+            </div>
             <div class="stat-row">상태:
               <span class="radio"><input type="radio" name="m1" checked> 🔵 진행</span>
               <span class="radio"><input type="radio" name="m1"> ✅ 완료</span>
@@ -129,10 +141,10 @@
             <textarea class="inp" rows="2" placeholder="처리 내용을 입력하세요..."></textarea>
             <div class="att">📎 사진+파일 추가 · 최대 30개</div>
             <div class="acts">
-              <button class="btn btn-line">📡 등록 후 LINE 발송</button>
-              <button class="btn btn-reg">등록 (발송 없음)</button>
+              <button class="btn btn-reg">등록</button>
+              <button class="btn btn-line">📡 등록 후 LINE</button>
             </div>
-            <div class="note">· <b>등록</b> = 저장만 · <b>등록 후 LINE 발송</b> = 저장 + LINE 발송 시트가 화면 위로 올라옴(아래 화면)</div>
+            <div class="note">· [등록] 시 위 <b>처리 이력</b>에 진행/완료가 <b>일자와 함께 기록</b> · [📡 등록 후 LINE] = 저장 + LINE 시트가 위로 올라옴(아래 화면)</div>
           </div>
         </div>
 
@@ -150,8 +162,8 @@
             </div>
             <textarea class="inp" rows="2" placeholder="처리 내용을 입력하세요..."></textarea>
             <div class="acts">
-              <button class="btn btn-line">📡 등록 후 LINE 발송</button>
-              <button class="btn btn-reg">등록 (발송 없음)</button>
+              <button class="btn btn-reg">등록</button>
+              <button class="btn btn-line">📡 등록 후 LINE</button>
             </div>
           </div>
         </div>
@@ -202,7 +214,8 @@
     <table>
       <tr><th style="width:25%">항목</th><th>PC</th><th>모바일</th></tr>
       <tr><td>창</td><td>중앙 모달 + ⛶최대화·✕닫기 아이콘</td><td class="yes">풀페이지(이미 전체화면) + 상단 ← 닫기 (최대화 불필요)</td></tr>
-      <tr><td>단계 버튼</td><td>[등록] · [📡 등록 후 LINE 발송] 가로</td><td class="yes">풀폭 세로 스택 (엄지 조작)</td></tr>
+      <tr><td>단계 버튼</td><td>[등록] · [📡 등록 후 LINE 발송] 가로</td><td class="yes">[등록] · [📡 등록 후 LINE] <b>한 줄(가로)</b></td></tr>
+      <tr><td>처리 이력</td><td colspan="2" class="yes">동일 — [등록] 시 진행/완료가 <b>일자와 함께 자동 기록</b>, 카드 안에 한 줄씩 최신순 표시(심플)</td></tr>
       <tr><td>요청건</td><td colspan="2" class="yes">동일 — 요청접수 1건 = 업무 1건, "＋새 요청"마다 새 업무</td></tr>
       <tr><td>저장</td><td colspan="2" class="yes">동일 — 각 [등록]이 즉시 저장, 하단 저장/취소 없음</td></tr>
       <tr><td>LINE 발송</td><td>최상위 모달</td><td class="yes">하단에서 올라오는 시트(최상위 고정)</td></tr>
