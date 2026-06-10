@@ -737,8 +737,8 @@
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     const storeById = new Map();
     const storeByName = new Map();
-    const normFn = (typeof _normalizeSearch === 'function')
-                  ? _normalizeSearch
+    const normFn = (typeof _normStoreKey === 'function')
+                  ? _normStoreKey
                   : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
     stores.forEach(s => {
       if (s.id) storeById.set(s.id, s);
@@ -784,8 +784,8 @@
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     const idSet = new Set(stores.filter(s => s.id).map(s => s.id));
-    const normFn = (typeof _normalizeSearch === 'function')
-                  ? _normalizeSearch
+    const normFn = (typeof _normStoreKey === 'function')
+                  ? _normStoreKey
                   : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
     const nameSet = new Set(stores.map(s => normFn(s.name||'')).filter(Boolean));
     const orphans = { byId:[], byName:[], noStore:[] };
@@ -818,8 +818,8 @@
   window.relinkJobsByName = function() {
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
-    const normFn = (typeof _normalizeSearch === 'function')
-                  ? _normalizeSearch
+    const normFn = (typeof _normStoreKey === 'function')
+                  ? _normStoreKey
                   : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
     const storeByName = new Map();
     stores.forEach(s => { const n = (s.name||'').trim(); if (n) storeByName.set(normFn(n), s); });
@@ -6842,7 +6842,7 @@ ${text.slice(0, 4000)}`;
       if (isAs && !job.unregistered) {
         const isDoneFn = (typeof window._isJobDone === 'function') ? window._isJobDone : () => false;
         const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
-        const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+        const normFn = (typeof _normStoreKey === 'function') ? _normStoreKey : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
         const target = normFn(job.storeName);
         const candIdxs = [];
         jobs.forEach((j, idx) => {
@@ -11396,8 +11396,8 @@ ${text.slice(0, 4000)}`;
     }
     const classifyFn = window.classifyJobCategory || (() => 'as');
     const isDoneFn = window._isJobDone || (j => j.completed || /완료/.test(j.status||''));
-    const normFn = (typeof _normalizeSearch === 'function')
-                  ? _normalizeSearch
+    const normFn = (typeof _normStoreKey === 'function')
+                  ? _normStoreKey
                   : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
 
     // 매장별 AS 업무 묶기 — 명시적 AS 시그널만 합병 대상 (신규 fallthrough 보호)
@@ -12253,7 +12253,7 @@ ${text.slice(0, 4000)}`;
   // (편집 X — VAN 메뉴/매장 상세 모달에서만 편집. 신규 폼은 조회 전용)
   function _findStoreByNameOrBiz(name, biz) {
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
-    const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s=>String(s||'').toLowerCase().replace(/\s+/g,''));
+    const normFn = (typeof _normStoreKey === 'function') ? _normStoreKey : (s=>String(s||'').toLowerCase().replace(/\s+/g,''));
     const bNorm = String(biz||'').replace(/\D/g,'');
     if (bNorm && bNorm.length === 10) {
       const m = stores.find(s => String(s.biz||s.bizno||s.businessNumber||'').replace(/\D/g,'') === bNorm);
@@ -12343,7 +12343,7 @@ ${text.slice(0, 4000)}`;
     const el = document.getElementById('jobStoreVanProfile');
     if (!el) return;
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
-    const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+    const normFn = (typeof _normStoreKey === 'function') ? _normStoreKey : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
     const nNorm = normFn(name);
     const bNorm = String(biz||'').replace(/\D/g,'');
     // 매장 매칭 — 사업자번호 우선, 매장명 fallback
@@ -12398,7 +12398,7 @@ ${text.slice(0, 4000)}`;
     // Fix B: 동일 매장 재호출이면 draft/UI 보존
     const sameStoreAsLast = (window._lastAsInlineStore === storeName);
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
-    const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+    const normFn = (typeof _normStoreKey === 'function') ? _normStoreKey : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
     const isDone = (typeof window._isJobDone === 'function') ? window._isJobDone : () => false;
     const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
     const target = normFn(storeName);
@@ -12483,7 +12483,7 @@ ${text.slice(0, 4000)}`;
       return;
     }
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
-    const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+    const normFn = (typeof _normStoreKey === 'function') ? _normStoreKey : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
     const target = normFn(storeName);
     const isDone = (typeof window._isJobDone === 'function') ? window._isJobDone : () => false;
     const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
@@ -16481,7 +16481,7 @@ ${text.slice(0, 4000)}`;
       if (!storeName) { try { showToast('점포명을 먼저 입력하세요'); } catch(e){} return; }
       try {
         const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
-        const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+        const normFn = (typeof _normStoreKey === 'function') ? _normStoreKey : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
         const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
         const target = normFn(storeName);
         // Fix C: completed 도 포함하여 매장당 단일 AS 로그를 유지 — 진행중 우선
@@ -19465,19 +19465,24 @@ ${text.slice(0, 4000)}`;
       try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e) {}
       const nameKey = (displayName || '').trim();
       // 매장의 모든 식별자 (id + 본명 + aliases) 의 정규화 set
-      const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+      const normFn = (typeof _normStoreKey === 'function') ? _normStoreKey : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
       const aliasNames = Array.isArray(store?.aliases) ? store.aliases : [];
       const matchNorms = new Set([nameKey, ...aliasNames].filter(Boolean).map(normFn));
       const storeIdKey = store?.id || store?.storeId;
+      // 매장DB의 유효 id 집합 — '다른 매장에 명시 연결된 작업' 판별용 (1회 계산)
+      const _allStoreIds = (() => { try { return new Set(((typeof getStores === 'function') ? (getStores() || []) : []).map(s => s && s.id).filter(Boolean)); } catch(_) { return new Set(); } })();
       const matched = jobs.filter(j => {
-        // (1) storeId 매칭
+        // (1) storeId 매칭 — storeId 가 진실의 원천
         if (storeIdKey && (j.storeId === storeIdKey)) return true;
+        // (1b) 🛡 다른 '실존' 매장에 storeId 로 연결된 작업은 이름이 같아도 제외 —
+        //      storeName/storeId 가 엇갈린 작업이 두 매장에 동시 노출되는 것 구조적 차단
+        //      ("한 작업 = 정확히 한 매장"). storeId 가 매장DB에 없는 dangling 이면 이름 fallback 유지.
+        if (j.storeId && storeIdKey && j.storeId !== storeIdKey && _allStoreIds.has(j.storeId)) return false;
         const s = (j.store || j.storeName || '').trim();
         if (!s) return false;
         // (2) 정규화 매칭 (본명 또는 aliases) — 정확 일치만
         if (matchNorms.has(normFn(s))) return true;
-        // (3) ❌ 부분 문자열 포함 매칭 제거 — "오케이마트" ⊂ "여주오케이마트" 처럼 다른 매장의
-        //     작업이 섞여 들어오던 교차 오매칭의 원인. storeId + 정규화 정확일치(본명/aliases)만 신뢰.
+        // (3) ❌ 부분 문자열 포함 매칭 제거 — "오케이마트" ⊂ "여주오케이마트" 교차 오매칭 원인. 금지.
         return false;
       });
       // 최신순 정렬
@@ -19865,7 +19870,7 @@ ${text.slice(0, 4000)}`;
         if (!el) return;
         const allJobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
         const classifyFn = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory : () => 'as';
-        const normFn = (typeof _normalizeSearch === 'function') ? _normalizeSearch : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
+        const normFn = (typeof _normStoreKey === 'function') ? _normStoreKey : (s => String(s||'').toLowerCase().replace(/\s+/g,''));
         const target = normFn(storeName||'');
         const asJobs = allJobs.filter(j => {
           if (classifyFn(j) !== 'as') return false;
@@ -20593,11 +20598,11 @@ ${text.slice(0, 4000)}`;
       const jobs = getJobs();
       const mergedName = merged.name || '';
       const survivorName = survivor.name || '';
-      const mergedNorm = _normalizeSearch ? _normalizeSearch(mergedName) : mergedName.toLowerCase();
+      const mergedNorm = _normStoreKey ? _normStoreKey(mergedName) : mergedName.toLowerCase();
       // merged 의 모든 별칭 (자기 이름 포함) 의 정규화 형태 set
       const mergedAliasesNorm = new Set([mergedName, ...(merged.aliases || [])]
         .filter(Boolean)
-        .map(s => _normalizeSearch ? _normalizeSearch(s) : s.toLowerCase()));
+        .map(s => _normStoreKey ? _normStoreKey(s) : s.toLowerCase()));
 
       jobs.forEach(j => {
         const changed = {};
@@ -20607,7 +20612,7 @@ ${text.slice(0, 4000)}`;
         // (b) store/storeName 의 정규화 매칭 (variants/whitespace/괄호 위치 흡수)
         const jStore = j.store || j.storeName || '';
         if (jStore) {
-          const jNorm = _normalizeSearch ? _normalizeSearch(jStore) : jStore.toLowerCase();
+          const jNorm = _normStoreKey ? _normStoreKey(jStore) : jStore.toLowerCase();
           if (mergedAliasesNorm.has(jNorm)) {
             if ('store' in j) { changed.store = j.store; j.store = survivorName; }
             if ('storeName' in j) { changed.storeName = j.storeName; j.storeName = survivorName; }
@@ -20922,6 +20927,13 @@ ${text.slice(0, 4000)}`;
       // 모든 공백 제거
       .replace(/\s+/g, '');
   }
+  /* 🔑 매장 식별 키 — 소문자 + 공백 제거만. ⚠ 법인표기(주식회사/(주))를 보존한다!
+     _normalizeSearch 는 법인표기를 지워 '오케이마트'와 '오케이마트주식회사'가 같은 키가 됨 →
+     별개 매장이 이름으로 사실상 병합되는 교차오염(2026-06-10 사고). 식별 비교는 반드시 이 함수. */
+  function _normStoreKey(s) {
+    return String(s||'').toLowerCase().replace(/\s+/g, '');
+  }
+  window._normStoreKey = _normStoreKey;
   /* 검색 범위 → 매장에서 검색 대상이 되는 필드만 추출 (모든 검색 지점 공통) */
   function _storeFieldsForScope(s, scope) {
     if (!s) return [];

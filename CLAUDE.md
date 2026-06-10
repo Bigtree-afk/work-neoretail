@@ -639,10 +639,17 @@ function fmtNum(el){
 ### 🏪 매장 ↔ 작업 매칭 규칙 (필수 — 2026-06-10, 오케이마트 교차오염 사고)
 
 **원칙**: 매장 상세·이력 등에서 "이 매장의 작업"을 고를 때 매칭은 **오직 두 가지만**:
-1. **storeId 정확 일치** (`job.storeId === store.id`)
-2. **정규화 이름 정확 일치** (본명 또는 `aliases` — `_normalizeSearch` 후 `===`)
+1. **storeId 정확 일치** (`job.storeId === store.id`) — 유효한 storeId 가 **다른 실존 매장**을 가리키면 이름이 같아도 제외 (**한 작업 = 정확히 한 매장**)
+2. **식별 키 정확 일치** (본명 또는 `aliases` — **`_normStoreKey`**(소문자+공백제거만) 후 `===`)
 
-**🔴 절대 금지 — 부분 문자열 포함 매칭**:
+**🔴 절대 금지 ① — `_normalizeSearch` 를 식별 비교에 사용**:
+`_normalizeSearch` 는 법인표기(주식회사/(주) 등)를 제거하는 **검색 전용** 함수다.
+`_normStoreKey('오케이마트') ≠ _normStoreKey('오케이마트주식회사')` 이지만
+`_normalizeSearch` 는 둘 다 `'오케이마트'` 로 만들어 **별개 매장이 이름으로 사실상 병합**된다
+(2026-06-10 오케이마트(노원) ↔ 오케이마트주식회사(여주) 교차오염 — 양쪽에 같은 작업 노출, 한쪽 삭제 시 양쪽 소실).
+매장 식별·그룹화·자동 재연결·AS 통합·병합 rerouting 은 **반드시 `_normStoreKey`**.
+
+**🔴 절대 금지 ② — 부분 문자열 포함 매칭**:
 ```js
 // 🔴 금지: 다른 매장 작업이 섞여 들어옴
 if (s.includes(nameKey) || nameKey.includes(s)) return true;

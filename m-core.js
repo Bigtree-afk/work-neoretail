@@ -1122,6 +1122,10 @@
       .replace(/[._\-·\/\\,'"!?@#%&*+=:;|~`]/g, '')
       .replace(/\s+/g, '');
   }
+  /* 🔑 매장 식별 키 — 소문자+공백 제거만, 법인표기 보존. (검색용 _normalizeSearch 와 구분 — PC SSOT 동일) */
+  function _normStoreKey(s) {
+    return String(s||'').toLowerCase().replace(/\s+/g, '');
+  }
 
   /* ═══════════════════════════════════════════════════════════
    * Thread 시스템 — index.html L18565 / L18571 / L18609
@@ -1838,6 +1842,7 @@
   global._selfHealJobStatuses = _selfHealJobStatuses;
   global._forceResyncFromCloud = _forceResyncFromCloud;
   global._normalizeSearch = _normalizeSearch;
+  global._normStoreKey = _normStoreKey;
 
   // thread
   global._normalizeStatus = _normalizeStatus;
