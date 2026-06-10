@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VAN 등록 개선안 — 모바일 목업</title>
+<style>
+  :root{
+    --primary:#2563EB; --primary-dark:#1D4ED8; --success:#16A34A; --danger:#DC2626; --line:#06C755;
+    --gray-100:#F3F4F6; --gray-200:#E5E7EB; --gray-300:#D1D5DB; --gray-400:#9CA3AF;
+    --gray-500:#6B7280; --gray-600:#4B5563; --gray-700:#374151; --gray-800:#1F2937; --gray-900:#111827;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;background:#E2E8F0;color:var(--gray-800);font-size:14px;padding:22px;line-height:1.5}
+  h1{font-size:18px;margin-bottom:4px;text-align:center}
+  .sub{color:var(--gray-500);font-size:12.5px;margin-bottom:18px;text-align:center}
+  .stage{display:flex;gap:24px;justify-content:center;align-items:flex-start;flex-wrap:wrap}
+
+  /* phone frame */
+  .phone{width:390px;max-width:94vw;background:#000;border-radius:38px;padding:10px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+  .screen{background:#F3F4F6;border-radius:30px;overflow:hidden;height:760px;display:flex;flex-direction:column;position:relative}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:22px;background:#000;border-radius:0 0 14px 14px;z-index:5}
+
+  /* app bar */
+  .appbar{background:#fff;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:10px;padding:14px 14px 10px;flex-shrink:0}
+  .appbar .back{font-size:20px;color:var(--gray-700);background:none;border:none;cursor:pointer;line-height:1}
+  .appbar .title{font-size:15px;font-weight:800;flex:1}
+  .appbar .tag{background:#DBEAFE;color:#1d4ed8;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700}
+
+  .body{flex:1;overflow-y:auto;padding:12px 12px 16px}
+
+  .fg{margin-bottom:11px}
+  .fg label{display:block;font-size:11.5px;font-weight:700;color:var(--gray-600);margin-bottom:5px}
+  .inp{width:100%;padding:10px 11px;border:1.5px solid var(--gray-300);border-radius:9px;font-size:13px;font-family:inherit;background:#fff}
+  textarea.inp{resize:none;line-height:1.5}
+  .sect{background:#fff;border:1px solid var(--gray-200);border-radius:11px;padding:11px 12px;margin-bottom:11px}
+  .sect-t{font-size:11.5px;font-weight:800;color:var(--gray-600);margin-bottom:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{padding:6px 12px;border:1.5px solid var(--gray-200);border-radius:18px;background:#fff;font-size:12px;font-weight:600;color:var(--gray-700)}
+  .chip.on{background:#DBEAFE;border-color:#1d4ed8;color:#1d4ed8}
+
+  .thread-head{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 10px}
+  .thread-head .ttl{font-size:13px;font-weight:800}
+  .btn-newreq{background:var(--primary);color:#fff;border:none;border-radius:9px;padding:9px 13px;font-size:12.5px;font-weight:800;cursor:pointer}
+
+  .reqcard{border:1.5px solid #BFDBFE;border-left:5px solid #1d4ed8;border-radius:12px;margin-bottom:13px;overflow:hidden;background:#fff}
+  .rc-head{background:#EFF6FF;padding:9px 11px;display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:11.5px}
+  .pill{background:#1d4ed8;color:#fff;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:11px}
+  .jobtag{background:#FEF3C7;color:#92400E;font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px}
+  .mini{font-size:10.5px;color:var(--gray-500)}
+  .rc-meta{display:flex;gap:8px;flex-wrap:wrap;padding:9px 11px;border-bottom:1px dashed var(--gray-200);background:#fff}
+  .rc-meta .cell{flex:1;min-width:120px}
+  .rc-meta .cell label{font-size:10px;color:var(--gray-500);font-weight:600;display:block;margin-bottom:3px}
+  .selbox{width:100%;padding:7px 9px;border:1px solid var(--gray-300);border-radius:7px;font-size:12px;background:#fff}
+  .rc-req{padding:11px;font-size:13.5px;font-weight:600;color:var(--gray-800)}
+  .rc-proc{padding:0 11px 12px}
+  .stat-row{display:flex;align-items:center;gap:14px;margin:4px 0 9px;font-size:12.5px;font-weight:700}
+  .radio{display:inline-flex;align-items:center;gap:5px}
+  .att{border:1px dashed var(--gray-300);border-radius:8px;padding:9px;color:var(--gray-400);font-size:11px;margin:9px 0;text-align:center}
+
+  /* 모바일 — 액션 2버튼 풀폭 스택 */
+  .acts{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+  .btn{padding:13px;border-radius:10px;font-size:14px;font-weight:800;border:none;cursor:pointer;font-family:inherit;width:100%}
+  .btn-reg{background:var(--primary);color:#fff}
+  .btn-line{background:var(--line);color:#fff}
+  .note{font-size:11px;color:var(--gray-500);margin-top:8px;line-height:1.55}
+
+  .callout{background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:10px 12px;font-size:11.5px;color:#166534;margin-top:6px;line-height:1.6}
+
+  /* bottom nav */
+  .bnav{background:#fff;border-top:1px solid var(--gray-200);display:flex;padding:7px 0 10px;flex-shrink:0}
+  .bnav .it{flex:1;text-align:center;font-size:10px;color:var(--gray-400);font-weight:600}
+  .bnav .it.on{color:var(--primary)}
+  .bnav .ic{font-size:18px;display:block}
+
+  /* LINE 발송 팝업(최상위) 미니 미리보기 */
+  .linePop{position:absolute;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:flex-end;z-index:10}
+  .lineSheet{background:#fff;width:100%;border-radius:18px 18px 0 0;padding:14px;box-shadow:0 -10px 30px rgba(0,0,0,.2)}
+  .lineSheet .lh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .lineSheet .lt{font-weight:800;font-size:14px;color:#06A647;display:flex;gap:6px;align-items:center}
+
+  .legend{max-width:840px;margin:20px auto 0;background:#fff;border:1px solid var(--gray-200);border-radius:12px;padding:14px 18px}
+  .legend h3{font-size:13px;margin-bottom:9px}
+  .legend table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .legend th,.legend td{padding:7px 9px;border-bottom:1px solid var(--gray-100);text-align:left;vertical-align:top}
+  .legend th{background:#F9FAFB;color:var(--gray-600);font-weight:700}
+  .yes{color:#166534;font-weight:700}
+</style>
+</head>
+<body>
+  <h1>📱 VAN 등록 개선안 — 모바일 적용 목업</h1>
+  <div class="sub">PC와 동일 로직 · 모바일은 풀페이지(최대화 불필요) · 상단 ←닫기 · 풀폭 [등록]/[LINE발송] 버튼</div>
+
+  <div class="stage">
+    <!-- 화면 1: 등록/처리 -->
+    <div class="phone"><div class="screen"><div class="notch"></div>
+      <div class="appbar">
+        <button class="back">←</button>
+        <div class="title">VAN 업무 등록 <span class="tag">VAN</span></div>
+        <span class="mini">자동저장</span>
+      </div>
+      <div class="body">
+        <div class="fg"><label>점포</label><input class="inp" value="오케이마트 상계점" readonly></div>
+        <div class="sect"><div class="sect-t">VAN사 / TID</div>
+          <div class="chips"><span class="chip on">신규등록</span><span class="chip">재신고</span><span class="chip">정산</span></div>
+        </div>
+
+        <div class="thread-head">
+          <div class="ttl">📋 요청사항 · 처리 기록 <span class="mini">(2건=업무 2건)</span></div>
+          <button class="btn-newreq">＋ 새 요청</button>
+        </div>
+
+        <!-- 요청 #1 -->
+        <div class="reqcard">
+          <div class="rc-head">
+            <span class="pill">🔴 요청접수</span><span class="jobtag">업무 #1</span>
+            <span class="mini">이동호 · 06-10 14:22</span>
+          </div>
+          <div class="rc-meta">
+            <div class="cell"><label>처리담당</label><select class="selbox"><option>미배정</option></select></div>
+            <div class="cell"><label>처리예정</label><input class="selbox" type="date"></div>
+          </div>
+          <div class="rc-req">가맹신규, 간편결제 신청 완료</div>
+          <div class="rc-proc">
+            <div class="stat-row">상태:
+              <span class="radio"><input type="radio" name="m1" checked> 🔵 진행</span>
+              <span class="radio"><input type="radio" name="m1"> ✅ 완료</span>
+            </div>
+            <textarea class="inp" rows="2" placeholder="처리 내용을 입력하세요..."></textarea>
+            <div class="att">📎 사진+파일 추가 · 최대 30개</div>
+            <div class="acts">
+              <button class="btn btn-line">📡 등록 후 LINE 발송</button>
+              <button class="btn btn-reg">등록 (발송 없음)</button>
+            </div>
+            <div class="note">· <b>등록</b> = 저장만 · <b>등록 후 LINE 발송</b> = 저장 + LINE 발송 시트가 화면 위로 올라옴(아래 화면)</div>
+          </div>
+        </div>
+
+        <!-- 요청 #2 -->
+        <div class="reqcard" style="border-left-color:#06A647;border-color:#BBF7D0">
+          <div class="rc-head" style="background:#F0FDF4">
+            <span class="pill" style="background:#06A647">🔴 요청접수</span><span class="jobtag">업무 #2</span>
+            <span class="mini">한소현 · 06-10 15:10</span>
+          </div>
+          <div class="rc-req">단말기 통신 오류 — 재설정 요청</div>
+          <div class="rc-proc">
+            <div class="stat-row">상태:
+              <span class="radio"><input type="radio" name="m2" checked> 🔵 진행</span>
+              <span class="radio"><input type="radio" name="m2"> ✅ 완료</span>
+            </div>
+            <textarea class="inp" rows="2" placeholder="처리 내용을 입력하세요..."></textarea>
+            <div class="acts">
+              <button class="btn btn-line">📡 등록 후 LINE 발송</button>
+              <button class="btn btn-reg">등록 (발송 없음)</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout">💡 요청접수 1건 = 업무 1건. "＋ 새 요청" 마다 같은 매장의 새 업무가 생기고 각각 진행/완료 독립 관리.<br>🚫 하단 저장/취소 버튼 없음 — 각 카드 [등록]이 즉시 저장. 나가기는 상단 ← 만.</div>
+      </div>
+      <div class="bnav">
+        <div class="it"><span class="ic">🏠</span>홈</div>
+        <div class="it"><span class="ic">📅</span>일정</div>
+        <div class="it on"><span class="ic">📑</span>VAN</div>
+        <div class="it"><span class="ic">⚙️</span>설정</div>
+      </div>
+    </div></div>
+
+    <!-- 화면 2: 등록 후 LINE 발송 시트(최상위) -->
+    <div class="phone"><div class="screen"><div class="notch"></div>
+      <div class="appbar">
+        <button class="back">←</button>
+        <div class="title">VAN 업무 등록 <span class="tag">VAN</span></div>
+      </div>
+      <div class="body" style="filter:blur(1px);opacity:.5">
+        <div class="reqcard"><div class="rc-head"><span class="pill">🔴 요청접수</span><span class="jobtag">업무 #1</span></div>
+          <div class="rc-req">가맹신규, 간편결제 신청 완료</div></div>
+        <div class="note" style="text-align:center">✅ 등록 완료 — LINE 발송 시트가 위로 올라옴 ↓</div>
+      </div>
+      <!-- LINE 발송 시트 -->
+      <div class="linePop">
+        <div class="lineSheet">
+          <div class="lh"><div class="lt">📡 LINE 메시지 발송</div><button class="back">✕</button></div>
+          <div class="fg"><label>발송 채팅방</label><select class="inp"><option>VAN 작업방</option></select></div>
+          <div class="fg"><label>메시지</label><textarea class="inp" rows="4">[한소현] 오케이마트 상계점 : 가맹신규, 간편결제 신청 완료
+👤 담당 미배정</textarea></div>
+          <div class="acts">
+            <button class="btn btn-line">📤 LINE 발송</button>
+          </div>
+          <div class="note" style="text-align:center">닫기 전까지 화면 최상위에 고정 · 발송 안 하고 닫아도 등록은 이미 완료됨</div>
+        </div>
+      </div>
+      <div class="bnav">
+        <div class="it"><span class="ic">🏠</span>홈</div><div class="it"><span class="ic">📅</span>일정</div>
+        <div class="it on"><span class="ic">📑</span>VAN</div><div class="it"><span class="ic">⚙️</span>설정</div>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="legend">
+    <h3>PC ↔ 모바일 차이 요약</h3>
+    <table>
+      <tr><th style="width:25%">항목</th><th>PC</th><th>모바일</th></tr>
+      <tr><td>창</td><td>중앙 모달 + ⛶최대화·✕닫기 아이콘</td><td class="yes">풀페이지(이미 전체화면) + 상단 ← 닫기 (최대화 불필요)</td></tr>
+      <tr><td>단계 버튼</td><td>[등록] · [📡 등록 후 LINE 발송] 가로</td><td class="yes">풀폭 세로 스택 (엄지 조작)</td></tr>
+      <tr><td>요청건</td><td colspan="2" class="yes">동일 — 요청접수 1건 = 업무 1건, "＋새 요청"마다 새 업무</td></tr>
+      <tr><td>저장</td><td colspan="2" class="yes">동일 — 각 [등록]이 즉시 저장, 하단 저장/취소 없음</td></tr>
+      <tr><td>LINE 발송</td><td>최상위 모달</td><td class="yes">하단에서 올라오는 시트(최상위 고정)</td></tr>
+    </table>
+  </div>
+</body>
+</html>
