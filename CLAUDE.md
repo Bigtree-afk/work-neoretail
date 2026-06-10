@@ -658,12 +658,22 @@ if (s.includes(nameKey) || nameKey.includes(s)) return true;
 
 **storeId 무결성**: 작업의 `storeId` 는 **그 작업 storeName 과 정규화 이름이 일치하는 매장**을 가리켜야 한다. storeId 가 엉뚱한 매장을 가리키면(오연결) 정확일치 매칭에서도 잘못된 매장에 노출됨. 자동 연결·import 시 이름 검증 필수.
 
-**점검 명령**:
+**점검 명령** (매장 매칭 코드 추가·수정 후 **반드시 실행** — 위반 시 exit 1):
 ```bash
-# 부분일치 store 매칭이 새로 들어왔는지 (검색창 .includes(search) 제외)
+bash scripts/check-store-key.sh
+# → ① _normalizeSearch 식별 오용(=== / .has / storeByName build) 탐지
+#   ② 통과 시 "✅ 매장 식별 정규화 정상"
+
+# (수동) 부분일치 store 매칭이 새로 들어왔는지 (검색창 .includes(search) 제외)
 grep -rnE "includes\(nameKey\)|nameKey\.includes|s\.includes\(.*[Ss]tore" app.js m-core.js
 # → 매장-작업 매칭부에 0 이어야 함
 ```
+
+**정규화 함수 2종 — 용도 엄수**:
+| 함수 | 처리 | 용도 |
+|---|---|---|
+| `_normStoreKey(s)` | 소문자 + 공백 제거만 (**법인표기 보존**) | **매장 식별/매칭** (`===`, `Set.has`, `storeByName` 인덱스, 그룹 키, 자동 재연결, AS 통합, 병합 rerouting) |
+| `_normalizeSearch(s)` | + `주식회사`·`(주)`·괄호·구두점 제거 | **검색 전용** (검색창 `.includes`, suggest 드롭다운) — 식별 비교에 쓰면 별개 매장 병합됨 |
 
 **구현 위치**: 매장 상세 작업 이력(`_hubRenderGroup`/store detail `matched`), hub 그룹화(`_hubGroupByStore` — 이미 storeId/정규화 키), 신규/AS 자동 통합(`saveNewJob`/`approvePending` — 정규화 정확일치 사용).
 
