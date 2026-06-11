@@ -1425,10 +1425,10 @@ function renderThread(jobId){
   if (_doneEl) {
     const _isJobDone = window._isJobEffectivelyDone || window._isJobDone || (x => !!(x && (x.status==='완료'||x.status==='처리완료'||x.completed)));
     if (!_isJobDone(j)) {
-      // 🔀 버튼 2개 분리 — 등록 직후 실수로 완료되는 사고 방지 (닫기 / 완료 처리)
-      _doneEl.innerHTML = `<div style="display:flex;gap:8px">
+      // 완료는 스레드 요청접수별 ✅완료로 일원화 (PC 동일, 2026-06-12) — 상단 완료/되돌리기 버튼 제거
+      _doneEl.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-outline" onclick="location.hash='#entry'">← 닫기</button>
-        <button class="btn btn-primary" style="background:#16A34A;border-color:#16A34A" onclick="onDirectComplete()">✅ AS 완료 처리</button>
+        <div style="flex:1;min-width:150px;font-size:11px;color:#6B7280;line-height:1.45">완료는 각 <b style="color:#15803d">요청접수의 ✅완료</b> 처리로 — 모든 요청 완료 시 자동 처리완료</div>
       </div>`;
     } else {
       _doneEl.innerHTML = `<div style="display:flex;gap:8px;align-items:center">
