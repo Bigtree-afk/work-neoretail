@@ -1019,6 +1019,16 @@
     if (/pos_as|van_as|device_mgmt|as_pos|단말|a\/s|as\s|에이에스/.test(all)) return 'as';
     return 'as';
   }
+  // 🛡 어른거림(flicker) 방지 — el 의 직전 렌더 시그니처(__rgSig)와 같으면 true(=재렌더 skip).
+  //   주기적 동기화(30초)·storage 이벤트가 내용 동일한데도 innerHTML 통째 교체해 깜빡이던 문제 차단.
+  //   PC app.js 의 window._sigSkip 와 동일.
+  global._sigSkip = function(el, sig){
+    if (!el) return true;
+    if (el.__rgSig === sig && el.childElementCount > 0) return true;
+    el.__rgSig = sig;
+    return false;
+  };
+
   function _isJobDone(j) {
     if (!j) return false;
     const s = String(j.status || '');

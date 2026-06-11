@@ -1159,6 +1159,18 @@
   };
 
   // 신규 hub 렌더
+  // 🛡 어른거림(flicker) 방지 공통 헬퍼 — el 의 직전 렌더 시그니처(__rgSig)와 같으면 true(=재렌더 skip).
+  //   사용: if (window._sigSkip(el, sig)) return;  또는  if (!window._sigSkip(el, sig)) el.innerHTML = html;
+  //   주기적 동기화(20~30초)·ns:data-changed·storage 이벤트가 내용 동일한데도 innerHTML 을 통째
+  //   교체해 DOM 재생성 + CSS 펄스 애니메이션 재시작으로 깜빡이던 문제 차단.
+  //   (_hubGenericRender 의 __hubSig 와 동일 원리를 가드 없는 렌더 함수들에 일괄 적용)
+  window._sigSkip = function(el, sig){
+    if (!el) return true;
+    if (el.__rgSig === sig && el.childElementCount > 0) return true;
+    el.__rgSig = sig;
+    return false;
+  };
+
   window.renderNewHub = function() {
     const container = document.getElementById('newhubContainer');
     if (!container) return;
@@ -1182,7 +1194,8 @@
     setTxt('newhubCntDone', cntDone);
 
     if (displayed.length === 0) {
-      container.innerHTML = `<div class="hub-empty"><div style="font-size:32px;margin-bottom:8px">📭</div>${search ? '검색 결과 없음' : '진행 중인 신규 업무가 없습니다'}</div>`;
+      if (!window._sigSkip(container, 'newhub-empty|' + (search ? 's' : '')))
+        container.innerHTML = `<div class="hub-empty"><div style="font-size:32px;margin-bottom:8px">📭</div>${search ? '검색 결과 없음' : '진행 중인 신규 업무가 없습니다'}</div>`;
       return;
     }
     // 진행 중 → 완료 순 정렬
@@ -1191,6 +1204,12 @@
       const bUndone = b.jobs.some(j => !_hubDoneFn(j)) ? 0 : 1;
       return aUndone - bUndone;
     });
+    // 🛡 어른거림 방지 — 내용 시그니처 동일하면 재구축 skip (펼침/스크롤 상태 유지)
+    const _sig = JSON.stringify(displayed.map(g => [
+      g.storeId || g.storeName,
+      g.jobs.map(j => [j.id, j.status, j.completed?1:0, j.updatedAt||0, (Array.isArray(j.thread)?j.thread.length:0)])
+    ]));
+    if (window._sigSkip(container, 'newhub|' + _sig)) return;
     container.innerHTML = displayed.map(g => _hubRenderGroup(g, 'new', { urgentIfPending: true })).join('');
   };
 
@@ -13134,7 +13153,9 @@ ${text.slice(0, 4000)}`;
           }
         });
       });
-      if (todays.length > 0) {
+      const _todaySig = 'today|' + JSON.stringify(todays.map(j=>[j.id,j._kind,j.status||'',j.store||j.storeName||'',j.engineer||j.assignee||'']));
+      if (window._sigSkip && window._sigSkip(todayBody, _todaySig)) { /* 내용 동일 → 재구축 skip (어른거림 방지) */ }
+      else if (todays.length > 0) {
         todayBody.innerHTML = todays.map(j => {
           const store = j.store || j.storeName || '-';
           const type = j.type || '작업';
@@ -13168,7 +13189,9 @@ ${text.slice(0, 4000)}`;
       const done = jobs.filter(_isJobDone)
                        .sort((a,b)=> new Date(b.completedAt||b.date||b.createdAt||0) - new Date(a.completedAt||a.date||a.createdAt||0))
                        .slice(0, 5);
-      if (done.length > 0) {
+      const _recentSig = 'recent|' + JSON.stringify(done.map(j=>[j.id,j.status||'',j.completedAt||'',j.store||j.storeName||'',j.type||'',j.engineer||j.assignee||'']));
+      if (window._sigSkip && window._sigSkip(recentBody, _recentSig)) { /* 내용 동일 → skip (어른거림 방지) */ }
+      else if (done.length > 0) {
         recentBody.innerHTML = done.map(j => `
           <tr style="cursor:pointer" onclick="window.editNewopen && window.editNewopen('${j.id}')" title="클릭 — 매장 상세 보기">
             <td><b>${esc(j.store || j.storeName || '-')}</b></td>
@@ -13203,7 +13226,9 @@ ${text.slice(0, 4000)}`;
         } catch(_){}
         return true;
       });
-      if (asJobs.length === 0) {
+      const _dasAsSig = 'das-as|' + JSON.stringify(asJobs.map(j=>[j.id,j.status||'',j.updatedAt||0,(Array.isArray(j.thread)?j.thread.length:0),j.store||j.storeName||'']));
+      if (window._sigSkip && window._sigSkip(asBody, _dasAsSig)) { /* 내용 동일 → skip (어른거림 방지) */ }
+      else if (asJobs.length === 0) {
         asBody.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--gray-400);font-size:12px">미처리 AS가 없습니다.</div>`;
       } else {
         asBody.innerHTML = asJobs.map(j => {
@@ -13351,6 +13376,8 @@ ${text.slice(0, 4000)}`;
     const el = document.getElementById('dashNoticesBody');
     if (!el) return;
     const top2 = _noticesCache.slice(0, 2);
+    // 🛡 어른거림 방지 — 공지 동일하면 재구축 skip
+    if (window._sigSkip && window._sigSkip(el, 'notices|' + JSON.stringify(top2.map(n=>[n.id,n.createdAt||'',n.title||'',n.fileCount||0,n.hasVideo?1:0,n.hasImage?1:0])))) return;
     if (!top2.length) {
       el.innerHTML = `<div style="padding:18px 18px;color:var(--gray-400);font-size:12px;text-align:center">
         📭 등록된 공지가 없습니다 — [✏️ 작성] 으로 첫 공지를 등록하세요
@@ -14330,6 +14357,13 @@ ${text.slice(0, 4000)}`;
     const { year, month } = _calState;
     label.textContent = `${year}년 ${month + 1}월`;
 
+    // 🛡 어른거림 방지 — 해당 월 일정 데이터가 직전과 동일하면 그리드 재구축 skip
+    {
+      const _jall = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+      const _calSig = year + '-' + month + '|' + JSON.stringify(_jall.map(j=>[j.id,j.installDate||'',j.softOpenDate||'',j.openDate||'',j.asReceivedAt||'',j.shipDate||'',j.status||'',j.completed?1:0]));
+      if (window._sigSkip && window._sigSkip(grid, _calSig)) return;
+    }
+
     // 헤더 7개 유지하고 나머지 비움
     const headers = Array.from(grid.querySelectorAll('.cal-day-header'));
     grid.innerHTML = '';
@@ -14644,6 +14678,11 @@ ${text.slice(0, 4000)}`;
 
     const newopen = jobs.filter(isNewCat);
     const consult = jobs.filter(j => j && j.type === '상담');
+    // 🛡 어른거림 방지 — 요약 데이터가 직전과 동일하면 재구축 skip
+    {
+      const _neoSig = 'neo|' + JSON.stringify(newopen.map(j=>[j.id,j.status||'',j.completed?1:0,j.openDate||'',j.updatedAt||0])) + '|' + JSON.stringify(consult.map(j=>[j.id,j.status||'',j.updatedAt||0]));
+      if (window._sigSkip && window._sigSkip(statsEl || colsEl, _neoSig)) return;
+    }
 
     const newopenActive = newopen.filter(j => !isDone(j));
     const consultActive = consult.filter(j => j.status === '상담중');
@@ -14742,6 +14781,13 @@ ${text.slice(0, 4000)}`;
     const start = new Date(today);
     start.setDate(today.getDate() - today.getDay()); // 일요일로 이동
 
+    // 🛡 어른거림 방지 — 2주치 일정 데이터 동일하면 재구축 skip
+    {
+      const _mcJobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+      const _mcSig = 'minical|' + start.toISOString().slice(0,10) + '|' + JSON.stringify(_mcJobs.map(j=>[j.id,j.installDate||'',j.softOpenDate||'',j.openDate||'',j.status||'',j.completed?1:0]));
+      if (window._sigSkip && window._sigSkip(grid, _mcSig)) return;
+    }
+
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     // 날짜별 이벤트 매핑
     const byDate = {};
@@ -14839,6 +14885,11 @@ ${text.slice(0, 4000)}`;
 
     const tb = document.getElementById('newopenTbody');
     if (!tb) return;
+    // 🛡 어른거림 방지 — 필터+내용 동일하면 재구축 skip
+    {
+      const _noSig = 'newopen|' + (filter||'all') + '|' + JSON.stringify(view.map(j=>[j.id,j.status||'',j.completed?1:0,j.updatedAt||0,(Array.isArray(j.thread)?j.thread.length:0)]));
+      if (window._sigSkip && window._sigSkip(tb, _noSig)) return;
+    }
     // 디버그: 진단 정보 콘솔 출력
     try { console.log('[hydrateNewopen]', {totalJobs: jobs.length, newopenItems: items.length, viewAfterFilter: view.length, filter: filter||'all'}); } catch(e){}
     if (view.length === 0) {
@@ -17287,6 +17338,11 @@ ${text.slice(0, 4000)}`;
 
     const tb = document.getElementById('asMgmtTbody');
     if (!tb) return;
+    // 🛡 어른거림 방지 — 필터+내용 동일하면 재구축 skip (행별 select 재생성 차단)
+    {
+      const _amSig = 'asmgmt|' + (_asMgmtFilter||'') + '|' + JSON.stringify(view.map(j=>[j.id,j.status||'',j.completed?1:0,j.updatedAt||0,(Array.isArray(j.thread)?j.thread.length:0)]));
+      if (window._sigSkip && window._sigSkip(tb, _amSig)) return;
+    }
     if (view.length === 0) {
       tb.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
         <div style="font-size:36px;margin-bottom:10px">🔧</div>

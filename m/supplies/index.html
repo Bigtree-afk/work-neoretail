@@ -550,7 +550,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-06-11-mergefix"></script>
+<script src="/m-core.js?v=2026-06-11-noflicker"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    소모품 품목 카탈로그
@@ -730,6 +730,8 @@ function renderEntry(){
     $('appBadge').style.display = 'none';
   }
 
+  // 🛡 어른거림 방지 — 내용 동일하면 재구축 skip (30초 동기화마다 깜빡이던 문제)
+  if (window._sigSkip && window._sigSkip(list, 'entry|' + JSON.stringify(all.map(x => [x.id, x.status, x.completed?1:0, x.updatedAt||x.createdAt||0, (Array.isArray(x.thread)?x.thread.length:0)])))) return;
   list.innerHTML = all.map(j => {
     const status = String(j.status || '진행중');
     let cls = 'prog';
