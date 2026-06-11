@@ -367,10 +367,18 @@ const summary = (firstRoot && firstRoot.text) || j.asRequest || j.lineRequest ||
 - 분할은 **동작 보존**(순수 코드 이동) + 분리 파일 `?v=` **일괄 cache-bust** 의무.
 - PC↔모바일 공유 로직은 아래 SSOT 규칙 준수 (`m-core.js`).
 
-**현재 4,000줄 초과 파일** (분할 부채 — 실측 2026-06-10):
-- `app.js` (**~21,700줄**) — PC 메인 스크립트. **유일한 초과 파일.** 분할 계획은 별도 수립 예정 (`.claude/plans/`).
-- 그 외 `index.html`(~3,940) · `m-core.js`(~1,930) · `m/*`(1,500~1,960) · `app.css`(~1,230) — 모두 4,000 미만 (준수).
+**현재 4,000줄 초과 파일** (분할 부채 — 실측 2026-06-11):
+- `app.js` (**~21,980줄**) — PC 메인 스크립트. **유일한 초과 파일** (한도의 5.5배). 내부 의존(`getStores`·`_findStoreInList` 등 window 미노출 함수)으로 신규 기능이 계속 app.js 에 적재되는 구조 → 근본 해소는 모듈 분할(`.claude/plans/`).
+- 그 외 `index.html`(~3,940, **임박**) · `m-core.js`(~1,970) · `m/*`(1,500~1,960) · `app.css`(~1,230) — 4,000 미만.
 - 신규 `functions/api/*.js` — 전부 1,000 미만 (양호).
+
+**🔎 자동 점검 (필수 — 신규 초과 파일 차단)** — 코드 추가/배포 전 실행:
+```bash
+bash scripts/check-file-size.sh
+# app.js = ⚠ 알려진 부채(통과), index.html = ▵ 임박 표시,
+# 그 외 파일이 4,000 초과면 🔴 + exit 1.
+```
+→ app.js 가 이미 거대하다고 새 코드를 무한정 app.js 에 붙이지 말 것. **의존이 적은 신규 기능은 별도 모듈 파일**(`<script src>` 순서 로드)로 작성. app.js 내부 함수 의존이 불가피하면(이번 연락처 헬퍼처럼) app.js 에 두되 **분할 부채로 인식**하고 plans 진행.
 
 **도메인 로직 중복 방지 — Single Source of Truth**:
 PC ↔ 모바일에서 동일하게 동작해야 하는 로직 (예: `_isNewJobClosed`, `classifyJobCategory`, openDate 가드, equipment 정규화) 은 **반드시 `m-core.js` 같은 공유 모듈에 정의 + 양쪽이 import/load**. 같은 규칙을 두 곳에 따로 구현하면 한 쪽만 고쳐서 불일치 발생 (예: 2026-05-21 엘마트 공릉점 PC↔모바일 종료 처리 불일치).
@@ -628,6 +636,31 @@ else if (cond) { elA.innerHTML = ... } else { elA.innerHTML = ... }
 - 카탈로그 `category` 변경은 자유 — 매장 장비의 snapshot.category 는 영향 없음
 - 새 분류 체계 도입시: `categoryV2` 같은 추가 필드 사용. 구 `category` 도 보존.
 - 매장 장비 ↔ 카탈로그 재매칭이 필요하면 `findCatalogByName` 일괄 실행 후 catalogId 갱신
+
+### 📇 매장 연락처 DB — store.contacts[] (장비 적재 패턴 미러링, 2026-06-11)
+
+업무(AS/소모품/신규/VAN) 등록 시 입력한 연락처를 매장에 **누적**한다. 그릇·동기화는 이미 존재 (`STORE_FIELD_POLICY.contacts = additive-by-id(phone)`, client+server 동일). 빠져 있던 "작업→매장 적재"를 `ingestJobContactsToStore` 로 연결.
+
+**연락처 1건 스키마**:
+```js
+{ name, role(직책), phone, email, address, primary,
+  sourceJobId, sourceJobType, addedAt, addedBy, updatedAt }
+```
+
+**dedupe / upsert 규칙 (필수)**:
+- **한 매장 내 중복등록 금지** — 전화번호 **정규화**(`replace(/\D/g,'')`) 기준 1건. 매장이 다르면 별개 — **동일인이 여러 매장에 등록되는 건 허용**.
+- **빈 필드만 보강** — 같은 전화(또는 같은 이름)에 이름·직책·이메일·주소가 나중에 입력되면 **빈 칸만 채움**(기존의 비어있지 않은 값은 덮지 않음). 예: "전화만 있던 연락처에 이름·직책 추가 입력 → 자동 갱신".
+- 매칭 순서: ① 전화 정규화 일치 → ② (전화 없음 또는 전화 매칭 실패+이름 있음) 같은 이름의 '전화 없는' 항목에 병합 → ③ 둘 다 없으면 신규.
+
+**핵심 헬퍼** (`window.*`, `app.js` — PC 전담):
+- `ingestJobContactsToStore(job, opts)` — 작업 연락처를 매장에 누적. `opts.storesArr` 주면 배치(작업마다 저장 안 함, caller 가 1회 saveStores — 백필 성능).
+- `getStoreContacts(storeRef)` · `migrateJobContactsToStore()` (페이지 로드 +3초 1회 백필, idempotent).
+
+**적재 트리거**: `saveNewJob`(AS/소모품/신규) · `saveVanJob`(VAN) 저장 시 + 로드 백필(전체 작업 스캔 → 모바일 생성분도 PC 가 흡수).
+
+**매장 매칭**: `_findStoreInList`(storeId→사업자→상호 **정확일치**) — 교차오염 금지 (CLAUDE.md "🏪 매장 ↔ 작업 매칭 규칙"과 동일 원칙).
+
+**현재 범위 = 적재만. 향후(UI 단계)**: 매장상세 "담당자 목록" 표시 + 폼 자동완성 재사용. ⚠ **폼에 이메일 입력칸이 아직 없어** `email` 은 스키마만 준비(값 미수집) — 입력칸 추가는 UI 단계에서. ⚠ 모바일 `saveStores` 는 cloud push 안 해, 모바일 생성 연락처는 PC 백필이 흡수(즉시성 아님).
 
 ### 🔄 매장 데이터 동기화 — 정책 테이블 기반 머지 (필수 규칙)
 

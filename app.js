@@ -4241,6 +4241,93 @@
   window.findCatalogByName = findCatalogByName;
   window.STORE_EQUIP_SCHEMA_VER = STORE_EQUIP_SCHEMA_VER;
 
+  /* ── 📇 매장 연락처 누적 (장비 적재 패턴 미러링) ──
+     업무(AS/소모품/신규/VAN)에서 입력한 연락처(이름/직책/전화/이메일/주소)를 store.contacts[] 에 누적.
+     STORE_FIELD_POLICY: contacts = additive-by-id(phone) → 클라우드 머지로 자동 누적·중복제거.
+     dedupe/upsert = 전화번호 정규화 기준(없으면 이름). 빈 필드만 보강(기존값 안 덮음). idempotent. */
+  function _contactPhoneKey(p) { return String(p || '').replace(/\D/g, ''); }
+  function getStoreContacts(storeRef) {
+    if (!storeRef) return [];
+    let stores = [];
+    try { stores = (typeof getStores === 'function') ? (getStores() || []) : []; } catch(e){}
+    const s = _findStoreInList(stores, storeRef);
+    return (s && Array.isArray(s.contacts)) ? s.contacts.slice() : [];
+  }
+  function ingestJobContactsToStore(job, opts) {
+    opts = opts || {};
+    if (!job) return 0;
+    const list = (typeof getJobContacts === 'function') ? getJobContacts(job) : [];
+    if (!list.length) return 0;
+    const storeRef = { storeId: job.storeId, storeName: job.storeName || job.store };
+    if (!storeRef.storeId && !storeRef.storeName) return 0;
+    // opts.storesArr: 배치 호출(migrate) 시 공유 배열 — 작업마다 저장 안 하고 caller 가 1회 저장
+    let stores = opts.storesArr || (function(){ try { return (typeof getStores === 'function') ? (getStores() || []) : []; } catch(e){ return []; } })();
+    const s = _findStoreInList(stores, storeRef);
+    if (!s) return 0;
+    if (!Array.isArray(s.contacts)) s.contacts = [];   // lazy init (push 직전 — 빈배열 머지오염 방지)
+    const me = (typeof _currentUserName === 'function') ? _currentUserName() : '';
+    const jobAddr = String(job.address || '').trim();
+    const srcType = String(job.lineCategory || job.type || '').trim();
+    let added = 0, updated = 0;
+    list.forEach(c => {
+      const name  = String(c.name  || '').trim();
+      const phone = String(c.phone || '').trim();
+      const role  = String(c.role  || c.title || '').trim();
+      const email = String(c.email || '').trim();
+      const addr  = String(c.address || jobAddr || '').trim();
+      if (!name && !phone) return;   // 빈 연락처 skip
+      const pk = _contactPhoneKey(phone);
+      // 한 매장 내 중복등록 금지 — 전화번호(정규화) 기준 dedupe. 같은 사람이면 한 건으로 모음.
+      //   ① 전화 매칭 → 그 항목에 빈 필드만 보강 (전화만 있던 항목에 이름/직책/이메일 나중 입력 시 갱신)
+      //   ② 전화 매칭 실패 + 이름 있음 → 같은 이름의 '전화 없는' 항목에 병합 (이름만 있던 항목에 전화 추가)
+      //   ③ 전화 없는 새 입력 → 같은 이름 항목에 병합
+      //   (매장이 다르면 별개 — 동일인이 여러 매장에 등록되는 건 허용)
+      let ex = null;
+      if (pk) {
+        ex = s.contacts.find(x => _contactPhoneKey(x.phone) === pk);
+        if (!ex && name) ex = s.contacts.find(x => !_contactPhoneKey(x.phone) && String(x.name||'').trim() === name);
+      } else if (name) {
+        ex = s.contacts.find(x => String(x.name||'').trim() === name);
+      }
+      if (ex) {
+        let ch = false;
+        if (!ex.name && name)    { ex.name = name; ch = true; }
+        if (!ex.phone && phone)  { ex.phone = phone; ch = true; }
+        if (!ex.role && role)    { ex.role = role; ch = true; }
+        if (!ex.email && email)  { ex.email = email; ch = true; }
+        if (!ex.address && addr) { ex.address = addr; ch = true; }
+        if (ch) { ex.updatedAt = new Date().toISOString(); ex.updatedBy = me; updated++; }
+      } else {
+        s.contacts.push({ name, role, phone, email, address: addr, primary: !!c.primary,
+          sourceJobId: job.id || '', sourceJobType: srcType,
+          addedAt: new Date().toISOString(), addedBy: me, updatedAt: new Date().toISOString() });
+        added++;
+      }
+    });
+    if ((added > 0 || updated > 0) && !opts.storesArr) {   // 단독 호출만 저장 (배치는 caller 가 1회 저장)
+      if (typeof saveStores === 'function') saveStores(stores);
+      else localStorage.setItem('ns_stores', JSON.stringify(stores));
+    }
+    return added;
+  }
+  // 전체 작업 → 매장 연락처 일괄 누적 (배치 1회 저장). 매 로드 호출(idempotent, 전화 dedupe)
+  //   → 모바일 생성 작업도 클라우드→PC 동기화 후 PC 가 흡수. 새 누적분 있을 때만 saveStores+push.
+  function migrateJobContactsToStore() {
+    let stores = []; try { stores = (typeof getStores === 'function') ? (getStores() || []) : []; } catch(e){}
+    let jobs = [];   try { jobs   = (typeof getJobs   === 'function') ? (getJobs()   || []) : []; } catch(e){}
+    let total = 0;
+    jobs.forEach(j => { try { total += ingestJobContactsToStore(j, { storesArr: stores }) || 0; } catch(_){} });
+    if (total > 0) {
+      if (typeof saveStores === 'function') saveStores(stores);
+      else localStorage.setItem('ns_stores', JSON.stringify(stores));
+      try { if (typeof pushStoresToCloud === 'function') pushStoresToCloud({ toast:false }); } catch(e){}
+    }
+    return { ok:true, added: total };
+  }
+  window.getStoreContacts = getStoreContacts;
+  window.ingestJobContactsToStore = ingestJobContactsToStore;
+  window.migrateJobContactsToStore = migrateJobContactsToStore;
+
   /* 카탈로그 CRUD — 모든 사용자 접근 가능 (마이페이지) */
   let catalogExpandedIdx = -1; // 옵션 편집 패널 펼친 행
   let catalogDraftText = '';   // 편집 중인 옵션 텍스트 (단일 문자열)
@@ -12169,6 +12256,8 @@ ${text.slice(0, 4000)}`;
         }
       }
     } catch(e) { console.warn('[saveNewJob vandoc→store sync]', e); }
+    // 📇 입력한 연락처(이름/직책/전화/이메일/주소)를 매장에 누적 (다음 업무·매장상세에서 재사용)
+    try { if (typeof ingestJobContactsToStore === 'function') ingestJobContactsToStore(job); } catch(e){ console.warn('[saveNewJob contacts→store]', e); }
     // AS 머지 저장은 1.5초 디바운스 대신 즉시 푸시 — stale cloud 가 머지된 thread 를 덮을 위험 차단
     if (mergedIntoExisting) {
       try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
@@ -15931,6 +16020,8 @@ ${text.slice(0, 4000)}`;
         }
       } catch(e) { console.warn('[saveVanJob] store profile update failed:', e); }
     }
+    // 📇 입력한 연락처(이름/직책/전화/이메일/주소)를 매장에 누적
+    try { if (typeof ingestJobContactsToStore === 'function') ingestJobContactsToStore(newJob); } catch(e){ console.warn('[saveVanJob contacts→store]', e); }
     // 즉시 cloud push (debounce 우회)
     try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
     // 📡 LINE 발송 — opts.wantLine 우선(요청접수 [등록 후 LINE 발송] 버튼), 없으면 구 체크박스 fallback
@@ -21655,6 +21746,19 @@ ${text.slice(0, 4000)}`;
       }
     } catch(e) { console.warn('[migrate] failed:', e); }
   }, 1500);
+
+  /* 페이지 로드 후 1회 자동 백필 — job 연락처(이름/직책/전화/이메일/주소) → store.contacts
+     idempotent(전화번호 dedupe). 모든 작업(모바일 생성 포함, 동기화된 것) 스캔. */
+  setTimeout(() => {
+    try {
+      if (typeof migrateJobContactsToStore !== 'function') return;
+      const r = migrateJobContactsToStore();
+      if (r && r.ok && r.added > 0) {
+        console.log(`[migrate] store.contacts — ${r.added}건 연락처 매장 누적`);
+        if (typeof showToast === 'function') showToast(`📇 연락처 ${r.added}건을 매장에 누적했습니다`, 5000);
+      }
+    } catch(e) { console.warn('[migrate contacts] failed:', e); }
+  }, 3000);
 
   /* 관리자 강제 재실행 — console 또는 마이페이지 버튼 */
   window.forceReMigrateStoreEquipment = function() {
