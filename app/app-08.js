@@ -1533,7 +1533,18 @@
     let notified = false;
     let timer = null;
     const re = new RegExp(scriptName.replace(/[.]/g, '\\.') + '\\?v=([^"\'&\\s]+)');
-    async function check() {
+    // 🔄 무인 자동 새로고침 안전 판정 — 작성 중 입력/열린 편집 모달이 있으면 보류(배너로 대체)
+    function _safeToAutoReload() {
+      try {
+        if (document.querySelector('.modal-overlay.show, .modal.show')) return false;   // 편집 모달 열림
+        const tas = document.querySelectorAll('textarea');
+        for (const t of tas) { if (t.offsetParent !== null && String(t.value||'').trim()) return false; }
+        const ae = document.activeElement;
+        if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT') && String(ae.value||'').trim()) return false;
+      } catch(_){}
+      return true;
+    }
+    async function check(auto) {
       if (notified) return;
       try {
         const res = await fetch(location.pathname + '?_vc=' + Date.now(), { cache: 'no-store' });
@@ -1544,7 +1555,9 @@
         if (live && live !== RUNNING) {
           notified = true; if (timer) clearInterval(timer);
           try { sessionStorage.setItem('ns_version_stale', '1'); } catch(_){}  // 풀다운/새로고침에도 즉시 재표시되도록 표시
-          _showVersionBanner();
+          // 탭 복귀(auto) + 미저장 입력/모달 없음 → 무인 자동 새로고침, 아니면 배너
+          if (auto && _safeToAutoReload()) { _hardReloadForUpdate(); }
+          else { _showVersionBanner(); }
         } else if (live && live === RUNNING) {
           try { sessionStorage.removeItem('ns_version_stale'); } catch(_){}  // 진짜 최신 → 잔여 플래그 제거
         }
@@ -1552,9 +1565,9 @@
     }
     // 직전에 '구버전' 으로 떴었다면(=캐시된 옛 코드로 새로고침/풀다운해도 사라진 것처럼 보이는 것 방지) 즉시 재확인
     let _wasStale = false; try { _wasStale = sessionStorage.getItem('ns_version_stale') === '1'; } catch(_){}
-    setTimeout(check, _wasStale ? 0 : 5000);
-    timer = setInterval(check, 5 * 60 * 1000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    setTimeout(() => check(false), _wasStale ? 0 : 5000);           // 초기: 배너(놀람 방지)
+    timer = setInterval(() => check(false), 5 * 60 * 1000);         // 사용 중: 배너
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(true); });  // 탭 복귀: 안전 시 자동
   }
   // 🔄 완전 새로고침(캐시 무력화) — 페이지 URL 에 _u 파라미터를 붙여 HTML 부터 새로 받음 → 새 ?v= 스크립트 로드.
   //   iOS Safari 등 캐시 강한 환경에서 일반 reload 가 옛 코드를 다시 쓰는 문제 회피.

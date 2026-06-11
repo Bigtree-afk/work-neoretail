@@ -1940,7 +1940,18 @@
     var notified = false;
     var timer = null;
     var re = new RegExp(scriptName.replace(/[.]/g, '\\.') + '\\?v=([^"\'&\\s]+)');
-    function check() {
+    // 🔄 무인 자동 새로고침 안전 판정 — 작성 중 입력(요청접수/메모/LINE 등)이 있으면 보류(배너로 대체)
+    function _safeToAutoReload() {
+      try {
+        var tas = document.querySelectorAll('textarea');
+        for (var i=0;i<tas.length;i++){ if (tas[i].offsetParent !== null && String(tas[i].value||'').trim()) return false; }
+        var ae = document.activeElement;
+        if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT') && String(ae.value||'').trim()) return false;
+        if (location.hash && /form|compose|edit/i.test(location.hash)) return false;  // 폼/작성 화면
+      } catch(e){}
+      return true;
+    }
+    function check(auto) {
       if (notified) return;
       fetch(location.pathname + '?_vc=' + Date.now(), { cache: 'no-store' })
         .then(function(res){ return res.ok ? res.text() : ''; })
@@ -1950,7 +1961,9 @@
           if (live && live !== RUNNING) {
             notified = true; if (timer) clearInterval(timer);
             try { sessionStorage.setItem('ns_version_stale', '1'); } catch(e){}  // 풀다운/새로고침에도 즉시 재표시
-            _showVersionBanner();
+            // 탭 복귀(auto) + 미저장 입력 없음 → 무인 자동 새로고침, 아니면 배너
+            if (auto && _safeToAutoReload()) { _hardReloadForUpdate(); }
+            else { _showVersionBanner(); }
           } else if (live && live === RUNNING) {
             try { sessionStorage.removeItem('ns_version_stale'); } catch(e){}  // 진짜 최신 → 플래그 제거
           }
@@ -1959,9 +1972,9 @@
     }
     // 직전 '구버전' 표시됐었다면 즉시 재확인(캐시된 옛 코드로 풀다운 새로고침해도 배너가 사라지지 않게)
     var _wasStale = false; try { _wasStale = sessionStorage.getItem('ns_version_stale') === '1'; } catch(e){}
-    setTimeout(check, _wasStale ? 0 : 5000);
-    timer = setInterval(check, 5 * 60 * 1000);
-    document.addEventListener('visibilitychange', function(){ if (!document.hidden) check(); });
+    setTimeout(function(){ check(false); }, _wasStale ? 0 : 5000);          // 초기: 배너(놀람 방지)
+    timer = setInterval(function(){ check(false); }, 5 * 60 * 1000);        // 사용 중: 배너
+    document.addEventListener('visibilitychange', function(){ if (!document.hidden) check(true); });  // 탭 복귀: 안전 시 자동
   }
   // 🔄 완전 새로고침(캐시 무력화) — 페이지 URL 에 _u 붙여 HTML 부터 새로 받음 → 새 ?v= 로드. iOS Safari 캐시 회피.
   function _hardReloadForUpdate() {
