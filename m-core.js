@@ -296,8 +296,15 @@
   }
 
   // ── STORES — index.html L12753 ───────────────────────────────
+  // ⚡ 파싱 캐시 — raw 문자열 키. ns_stores 변경 시 자동 무효화. JSON.parse 반복 비용 제거.
+  let _storesCacheRaw = null, _storesCacheArr = [];
   function getStores() {
-    try { return JSON.parse(localStorage.getItem('ns_stores') || '[]'); } catch { return []; }
+    let raw; try { raw = localStorage.getItem('ns_stores') || '[]'; } catch { return []; }
+    if (raw === _storesCacheRaw) return _storesCacheArr.slice();
+    _storesCacheRaw = raw;
+    try { _storesCacheArr = JSON.parse(raw); } catch { _storesCacheArr = []; }
+    if (!Array.isArray(_storesCacheArr)) _storesCacheArr = [];
+    return _storesCacheArr.slice();
   }
   function saveStores(arr) {
     localStorage.setItem('ns_stores', JSON.stringify(arr));
@@ -578,8 +585,15 @@
   }
 
   // ── JOBS — index.html L12838 / L12841 ───────────────────────
+  // ⚡ 파싱 캐시 — raw 문자열 키. ns_jobs 변경 시 자동 무효화. JSON.parse 반복 비용 제거.
+  let _jobsCacheRaw = null, _jobsCacheArr = [];
   function getJobs() {
-    try { return JSON.parse(localStorage.getItem('ns_jobs') || '[]'); } catch { return []; }
+    let raw; try { raw = localStorage.getItem('ns_jobs') || '[]'; } catch { return []; }
+    if (raw === _jobsCacheRaw) return _jobsCacheArr.slice();
+    _jobsCacheRaw = raw;
+    try { _jobsCacheArr = JSON.parse(raw); } catch { _jobsCacheArr = []; }
+    if (!Array.isArray(_jobsCacheArr)) _jobsCacheArr = [];
+    return _jobsCacheArr.slice();
   }
   // 🕐 per-job mtime 자동 스탬프 (PC index.html 과 동일 정책, 2026-05-22)
   function _jobHashForMtime(j) {

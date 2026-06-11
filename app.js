@@ -165,8 +165,11 @@
   }
   window.mergeStoreObjects = mergeStoreObjects;
 
+  let _lastStoresAutoFetch = 0;
   async function syncFromCloud(opts) {
     opts = opts || {};
+    // ⚡ A-2 자동 루프 중복 제거 — 자동 호출(opts.auto)만 12초 throttle. 수동/강제(force)는 항상 실행.
+    if (opts.auto) { const _n = Date.now(); if (_n - _lastStoresAutoFetch < 12000) return; _lastStoresAutoFetch = _n; }
     try {
       const res = await fetch('/api/stores', { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -439,8 +442,8 @@
           const before = _hash();
           // 작업 + 매장 + LINE pending 모두 동기화
           const tasks = [];
-          if (typeof syncJobsFromCloud === 'function') tasks.push(syncJobsFromCloud());
-          if (typeof syncFromCloud === 'function')     tasks.push(syncFromCloud({ toast:false }));
+          if (typeof syncJobsFromCloud === 'function') tasks.push(syncJobsFromCloud({ auto:true }));
+          if (typeof syncFromCloud === 'function')     tasks.push(syncFromCloud({ toast:false, auto:true }));
           if (typeof syncLinePending === 'function')   tasks.push(syncLinePending());
           await Promise.allSettled(tasks);
           const after = _hash();
@@ -9107,8 +9110,16 @@ ${text.slice(0, 4000)}`;
   /* ══════════════════════════════════════════════
      STORES — localStorage 헬퍼
   ══════════════════════════════════════════════ */
+  // ⚡ 파싱 캐시 — raw 문자열을 키로 캐시. 어떤 경로로든 ns_stores 가 바뀌면 raw 가 달라져
+  //   자동 무효화(별도 hook 불필요). JSON.parse(~1MB) 반복 비용 제거. .slice() 로 배열 변형 격리.
+  let _storesCacheRaw = null, _storesCacheArr = [];
   function getStores() {
-    try { return JSON.parse(localStorage.getItem('ns_stores') || '[]'); } catch { return []; }
+    let raw; try { raw = localStorage.getItem('ns_stores') || '[]'; } catch { return []; }
+    if (raw === _storesCacheRaw) return _storesCacheArr.slice();
+    _storesCacheRaw = raw;
+    try { _storesCacheArr = JSON.parse(raw); } catch { _storesCacheArr = []; }
+    if (!Array.isArray(_storesCacheArr)) _storesCacheArr = [];
+    return _storesCacheArr.slice();
   }
   /* dirty flag — 로컬에서 사용자가 수정한 적 있을 때만 true
      sync 로 받은 데이터를 save 할 땐 dirty=false 유지 → 불필요한 echo push 차단
@@ -9192,8 +9203,15 @@ ${text.slice(0, 4000)}`;
   /* ══════════════════════════════════════════════
      JOBS — localStorage 헬퍼
   ══════════════════════════════════════════════ */
+  // ⚡ 파싱 캐시 — raw 문자열 키. ns_jobs 변경 시 raw 가 달라져 자동 무효화. JSON.parse(~400KB) 반복 제거.
+  let _jobsCacheRaw = null, _jobsCacheArr = [];
   function getJobs() {
-    try { return JSON.parse(localStorage.getItem('ns_jobs') || '[]'); } catch { return []; }
+    let raw; try { raw = localStorage.getItem('ns_jobs') || '[]'; } catch { return []; }
+    if (raw === _jobsCacheRaw) return _jobsCacheArr.slice();
+    _jobsCacheRaw = raw;
+    try { _jobsCacheArr = JSON.parse(raw); } catch { _jobsCacheArr = []; }
+    if (!Array.isArray(_jobsCacheArr)) _jobsCacheArr = [];
+    return _jobsCacheArr.slice();
   }
   // 🕐 per-job mtime 자동 스탬프 — sync 시 cloud-pulled 데이터를 snapshot 에 기록해 둠으로써
   //   다음 saveJobs 호출 시 "변경된 job 만" updatedAt 갱신 → 서버 머지가 정확히 동작.
@@ -9499,7 +9517,11 @@ ${text.slice(0, 4000)}`;
   window._mergeJobRecord = _mergeJobRecord;
 
   // 클라우드 ↔ 로컬 작업 동기화 — 다른 PC/모바일도 동일 작업 보이도록
-  async function syncJobsFromCloud() {
+  let _lastJobsAutoFetch = 0;
+  async function syncJobsFromCloud(opts) {
+    opts = opts || {};
+    // ⚡ A-2 자동 루프 중복 제거 — 자동 호출(opts.auto)만 12초 throttle. 수동/강제는 항상 실행.
+    if (opts.auto) { const _n = Date.now(); if (_n - _lastJobsAutoFetch < 12000) return; _lastJobsAutoFetch = _n; }
     try {
       const res = await fetch('/api/jobs', { cache: 'no-store' });
       if (!res.ok) return;
@@ -9950,10 +9972,10 @@ ${text.slice(0, 4000)}`;
     // 데이터 hash — 변경 감지용 (jobs/stores 단순 길이 + updatedAt)
     function _snapshotHash() {
       try {
-        const jobs = JSON.parse(localStorage.getItem('ns_jobs')||'[]');
-        const stores = JSON.parse(localStorage.getItem('ns_stores')||'[]');
-        // 가벼운 시그니처 — 길이 + 마지막 id + 첫 id (충돌 가능성 낮음)
-        return `${jobs.length}/${stores.length}/${jobs[0]?.id||''}/${jobs[jobs.length-1]?.id||''}`;
+        // ⚡ A-5 — JSON.parse(1.4MB) 제거. raw 문자열 content-hash 로 변경 감지(파싱 없음).
+        const j = localStorage.getItem('ns_jobs') || '';
+        const s = localStorage.getItem('ns_stores') || '';
+        return window._fastHash ? (window._fastHash(j) + '/' + window._fastHash(s)) : (j.length + '/' + s.length);
       } catch { return ''; }
     }
 
@@ -9966,8 +9988,8 @@ ${text.slice(0, 4000)}`;
       _busy = true;
       const before = _snapshotHash();
       try {
-        if (typeof window.syncJobsFromCloud === 'function') await window.syncJobsFromCloud();
-        if (typeof window.syncFromCloud === 'function')      await window.syncFromCloud({ silent:true });
+        if (typeof window.syncJobsFromCloud === 'function') await window.syncJobsFromCloud({ auto: !opts.force });
+        if (typeof window.syncFromCloud === 'function')      await window.syncFromCloud({ silent:true, auto: !opts.force });
       } catch(e) { /* 네트워크 실패 무시 */ }
       _busy = false;
       const after = _snapshotHash();
