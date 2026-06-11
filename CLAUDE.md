@@ -367,10 +367,11 @@ const summary = (firstRoot && firstRoot.text) || j.asRequest || j.lineRequest ||
 - 분할은 **동작 보존**(순수 코드 이동) + 분리 파일 `?v=` **일괄 cache-bust** 의무.
 - PC↔모바일 공유 로직은 아래 SSOT 규칙 준수 (`m-core.js`).
 
-**현재 4,000줄 초과 파일** (분할 부채 — 실측 2026-06-11):
-- `app.js` (**~21,980줄**) — PC 메인 스크립트. **유일한 초과 파일** (한도의 5.5배). 내부 의존(`getStores`·`_findStoreInList` 등 window 미노출 함수)으로 신규 기능이 계속 app.js 에 적재되는 구조 → 근본 해소는 모듈 분할(`.claude/plans/`).
-- 그 외 `index.html`(~3,940, **임박**) · `m-core.js`(~1,970) · `m/*`(1,500~1,960) · `app.css`(~1,230) — 4,000 미만.
+**현재 4,000줄 초과 파일: 없음** (2026-06-11 app.js 분할 완료 — 가드레일 달성).
+- ~~`app.js` (21,985줄)~~ → **`app/app-01.js`~`app-08.js` 8개 순서 세그먼트**로 분할 (각 <4,000줄, `concat == 옛 app.js` 바이트 동일, index.html 이 `defer` 순서대로 로드 → 동작 100% 보존). 계획·근거: `.claude/plans/app-js-split.md`.
+- `index.html`(~3,950, **⚠ 임박**) · `m-core.js`(~1,970) · `m/*`(1,500~1,960) · `app.css`(~1,230) — 4,000 미만.
 - 신규 `functions/api/*.js` — 전부 1,000 미만 (양호).
+- **app/app-0X.js 세그먼트에 코드 추가로 4,000 넘으면 그 세그먼트를 추가 분할**. 독립 신규 기능은 별도 모듈 파일 권장(app 재비대 방지). `bash scripts/check-file-size.sh` 로 점검.
 
 **🔎 자동 점검 (필수 — 신규 초과 파일 차단)** — 코드 추가/배포 전 실행:
 ```bash
@@ -743,7 +744,7 @@ bash scripts/check-store-key.sh
 #   ② 통과 시 "✅ 매장 식별 정규화 정상"
 
 # (수동) 부분일치 store 매칭이 새로 들어왔는지 (검색창 .includes(search) 제외)
-grep -rnE "includes\(nameKey\)|nameKey\.includes|s\.includes\(.*[Ss]tore" app.js m-core.js
+grep -rnE "includes\(nameKey\)|nameKey\.includes|s\.includes\(.*[Ss]tore" app/ m-core.js
 # → 매장-작업 매칭부에 0 이어야 함
 ```
 

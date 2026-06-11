@@ -28,7 +28,7 @@
   Cache-Control: no-cache, must-revalidate
 
 # ── 버전 스탬프(?v=) 코드 자산: 4시간 안전 캐시 (자가치유 유지) ──
-/app.js
+/app/*
   Cache-Control: public, max-age=14400, must-revalidate
 /m-core.js
   Cache-Control: public, max-age=14400, must-revalidate

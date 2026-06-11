@@ -11,7 +11,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
 
-FILES="app.js m-core.js m/as/index.html m/newjob/index.html m/van/index.html m/supplies/index.html m/stocktake/index.html m/index.html"
+FILES="app/ m-core.js m/as/index.html m/newjob/index.html m/van/index.html m/supplies/index.html m/stocktake/index.html m/index.html"
 
 # 🔴 위험 패턴 — 매장 식별 비교에 _normalizeSearch 가 쓰인 경우
 #   (a) 동치 비교:  _normalizeSearch(...) ===   /   === _normalizeSearch(...)

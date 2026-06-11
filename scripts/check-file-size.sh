@@ -15,7 +15,8 @@ cd "$(dirname "$0")/.." || exit 2
 LIMIT=4000
 WARN=3500
 # 알려진 분할 부채 — 별도 계획(.claude/plans)으로 점진 분할. 신규 초과만 실패 처리.
-KNOWN_DEBT=" app.js "
+# (2026-06-11: app.js 8개 세그먼트 분할 완료 → 현재 부채 없음. 새 부채 생기면 여기 등록.)
+KNOWN_DEBT=" "
 
 files=$(git ls-files '*.js' '*.html' '*.css' 2>/dev/null | grep -vE '^(node_modules|dist|vendor)/')
 
