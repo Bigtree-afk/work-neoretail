@@ -1987,4 +1987,39 @@
   }
   global._showVersionBanner = _showVersionBanner;
   setTimeout(function(){ try { _setupVersionWatch('m-core.js'); } catch(e){} }, 100);
+
+  /* 작성자 '닉네임 → 실명' 일괄 정리 (모바일) — PC app-08 migrateJobAuthorNicknames 와 동일.
+     ns_users nicknames 레지스트리(_normalizeDisplayName) 기반. 미등록 이름은 보존.
+     모바일도 jobs push 무인증이라 saveJobs 가 변경분 mtime bump + push → 클라우드 정합. */
+  global.migrateJobAuthorNicknames = function(opts) {
+    opts = opts || {};
+    const FLAG = 'ns_author_nick_migrated_v1';
+    if (!opts.force && localStorage.getItem(FLAG) === '1') return { skipped:true };
+    if (typeof _normalizeDisplayName !== 'function') return { skipped:true };
+    let jobs = []; try { jobs = getJobs() || []; } catch(e){ return { skipped:true }; }
+    const FIELDS = ['author','createdBy','recordedBy','assignee','engineer','owner','_whoCreated','completedBy','lastEditedBy'];
+    const fix = (v) => { if (!v || typeof v !== 'string') return v; const n = _normalizeDisplayName(v); return (n && n !== v) ? n : v; };
+    let changed = 0;
+    jobs.forEach(j => {
+      if (!j || typeof j !== 'object') return;
+      let jc = false;
+      FIELDS.forEach(f => { const nv = fix(j[f]); if (nv !== j[f]) { j[f] = nv; jc = true; } });
+      if (Array.isArray(j.assignees)) j.assignees = j.assignees.map(a => { const nv = fix(a); if (nv !== a) jc = true; return nv; });
+      if (Array.isArray(j.thread))  j.thread.forEach(e => { if (e) { const nv = fix(e.author); if (nv !== e.author) { e.author = nv; jc = true; } } });
+      if (Array.isArray(j.memos))   j.memos.forEach(m => { if (m) { ['author','recordedBy'].forEach(f => { const nv = fix(m[f]); if (nv !== m[f]) { m[f] = nv; jc = true; } }); } });
+      if (jc) changed++;
+    });
+    if (changed > 0 && typeof saveJobs === 'function') saveJobs(jobs);   // mtime bump + push
+    try { localStorage.setItem(FLAG, '1'); } catch(_){}
+    return { ok:true, changed };
+  };
+  setTimeout(function(){
+    try {
+      const r = global.migrateJobAuthorNicknames();
+      if (r && r.ok && r.changed > 0) {
+        try { if (typeof showToast === 'function') showToast('📝 작성자 닉네임 ' + r.changed + '건 실명 정리', 4000); } catch(_){}
+        try { window.dispatchEvent(new Event('hashchange')); } catch(_){}   // 현재 화면 갱신
+      }
+    } catch(e){}
+  }, 4500);
 })(window);
