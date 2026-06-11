@@ -901,11 +901,15 @@ view.sort((a, b) => {
 
 ### AS 상세 모달 — 완료 버튼 (필수)
 
-AS 카테고리 (`cat === 'as'`) 상세 모달 footer 에는 반드시:
+> **2026-06-11: 신규/AS/소모품 상세 모달(`newopenDetailModal`)을 VAN 스타일로 통일.**
+> 하단 푸터 **제거** → 상단 **sticky 헤더**로 이동: `📋 매장 · 유형` 제목 + ⛶최대화(`_toggleNewopenMaximize`) + ✕닫기 + 완료 액션(`#newopenDetailFooterLeft`). 헤더는 스크롤해도 고정(`#newopenDetailModal .modal-header{position:sticky}`).
+
+AS 카테고리 (`cat === 'as'`) 상세 모달엔 반드시 완료 버튼 존재 — 위치 = **sticky 헤더 안 `#newopenDetailFooterLeft`** (푸터 아님):
 - **미완료 상태**: `✅ AS 완료 처리` 버튼 → `completeAsJobDirect(jobId)` 호출
 - **완료 상태**: `↩ 진행으로 되돌리기` 버튼 + 완료 시각 표시
 
 단순 안내 텍스트만 두고 버튼 없이 두는 것 금지 — 모바일에서 완료 처리 불가.
+**🔴 푸터 금지**: `newopenDetailModal` 에 `.modal-footer` 추가 금지(닫기·완료·최대화는 sticky 헤더). VAN(`vanJobModal`)·신규·AS·소모품 **동일 패턴**.
 
 ### 금지 사항
 - 전체(`all`) 필터를 기본값으로 설정 (완료 건이 상단을 채워 미완료 건 찾기 불편)

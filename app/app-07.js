@@ -67,15 +67,17 @@
       modal.className = 'modal-overlay';
       modal.innerHTML = `
         <div class="modal" style="max-width:760px;width:96%">
-          <div class="modal-header">
-            <div class="modal-title" id="newopenDetailTitle">상세</div>
-            <button class="modal-close" onclick="document.getElementById('newopenDetailModal').classList.remove('show')">✕</button>
+          <div class="modal-header" style="flex-direction:column;align-items:stretch;gap:8px">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+              <div class="modal-title" id="newopenDetailTitle" style="flex:1;min-width:0">상세</div>
+              <div style="display:flex;gap:4px;align-items:flex-start;flex-shrink:0">
+                <button class="modal-close" title="창 최대화/복원" onclick="window._toggleNewopenMaximize&&window._toggleNewopenMaximize()">⛶</button>
+                <button class="modal-close" title="닫기" onclick="document.getElementById('newopenDetailModal').classList.remove('show')">✕</button>
+              </div>
+            </div>
+            <div id="newopenDetailFooterLeft" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"></div>
           </div>
           <div class="modal-body" id="newopenDetailBody"></div>
-          <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
-            <div id="newopenDetailFooterLeft"></div>
-            <button class="btn btn-outline" onclick="document.getElementById('newopenDetailModal').classList.remove('show')">닫기</button>
-          </div>
         </div>`;
       document.body.appendChild(modal);
     }
@@ -275,6 +277,11 @@
     try { _refreshAllHubsAfterThread(); } catch(_){}
   };
 
+  // ⛶ 신규/AS/소모품 상세 모달 최대화/복원 (VAN _toggleVanMaximize 와 동일 패턴)
+  window._toggleNewopenMaximize = function() {
+    try { const m = document.querySelector('#newopenDetailModal .modal'); if (m) m.classList.toggle('nd-max'); } catch(e){}
+  };
+
   function editNewopen(id) {
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
     const j = jobs.find(x => x.id === id);
@@ -302,15 +309,17 @@
       /* backdrop close disabled — use ✕ or ESC */
       modal.innerHTML = `
         <div class="modal" style="max-width:920px;width:96%">
-          <div class="modal-header">
-            <div class="modal-title" id="newopenDetailTitle">상세</div>
-            <button class="modal-close" onclick="document.getElementById('newopenDetailModal').classList.remove('show')">✕</button>
+          <div class="modal-header" style="flex-direction:column;align-items:stretch;gap:8px">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+              <div class="modal-title" id="newopenDetailTitle" style="flex:1;min-width:0">상세</div>
+              <div style="display:flex;gap:4px;align-items:flex-start;flex-shrink:0">
+                <button class="modal-close" title="창 최대화/복원" onclick="window._toggleNewopenMaximize&&window._toggleNewopenMaximize()">⛶</button>
+                <button class="modal-close" title="닫기" onclick="document.getElementById('newopenDetailModal').classList.remove('show')">✕</button>
+              </div>
+            </div>
+            <div id="newopenDetailFooterLeft" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"></div>
           </div>
           <div class="modal-body" id="newopenDetailBody"></div>
-          <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
-            <div id="newopenDetailFooterLeft"></div>
-            <button class="btn btn-outline" onclick="document.getElementById('newopenDetailModal').classList.remove('show')">닫기</button>
-          </div>
         </div>`;
       document.body.appendChild(modal);
     }

@@ -461,6 +461,9 @@
   #vanJobModal .modal.van-max { width: 97vw !important; max-width: 97vw !important; height: 94vh !important; max-height: 94vh !important; }
   /* VAN 모달 상단(제목·⛶최대화·✕닫기) 고정 — 스크롤 내려도 항상 보이게 (.modal 이 스크롤 컨테이너) */
   #vanJobModal .modal-header { position: sticky; top: 0; z-index: 6; background: #FFF8E7; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+  /* ⛶ 신규/AS/소모품 상세 모달(newopenDetailModal) — 상단(제목·완료·⛶·✕) 고정 + 최대화 (VAN 동일 스타일) */
+  #newopenDetailModal .modal-header { position: sticky; top: 0; z-index: 6; background: #FFF8E7; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+  #newopenDetailModal .modal.nd-max { width: 97vw !important; max-width: 97vw !important; height: 94vh !important; max-height: 94vh !important; }
   .modal { background: #FFF8E7; border-radius: 12px; box-shadow: 6px 6px 0 #1A1614; width: 560px; max-height: 85vh; overflow-y: auto; }
   .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
   .modal-title { font-size: 16px; font-weight: 700; }
