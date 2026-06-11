@@ -306,8 +306,23 @@
     if (!Array.isArray(_storesCacheArr)) _storesCacheArr = [];
     return _storesCacheArr.slice();
   }
+  // 🛟 quota 안전 setItem — QuotaExceededError 시 재구축 가능한 캐시(ns_jobs_snap) 비우고 1회 재시도.
+  //   모바일 새로고침 시 동기화가 quota 로 깨지던 문제 차단. snap 은 _refreshJobsSnap 로 재생성됨.
+  function _safeSetItem(key, value) {
+    try { localStorage.setItem(key, value); return true; }
+    catch (e) {
+      try { localStorage.removeItem('ns_jobs_snap'); } catch(_){}
+      try { localStorage.setItem(key, value); return true; }
+      catch (e2) {
+        try { console.warn('[storage] 용량 초과 — ' + key + ' 저장 실패'); } catch(_){}
+        try { if (typeof showToast === 'function') showToast('⚠ 저장공간 부족 — 동기화 일부 지연. 관리자에 문의', 5000); } catch(_){}
+        return false;
+      }
+    }
+  }
+  global._safeSetItem = _safeSetItem;
   function saveStores(arr) {
-    localStorage.setItem('ns_stores', JSON.stringify(arr));
+    _safeSetItem('ns_stores', JSON.stringify(arr));
   }
 
   // 매장 클라우드 풀 (모바일 첫 진입 시 PC 데이터 받기 위함) — index.html L4895 syncFromCloud
@@ -609,7 +624,8 @@
       if (k === 'updatedAt') continue;
       out[k] = j[k];
     }
-    try { return JSON.stringify(out); } catch { return ''; }
+    // ⚡ 짧은 해시 저장 (통짜 JSON 금지) — ns_jobs_snap 이 jobs 2벌이 돼 모바일 quota 압박하던 문제 해결
+    try { const s = JSON.stringify(out); return (typeof _fastHash === 'function' ? _fastHash(s) : String(s.length)); } catch { return ''; }
   }
   function _loadJobsSnap() {
     try { return JSON.parse(localStorage.getItem('ns_jobs_snap') || '{}') || {}; } catch { return {}; }
@@ -659,7 +675,7 @@
       }
       _saveJobsSnap(newSnap);
     } catch(_){}
-    localStorage.setItem('ns_jobs', JSON.stringify(safe));
+    _safeSetItem('ns_jobs', JSON.stringify(safe));
     scheduleAutoBackup();
     schedulePushJobsToCloud();
   }
@@ -848,7 +864,7 @@
         const cloudDeletedRaw = Array.isArray(data?.deleted) ? data.deleted : [];
         const delIds = new Set(cloudDeletedRaw.map(e => String(e && e.id || '')).filter(Boolean));
         const clean = cloudJobsRaw.filter(j => j && j.id && !delIds.has(j.id));
-        try { localStorage.setItem('ns_jobs', JSON.stringify(clean)); } catch(_){}
+        _safeSetItem('ns_jobs', JSON.stringify(clean));
         try { localStorage.setItem('ns_resync_token', cloudToken); } catch(_){}
         try { _refreshJobsSnap(); } catch(_){}  // 🕐 snapshot 동기화
         for (const id of delIds) { try { _addTombstone('job', id); } catch(_){} }
@@ -910,7 +926,7 @@
         dedupSeen.add(j.id);
         merged.push(j);
       }
-      localStorage.setItem('ns_jobs', JSON.stringify(merged));
+      _safeSetItem('ns_jobs', JSON.stringify(merged));
       try { if (_newEtag) localStorage.setItem('ns_jobs_etag', _newEtag); } catch(_){}
       try { _refreshJobsSnap(); } catch(_){}  // 🕐 snapshot 동기화
       // 🩹 sync 후 status 와 thread 정합성 자동 보정 — 옛 데이터의 drift 자가 치료

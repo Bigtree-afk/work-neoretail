@@ -336,10 +336,8 @@
       if (catFooter === 'as') {
         const _asDone = _isAsDone(j);
         footerLeft.innerHTML = _asDone
-          ? `<button class="btn btn-outline btn-sm" style="color:var(--gray-700);border-color:var(--gray-400);font-weight:700" onclick="reopenNewopen('${j.id}');document.getElementById('newopenDetailModal').classList.remove('show')">↩ 진행으로 되돌리기</button>
-             <span style="margin-left:8px;font-size:11px;color:var(--gray-500)">완료: ${esc((j.completedAt||'').slice(0,16).replace('T',' '))}</span>`
-          : `<button class="btn btn-primary btn-sm" style="background:var(--success);font-weight:700;font-size:13px;padding:8px 18px" onclick="completeAsJobDirect('${j.id}')">✅ AS 완료 처리</button>
-             <span style="margin-left:10px;font-size:11px;color:var(--gray-500)">또는 위 스레드에서 진행/완료 기록 추가</span>`;
+          ? `<span style="font-size:12px;color:#065F46;font-weight:700">✅ 처리완료<span style="font-weight:400;color:var(--gray-500);font-size:11px;margin-left:6px">${esc((j.completedAt||'').slice(0,16).replace('T',' '))}</span></span>`
+          : `<span style="font-size:11.5px;color:var(--gray-500);line-height:1.5">✅ 완료는 아래 <b style="color:#1E40AF">📋 요청사항·처리 기록</b>에서 각 요청접수에 <b style="color:#065F46">✅ 완료</b> 처리를 추가하세요 — 모든 요청이 완료되면 자동으로 <b>처리완료</b>됩니다.</span>`;
       } else {
         const isJobDone = _isJobDone(j);
         footerLeft.innerHTML = isJobDone

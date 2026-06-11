@@ -2830,7 +2830,8 @@
       if (k === 'updatedAt') continue;
       out[k] = j[k];
     }
-    try { return JSON.stringify(out); } catch { return ''; }
+    // ⚡ 짧은 해시 저장 (통짜 JSON 금지) — ns_jobs_snap 이 jobs 2벌이 돼 모바일 quota 압박하던 문제 해결
+    try { const s = JSON.stringify(out); return (window._fastHash ? window._fastHash(s) : String(s.length)); } catch { return ''; }
   }
   function _loadJobsSnap() {
     try { return JSON.parse(localStorage.getItem('ns_jobs_snap') || '{}') || {}; } catch { return {}; }

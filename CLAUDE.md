@@ -899,22 +899,22 @@ view.sort((a, b) => {
 });
 ```
 
-### AS 상세 모달 — 완료 버튼 (필수)
+### AS 상세 모달 — 완료는 스레드로 일원화 (필수)
 
 > **2026-06-11: 신규/AS/소모품 상세 모달(`newopenDetailModal`)을 VAN 스타일로 통일.**
 > 하단 푸터 **제거** → 상단 **sticky 헤더**로 이동: `📋 매장 · 유형` 제목 + ⛶최대화(`_toggleNewopenMaximize`) + ✕닫기 + 완료 액션(`#newopenDetailFooterLeft`). 헤더는 스크롤해도 고정(`#newopenDetailModal .modal-header{position:sticky}`).
 
-AS 카테고리 (`cat === 'as'`) 상세 모달엔 반드시 완료 버튼 존재 — 위치 = **sticky 헤더 안 `#newopenDetailFooterLeft`** (푸터 아님):
-- **미완료 상태**: `✅ AS 완료 처리` 버튼 → `completeAsJobDirect(jobId)` 호출
-- **완료 상태**: `↩ 진행으로 되돌리기` 버튼 + 완료 시각 표시
+AS 완료는 **스레드(요청사항·처리 기록)로 일원화** (2026-06-12, VAN 동일). 각 요청접수(ROOT)에 `✅ 완료` 처리 기록을 추가 → `_recomputeJobStatus` 가 **모든 요청접수 완료 시 job 을 자동 `처리완료`** 로 만든다. sticky 헤더 `#newopenDetailFooterLeft` 표시:
+- **미완료 상태**: 완료 버튼 **없음** — "완료는 아래 처리 기록에서 ✅완료" **안내 텍스트만**.
+- **완료 상태**: `✅ 처리완료` + 완료 시각만 표시 (**버튼 없음** — 되돌리기도 제거, 2026-06-12). 재개가 필요하면 스레드에서 해당 요청접수의 `완료` 기록을 `진행` 으로 변경.
 
-단순 안내 텍스트만 두고 버튼 없이 두는 것 금지 — 모바일에서 완료 처리 불가.
+🔴 **상단 `✅ AS 완료 처리` 1-클릭 버튼 부활 금지**: `completeAsJobDirect` 는 **첫 미완료 요청접수만** 완료하면서 job 전체를 강제 완료 → 다중 요청 시 부정확. 완료는 반드시 스레드 건별로. (함수 자체는 잔존하나 UI 호출처 없음.)
 **🔴 푸터 금지**: `newopenDetailModal` 에 `.modal-footer` 추가 금지(닫기·완료·최대화는 sticky 헤더). VAN(`vanJobModal`)·신규·AS·소모품 **동일 패턴**.
 
 ### 금지 사항
 - 전체(`all`) 필터를 기본값으로 설정 (완료 건이 상단을 채워 미완료 건 찾기 불편)
 - 진행 중 건을 오래된 순(asc)으로 정렬 (가장 최근 접수 건을 아래 밀어버림)
-- AS 상세 모달에 완료 버튼 없이 텍스트 안내만 표시
+- AS 완료를 상단 1-클릭 버튼으로 강제 (다중 요청 부정확) — 완료는 스레드 요청접수별 ✅완료로
 
 ## 🔥 마지막 요청 삭제 → 업무 cascade 삭제 규칙 (2026-05-22 추가)
 
@@ -934,7 +934,9 @@ AS 카테고리 (`cat === 'as'`) 상세 모달엔 반드시 완료 버튼 존재
 **해결 (구조 변경)**:
 
 ### 1. 클라이언트 — `saveJobs` 가 변경된 job 만 `updatedAt` 자동 스탬프
-- `ns_jobs_snap` localStorage 키에 각 job 의 hash 저장 (`_jobHashForMtime` — `updatedAt` 필드 제외)
+- `ns_jobs_snap` localStorage 키에 각 job 의 **짧은 해시** 저장 (`_jobHashForMtime` = `_fastHash(JSON.stringify(job−updatedAt))`)
+  - 🔴 **통짜 JSON 저장 금지** (2026-06-12): snap 이 jobs 2벌이 돼 모바일 `localStorage` 한도 초과 → `QuotaExceededError` 로 새로고침 동기화가 깨졌음. 반드시 짧은 해시만.
+  - 🛟 핵심 쓰기(`ns_jobs`/`ns_stores`)는 **`_safeSetItem`** 사용 — quota 초과 시 재구축 가능한 `ns_jobs_snap` 비우고 1회 재시도 → 동기화 안 깨짐. (m-core `global._safeSetItem`)
 - `saveJobs(arr)` 호출 시 snapshot 과 비교, 해시 다른 job 만 `updatedAt = now()` 갱신
 - 결과: 사용자가 실제로 수정한 job 만 mtime bump. cloud 에서 pull 한 job 은 그대로.
 
