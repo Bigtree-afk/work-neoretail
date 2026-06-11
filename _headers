@@ -1,0 +1,36 @@
+# ──────────────────────────────────────────────────────────────────
+# Cloudflare Pages 캐시 정책 — 버전 업데이트 신뢰성 (2026-06-11)
+#
+# 전제: 모든 코드 자산은 ?v=YYYY-MM-DD-keyword 로 로드됨
+#       (app.js = index.html 수동 bump, m-core.js = scripts/bump-mcore.sh).
+#       ?v= 가 바뀌면 URL 이 달라져 브라우저가 새로 받는다(= 캐시 무효화 트리거).
+#       이 위에 app.js/m-core.js 의 _setupVersionWatch 가 5분마다 비교 →
+#       구버전이면 강제 업데이트 모달/배너 표시(이중 안전망).
+#
+# 정책:
+#  · HTML  = 항상 재검증(no-cache) → 켜둔 탭/새 탭이 늘 최신 ?v= 포인터를 봄.
+#  · app.js / m-core.js / app.css = 4시간 캐시 + must-revalidate.
+#       - ?v= 를 bump 하면 즉시 새 URL → 즉시 최신(instant).
+#       - 혹시 ?v= bump 을 깜빡해도 4시간 내 ETag 재검증으로 자동 자가치유.
+#       - ⚠ immutable(1년)은 일부러 쓰지 않음: app.js bump 이 수동이라
+#         깜빡 시 옛 코드가 영구 고착되는 위험을 피하기 위함.
+#         (자동 bump 도입 시 immutable 로 상향 검토 가능)
+# ──────────────────────────────────────────────────────────────────
+
+# ── HTML: 항상 재검증 (최신 버전 포인터 보장) ──
+/
+  Cache-Control: no-cache, must-revalidate
+/index.html
+  Cache-Control: no-cache, must-revalidate
+/*.html
+  Cache-Control: no-cache, must-revalidate
+/m/*
+  Cache-Control: no-cache, must-revalidate
+
+# ── 버전 스탬프(?v=) 코드 자산: 4시간 안전 캐시 (자가치유 유지) ──
+/app.js
+  Cache-Control: public, max-age=14400, must-revalidate
+/m-core.js
+  Cache-Control: public, max-age=14400, must-revalidate
+/app.css
+  Cache-Control: public, max-age=14400, must-revalidate

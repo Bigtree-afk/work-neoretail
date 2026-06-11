@@ -746,6 +746,13 @@ LINE 메시지 파싱 cron 은 **3중 방어** 구성:
 - Cloudflare Worker `neoretail-cron` 는 수동 배포 (`wrangler deploy`) — cron 트리거만 사용
 - 도메인: `work.neoretail.net`
 - KV: `STORES_KV`
+
+### 🗂 캐시 정책 — `_headers` (필수 이해)
+- 루트 `_headers` 파일이 Cloudflare Pages 브라우저 캐시 정책을 명시:
+  - **HTML** (`/`, `/index.html`, `/*.html`, `/m/*`) = `no-cache, must-revalidate` → 매 접속마다 최신 `?v=` 포인터 확인.
+  - **코드 자산** (`/app.js`, `/m-core.js`, `/app.css`) = `max-age=14400`(4h) `must-revalidate` → `?v=` bump 시 즉시 새 URL(instant), 깜빡해도 4h 내 ETag 자가치유.
+- ⚠ **`immutable`(1년) 일부러 안 씀**: app.js `?v=` bump 이 수동이라 깜빡 시 옛 코드 영구 고착 위험. 배포마다 app.js `?v=` 자동 bump 도입 시에만 immutable 상향 검토.
+- 버전 감시기(`_setupVersionWatch`, app.js/m-core.js)가 이 위에서 5분마다 구버전 감지 → 강제 업데이트 모달(PC)/배너(모바일). `?v=` bump 이 트리거.
 - 주요 KV 키: `stores`, `line_config`, `line_raw_queue`, `line_pending`, `line_parse_lastrun`, `line_parse_log_<YYYY-MM-DD>`, `line_alert_lastsent`
 
 ## 🚫 완료(done) 환원 금지 규칙 (2026-05-22 추가, 샤르르 reopen 루프)
