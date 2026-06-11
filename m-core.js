@@ -791,17 +791,23 @@
         merged.attachments = [...seenAtt.values()];
       }
     }
-    merged.completed = !!(localJob.completed || cloudJob.completed);
-    if (localJob.completed && localJob.doneAt) merged.doneAt = localJob.doneAt;
-    else if (cloudJob.completed && cloudJob.doneAt) merged.doneAt = cloudJob.doneAt;
-    // 🛡 status 보전 — completed 면 status 도 완료계열로 (샤르르 reopen 차단, 2026-05-22)
-    if (merged.completed) {
+    // ── 완료 sticky (2026-06-11 보강): completed 플래그 OR 완료계열 status 가 한쪽에라도
+    //   있으면 완료 유지. 옛 완료데이터(status='완료'·completed 플래그 없음)에서 local stale
+    //   '진행중' 이 Object.assign 으로 cloud '완료' 를 덮어써 진행중 카운트가 기기마다 수렴
+    //   안 하던 문제 차단. status 도 완료 신호로 인정. (PC app.js 와 동일 — CLAUDE.md 완료 sticky)
+    const _isDoneStatusM = (s) => { s = String(s||''); return s === '완료' || s === '처리완료' || s === 'done'; };
+    const _localDone = !!localJob.completed || _isDoneStatusM(localJob.status);
+    const _cloudDone = !!cloudJob.completed || _isDoneStatusM(cloudJob.status);
+    if (_localDone || _cloudDone) {
+      merged.completed = true;
       const cat = (typeof classifyJobCategory === 'function') ? classifyJobCategory(merged) : '';
       const doneStr = (cat === 'as') ? '처리완료' : '완료';
-      if (merged.status !== '완료' && merged.status !== '처리완료') {
-        merged.status = doneStr;
-      }
+      if (!_isDoneStatusM(merged.status)) merged.status = doneStr;
+      if (localJob.completed && localJob.doneAt) merged.doneAt = localJob.doneAt;
+      else if (cloudJob.completed && cloudJob.doneAt) merged.doneAt = cloudJob.doneAt;
       merged.completedAt = localJob.completedAt || cloudJob.completedAt || merged.completedAt || '';
+    } else {
+      merged.completed = !!(localJob.completed || cloudJob.completed);
     }
     return merged;
   }

@@ -767,7 +767,9 @@ LINE 메시지 파싱 cron 은 **3중 방어** 구성:
 **해결 규칙 (필수, 절대 되돌리지 말 것)**:
 - ❌ `approvePending` 은 **완료된 AS 에 절대 머지하지 않음** — 진행중 후보 없으면 새 job 등록.
 - ❌ `_selfHealJobStatuses` 는 `완료 → 진행중` **자동 환원 금지** — 정방향(인 완료→완료)만 허용. 진짜 reopen 은 사용자 명시적 thread 편집 시에만.
-- ✅ `_mergeJobRecord` 는 `completed===true` 면 `status` 도 완료계열(`'완료'`/`'처리완료'`)로 강제 동기화. local stale '진행중' 이 절대 cloud '완료' 를 덮지 못하도록.
+- ✅ `_mergeJobRecord` 는 **completed 플래그 OR 완료계열 status(`'완료'`/`'처리완료'`/`'done'`)** 가 한쪽에라도 있으면 완료로 강제 동기화. local stale '진행중' 이 절대 cloud '완료' 를 덮지 못하도록.
+  - 🔴 **2026-06-11 핵심 보강**: 예전엔 `completed===true` **플래그만** 봤음. 그런데 옛 완료 데이터는 `status='완료'`인데 `completed` 플래그가 없는 경우가 다수(소모품 완료 170건 중 **132건**). 이 건들은 `Object.assign({},cloud,local)` 로 local stale '진행중' 이 cloud '완료' 를 계속 덮어써 **소모품/AS 진행중 카운트가 기기마다 영원히 수렴 안 함**(예: 내PC 7 / 한소현 17 / 김혜연 2, 클라우드 진실=2). 보정 조건에 **완료계열 status** 를 추가해 해결. PC `app.js`·모바일 `m-core.js` 양쪽 `_mergeJobRecord` 동일.
+  - ⚠ 이 규칙(완료계열 status sticky)을 **`completed===true` 플래그 한정으로 되돌리지 말 것** — 위 수렴 불가 버그 재발.
 - ✅ 완료 (`completed: true`) 는 **sticky** — 자동 헬퍼는 풀지 않음. 수동 reopen 만 가능.
 
 **테스트**: 두 기기 A, B 에서 동일 AS 가 진행중일 때 A 에서 완료 처리 → 30초 후 B sync → B 의 카드도 완료로 표시 → A/B 모두 새로고침 후에도 유지.

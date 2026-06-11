@@ -7533,6 +7533,7 @@ ${text.slice(0, 4000)}`;
       <div style="padding:6px">
         <button onclick="closeProfileMenu();openMyPage()" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--gray-700);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">📦 장비 품목 관리</button>
         <button onclick="closeProfileMenu();window.open('/manual.html','_blank','noopener')" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--gray-700);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">📖 이용 매뉴얼</button>
+        <button onclick="closeProfileMenu();if(window.forceCloudRepull)window.forceCloudRepull()" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--gray-700);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''" title="기기마다 건수가 다를 때 — 이 기기를 클라우드 기준으로 맞춥니다 (안전·유실 없음)">🔄 클라우드 기준 강제 동기화</button>
         ${isAdmin ? `<button onclick="closeProfileMenu();openAdminPage()" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--gray-700);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background=''">⚙️ 관리자 페이지</button>` : ''}
         <button onclick="closeProfileMenu();doLogout()" style="width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:8px;font-weight:600" onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background=''">🚪 로그아웃</button>
       </div>
@@ -9454,21 +9455,25 @@ ${text.slice(0, 4000)}`;
         merged.attachments = [...seenAtt.values()];
       }
     }
-    // ── 완료 플래그: 어느 한쪽이라도 완료면 완료
-    merged.completed = !!(localJob.completed || cloudJob.completed);
-    // 상태/완료일 보전 — 완료 상태인 쪽 우선
-    if (localJob.completed && localJob.doneAt) merged.doneAt = localJob.doneAt;
-    else if (cloudJob.completed && cloudJob.doneAt) merged.doneAt = cloudJob.doneAt;
-    // 🛡 status 보전 — completed===true 면 status 도 완료계열로 동기화 (샤르르 reopen 차단)
-    //   local 의 stale '진행중' status 가 cloud 의 '완료' 를 덮어쓰던 문제 차단 (2026-05-22)
-    if (merged.completed) {
+    // ── 완료 sticky (2026-06-11 보강): completed 플래그 OR 완료계열 status 가 한쪽에라도
+    //   있으면 완료 유지. 예전엔 completed===true 플래그가 있을 때만 status 를 보정했는데,
+    //   옛 완료 데이터(status='완료'인데 completed 플래그 없음)가 다수(소모품 132건 등)라
+    //   Object.assign({},cloud,local) 로 local 의 stale '진행중' 이 cloud '완료' 를 계속
+    //   덮어써, 동기화해도 기기마다 진행중 카운트가 영원히 수렴 안 하던 문제. 이제 status 도
+    //   완료 신호로 인정 → stale '진행중' 이 cloud '완료' 를 못 덮음. (CLAUDE.md 완료 sticky)
+    const _isDoneStatusM = (s) => { s = String(s||''); return s === '완료' || s === '처리완료' || s === 'done'; };
+    const _localDone = !!localJob.completed || _isDoneStatusM(localJob.status);
+    const _cloudDone = !!cloudJob.completed || _isDoneStatusM(cloudJob.status);
+    if (_localDone || _cloudDone) {
+      merged.completed = true;
       const cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(merged) : '';
       const doneStr = (cat === 'as') ? '처리완료' : '완료';
-      if (merged.status !== '완료' && merged.status !== '처리완료') {
-        merged.status = doneStr;
-      }
-      // completedAt 도 둘 중 있는 쪽 보전
+      if (!_isDoneStatusM(merged.status)) merged.status = doneStr;
+      if (localJob.completed && localJob.doneAt) merged.doneAt = localJob.doneAt;
+      else if (cloudJob.completed && cloudJob.doneAt) merged.doneAt = cloudJob.doneAt;
       merged.completedAt = localJob.completedAt || cloudJob.completedAt || merged.completedAt || '';
+    } else {
+      merged.completed = !!(localJob.completed || cloudJob.completed);
     }
     return merged;
   }
