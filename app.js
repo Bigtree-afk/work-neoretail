@@ -171,8 +171,12 @@
     // ⚡ A-2 자동 루프 중복 제거 — 자동 호출(opts.auto)만 12초 throttle. 수동/강제(force)는 항상 실행.
     if (opts.auto) { const _n = Date.now(); if (_n - _lastStoresAutoFetch < 12000) return; _lastStoresAutoFetch = _n; }
     try {
-      const res = await fetch('/api/stores', { cache: 'no-store' });
+      // ⚡ A-3 ETag/304 — 변경 없으면 본문(~1MB) 재다운로드 회피
+      const _inm = (function(){ try { return localStorage.getItem('ns_stores_etag') || ''; } catch { return ''; } })();
+      const res = await fetch('/api/stores', { cache: 'no-store', headers: _inm ? { 'If-None-Match': _inm } : undefined });
+      if (res.status === 304) return { ok:true, notModified:true };   // 변경 없음 → 그대로 (304 는 throw 아님)
       if (!res.ok) throw new Error('HTTP ' + res.status);
+      const _newEtag = res.headers.get('ETag') || '';
       const data = await res.json();
       const remote = Array.isArray(data.stores) ? data.stores : [];
       const meta = data.meta || {};
@@ -231,6 +235,7 @@
       const merged = result;
       // sync 결과 save 는 fromSync:true — dirty 안 켜고 echo push 안 함 (race-condition 재발방지)
       if (merged.length > 0 && typeof saveStores === 'function') saveStores(merged, { fromSync:true });
+      try { if (_newEtag) localStorage.setItem('ns_stores_etag', _newEtag); } catch(_){}
       if (typeof hydrateSavedStores === 'function') hydrateSavedStores();
       // 로컬이 클라우드보다 많은 경우(엑셀 업로드 등)는 명시적으로 dirty + push
       if (merged.length > remote.length) {
@@ -9523,8 +9528,12 @@ ${text.slice(0, 4000)}`;
     // ⚡ A-2 자동 루프 중복 제거 — 자동 호출(opts.auto)만 12초 throttle. 수동/강제는 항상 실행.
     if (opts.auto) { const _n = Date.now(); if (_n - _lastJobsAutoFetch < 12000) return; _lastJobsAutoFetch = _n; }
     try {
-      const res = await fetch('/api/jobs', { cache: 'no-store' });
+      // ⚡ A-3 ETag/304 — 변경 없으면 본문(수백 KB) 재다운로드 회피
+      const _inm = (function(){ try { return localStorage.getItem('ns_jobs_etag') || ''; } catch { return ''; } })();
+      const res = await fetch('/api/jobs', { cache: 'no-store', headers: _inm ? { 'If-None-Match': _inm } : undefined });
+      if (res.status === 304) return;   // 클라우드 변경 없음 → 그대로
       if (!res.ok) return;
+      const _newEtag = res.headers.get('ETag') || '';
       const data = await res.json();
       // 🔁 resync_token — 서버가 데이터 정합화 필요를 알리는 신호
       //   로컬 토큰과 다르면 → force-resync (localStorage 를 cloud 로 강제 덮어쓰기)
@@ -9549,6 +9558,7 @@ ${text.slice(0, 4000)}`;
         // hub 자동 갱신
         try { if (typeof window._refreshAllHubsAfterThread === 'function') window._refreshAllHubsAfterThread(); } catch(_){}
         if (typeof showToast === 'function') showToast(`🔄 데이터 자동 정합화 (${clean.length}건)`);
+        try { if (_newEtag) localStorage.setItem('ns_jobs_etag', _newEtag); } catch(_){}
         return;
       }
       const local = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
@@ -9611,6 +9621,7 @@ ${text.slice(0, 4000)}`;
         merged.push(j);
       }
       localStorage.setItem('ns_jobs', JSON.stringify(merged));
+      try { if (_newEtag) localStorage.setItem('ns_jobs_etag', _newEtag); } catch(_){}
       // 🕐 머지 결과로 snapshot 갱신 — 다음 saveJobs 가 cloud-pulled job 을 "변경됨" 으로 오인 안 함
       try { _refreshJobsSnap(); } catch(_){}
       // 🩹 thread 완료건 status 자동 승격 (모바일과 동일) — status drift 통일

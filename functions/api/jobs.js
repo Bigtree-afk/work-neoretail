@@ -8,7 +8,7 @@
  * 저장 위치: STORES_KV 의 키 "jobs"
  *   { jobs: [...], updatedAt: ISO8601 }
  */
-export async function onRequestGet({ env }) {
+export async function onRequestGet({ request, env }) {
   if (!env.STORES_KV) return json({ jobs: [], error: 'KV not bound' }, 200);
   // 🛡 KV.get('...', 'json') 은 손상된 JSON (예: BOM 포함) 만나면 unhandled throw →
   //   handler 가 500 / Cloudflare 1101 에러 반환. wrangler kv put 으로 직접 데이터를
@@ -45,7 +45,24 @@ export async function onRequestGet({ env }) {
   const out = (data && typeof data === 'object' && !Array.isArray(data))
     ? { ...data, deleted, deletedThreads, deletedThreadChildren, resyncToken }
     : { jobs: Array.isArray(data) ? data : [], deleted, deletedThreads, deletedThreadChildren, resyncToken };
-  return json(out, 200);
+  // ⚡ ETag/304 — 변경 없으면 본문(jobs 등 수백 KB) 재전송 회피 (If-None-Match)
+  const bodyStr = JSON.stringify(out);
+  const etag = '"' + _etagHash(bodyStr) + '"';
+  if (request && request.headers.get('If-None-Match') === etag) {
+    return new Response(null, { status: 304, headers: {
+      'cache-control': 'no-store', 'access-control-allow-origin': '*',
+      'access-control-expose-headers': 'ETag', 'etag': etag } });
+  }
+  return new Response(bodyStr, { status: 200, headers: {
+    'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store',
+    'access-control-allow-origin': '*', 'access-control-expose-headers': 'ETag', 'etag': etag } });
+}
+
+// djb2-xor + 길이 — 변경감지용 ETag(충돌 무해)
+function _etagHash(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36) + s.length.toString(36);
 }
 
 export async function onRequestPost({ request, env }) {
