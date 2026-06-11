@@ -1320,6 +1320,45 @@
     } catch(e) { console.warn('[migrate contacts] failed:', e); }
   }, 3000);
 
+  /* 페이지 로드 후 1회 — 저장된 작성자 '닉네임 → 실명' 일괄 정리 (ns_users nicknames 레지스트리 기반)
+     예: '미디' → '박재민'. _normalizeDisplayName 으로 변환 — 미등록 닉네임/실명은 그대로(안전).
+     saveJobs 가 변경된 job 만 updatedAt bump + push → 다른 기기도 동기화로 실명 반영. */
+  window.migrateJobAuthorNicknames = function(opts) {
+    opts = opts || {};
+    const FLAG = 'ns_author_nick_migrated_v1';
+    if (!opts.force && localStorage.getItem(FLAG) === '1') return { skipped:true };
+    const norm = window._normalizeDisplayName;
+    if (typeof norm !== 'function') return { skipped:true, reason:'no _normalizeDisplayName' };
+    let jobs = []; try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e){ return { skipped:true }; }
+    const FIELDS = ['author','createdBy','recordedBy','assignee','engineer','owner','_whoCreated','completedBy','lastEditedBy'];
+    const fix = (v) => { if (!v || typeof v !== 'string') return v; const n = norm(v); return (n && n !== v) ? n : v; };
+    let changed = 0;
+    jobs.forEach(j => {
+      if (!j || typeof j !== 'object') return;
+      let jc = false;
+      FIELDS.forEach(f => { const nv = fix(j[f]); if (nv !== j[f]) { j[f] = nv; jc = true; } });
+      if (Array.isArray(j.assignees)) j.assignees = j.assignees.map(a => { const nv = fix(a); if (nv !== a) jc = true; return nv; });
+      if (Array.isArray(j.thread))  j.thread.forEach(e => { if (e) { const nv = fix(e.author); if (nv !== e.author) { e.author = nv; jc = true; } } });
+      if (Array.isArray(j.memos))   j.memos.forEach(m => { if (m) { ['author','recordedBy'].forEach(f => { const nv = fix(m[f]); if (nv !== m[f]) { m[f] = nv; jc = true; } }); } });
+      if (jc) changed++;
+    });
+    if (changed > 0 && typeof saveJobs === 'function') {
+      saveJobs(jobs);
+      try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud({ toast:false }); } catch(e){}
+    }
+    try { localStorage.setItem(FLAG, '1'); } catch(_){}
+    return { ok:true, changed };
+  };
+  setTimeout(() => {
+    try {
+      const r = window.migrateJobAuthorNicknames();
+      if (r && r.ok && r.changed > 0) {
+        console.log('[migrate] 작성자 닉네임→실명 ' + r.changed + '건');
+        if (typeof showToast === 'function') showToast('📝 작성자 닉네임 ' + r.changed + '건을 실명으로 정리했습니다', 5000);
+      }
+    } catch(e) { console.warn('[migrate author] failed:', e); }
+  }, 4500);
+
   /* 관리자 강제 재실행 — console 또는 마이페이지 버튼 */
   window.forceReMigrateStoreEquipment = function() {
     if (!confirm('매장 장비 DB 를 강제 재마이그레이션 하시겠습니까?\n\n동작:\n- 모든 작업의 장비를 스캔\n- 완료 작업: 모든 장비 적재 / 진행 작업: checked 만\n- 이미 적재된 항목은 중복 방지 (sourceJobId+idx 매칭)\n\n안전 — 데이터 손실 없음.')) return;
