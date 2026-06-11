@@ -501,6 +501,51 @@ function fmtNum(el){
 - 콤마 포함 문자열을 숫자 계산/저장에 그대로 사용 (NaN 위험 — 반드시 `replace(/,/g,'')` 후 `Number`)
 - 표시 시 콤마 없는 raw 숫자 노출 (예: `1234567원`)
 
+### 🛡 주기적 재렌더 — `_sigSkip` 가드 의무 (어른거림 방지 — 2026-06-11)
+
+**원칙**: 백그라운드 동기화(20~30초)·`ns:data-changed`·`storage` 이벤트·`visibilitychange`/`focus` 로 **반복 호출**되는 렌더 함수는, `innerHTML` 을 교체하기 전 **반드시 `window._sigSkip(el, sig)` 가드**로 "내용이 직전과 같으면 재구축 skip" 처리한다.
+
+**왜**: 가드 없이 매 틱마다 `el.innerHTML = ...` 로 통째 교체하면 — 내용이 같아도 — **DOM 재생성 + CSS 펄스 애니메이션 재시작 + 스크롤/펼침/입력 포커스 소실**이 발생해 화면이 "어른거린다"(자글거림). 디자인이 누적 수정되며 가드 없는 렌더가 늘어 여러 화면이 동시에 깜빡이던 사고.
+
+**헬퍼** (PC `app.js` + 모바일 `m-core.js` 양쪽 동일 정의, `window._sigSkip` / `global._sigSkip`):
+```js
+window._sigSkip = function(el, sig){
+  if (!el) return true;
+  if (el.__rgSig === sig && el.childElementCount > 0) return true; // 내용 동일 → skip
+  el.__rgSig = sig; return false;                                   // 변경 → 렌더 진행
+};
+```
+
+**사용 패턴**:
+```js
+// 단일 컨테이너 — early-return
+const sig = 'key|' + JSON.stringify(view.map(j => [j.id, j.status, j.completed?1:0, j.updatedAt||0, (Array.isArray(j.thread)?j.thread.length:0)]));
+if (window._sigSkip && window._sigSkip(el, sig)) return;
+el.innerHTML = view.map(...).join('');
+
+// 다중 컨테이너(대시보드 등) — skip 분기를 else-if 앞에 삽입(원래 if/else 보존)
+if (window._sigSkip(elA, sigA)) { /* skip */ }
+else if (cond) { elA.innerHTML = ... } else { elA.innerHTML = ... }
+```
+
+**시그니처 규칙**:
+- 렌더에 영향 주는 식별자만 포함: `id` + `status` + `completed` + `updatedAt`(ms) + `thread.length` (+ 필터/탭 키). `_hubGenericRender` 의 `__hubSig` 와 동일 원리.
+- **카운트 badge·라벨은 `textContent` 로 가드 밖에서 항상 갱신** (textContent 는 깜빡임 없음). 가드는 `innerHTML` 통짜 교체만 막는다.
+- 시그니처는 **보수적으로**(누락보다 약간 과해도 OK) — 실제 변경 시 항상 재렌더되도록. 단 매 틱 바뀌는 값(경과시간 `Nh` 등)은 제외해 불필요한 재렌더 방지.
+
+**적용 완료(2026-06-11)**: PC 대시보드(오늘/최근완료/AS미처리·Neo요약·달력·공지·미니달력)·신규hub·신규관리·AS관리, 모바일 5개 SPA `renderEntry`. 기존 AS/VAN/소모품 hub 는 `_hubGenericRender.__hubSig` 로 이미 적용.
+
+**점검 체크리스트 (신규 화면·렌더 함수 추가 시 필수)**:
+- [ ] 이 렌더가 타이머/sync/`ns:data-changed` 로 반복 호출되나? → 그렇다면 `_sigSkip` 가드 필수
+- [ ] `innerHTML =` 직전에 가드가 있나
+- [ ] 시그니처에 렌더 영향 필드가 모두 포함됐나(누락 시 stale)
+- [ ] 카운트/라벨은 `textContent` 로 가드 밖 갱신인가
+- [ ] CSS `animation: ... infinite` 요소가 가드 없는 컨테이너 안에 있지 않은가(재시작 깜빡임)
+
+**금지**:
+- 주기적 호출 렌더에서 가드 없이 `el.innerHTML = ...` (어른거림 재발)
+- 시그니처에 매 틱 변하는 값(현재시각·랜덤) 포함 (무한 재렌더)
+
 ## 데이터 규칙 (필수)
 
 ### 작업 완료 판정 — `_isJobDone(j)` 헬퍼 사용
