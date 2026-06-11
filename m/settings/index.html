@@ -106,7 +106,12 @@
   <!-- 앱 정보 -->
   <div class="sec-h" style="padding:0 4px 6px;font-size:11px;font-weight:800;color:var(--gray-400);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">앱 정보</div>
   <div class="sec">
-    <div class="row"><div class="label">버전</div><div class="val">2026.05</div></div>
+    <div class="row"><div class="label">실행 버전</div><div class="val" id="verRunning">확인 중…</div></div>
+    <div class="row"><div class="label">최신 버전</div><div class="val" id="verLatest">확인 중…</div></div>
+    <div class="row"><div class="label">상태</div><div class="val" id="verStatus">—</div></div>
+    <div class="btn-row" id="verUpdateRow" style="display:none">
+      <button class="btn btn-primary" onclick="var u=new URL(location.href);u.searchParams.set('_u',Date.now());location.href=u.toString();">🔄 지금 업데이트</button>
+    </div>
     <div class="row"><div class="label">배포</div><div class="val">Cloudflare Pages</div></div>
   </div>
 
@@ -149,6 +154,38 @@ function renderCounts() {
   document.getElementById('jobCount').textContent   = jobs.length + '건';
 }
 
+// 🔄 버전 확인 — 실행중 m-core.js ?v= vs 최신 배포(HTML 재요청) 비교
+async function renderVersion(){
+  const readV = s => (String(s||'').match(/[?&]v=([^&"'\s]+)/)||[])[1] || '';
+  const tag = Array.prototype.slice.call(document.querySelectorAll('script[src]'))
+                .find(function(s){ return (s.getAttribute('src')||'').indexOf('m-core.js') >= 0; });
+  const running = tag ? readV(tag.getAttribute('src')) : '';
+  const elR = document.getElementById('verRunning');
+  const elL = document.getElementById('verLatest');
+  const elS = document.getElementById('verStatus');
+  const upRow = document.getElementById('verUpdateRow');
+  if (elR) elR.textContent = running || '(없음)';
+  let live = '';
+  try {
+    const html = await (await fetch(location.pathname + '?_vc=' + Date.now(), { cache: 'no-store' })).text();
+    const key = 'm-core.js?v=';
+    const i = html.indexOf(key);
+    live = (i >= 0) ? (html.slice(i + key.length).match(/^[^"'&\s]+/) || [''])[0] : '';
+  } catch(e) {}
+  if (elL) elL.textContent = live || '(확인 실패)';
+  if (elS) {
+    if (live && running && live !== running) {
+      elS.innerHTML = '<span class="pill admin">⚠️ 구버전 — 업데이트 필요</span>';
+      if (upRow) upRow.style.display = '';
+    } else if (live && running && live === running) {
+      elS.innerHTML = '<span class="pill staff" style="background:#DCFCE7;color:#166534">✅ 최신</span>';
+      if (upRow) upRow.style.display = 'none';
+    } else {
+      elS.textContent = '확인 불가';
+    }
+  }
+}
+
 async function doSync() {
   const btn = document.getElementById('syncBtn');
   btn.textContent = '⏳ 동기화 중...';
@@ -182,6 +219,7 @@ function doLogout() {
 (async function init(){
   renderUser();
   renderCounts();
+  renderVersion();
   await doSync();
 })();
 </script>
