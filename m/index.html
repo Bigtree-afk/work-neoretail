@@ -191,7 +191,7 @@
   <a class="item" href="/m/settings/" data-nav="settings"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-06-12-quota-resync"></script>
+<script src="/m-core.js?v=2026-06-12-lean-stores"></script>
 <script>
 /* 모바일 SPA 진입 시 — 옛 localStorage.force_desktop 잔여물 정리 */
 try { localStorage.removeItem('force_desktop'); } catch(e){}
@@ -214,8 +214,9 @@ async function _mResync(ev) {
       fetch('/api/stores', { cache:'no-store' }).then(r => r.json()),
     ]);
     const _set = window._safeSetItem || ((k,v)=>localStorage.setItem(k,v));
+    const _lean = window._leanStores || ((a)=>a);
     _set('ns_jobs', JSON.stringify(r1.jobs || []));
-    _set('ns_stores', JSON.stringify(r2.stores || []));
+    _set('ns_stores', JSON.stringify(_lean(r2.stores || [])));
     alert('✓ 동기화 완료');
     location.reload();
   } catch(e) {

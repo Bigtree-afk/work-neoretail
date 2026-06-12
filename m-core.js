@@ -322,8 +322,24 @@
     }
   }
   global._safeSetItem = _safeSetItem;
+  // 📦 모바일 localStorage 용량 보호 — 모바일 화면에서 안 읽는 무거운 매장 배열 제거.
+  //   특히 contacts(~3.5MB) 누적으로 ns_stores 가 5MB 초과 → QuotaExceededError(저장 자체 불가).
+  //   모바일은 contacts/equipment/changeLog/storeMemos/memos 를 안 읽음(코드 전수 확인). 클라우드/PC 는
+  //   전체 보존 — 모바일 saveStores 는 cloud push 안 하고, 머지는 additive-by-id 라 안전. 해당 UI 도입 시 재검토.
+  var _LEAN_STORE_DROP = ['contacts', 'equipment', 'changeLog', 'storeMemos', 'memos'];
+  function _leanStores(arr) {
+    if (!Array.isArray(arr)) return arr;
+    return arr.map(s => {
+      if (!s || typeof s !== 'object') return s;
+      let dropped = false;
+      const o = {};
+      for (const k in s) { if (_LEAN_STORE_DROP.indexOf(k) >= 0) { dropped = true; continue; } o[k] = s[k]; }
+      return dropped ? o : s;
+    });
+  }
+  global._leanStores = _leanStores;
   function saveStores(arr) {
-    _safeSetItem('ns_stores', JSON.stringify(arr));
+    _safeSetItem('ns_stores', JSON.stringify(_leanStores(arr)));
   }
 
   // 매장 클라우드 풀 (모바일 첫 진입 시 PC 데이터 받기 위함) — index.html L4895 syncFromCloud
@@ -1161,7 +1177,7 @@
       const cleanJobs = cloudJobs.filter(j => j && j.id && !delJobIds.has(j.id));
       const cleanStores = cloudStores.filter(s => s && s.id && !delStoreIds.has(s.id));
       _safeSetItem('ns_jobs', JSON.stringify(cleanJobs));
-      _safeSetItem('ns_stores', JSON.stringify(cleanStores));
+      _safeSetItem('ns_stores', JSON.stringify(_leanStores(cleanStores)));
       // 삭제 레지스트리를 로컬 tombstone 에도 등록
       for (const id of delJobIds) { try { _addTombstone('job', id); } catch(_){} }
       for (const id of delStoreIds) { try { _addTombstone('store', id); } catch(_){} }
