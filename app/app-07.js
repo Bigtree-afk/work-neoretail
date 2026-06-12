@@ -767,7 +767,7 @@
         if (_catNotes === 'new') return '';
         return `<div style="margin-top:18px;padding:14px;background:#FAFAFA;border:1px solid var(--gray-200);border-radius:10px">
           <div style="font-size:12px;color:var(--gray-700);margin-bottom:6px;font-weight:700">📝 비고 / 특이사항 <span style="font-size:10px;color:var(--gray-400);font-weight:400">— 내용 수정 후 입력란 밖을 클릭하면 자동 저장</span></div>
-          <textarea placeholder="VAN사 변경, 고객 요청, 현장 특이사항 등..." onchange="updateJobNotes('${j.id}',this.value)" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;background:#fff;font-family:inherit;resize:vertical">${esc(j.notes||'')}</textarea>
+          <textarea placeholder="VAN사 변경, 고객 요청, 현장 특이사항 등..." onchange="updateJobNotes('${j.id}',this.value)" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;background:#fff;font-family:inherit;resize:vertical">${esc((j.notes && String(j.notes).trim() !== String(j.asRequest||'').trim()) ? j.notes : '')}</textarea>
         </div>`;
       })()}
     `;
