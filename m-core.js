@@ -311,8 +311,17 @@
   function _safeSetItem(key, value) {
     try { localStorage.setItem(key, value); return true; }
     catch (e) {
-      // 재구축 가능한 캐시부터 비우고 재시도 — snap(해시) + etag 캐시. (다음 sync 가 재생성)
+      // 1차: 재구축 가능한 캐시 제거 후 재시도 — snap(해시) + etag. (다음 sync 가 재생성)
       ['ns_jobs_snap', 'ns_jobs_etag', 'ns_stores_etag'].forEach(k => { try { localStorage.removeItem(k); } catch(_){} });
+      try { localStorage.setItem(key, value); return true; } catch(_){}
+      // 2차: 레거시로 비대해진 ns_stores(이전 버전이 contacts 등 full 저장, ~5MB)를 lean 으로 재압축 후 재시도.
+      //   syncStoresFromCloud 가 ETag 304 면 ns_stores 를 안 건드려 옛 bloat 가 영구 잔존 → 다른 키 저장이 quota 로 막힘.
+      try {
+        if (key !== 'ns_stores' && typeof _leanStores === 'function') {
+          const raw = localStorage.getItem('ns_stores');
+          if (raw) { const lean = JSON.stringify(_leanStores(JSON.parse(raw))); if (lean.length < raw.length) localStorage.setItem('ns_stores', lean); }
+        }
+      } catch(_){}
       try { localStorage.setItem(key, value); return true; }
       catch (e2) {
         try { console.warn('[storage] 용량 초과 — ' + key + ' 저장 실패'); } catch(_){}
@@ -341,6 +350,16 @@
   function saveStores(arr) {
     _safeSetItem('ns_stores', JSON.stringify(_leanStores(arr)));
   }
+  // 🧹 레거시 ns_stores 즉시 재압축 (로드 1회) — 이전 버전이 저장한 full ns_stores(~5MB, contacts 포함)는
+  //   syncStoresFromCloud 의 ETag 304 때문에 영구 잔존해 다른 키 저장을 quota 로 막음(저장공간 부족 토스트).
+  //   lean(~0.7MB)보다 크면 즉시 lean 화해 공간 확보. (이미 lean 이면 skip — 임계값/길이비교로 불필요 쓰기 방지)
+  try {
+    const _rawS = localStorage.getItem('ns_stores');
+    if (_rawS && _rawS.length > 1100000) {
+      const _leanS = JSON.stringify(_leanStores(JSON.parse(_rawS)));
+      if (_leanS.length < _rawS.length) _safeSetItem('ns_stores', _leanS);
+    }
+  } catch(_){}
 
   // 매장 클라우드 풀 (모바일 첫 진입 시 PC 데이터 받기 위함) — index.html L4895 syncFromCloud
   function _isStoreTombstoned(storeId) { return _isTombstoned('store', storeId); }
