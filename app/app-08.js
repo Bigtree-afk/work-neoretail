@@ -1359,6 +1359,46 @@
     } catch(e) { console.warn('[migrate author] failed:', e); }
   }, 4500);
 
+  /* 🔧 thread 가 모두 완료인데 status 가 '진행중/접수'에 갇힌 AS 작업을 '처리완료'로 승격 (promote-only).
+     원인: AS 인라인편집 live-route 가 _recomputeJobStatus 를 누락(2026-06-12 fix). 이전에 갇힌 건 복구.
+     ⚠ 승격만 — 절대 강등(완료→진행중) 안 함(완료 환원 금지 규칙 준수). AS 카테고리 한정(버그 범위). */
+  window._healStuckAsDoneStatuses = function() {
+    const isEff = window._isJobEffectivelyDone;
+    const cls = window.classifyJobCategory;
+    if (typeof isEff !== 'function') return { ok:false };
+    const DONE = { '완료':1, '처리완료':1, 'done':1 };
+    const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+    let changed = 0;
+    for (const j of jobs) {
+      if (!j) continue;
+      if (DONE[String(j.status||'')]) continue;                    // 이미 done — skip
+      const cat = (typeof cls === 'function') ? cls(j) : '';
+      if (cat !== 'as') continue;                                   // 버그는 AS live-route 한정
+      if (!isEff(j)) continue;                                      // thread 가 실제 모두 완료일 때만
+      j.status = '처리완료';                                        // 승격만
+      j.completed = true;
+      if (!j.completedAt) j.completedAt = new Date().toISOString();
+      j.updatedAt = Date.now();
+      changed++;
+    }
+    if (changed > 0 && typeof saveJobs === 'function') {
+      saveJobs(jobs);
+      try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud({ toast:false }); } catch(e){}
+    }
+    return { ok:true, changed };
+  };
+  setTimeout(() => {
+    try {
+      const r = window._healStuckAsDoneStatuses();
+      if (r && r.ok && r.changed > 0) {
+        console.log('[heal] thread-완료인데 진행중에 갇힌 AS 작업 ' + r.changed + '건 → 처리완료 승격');
+        try { if (typeof _refreshAllHubsAfterThread === 'function') _refreshAllHubsAfterThread(); } catch(_){}
+        try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(_){}
+        try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(_){}
+      }
+    } catch(e) { console.warn('[heal stuck AS done] failed:', e); }
+  }, 5500);
+
   /* 관리자 강제 재실행 — console 또는 마이페이지 버튼 */
   window.forceReMigrateStoreEquipment = function() {
     if (!confirm('매장 장비 DB 를 강제 재마이그레이션 하시겠습니까?\n\n동작:\n- 모든 작업의 장비를 스캔\n- 완료 작업: 모든 장비 적재 / 진행 작업: checked 만\n- 이미 적재된 항목은 중복 방지 (sourceJobId+idx 매칭)\n\n안전 — 데이터 손실 없음.')) return;

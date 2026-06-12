@@ -392,6 +392,10 @@
           live.thread = (typeof window._threadMigrate === 'function')
                        ? window._threadMigrate(live.thread) : live.thread;
           jobs[idx] = live;
+          // 🔧 job status 동기화 — 완료 child 추가 시 _recomputeJobStatus 누락으로
+          //   AS 업무가 '진행중'에 갇히던 버그 fix (2026-06-12). _setThreadFor 일반경로는 이미 호출하나
+          //   이 AS live-route 만 빠져 있었음. 모든 요청접수(ROOT) 완료 시 job 을 '처리완료' 로 승격.
+          if (typeof window._recomputeJobStatus === 'function') window._recomputeJobStatus(live);
           if (typeof saveJobs === 'function') saveJobs(jobs);
           try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
           jobId = live.id;

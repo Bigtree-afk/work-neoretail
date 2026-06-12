@@ -24,7 +24,8 @@
     ecountRegDate:  'kv-wins',
     // 누적 인스턴스 컬렉션 — 양쪽 모두 보존
     equipment:      { type:'additive-by-id', idKey:'instanceId' },
-    contacts:       { type:'additive-by-id', idKey:'phone', normalize:'phone' },
+    // contacts: phone 기준 dedup. 전화 없는 연락처는 fallbackKeys(이름+직책)로 dedup → phoneless doubling 차단.
+    contacts:       { type:'additive-by-id', idKey:'phone', normalize:'phone', fallbackKeys:['name','role'] },
     memos:          'additive-time-sorted',
     changeLog:      'additive-time-sorted',
     // 별칭 — 양쪽 합쳐서 유니크
@@ -44,6 +45,8 @@
   }
   // 전화번호 정규화 (숫자만)
   function _normPhone(p) { return String(p||'').replace(/\D/g,''); }
+  // content dedup 키 — id(전화) 없는 인스턴스 fallback (서버 sync.js 와 동일)
+  function _normContent(v) { return String(v||'').trim().toLowerCase().replace(/\s+/g,''); }
 
   /* per-field mtime 비교 시각 — prefer-non-empty 충돌 해소용.
      ★ fieldUpdatedAt 가 '있으면' 누락 키는 0(미편집=경쟁 안 함). '아예 없을' 때만 매장 updatedAt 로 fallback.
@@ -112,14 +115,21 @@
       case 'additive-by-id': {
         const idKey = policy.idKey || 'id';
         const norm  = policy.normalize === 'phone' ? _normPhone : (x => x);
+        const fbKeys = Array.isArray(policy.fallbackKeys) ? policy.fallbackKeys : null;
         const out = [];
         const seen = new Set();
         const push = (item) => {
           if (!item) return;
           const id = norm(item[idKey] || '');
-          if (id) {
-            if (seen.has(id)) return;
-            seen.add(id);
+          let dk = id ? ('id:' + id) : '';
+          // id(전화) 없으면 fallbackKeys(이름+직책) 내용 키로 dedup → phoneless doubling 차단
+          if (!dk && fbKeys) {
+            const fk = fbKeys.map(k => _normContent(item[k])).join('|');
+            if (fk.replace(/\|/g,'')) dk = 'c:' + fk;
+          }
+          if (dk) {
+            if (seen.has(dk)) return;
+            seen.add(dk);
           }
           out.push(item);
         };
