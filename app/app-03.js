@@ -534,6 +534,31 @@
         }
       }
       if (!_mergedExistingAs) {
+        // 🌱 요청접수 ROOT 시드 — thread 가 없으면 진행/완료 처리가 불가하던 문제(2026-06-12).
+        //   LINE 등록대기→새 작업은 thread 가 비어 'display-only 시드'에만 의존 → 완료 시 고아 ROOT 사고.
+        //   실제 ROOT 를 영속시켜 진행→완료 가능하게. (AS/신규만 — VAN 은 thread 미사용)
+        if (!Array.isArray(job.thread) || job.thread.length === 0) {
+          const _cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(job) : (isAs ? 'as' : '');
+          if (_cat === 'as' || _cat === 'new') {
+            const _rt = (p.lineMsgAt || '').replace('T',' ').slice(0,16)
+                      || ((typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' '));
+            const _rid = 'TR-line-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7);
+            job.thread = [{
+              ts: _rt, author: p.lineSender || recordedBy || '담당자',
+              status: '요청접수',
+              text: job.asRequest || p.lineRequest || p.lineParsed || p.lineRaw || '(요청 내용)',
+              threadId: _rid, parentId: null,
+              _lineSource: { msgAt: p.lineMsgAt || '', sender: p.lineSender || '', raw: p.lineRaw || '' },
+            }];
+            // LINE 으로 이미 완료 상태로 들어온 경우 — 완료 child 동반(상태 일관성 → 재계산 시 강등 방지)
+            if (jobStatus === '처리완료' || jobStatus === '완료') {
+              job.thread.push({ ts: _rt, author: p.lineSender || recordedBy || '담당자',
+                status: '완료', text: '(LINE 등록 시 완료 상태)',
+                threadId: 'TR-line-done-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+                parentId: _rid });
+            }
+          }
+        }
         jobs.unshift(job);
       }
       saveJobs(jobs);

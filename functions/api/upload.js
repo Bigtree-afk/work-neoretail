@@ -95,8 +95,10 @@ export async function onRequestPost({ request, env }) {
 
   // ─── 이미지 흐름 ──────────────────────────────
   if (isImage) {
-    // 클라이언트에서 항상 jpg 로 변환 후 보냄
-    if (!IMAGE_MIMES.has(mime) && !mime.startsWith('image/')) {
+    // 🤖 Android(특히 카메라 촬영)는 file.type 이 빈 문자열로 오는 경우가 많음 → kind==='image' 신뢰.
+    //   mime 이 명시됐는데 이미지가 아닐 때만 거부. 빈 mime 은 통과(아래에서 image/jpeg 로 저장).
+    //   (이전: 빈 mime → unsupported_image_type 400 → Android 사진 업로드 전부 실패)
+    if (mime && !IMAGE_MIMES.has(mime) && !mime.startsWith('image/')) {
       return json({ ok:false, error:'unsupported_image_type', mime }, 400);
     }
     if (size > MAX_IMAGE_BYTES) {
