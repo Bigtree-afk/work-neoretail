@@ -404,6 +404,11 @@
     } else {
       // ── NEW 경로 ────────────────────────────────────────
       const isAs = isAsCat;
+      // 🆕 LINE→새 AS 는 자동 완료 금지 (2026-06-12 이지팜 '자료 복구 불가' 케이스):
+      //   파서가 '복구 불가/못살림' 같은 미해결 보고를 status='완료'로 분류 → 새 AS 가 처리완료로 등록돼
+      //   AS 진행중(기본=미처리)에서 안 보임. 새 AS 는 항상 활성(접수)로 등록 → 완료는 검토 후 thread 에서 명시적.
+      //   (UPDATE 경로/비AS 카테고리는 영향 없음)
+      if (isAs && (jobStatus === '처리완료' || jobStatus === '완료')) jobStatus = '접수';
       const recordedBy = _currentUserName();
       const assignee = p.assignee || '';
       const memoHeader = (assignee && assignee !== recordedBy)
@@ -539,7 +544,8 @@
         //   실제 ROOT 를 영속시켜 진행→완료 가능하게. (AS/신규만 — VAN 은 thread 미사용)
         if (!Array.isArray(job.thread) || job.thread.length === 0) {
           const _cat = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(job) : (isAs ? 'as' : '');
-          if (_cat === 'as' || _cat === 'new') {
+          // thread 를 쓰는 모든 카테고리에 요청접수 ROOT 시드 — VAN·소모품 누락 fix(2026-06-12 명동교자 VAN).
+          if (['as','new','van','supplies','stocktake'].indexOf(_cat) >= 0 || !_cat) {
             const _rt = (p.lineMsgAt || '').replace('T',' ').slice(0,16)
                       || ((typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' '));
             const _rid = 'TR-line-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7);
