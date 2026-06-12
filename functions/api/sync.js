@@ -27,7 +27,9 @@ const STORE_FIELD_POLICY = {
   storeRegDate:   'kv-wins',
   ecountRegDate:  'kv-wins',
   equipment:      { type: 'additive-by-id', idKey: 'instanceId' },
-  contacts:       { type: 'additive-by-id', idKey: 'phone', normalize: 'phone' },
+  // contacts: phone(정규화) 기준 dedup. 전화 없는 연락처(직무상 대다수)는 fallbackKeys(이름+직책)로 dedup.
+  //   ⚠ fallbackKeys 없으면 phoneless 가 머지마다 무한 doubling 됨(2026-06-12 사고).
+  contacts:       { type: 'additive-by-id', idKey: 'phone', normalize: 'phone', fallbackKeys: ['name', 'role'] },
   memos:          'additive-time-sorted',
   changeLog:      'additive-time-sorted',
   aliases:        'aliases-union',
@@ -43,6 +45,8 @@ function _isEmptyValue(v) {
   return false;
 }
 function _normPhone(p) { return String(p||'').replace(/\D/g,''); }
+/* content dedup 키 — id(전화) 없는 인스턴스 fallback. 소문자+공백제거. */
+function _normContent(v) { return String(v||'').trim().toLowerCase().replace(/\s+/g,''); }
 /* per-field mtime 비교 시각 — fieldUpdatedAt 있으면 누락 키는 0(미편집), 없으면 매장 updatedAt fallback */
 function _fieldTs(store, key) {
   if (store && store.fieldUpdatedAt && typeof store.fieldUpdatedAt === 'object') {
@@ -91,14 +95,21 @@ function mergeStoreField(loc, rem, key) {
     case 'additive-by-id': {
       const idKey = policy.idKey || 'id';
       const norm  = policy.normalize === 'phone' ? _normPhone : (x => x);
+      const fbKeys = Array.isArray(policy.fallbackKeys) ? policy.fallbackKeys : null;
       const out = [];
       const seen = new Set();
       const push = (item) => {
         if (!item) return;
         const id = norm(item[idKey] || '');
-        if (id) {
-          if (seen.has(id)) return;
-          seen.add(id);
+        let dk = id ? ('id:' + id) : '';
+        // id(전화) 없으면 fallbackKeys(이름+직책) 내용 키로 dedup → phoneless doubling 차단
+        if (!dk && fbKeys) {
+          const fk = fbKeys.map(k => _normContent(item[k])).join('|');
+          if (fk.replace(/\|/g,'')) dk = 'c:' + fk;
+        }
+        if (dk) {
+          if (seen.has(dk)) return;
+          seen.add(dk);
         }
         out.push(item);
       };
