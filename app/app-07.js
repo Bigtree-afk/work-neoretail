@@ -2660,6 +2660,18 @@
       /* ── 작업 메모 (해당 매장 관련 모든 작업의 메모 수집) ── */
       const memoListEl = document.getElementById('detailMemoList');
       const memoCountEl = document.getElementById('detailMemoCount');
+      // 🔴 AS/VAN 의 j.notes 는 '요청문 미러'(thread 중복 — AS 저장 시 notes=asRequest 복제, 검색/AS관리 호환용)라
+      //    매장상세 메모탭에 '비고'로 노출하면 매장 메모가 AS/VAN 요청 내용으로 오염됨(요청 삭제·완료 후에도 잔존).
+      //    → 신규/소모품의 사용자 직접 입력 비고만 매장 메모로 표시. (2026-06-12 오염 fix)
+      window._notesIsGenuineStoreMemo = function(j){
+        const n = String((j && j.notes) || '').trim();
+        if (!n) return false;
+        let c = '';
+        try { c = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : ''; } catch(_){}
+        if (c === 'as' || c === 'van') return false;                       // 요청/비고 미러 — 매장 메모 아님
+        if (n === String((j && j.asRequest) || '').trim()) return false;   // 요청문 중복 방어(구 데이터)
+        return true;
+      };
       // 메모 탭 재렌더 함수 — 외부에서도 호출 가능하게 만들기
       window.renderStoreDetailMemos = function(curStore) {
         const st = curStore || store;
@@ -2673,7 +2685,7 @@
           }));
         }
         matched.forEach(j => {
-          if (j.notes && String(j.notes).trim()) {
+          if (window._notesIsGenuineStoreMemo(j)) {
             flatMemos2.push({ at: j.createdAt ? new Date(j.createdAt).toISOString().slice(0,16).replace('T',' ') : '', author: '', text: String(j.notes).trim(), jobType: j.type || '작업', jobId: j.id, isNotes: true });
           }
           if (Array.isArray(j.memos)) {
@@ -2710,8 +2722,8 @@
           }));
         }
         matched.forEach(j => {
-          // 비고(notes) 본문도 메모처럼 표시
-          if (j.notes && String(j.notes).trim()) {
+          // 비고(notes) 본문도 메모처럼 표시 — 단 AS/VAN 요청 미러는 제외(매장 메모 오염 방지)
+          if (window._notesIsGenuineStoreMemo(j)) {
             flatMemos.push({
               at: j.createdAt ? new Date(j.createdAt).toISOString().slice(0,16).replace('T',' ') : '',
               author: '',

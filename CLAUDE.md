@@ -756,6 +756,22 @@ grep -rnE "includes\(nameKey\)|nameKey\.includes|s\.includes\(.*[Ss]tore" app/ m
 
 **구현 위치**: 매장 상세 작업 이력(`_hubRenderGroup`/store detail `matched`), hub 그룹화(`_hubGroupByStore` — 이미 storeId/정규화 키), 신규/AS 자동 통합(`saveNewJob`/`approvePending` — 정규화 정확일치 사용).
 
+### 🧹 작업 thread/요청 내용이 매장 메모·비고·특이사항으로 새지 않게 (필수 — 2026-06-12)
+
+**사고**: AS/VAN 요청접수를 삭제·완료처리했더니 그 **요청 내용이 매장상세 "메모" 탭에 '비고'로 표시**됨(요청 삭제·완료 후에도 잔존).
+
+**원인** (실제 store 필드 쓰기 아님 = **표시 버그**):
+- AS 저장 시 요청문을 `j.notes` 에 **복제**함 (`saveNewJob` app-04, `m/as` — 주석 "AS 관리 테이블 호환"). 검색 blob·AS관리 fallback 이 `j.notes` 를 읽어서 **일부러 남겨둔 미러**.
+- 그런데 매장상세 "메모" 탭(`renderStoreDetailMemos`, app-07)이 매칭 작업의 `j.notes` 를 **무조건 '비고'로 표시** → 요청 내용이 매장 메모로 새어 보임. `j.notes` 는 thread 와 **별도 복사본**이라 요청(ROOT) 삭제해도 안 지워져 잔존.
+- (참고) 모바일은 `fMemo` id 가 SPA마다 의미 다름 — 신규/소모품/재고=`매장 특이사항`, **AS=요청접수**, **VAN=비고** → `j.memo` 도 AS/VAN 에선 요청/비고. PC `app/*.js` 는 `j.memo` 를 안 읽어 영향 없음. `store.notes[]`(특이사항)·`store.storeMemos[]` 실데이터는 오염 안 됨.
+
+**규칙**:
+- **매장 메모/비고 집계 뷰는 작업의 `j.notes`(AS/VAN 요청·비고 미러)를 노출하지 말 것.** 헬퍼 `window._notesIsGenuineStoreMemo(j)` 사용 — `classifyJobCategory`가 `as`/`van` 이거나 `j.notes === j.asRequest`(요청문 중복)면 **표시 제외**. 신규/소모품의 사용자 직접 입력 비고만 매장 메모로.
+- `j.notes`(AS 요청 미러)는 **검색·AS관리 호환용으로 유지**(source 에서 제거 금지 — `app-06` 검색 blob 이 `j.notes` 의존). 고치는 지점은 **표시(display)**, 데이터 아님.
+- 작업의 요청·처리 기록은 **thread(요청접수·처리기록)** 가 정본. 매장 메모(`store.storeMemos`)·특이사항(`store.notes[]`)은 **매장 수동 입력 전용** — 작업 이벤트(완료/삭제/저장)가 절대 쓰지 말 것.
+
+**점검**: 매장상세 메모/비고 집계 코드에서 `if (j.notes …)` 직접 push 금지 → `window._notesIsGenuineStoreMemo(j)` 가드 경유. (구현: `app-07.js` `renderStoreDetailMemos` + 초기 렌더 2곳.)
+
 ## 운영 규칙
 
 ### 🚨 파싱 오류 알림 (필수)
