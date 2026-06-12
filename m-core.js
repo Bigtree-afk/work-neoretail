@@ -311,11 +311,12 @@
   function _safeSetItem(key, value) {
     try { localStorage.setItem(key, value); return true; }
     catch (e) {
-      try { localStorage.removeItem('ns_jobs_snap'); } catch(_){}
+      // 재구축 가능한 캐시부터 비우고 재시도 — snap(해시) + etag 캐시. (다음 sync 가 재생성)
+      ['ns_jobs_snap', 'ns_jobs_etag', 'ns_stores_etag'].forEach(k => { try { localStorage.removeItem(k); } catch(_){} });
       try { localStorage.setItem(key, value); return true; }
       catch (e2) {
         try { console.warn('[storage] 용량 초과 — ' + key + ' 저장 실패'); } catch(_){}
-        try { if (typeof showToast === 'function') showToast('⚠ 저장공간 부족 — 동기화 일부 지연. 관리자에 문의', 5000); } catch(_){}
+        try { if (typeof showToast === 'function') showToast('⚠ 저장공간 부족 — 시크릿(비공개) 탭인지 확인하세요. 일반 탭에서 다시 시도해 주세요.', 6000); } catch(_){}
         return false;
       }
     }
@@ -1159,8 +1160,8 @@
       const delStoreIds = new Set(cloudDeletedStores.map(e => String(e.id||'')).filter(Boolean));
       const cleanJobs = cloudJobs.filter(j => j && j.id && !delJobIds.has(j.id));
       const cleanStores = cloudStores.filter(s => s && s.id && !delStoreIds.has(s.id));
-      localStorage.setItem('ns_jobs', JSON.stringify(cleanJobs));
-      localStorage.setItem('ns_stores', JSON.stringify(cleanStores));
+      _safeSetItem('ns_jobs', JSON.stringify(cleanJobs));
+      _safeSetItem('ns_stores', JSON.stringify(cleanStores));
       // 삭제 레지스트리를 로컬 tombstone 에도 등록
       for (const id of delJobIds) { try { _addTombstone('job', id); } catch(_){} }
       for (const id of delStoreIds) { try { _addTombstone('store', id); } catch(_){} }
@@ -1866,7 +1867,7 @@
       tomb = tomb.filter(t => !(t && t.type === 'job' && liveIds.has(t.id)));
       localStorage.setItem('ns_tombstones', JSON.stringify(tomb));
     } catch(_){}
-    try { localStorage.setItem('ns_jobs', JSON.stringify(clean)); } catch(_){}
+    try { _safeSetItem('ns_jobs', JSON.stringify(clean)); } catch(_){}
     try { if (typeof _refreshJobsSnap === 'function') _refreshJobsSnap(); } catch(_){}
     try { if (typeof syncStoresFromCloud === 'function') await syncStoresFromCloud(); } catch(e){}
     alert('✅ 클라우드 기준 동기화 완료 — 새로고침합니다');

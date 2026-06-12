@@ -98,7 +98,7 @@ async function hardReset() {
     const d = await r.json();
     const delIds = new Set((d.deleted||[]).map(e=>String(e.id||'')));
     const clean = (d.jobs||[]).filter(j => j && j.id && !delIds.has(j.id));
-    localStorage.setItem('ns_jobs', JSON.stringify(clean));
+    (window._safeSetItem || ((k,v)=>localStorage.setItem(k,v)))('ns_jobs', JSON.stringify(clean));
     if (d.resyncToken) localStorage.setItem('ns_resync_token', d.resyncToken);
     alert('✅ 초기화 완료 — ' + clean.length + '건 받음. 작업 화면으로 돌아가 확인하세요.');
     run();

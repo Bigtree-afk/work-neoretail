@@ -952,7 +952,8 @@ AS 완료는 **스레드(요청사항·처리 기록)로 일원화** (2026-06-12
 ### 1. 클라이언트 — `saveJobs` 가 변경된 job 만 `updatedAt` 자동 스탬프
 - `ns_jobs_snap` localStorage 키에 각 job 의 **짧은 해시** 저장 (`_jobHashForMtime` = `_fastHash(JSON.stringify(job−updatedAt))`)
   - 🔴 **통짜 JSON 저장 금지** (2026-06-12): snap 이 jobs 2벌이 돼 모바일 `localStorage` 한도 초과 → `QuotaExceededError` 로 새로고침 동기화가 깨졌음. 반드시 짧은 해시만.
-  - 🛟 핵심 쓰기(`ns_jobs`/`ns_stores`)는 **`_safeSetItem`** 사용 — quota 초과 시 재구축 가능한 `ns_jobs_snap` 비우고 1회 재시도 → 동기화 안 깨짐. (m-core `global._safeSetItem`)
+  - 🛟 핵심 쓰기(`ns_jobs`/`ns_stores`)는 **`_safeSetItem`** 사용 — quota 초과 시 재구축 가능한 캐시(`ns_jobs_snap`+`ns_jobs_etag`+`ns_stores_etag`) 비우고 1회 재시도 → 동기화 안 깨짐. (m-core `global._safeSetItem`)
+  - 🔴 **`ns_jobs`/`ns_stores` 를 `localStorage.setItem` 으로 직접(raw) 쓰지 말 것 — 반드시 `_safeSetItem` 경유** (2026-06-12): `saveJobs/saveStores` 만 고치고 **`_forceResyncFromCloud`(새로고침 강제 재동기화)·수동 resync·`m/index.html`·`m/diag.html` 의 raw 쓰기를 놓쳐** QuotaExceededError 재발했음. 점검: `grep -rnE "localStorage\.setItem\('ns_(jobs|stores)'" m-core.js m/*.html` → `_safeSetItem` 미경유 0 이어야 함. (data 자체는 ~1.3MB 로 5MB 한도보다 작음 → 누적 캐시 eviction 으로 해결. 그래도 터지면 iOS **시크릿(비공개) 탭** 의심 — quota 거의 0.)
 - `saveJobs(arr)` 호출 시 snapshot 과 비교, 해시 다른 job 만 `updatedAt = now()` 갱신
 - 결과: 사용자가 실제로 수정한 job 만 mtime bump. cloud 에서 pull 한 job 은 그대로.
 
