@@ -7,6 +7,35 @@
    *      이유: 한 ROOT 완료가 job 전체 completed 화면 다음 요청 ROOT 추가가 분리됨
    *   3. arr 는 saveJobs 호출 전 반드시 _threadMigrate 정규화
    * ════════════════════════════════════════════════════════════════════════ */
+  // 🛡 고아 child 복구 — parent ROOT 가 thread 에 없는 child 의 ROOT 를 job 필드(asRequest/lineParsed/notes)에서 재구성.
+  //   원인(2026-06-12 판다팜): AS 요청접수 ROOT 가 display-only 시드(저장 안 됨, app-07:807)였는데
+  //   완료 child 만 그 시드 id 를 parent 로 저장 → ROOT 소실 → 요청접수·처리기록 안 보이고 status 계산 불가.
+  //   완료 저장 직전 호출해 ROOT 를 thread 에 영속시킨다(시드 id 그대로 → tombstone 무관, 머지 생존).
+  window._healOrphanRoots = function(job, arr) {
+    if (!job || !Array.isArray(arr) || arr.length === 0) return arr;
+    const rootIds = new Set(arr.filter(e => e && e.parentId == null).map(e => String(e.threadId)));
+    const orphan = [];
+    for (const e of arr) {
+      if (e && e.parentId != null && !rootIds.has(String(e.parentId)) && orphan.indexOf(String(e.parentId)) < 0) {
+        orphan.push(String(e.parentId));
+      }
+    }
+    if (orphan.length === 0) return arr;
+    const parts = [];
+    if (job.lineParsed && String(job.lineParsed).trim()) parts.push('📩 ' + String(job.lineParsed).trim());
+    else if (job.lineRaw && String(job.lineRaw).trim()) parts.push('📩 ' + String(job.lineRaw).trim());
+    const asText = String(job.asRequest || '').trim(); if (asText && !parts.some(p => p.includes(asText))) parts.push(asText);
+    const notesText = String(job.notes || '').trim(); if (notesText && !parts.some(p => p.includes(notesText))) parts.push(notesText);
+    const text = parts.join('\n\n') || '(요청 내용)';
+    const ts = String(job.asReceivedAt || '').slice(0,16).replace('T',' ')
+            || String(job.lineMsgAt || '').slice(0,16).replace('T',' ')
+            || (job.createdAt ? new Date(job.createdAt).toISOString().slice(0,16).replace('T',' ') : ((typeof _kstNow === 'function') ? _kstNow() : ''));
+    const author = job.lineSender || job.engineer || job.assignee || '담당자';
+    for (const pid of orphan) {
+      arr.unshift({ ts, author, status: '요청접수', text, threadId: pid, parentId: null });
+    }
+    return arr;
+  };
   function _setThreadFor(jobId, draftMode, arr, containerId) {
     const entity = _threadEntityFor(containerId);
     if (entity === 'stocktake') {
@@ -25,6 +54,8 @@
     const i = jobs.findIndex(x => x.id === jobId);
     if (i < 0) return;
     jobs[i].thread = arr.slice();
+    // 🛡 고아 child 의 ROOT 재구성 (display-only 시드 ROOT 소실 방지)
+    try { if (typeof window._healOrphanRoots === 'function') window._healOrphanRoots(jobs[i], jobs[i].thread); } catch(_){}
     // job status 동기화 — 공용 헬퍼 사용 (다른 경로에서도 동일 규칙 적용 가능)
     if (typeof window._recomputeJobStatus === 'function') {
       window._recomputeJobStatus(jobs[i]);
@@ -392,6 +423,8 @@
           live.thread = (typeof window._threadMigrate === 'function')
                        ? window._threadMigrate(live.thread) : live.thread;
           jobs[idx] = live;
+          // 🛡 고아 child 의 ROOT 재구성 — display-only 시드 ROOT 가 저장 안 돼 완료 child 만 남는 사고 방지(2026-06-12 판다팜)
+          try { if (typeof window._healOrphanRoots === 'function') window._healOrphanRoots(live, live.thread); } catch(_){}
           // 🔧 job status 동기화 — 완료 child 추가 시 _recomputeJobStatus 누락으로
           //   AS 업무가 '진행중'에 갇히던 버그 fix (2026-06-12). _setThreadFor 일반경로는 이미 호출하나
           //   이 AS live-route 만 빠져 있었음. 모든 요청접수(ROOT) 완료 시 job 을 '처리완료' 로 승격.

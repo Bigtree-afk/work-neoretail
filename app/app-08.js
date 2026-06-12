@@ -1371,15 +1371,26 @@
     let changed = 0;
     for (const j of jobs) {
       if (!j) continue;
-      if (DONE[String(j.status||'')]) continue;                    // 이미 done — skip
       const cat = (typeof cls === 'function') ? cls(j) : '';
-      if (cat !== 'as') continue;                                   // 버그는 AS live-route 한정
-      if (!isEff(j)) continue;                                      // thread 가 실제 모두 완료일 때만
-      j.status = '처리완료';                                        // 승격만
-      j.completed = true;
-      if (!j.completedAt) j.completedAt = new Date().toISOString();
-      j.updatedAt = Date.now();
-      changed++;
+      if (cat !== 'as') continue;                                   // AS 한정(버그 범위)
+      let touched = false;
+      // (a) 고아 ROOT 복구 — parent ROOT 없는 child(완료 등)가 있으면 ROOT 재구성 후 status 재계산.
+      //   원인: display-only 시드 ROOT 가 저장 안 된 채 완료 child 만 저장돼 요청접수·처리기록 소실(2026-06-12 판다팜).
+      const arr = Array.isArray(j.thread) ? j.thread : [];
+      const rootIds = new Set(arr.filter(e => e && e.parentId == null).map(e => String(e.threadId)));
+      const hasOrphan = arr.some(e => e && e.parentId != null && !rootIds.has(String(e.parentId)));
+      if (hasOrphan && typeof window._healOrphanRoots === 'function') {
+        window._healOrphanRoots(j, j.thread);
+        if (typeof window._recomputeJobStatus === 'function') window._recomputeJobStatus(j);
+        touched = true;
+      } else if (!DONE[String(j.status||'')] && isEff(j)) {
+        // (b) thread 가 모두 완료인데 status 가 미완료로 갇힘 → '처리완료' 승격(promote-only, 강등 안 함).
+        j.status = '처리완료';
+        j.completed = true;
+        if (!j.completedAt) j.completedAt = new Date().toISOString();
+        touched = true;
+      }
+      if (touched) { j.updatedAt = Date.now(); changed++; }
     }
     if (changed > 0 && typeof saveJobs === 'function') {
       saveJobs(jobs);
@@ -1391,7 +1402,7 @@
     try {
       const r = window._healStuckAsDoneStatuses();
       if (r && r.ok && r.changed > 0) {
-        console.log('[heal] thread-완료인데 진행중에 갇힌 AS 작업 ' + r.changed + '건 → 처리완료 승격');
+        console.log('[heal] AS 작업 복구(고아 ROOT 재구성 / 처리완료 승격) ' + r.changed + '건');
         try { if (typeof _refreshAllHubsAfterThread === 'function') _refreshAllHubsAfterThread(); } catch(_){}
         try { if (typeof hydrateAsMgmt === 'function') hydrateAsMgmt(); } catch(_){}
         try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(_){}
