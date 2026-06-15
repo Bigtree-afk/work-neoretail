@@ -1283,6 +1283,9 @@
         <div class="filter-chip" onclick="filterStoresByStatus(this,'신규예정')">신규예정</div>
         <div class="filter-chip" onclick="filterStoresByStatus(this,'이탈')">이탈</div>
         <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="exportStoresToExcel()" style="border-color:#2563EB;color:#1D4ED8;background:#EFF6FF" title="전체 가맹점을 엑셀(.xlsx)로 저장">
+            📥 엑셀 다운로드
+          </button>
           <button class="btn btn-outline btn-sm" onclick="showModal('excelUploadModal')" style="border-color:#22C55E;color:#16A34A;background:#F0FDF4">
             📊 엑셀 업로드
           </button>
@@ -3938,13 +3941,13 @@
 </div>
 
 <!-- app.js 를 4,000줄 가드레일 준수 위해 순서 세그먼트로 분할 로드 (concat == 옛 app.js, defer 순서보존) -->
-<script src="/app/app-01.js?v=2026-06-12-as-notes-hide-request" defer></script>
-<script src="/app/app-02.js?v=2026-06-12-as-notes-hide-request" defer></script>
-<script src="/app/app-03.js?v=2026-06-12-as-notes-hide-request" defer></script>
-<script src="/app/app-04.js?v=2026-06-12-as-notes-hide-request" defer></script>
-<script src="/app/app-05.js?v=2026-06-12-as-notes-hide-request" defer></script>
-<script src="/app/app-06.js?v=2026-06-12-as-notes-hide-request" defer></script>
-<script src="/app/app-07.js?v=2026-06-12-as-notes-hide-request" defer></script>
-<script src="/app/app-08.js?v=2026-06-12-as-notes-hide-request" defer></script>
+<script src="/app/app-01.js?v=2026-06-15-store-excel-export" defer></script>
+<script src="/app/app-02.js?v=2026-06-15-store-excel-export" defer></script>
+<script src="/app/app-03.js?v=2026-06-15-store-excel-export" defer></script>
+<script src="/app/app-04.js?v=2026-06-15-store-excel-export" defer></script>
+<script src="/app/app-05.js?v=2026-06-15-store-excel-export" defer></script>
+<script src="/app/app-06.js?v=2026-06-15-store-excel-export" defer></script>
+<script src="/app/app-07.js?v=2026-06-15-store-excel-export" defer></script>
+<script src="/app/app-08.js?v=2026-06-15-store-excel-export" defer></script>
 </body>
 </html>

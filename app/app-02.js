@@ -1318,6 +1318,40 @@
   }
   window.resetTestData = resetTestData;
 
+  /* ── 📥 전체 가맹점 엑셀 다운로드 (실제 .xlsx — SheetJS, 이미 로드됨) ── */
+  window.exportStoresToExcel = function() {
+    try {
+      if (typeof XLSX === 'undefined') { alert('엑셀 라이브러리 로드 실패 — 새로고침 후 다시 시도하세요.'); return; }
+      const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+      if (!stores.length) { alert('내보낼 매장이 없습니다.'); return; }
+      const fmtBiz = (typeof window._bizFmt === 'function') ? window._bizFmt : (v => String(v || ''));
+      const rows = stores.map(s => ({
+        '코드':           s.code || '',
+        '점포명':         s.name || s.storeName || '',
+        '간판명':         s.signageName || '',
+        '사업자번호':     fmtBiz(s.biz || s.bizNo || s.bizno || ''),
+        '대표자':         s.ceo || '',
+        '대표자 연락처':  s.ceoTel || '',
+        '매장 연락처':    s.tel || s.phone || '',
+        '주소':           s.addr || s.address || '',
+        'VAN사':          s.van || '',
+        '상태':           s.status || '',
+        '매장 등록일':    s.storeRegDate || '',
+        '이카운트 등록일': s.ecountRegDate || '',
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [{wch:10},{wch:24},{wch:16},{wch:14},{wch:10},{wch:15},{wch:15},{wch:36},{wch:8},{wch:8},{wch:12},{wch:13}];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '가맹점');
+      const today = new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
+      XLSX.writeFile(wb, `가맹점목록_${today}_${stores.length}개.xlsx`);
+      try { if (typeof showToast === 'function') showToast(`📥 전체 가맹점 ${stores.length}개 엑셀 다운로드`); } catch(_){}
+    } catch (e) {
+      console.error('[exportStoresToExcel]', e);
+      alert('엑셀 다운로드 실패: ' + (e.message || e));
+    }
+  };
+
   /* ── 엑셀 업로드 (실제 파일 + 진행 애니메이션) ── */
   function handleExcelFile(inputOrEvent) {
     const files = inputOrEvent.files;
