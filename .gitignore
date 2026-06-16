@@ -9,3 +9,9 @@ _s.json
 
 # wrangler 로컬 dev 상태
 .wrangler/
+
+# 점포명 일괄수정 백업/임시 (개인정보 — 커밋 금지)
+__rename_backup_*.json
+__*.json
+__*.txt
+가맹점목록*.xlsx
