@@ -1902,6 +1902,7 @@
       if (!listEl) return;
 
       const sid = store?.id;
+      let _editIdx = -1;   // 인라인 편집 중인 특이사항의 store.notes 인덱스 (-1 = 없음)
       const renderList = () => {
         const arr = Array.isArray(store?.notes) ? store.notes : [];
         cntEl.textContent = arr.length ? '(' + arr.length + ')' : '';
@@ -1911,12 +1912,26 @@
         }
         // 최근순
         const sorted = arr.slice().sort((a,b) => String(b.at||'').localeCompare(String(a.at||'')));
-        listEl.innerHTML = sorted.map((n, idx) => {
+        listEl.innerHTML = sorted.map((n) => {
           const origIdx = arr.indexOf(n);
+          const editedMeta = n.editedAt ? ` · ✏ ${escSafe2(n.editedAt)}${n.editedBy ? '/' + escSafe2(n.editedBy) : ''}` : '';
+          if (origIdx === _editIdx) {
+            // 편집 모드 — textarea + 저장/취소
+            return `<div style="background:#fffbeb;border:1px solid #fde68a;border-left:3px solid #f59e0b;border-radius:6px;padding:9px 12px">
+              <textarea class="sdv2-note-edit" data-noteidx="${origIdx}" style="width:100%;min-height:62px;padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;font-family:inherit;line-height:1.5;resize:vertical;box-sizing:border-box">${escSafe2(n.text||'')}</textarea>
+              <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:6px">
+                <button data-noteidx="${origIdx}" class="sdv2-note-save" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11.5px;font-weight:800;cursor:pointer">저장</button>
+                <button class="sdv2-note-canceledit" style="background:none;border:1px solid var(--gray-300);color:var(--gray-600);border-radius:6px;padding:5px 12px;font-size:11.5px;font-weight:700;cursor:pointer">취소</button>
+              </div>
+            </div>`;
+          }
           return `<div style="background:#fffbeb;border:1px solid #fde68a;border-left:3px solid #f59e0b;border-radius:6px;padding:9px 12px;font-size:12px">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;font-size:10.5px;color:var(--gray-500);font-weight:700">
-              <div>📌 ${escSafe2(n.at || '')}${n.by ? ' · ' + escSafe2(n.by) : ''}</div>
-              <button data-noteidx="${origIdx}" class="sdv2-note-del" style="background:none;border:none;color:var(--gray-400);font-size:14px;cursor:pointer;padding:0 4px">✕</button>
+              <div>📌 ${escSafe2(n.at || '')}${n.by ? ' · ' + escSafe2(n.by) : ''}${editedMeta}</div>
+              <div style="display:flex;gap:2px;flex-shrink:0">
+                <button data-noteidx="${origIdx}" class="sdv2-note-edit-btn" title="수정" style="background:none;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 4px">✏️</button>
+                <button data-noteidx="${origIdx}" class="sdv2-note-del" title="삭제" style="background:none;border:none;color:var(--gray-400);font-size:14px;cursor:pointer;padding:0 4px">✕</button>
+              </div>
             </div>
             <div style="color:#92400e;white-space:pre-wrap;line-height:1.5">${escSafe2(n.text||'')}</div>
           </div>`;
@@ -1928,10 +1943,39 @@
             const i = parseInt(b.dataset.noteidx, 10);
             if (!isNaN(i) && Array.isArray(store.notes)) {
               store.notes.splice(i, 1);
+              if (_editIdx === i) _editIdx = -1;
               if (typeof saveStoreInPlace === 'function') saveStoreInPlace(store);
               renderList();
             }
           };
+        });
+        // 편집 진입 바인딩
+        listEl.querySelectorAll('.sdv2-note-edit-btn').forEach(b => {
+          b.onclick = () => {
+            const i = parseInt(b.dataset.noteidx, 10);
+            if (!isNaN(i)) { _editIdx = i; renderList(); const ta = listEl.querySelector('.sdv2-note-edit'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }
+          };
+        });
+        // 편집 저장 바인딩
+        listEl.querySelectorAll('.sdv2-note-save').forEach(b => {
+          b.onclick = () => {
+            const i = parseInt(b.dataset.noteidx, 10);
+            const ta = listEl.querySelector('.sdv2-note-edit[data-noteidx="' + i + '"]');
+            const txt = ta ? (ta.value || '').trim() : '';
+            if (!txt) { alert('내용을 입력하세요'); return; }
+            if (!isNaN(i) && Array.isArray(store.notes) && store.notes[i]) {
+              store.notes[i].text = txt;
+              store.notes[i].editedAt = _kstDateTimeStr ? _kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' ');
+              store.notes[i].editedBy = (typeof _currentAuthName === 'function') ? _currentAuthName() : '';
+              if (typeof saveStoreInPlace === 'function') saveStoreInPlace(store);
+            }
+            _editIdx = -1;
+            renderList();
+          };
+        });
+        // 편집 취소 바인딩
+        listEl.querySelectorAll('.sdv2-note-canceledit').forEach(b => {
+          b.onclick = () => { _editIdx = -1; renderList(); };
         });
       };
 
