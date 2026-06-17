@@ -1694,6 +1694,12 @@
   // 호출 흐름:
   //   AS hub "+ AS 업무 등록" 클릭 → openNewJobFor('as') → 모달 표시 + applyJobFormContext('as')
   window.openNewJobFor = function(menuCat) {
+    // 🛒 소모품 — 재설계된 전용 등록 폼(supplyRegModal)으로 라우팅 (app/supplies-reg.js)
+    if (menuCat === 'supplies' && typeof window.openSupplyReg === 'function') {
+      window._currentJobContext = 'supplies';
+      window.openSupplyReg();
+      return;
+    }
     window._currentJobContext = menuCat;
     if (typeof showModal === 'function') showModal('newJobModal');
   };
