@@ -68,13 +68,9 @@
     _store = { id: s.id || '', name: s.name || s.storeName || '', addr: s.addr || s.address || '', biz: s.biz || s.bizNo || '', signageName: s.signageName || '' };
     setVal('supplyStoreInput-reg', _store.name);
     try { window.Autocomplete.hide('supplyStore', 'reg'); } catch (_) {}
-    // 담당자 자동 채움 — 매장 contacts 우선(primary→첫번째)
-    try {
-      const cs = Array.isArray(s.contacts) ? s.contacts.filter(Boolean) : [];
-      const c = cs.find(x => x.primary) || cs[0];
-      if (c) { setVal('supplyRegContactName', c.name || ''); setVal('supplyRegContactRole', c.role || ''); setVal('supplyRegContactPhone', c.phone || s.ceoTel || s.tel || ''); }
-      else { setVal('supplyRegContactName', s.ceo || ''); setVal('supplyRegContactRole', s.ceo ? '대표' : ''); setVal('supplyRegContactPhone', s.ceoTel || s.tel || s.phone || ''); }
-    } catch (_) {}
+    // 매장 담당자는 자동 채움하지 않음 — 입력 담당(작성자)과 매장 담당자는 별개이고,
+    //   매장 contacts 에 입력 담당 이름이 섞여 들어가 오표시되던 문제. 항상 빈 칸 → 직접 입력.
+    setVal('supplyRegContactName', ''); setVal('supplyRegContactRole', ''); setVal('supplyRegContactPhone', '');
     _renderStoreResult();
     _updateHeader();
     _updatePreview();
