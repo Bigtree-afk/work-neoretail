@@ -3883,75 +3883,6 @@
   </div>
 </div>
 
-<!-- MODAL: 소모품 등록 (재설계 v3 — sticky 헤더 + 푸터 없음, 행마다 별도 작업) -->
-<div class="modal-overlay" id="supplyRegModal" onclick="if(event.target===this)closeModal('supplyRegModal')">
-  <div class="modal" style="max-width:640px;width:96%;max-height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
-    <div style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--gray-200);background:#fff">
-      <span style="font-size:15px;font-weight:800" id="supplyRegTitle">🛒 소모품 등록</span>
-      <span style="flex:1"></span>
-      <button class="modal-close" onclick="closeModal('supplyRegModal')" style="position:static;font-size:18px;background:transparent;border:none;cursor:pointer;color:var(--gray-500)">✕</button>
-    </div>
-    <div style="padding:14px 16px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
-
-      <div>
-        <div style="font-size:12px;color:var(--gray-600);margin-bottom:5px;font-weight:700">매장</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <div style="position:relative;flex:1;min-width:220px">
-            <input id="supplyStoreInput-reg" autocomplete="off" placeholder="매장명 / 사업자번호 / 주소 검색"
-                   oninput="Autocomplete.live('supplyStore','reg',this)" onfocus="Autocomplete.live('supplyStore','reg',this)"
-                   onkeydown="Autocomplete.key('supplyStore','reg',event)" onblur="setTimeout(()=>Autocomplete.hide('supplyStore','reg'),200)"
-                   style="width:100%;height:36px;padding:0 10px;border:1px solid var(--gray-300);border-radius:7px;font-size:13px;font-weight:600">
-            <div id="supplyStoreSuggest-reg" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:#fff;border:1px solid var(--gray-300);border-radius:7px;box-shadow:0 4px 12px rgba(0,0,0,.1);max-height:240px;overflow-y:auto;margin-top:2px"></div>
-          </div>
-          <span id="supplyRegStoreResult" style="font-size:12px"></span>
-        </div>
-        <div style="margin-top:4px;font-size:11px;color:var(--gray-400)">↑↓ 이동 · Enter 선택 · 마우스 클릭도 가능</div>
-      </div>
-
-      <div>
-        <div style="font-size:12px;color:var(--gray-600);margin-bottom:5px;font-weight:700">매장 담당자</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input id="supplyRegContactName" oninput="supplyRegOnContactInput()" placeholder="이름" style="flex:1;min-width:90px;height:34px;padding:0 9px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px">
-          <input id="supplyRegContactRole" oninput="supplyRegOnContactInput()" placeholder="직책" style="width:96px;height:34px;padding:0 9px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px">
-          <input id="supplyRegContactPhone" oninput="supplyRegOnContactInput()" placeholder="연락처" style="width:150px;height:34px;padding:0 9px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px">
-        </div>
-      </div>
-
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="font-size:12px;color:var(--gray-600);font-weight:700">요청 내역 — 소모품</div>
-          <span id="supplyRegCount" style="font-size:11px;color:var(--gray-400)">총 0건 · 합계 0원</span>
-        </div>
-        <div id="supplyRegGrid" style="border:1px solid var(--gray-200);border-radius:7px;overflow:hidden"></div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:8px;flex-wrap:wrap">
-          <button type="button" onclick="supplyRegAddRow()" style="font-size:13px;padding:6px 12px;border:1px solid var(--gray-300);background:#fff;border-radius:7px;cursor:pointer;font-weight:700">+ 품목 추가 <span style="color:var(--gray-400);font-size:11px;font-weight:400">— 동일 품목도 한 줄 더</span></button>
-          <span style="font-size:11px;color:var(--gray-400)">ⓘ 각 행 = 별도 소모품 작업 · 후불은 매장별 미수관리 반영</span>
-        </div>
-      </div>
-
-      <div style="display:flex;align-items:center;gap:16px;padding:9px 12px;background:var(--gray-50);border-radius:7px">
-        <span style="font-size:12px;color:var(--gray-600);font-weight:700">등록 상태</span>
-        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:700;cursor:pointer"><input type="radio" name="supplyRegStatus" value="요청접수" checked> 요청접수</label>
-        <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="supplyRegStatus" value="완료"> 완료 <span style="font-size:11px;color:var(--gray-400)">(등록과 동시에 완료)</span></label>
-      </div>
-
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-          <div style="font-size:12px;color:var(--gray-600);font-weight:700">LINE 메시지 미리보기 <span style="color:var(--gray-400);font-weight:400">— 여러 건을 한 메시지로</span></div>
-          <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="supplyRegLineSend" checked> LINE 발송</label>
-        </div>
-        <div id="supplyRegLinePreview" style="border:1px solid var(--gray-200);border-left:3px solid #06C755;border-radius:0 7px 7px 0;background:var(--gray-50);padding:10px 12px;font-family:ui-monospace,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;color:var(--gray-700);min-height:48px"></div>
-      </div>
-
-      <div style="display:flex;gap:8px;margin-top:2px;padding-bottom:4px">
-        <button type="button" onclick="saveSupplyReg(false)" class="btn btn-outline" style="flex:1;height:42px;font-weight:800;font-size:14px">✓ 등록</button>
-        <button type="button" onclick="saveSupplyReg(true)" class="btn" style="flex:1.2;height:42px;font-weight:800;font-size:14px;background:#06C755;color:#fff;border:none">📡 등록 후 LINE 발송</button>
-      </div>
-
-    </div>
-  </div>
-</div>
-
 <!-- hidden file input for AI image upload -->
 <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageFile(this)">
 <!-- hidden file input for excel upload -->
@@ -4018,6 +3949,6 @@
 <script src="/app/app-06.js?v=2026-06-17-supply-form" defer></script>
 <script src="/app/app-07.js?v=2026-06-17-supply-form" defer></script>
 <script src="/app/app-08.js?v=2026-06-17-supply-form" defer></script>
-<script src="/app/supplies-reg.js?v=2026-06-17-supply-form" defer></script>
+<script src="/app/supplies-reg.js?v=2026-06-17-supply-form2" defer></script>
 </body>
 </html>
