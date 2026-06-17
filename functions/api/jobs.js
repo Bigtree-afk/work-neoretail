@@ -200,7 +200,20 @@ export async function onRequestPost({ request, env }) {
       }
     }
     let kept = 0, replaced = 0, added = 0;
-    const mtime = (j) => String(j?.updatedAt || j?.lastEditedAt || j?.createdAt || '');
+    // 🕐 mtime → epoch ms 숫자 정규화 후 비교 (2026-06-17 버그픽스).
+    //   이전엔 String 비교라 숫자ms("1750…")가 ISO("2026-…")보다 항상 작게(첫 글자 '1'<'2')
+    //   판정돼, 클라이언트가 Date.now()(숫자)로 스탬프한 편집이 ISO-스탬프된 cloud 에 항상
+    //   패배 → 모든 작업의 편집이 cloud 에 반영 안 되던 사고(소모품 금액 수정 미반영 등).
+    //   숫자 정규화하면 형식(ISO/숫자) 무관하게 실제 시각순으로 올바르게 비교됨.
+    const mtimeMs = (j) => {
+      const v = (j && (j.updatedAt ?? j.lastEditedAt ?? j.createdAt));
+      if (v == null || v === '') return 0;
+      if (typeof v === 'number') return v;
+      const s = String(v);
+      if (/^\d+$/.test(s)) return Number(s);      // 숫자 ms 문자열
+      const p = Date.parse(s);                     // ISO 8601 등
+      return Number.isFinite(p) ? p : 0;
+    };
     for (const inc of cleaned) {
       const id = String(inc.id);
       // 🪦 incoming 의 thread 도 필터 (사용자가 모르고 stale push 한 thread 차단)
@@ -211,8 +224,8 @@ export async function onRequestPost({ request, env }) {
         added++;
         continue;
       }
-      const exMt = mtime(ex);
-      const inMt = mtime(incFiltered);
+      const exMt = mtimeMs(ex);
+      const inMt = mtimeMs(incFiltered);
       if (!exMt || inMt > exMt) {
         byId.set(id, incFiltered);
         replaced++;

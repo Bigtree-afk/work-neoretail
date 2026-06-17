@@ -3062,8 +3062,15 @@
       return cloudJob;
     }
     if (!cloudJob) return localJob;
-    // base = cloud 메타에 local 메타 overlay (local 이 최신일 가능성)
-    const merged = Object.assign({}, cloudJob, localJob);
+    // base = mtime 최신 레코드의 scalar 가 이기도록 (2026-06-17 버그픽스).
+    //   이전엔 무조건 Object.assign({},cloud,local) 로 local-wins 였는데, 다른 기기가
+    //   클라우드의 새 편집값(예: 수정된 금액)을 pull 해도 자기 stale local 이 덮어써
+    //   영영 반영 안 되던 문제. 더 최신 mtime 쪽 scalar 를 base 로 선택.
+    //   (thread/memos/attachments union + 완료 sticky 는 아래에서 재적용 → base 방향 무관하게 보존)
+    const _mMs = (j) => { const v = j && (j.updatedAt ?? j.lastEditedAt ?? j.createdAt); if (v==null||v==='') return 0; if (typeof v==='number') return v; const s=String(v); if (/^\d+$/.test(s)) return Number(s); const p=Date.parse(s); return Number.isFinite(p)?p:0; };
+    const merged = (_mMs(cloudJob) > _mMs(localJob))
+      ? Object.assign({}, localJob, cloudJob)   // cloud 가 더 최신 → cloud scalar 우선
+      : Object.assign({}, cloudJob, localJob);  // local 이 최신/동일 → local 우선(기존 동작)
     // ── thread: threadId 우선, 없으면 ts+text 키로 union
     //   같은 threadId 라도 attachments 는 양쪽 union (PC 간 첨부 동기화)
     const seen = new Map();

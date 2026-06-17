@@ -800,7 +800,12 @@
       return cloudJob;
     }
     if (!cloudJob) return localJob;
-    const merged = Object.assign({}, cloudJob, localJob);
+    // base = mtime 최신 레코드 scalar 우선 (2026-06-17 버그픽스, PC app-03 와 동일 정책).
+    //   thread/memos/attachments union + 완료 sticky 는 아래에서 재적용 → base 방향 무관 보존.
+    const _mMs = (j) => { const v = j && (j.updatedAt ?? j.lastEditedAt ?? j.createdAt); if (v==null||v==='') return 0; if (typeof v==='number') return v; const s=String(v); if (/^\d+$/.test(s)) return Number(s); const p=Date.parse(s); return Number.isFinite(p)?p:0; };
+    const merged = (_mMs(cloudJob) > _mMs(localJob))
+      ? Object.assign({}, localJob, cloudJob)
+      : Object.assign({}, cloudJob, localJob);
     // ── thread union
     const seen = new Map();
     const noKey = [];

@@ -3121,20 +3121,24 @@
       } catch(_){}
       const row = { store: j.storeName||j.store||'-', item: itemDisp, date, amount: amt, jobId: j.id, mode, isPaid, paidAmt };
 
-      if (mode === 'prepaid' && amt > 0) {
-        if (date.startsWith(month)) prepaidThisMonth += amt;
-        prepaidTotal += amt;
+      // 🔢 건수는 모드만으로 집계(amount=0 선불/후불도 포함), 금액 합산은 amt>0 일 때만
+      //   (2026-06-17 버그픽스: 금액 미입력 선불/후불이 어느 칸에도 안 잡혀 건수가 누락되던 문제)
+      if (mode === 'prepaid') {
+        if (amt > 0) {
+          if (date.startsWith(month)) { prepaidThisMonth += amt; salesThisMonth += amt; }
+          prepaidTotal += amt;
+        }
         prepaidRows.push(row);
-        if (date.startsWith(month)) salesThisMonth += amt;
-      } else if (mode === 'postpaid' && amt > 0) {
+      } else if (mode === 'postpaid') {
         if (isPaid) {
           postpaidPaidTotal += paidAmt;
           postpaidPaidRows.push(row);
+          if (date.startsWith(month)) salesThisMonth += paidAmt;
         } else {
-          arAmount += (amt - paidAmt);  // 부분 수금 후 잔액
-          arRows.push({ ...row, outstanding: amt - paidAmt });
+          const out = Math.max(0, amt - paidAmt);   // 부분 수금 후 잔액
+          arAmount += out;
+          arRows.push({ ...row, outstanding: out });
         }
-        if (date.startsWith(month) && isPaid) salesThisMonth += paidAmt;
       } else if (mode === 'support') {
         if (date.startsWith(month)) supportThisMonth++;
         supportTotal++;
