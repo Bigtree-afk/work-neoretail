@@ -3091,7 +3091,7 @@
 
     let salesThisMonth = 0, arAmount = 0, shipPending = 0;
     let prepaidThisMonth = 0, prepaidTotal = 0;
-    let postpaidTotal = 0, postpaidPaidTotal = 0, supportThisMonth = 0, supportTotal = 0;
+    let postpaidTotal = 0, postpaidPaidTotal = 0, postpaidPaidThisMonth = 0, supportThisMonth = 0, supportTotal = 0;
     let arRows = [], prepaidRows = [], supportRows = [], postpaidPaidRows = [];
     supplyJobs.forEach(j => {
       const amt = parseInt(String(j.amount||j.price||'0').replace(/[^\d]/g,''), 10) || 0;
@@ -3133,6 +3133,9 @@
         if (isPaid) {
           postpaidPaidTotal += paidAmt;
           postpaidPaidRows.push(row);
+          // 이번 달 후불 수금 = 실제 수금일(arPaidAt) 기준 (없으면 발송일 fallback)
+          const paidMonth = String(j.arPaidAt || '').slice(0,7) || String(date || '').slice(0,7);
+          if (paidMonth === month) postpaidPaidThisMonth += paidAmt;
           if (date.startsWith(month)) salesThisMonth += paidAmt;
         } else {
           const out = Math.max(0, amt - paidAmt);   // 부분 수금 후 잔액
@@ -3148,7 +3151,7 @@
     });
     return {
       salesThisMonth, arAmount, shipPending, totalCount: supplyJobs.length,
-      prepaidThisMonth, prepaidTotal, postpaidTotal, postpaidPaidTotal,
+      prepaidThisMonth, prepaidTotal, postpaidTotal, postpaidPaidTotal, postpaidPaidThisMonth,
       supportThisMonth, supportTotal,
       arRows, prepaidRows, supportRows, postpaidPaidRows,
     };
@@ -3296,8 +3299,9 @@
     setText('supPrepaidThisMonth',   `${fmt(stats.prepaidThisMonth)}원`);
     setText('supPrepaidTotal',       `${fmt(stats.prepaidTotal)}원`);
     setText('supPostpaidCnt',        `${stats.arRows.length + stats.postpaidPaidRows.length}건`);
-    setText('supPostpaidOutstanding',`${fmt(stats.arAmount)}원 (${stats.arRows.length}건)`);
-    setText('supPostpaidPaid',       `수금 ${fmt(stats.postpaidPaidTotal)}원 (${stats.postpaidPaidRows.length}건)`);
+    // '이번달' 칸 = 이번 달 후불 수금액 (선불/지원 행과 의미 통일). 미수 잔액은 누적 칸 + 상단 미수금 카드에 표시.
+    setHTML('supPostpaidOutstanding',`${fmt(stats.postpaidPaidThisMonth)}원`);
+    setHTML('supPostpaidPaid',       `수금 ${fmt(stats.postpaidPaidTotal)}원${stats.arAmount>0?` · <span style="color:#F59E0B;font-weight:700">미수 ${fmt(stats.arAmount)}원</span>`:''}`);
     setText('supSupportCnt',         `${stats.supportRows.length}건`);
     setText('supSupportThisMonth',   `${stats.supportThisMonth}건`);
     setText('supSupportTotal',       `${stats.supportTotal}건`);
