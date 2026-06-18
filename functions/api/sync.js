@@ -30,6 +30,7 @@ const STORE_FIELD_POLICY = {
   // contacts: phone(정규화) 기준 dedup. 전화 없는 연락처(직무상 대다수)는 fallbackKeys(이름+직책)로 dedup.
   //   ⚠ fallbackKeys 없으면 phoneless 가 머지마다 무한 doubling 됨(2026-06-12 사고).
   contacts:       { type: 'additive-by-id', idKey: 'phone', normalize: 'phone', fallbackKeys: ['name', 'role'] },
+  contactsDeleted:'aliases-union',   // 삭제한 담당자 키 집합 — union 으로 동기화 부활 차단 (클라이언트와 동일)
   memos:          'additive-time-sorted',
   changeLog:      'additive-time-sorted',
   aliases:        'aliases-union',

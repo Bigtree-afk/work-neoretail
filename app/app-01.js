@@ -26,6 +26,7 @@
     equipment:      { type:'additive-by-id', idKey:'instanceId' },
     // contacts: phone 기준 dedup. 전화 없는 연락처는 fallbackKeys(이름+직책)로 dedup → phoneless doubling 차단.
     contacts:       { type:'additive-by-id', idKey:'phone', normalize:'phone', fallbackKeys:['name','role'] },
+    contactsDeleted:'aliases-union',   // 삭제한 담당자 키(전화정규화 or 'n:이름|직책') 집합 — union 으로 부활 차단
     memos:          'additive-time-sorted',
     changeLog:      'additive-time-sorted',
     // 별칭 — 양쪽 합쳐서 유니크

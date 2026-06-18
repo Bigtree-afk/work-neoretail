@@ -1436,6 +1436,51 @@
   }
   window.updateJobContactAt = updateJobContactAt;
 
+  /* 📞 cross-store — 같은 전화번호가 담당자로 등록된 다른 매장 목록 모달 */
+  window._showContactStores = function(phone, name) {
+    const escF = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+    const pk = String(phone||'').replace(/\D/g,'');
+    if (!pk) { if (typeof showToast === 'function') showToast('전화번호가 없습니다'); return; }
+    let stores = []; try { stores = (typeof getStores === 'function') ? (getStores() || []) : []; } catch(e){}
+    const hits = [];
+    stores.forEach(s => {
+      const cs = Array.isArray(s.contacts) ? s.contacts : [];
+      const tomb = new Set(Array.isArray(s.contactsDeleted) ? s.contactsDeleted : []);
+      const c = cs.find(x => {
+        const xk = String(x.phone||'').replace(/\D/g,'');
+        if (xk !== pk) return false;
+        const key = xk || ('n:' + String(x.name||'').trim() + '|' + String(x.role||'').trim());
+        return !tomb.has(key);
+      });
+      if (c) hits.push({ store: s.name||s.storeName||'(이름없음)', role: c.role||'', cname: c.name||'', addr: s.address||s.addr||'' });
+    });
+    hits.sort((a,b) => String(a.store).localeCompare(String(b.store), 'ko'));
+    let modal = document.getElementById('contactStoresModal');
+    if (!modal) {
+      modal = document.createElement('div'); modal.id = 'contactStoresModal'; modal.className = 'modal-overlay';
+      modal.onclick = (e) => { if (e.target === modal) modal.classList.remove('show'); };
+      document.body.appendChild(modal);
+    }
+    const rows = hits.length ? hits.map(h => `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 11px;border:1px solid var(--gray-200);border-radius:8px;background:#fff">
+        <b style="font-size:13px">${escF(h.store)}</b>
+        ${h.role ? `<span style="color:var(--gray-500);font-size:11.5px">${escF(h.role)}</span>` : ''}
+        ${h.cname ? `<span style="color:var(--gray-400);font-size:11px">${escF(h.cname)}</span>` : ''}
+        <span style="flex:1"></span>
+        <span style="color:var(--gray-400);font-size:10.5px">${escF(String(h.addr||'').slice(0,28))}</span>
+      </div>`).join('') : `<div style="padding:18px;text-align:center;color:var(--gray-400);font-size:12px">이 번호가 담당자로 등록된 매장이 없습니다</div>`;
+    modal.innerHTML = `<div class="modal" style="max-width:480px;width:94%">
+        <div class="modal-header">
+          <div class="modal-title">📞 ${escF(name ? name + ' · ' : '')}${escF(phone || pk)}</div>
+          <button class="modal-close" onclick="document.getElementById('contactStoresModal').classList.remove('show')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div style="font-size:11.5px;color:var(--gray-500);margin-bottom:8px">이 전화번호가 담당자로 등록된 매장 <b style="color:var(--gray-800)">${hits.length}곳</b></div>
+          <div style="display:flex;flex-direction:column;gap:6px">${rows}</div>
+        </div>
+      </div>`;
+    modal.classList.add('show');
+  };
+
   /* 잘못 연결된 작업 → 연결 해제 (미등록 상태로 되돌림) */
   function unlinkStore(jobId) {
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
@@ -2001,6 +2046,117 @@
       };
 
       renderList();
+    })();
+
+    /* ── 👤 담당자 (store.contacts[]) 렌더 + 추가/수정/삭제/대표 ── */
+    (function renderStoreContacts(){
+      const escC = (typeof esc === 'function') ? esc : (s)=>String(s||'');
+      const card = document.getElementById('detailContactsCard');
+      if (!card) return;
+      const normP = (p) => String(p||'').replace(/\D/g,'');
+      const keyOf = (c) => normP(c.phone) || ('n:' + String(c.name||'').trim() + '|' + String(c.role||'').trim());
+      let _ed = -1;       // 편집 중인 store.contacts 인덱스
+      let _adding = false;
+      const save = () => { if (typeof saveStoreInPlace === 'function') saveStoreInPlace(store); };
+      const inSty = 'height:30px;padding:0 8px;border:1px solid var(--gray-300);border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box';
+      const btnP = 'border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit';
+
+      const visible = () => {
+        const arr = Array.isArray(store && store.contacts) ? store.contacts : [];
+        const tomb = new Set(Array.isArray(store && store.contactsDeleted) ? store.contactsDeleted : []);
+        return arr.map((c,i)=>({c,i})).filter(o => !tomb.has(keyOf(o.c)));
+      };
+
+      const render = () => {
+        // 미등록 매장(store.id 없음)은 누적 대상이 아님
+        if (!store || !store.id) {
+          card.innerHTML = `<h4>👤 담당자</h4><div style="padding:12px;text-align:center;color:var(--gray-400);font-size:11.5px;background:var(--gray-50);border:1px dashed var(--gray-200);border-radius:8px">미등록 매장입니다 — 등록 후 담당자를 관리할 수 있습니다</div>`;
+          return;
+        }
+        const items = visible();
+        const addForm = _adding ? `
+          <div style="margin-bottom:10px;padding:10px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+            <input id="ccAddName" placeholder="이름" style="${inSty};flex:1;min-width:84px">
+            <input id="ccAddRole" placeholder="직책" style="${inSty};width:84px">
+            <input id="ccAddPhone" inputmode="tel" placeholder="연락처" style="${inSty};width:130px">
+            <input id="ccAddEmail" placeholder="이메일(선택)" style="${inSty};width:140px">
+            <button class="cc-add-save" style="${btnP};background:var(--primary);color:#fff">저장</button>
+            <button class="cc-add-cancel" style="${btnP};background:var(--gray-100);color:var(--gray-700);border:1px solid var(--gray-200)">취소</button>
+          </div>` : '';
+        const list = items.length ? items.map(({c,i}) => {
+          if (i === _ed) {
+            return `<div style="padding:9px 11px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+              <input id="ccEdName" value="${escC(c.name||'')}" placeholder="이름" style="${inSty};flex:1;min-width:84px">
+              <input id="ccEdRole" value="${escC(c.role||'')}" placeholder="직책" style="${inSty};width:84px">
+              <input id="ccEdPhone" inputmode="tel" value="${escC(c.phone||'')}" placeholder="연락처" style="${inSty};width:130px">
+              <input id="ccEdEmail" value="${escC(c.email||'')}" placeholder="이메일" style="${inSty};width:140px">
+              <button class="cc-ed-save" data-i="${i}" style="${btnP};background:var(--primary);color:#fff">저장</button>
+              <button class="cc-ed-cancel" style="${btnP};background:#fff;color:var(--gray-600);border:1px solid var(--gray-300)">취소</button>
+            </div>`;
+          }
+          const role = c.role ? `<span style="color:var(--gray-500);font-size:11.5px">${escC(c.role)}</span>` : '';
+          const phone = c.phone ? `<a href="#" class="cc-phone" data-phone="${escC(c.phone)}" data-name="${escC(c.name||'')}" title="이 번호가 관여된 다른 매장 보기" style="color:#1d4ed8;text-decoration:none;font-weight:700">📞 ${escC(c.phone)}</a>` : '';
+          const email = c.email ? `<span style="color:var(--gray-400);font-size:11px">✉ ${escC(c.email)}</span>` : '';
+          const meta = (c.sourceJobType || c.addedBy) ? `<span style="color:var(--gray-300);font-size:10px">${c.sourceJobType?escC(c.sourceJobType):''}${c.sourceJobType&&c.addedBy?' · ':''}${c.addedBy?escC(c.addedBy):''}</span>` : '';
+          return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 11px;border:1px solid var(--gray-200);border-left:3px solid ${c.primary?'#f59e0b':'var(--gray-200)'};border-radius:8px;background:#fff">
+            <button class="cc-pri" data-i="${i}" title="${c.primary?'대표 담당자':'대표로 지정'}" style="background:none;border:none;cursor:pointer;font-size:15px;padding:0;line-height:1;color:${c.primary?'#f59e0b':'var(--gray-300)'}">${c.primary?'★':'☆'}</button>
+            <b style="font-size:13px">${escC(c.name||'(이름없음)')}</b>
+            ${role} ${phone} ${email} ${meta}
+            <span style="flex:1"></span>
+            <button class="cc-edit" data-i="${i}" title="수정" style="background:none;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 3px">✏️</button>
+            <button class="cc-del" data-i="${i}" title="삭제" style="background:none;border:none;color:var(--gray-400);font-size:14px;cursor:pointer;padding:0 3px">✕</button>
+          </div>`;
+        }).join('') : `<div style="padding:12px;text-align:center;color:var(--gray-400);font-size:11.5px;background:var(--gray-50);border:1px dashed var(--gray-200);border-radius:8px">등록된 담당자가 없습니다 — 업무 등록 시 입력한 연락처가 자동 누적되며, "+ 담당자 추가"로 직접 등록할 수 있습니다</div>`;
+        card.innerHTML = `<h4 style="display:flex;justify-content:space-between;align-items:center">
+            <span>👤 담당자 <span style="margin-left:4px;font-size:11px;color:var(--gray-500);font-weight:600">${items.length?'('+items.length+')':''}</span></span>
+            <button class="cc-add-btn" style="background:var(--primary);color:#fff;${btnP}">+ 담당자 추가</button>
+          </h4>${addForm}<div style="display:flex;flex-direction:column;gap:6px">${list}</div>`;
+        bind();
+      };
+
+      const bind = () => {
+        const q = (sel) => card.querySelector(sel);
+        const me = () => (typeof _currentAuthName === 'function') ? _currentAuthName() : '';
+        const nowStamp = () => (typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr() : new Date(Date.now()+9*3600*1000).toISOString().slice(0,16).replace('T',' ');
+        const addBtn = q('.cc-add-btn'); if (addBtn) addBtn.onclick = () => { _adding = true; _ed = -1; render(); const i=q('#ccAddName'); if(i) i.focus(); };
+        const addCancel = q('.cc-add-cancel'); if (addCancel) addCancel.onclick = () => { _adding = false; render(); };
+        const addSave = q('.cc-add-save'); if (addSave) addSave.onclick = () => {
+          const name=(q('#ccAddName').value||'').trim(), role=(q('#ccAddRole').value||'').trim(), phone=(q('#ccAddPhone').value||'').trim(), email=(q('#ccAddEmail').value||'').trim();
+          if (!name && !phone) { alert('이름 또는 연락처를 입력하세요'); return; }
+          if (!Array.isArray(store.contacts)) store.contacts = [];
+          const k = normP(phone) || ('n:'+name+'|'+role);
+          if (Array.isArray(store.contactsDeleted)) store.contactsDeleted = store.contactsDeleted.filter(x => x !== k);   // 재등록 시 tombstone 해제
+          store.contacts.push({ name, role, phone, email, address:'', primary: visible().length===0, addedAt: nowStamp(), addedBy: me(), updatedAt: new Date().toISOString() });
+          save(); _adding = false; render();
+        };
+        card.querySelectorAll('.cc-edit').forEach(b => b.onclick = () => { _ed = parseInt(b.dataset.i,10); _adding = false; render(); const i=q('#ccEdName'); if(i){ i.focus(); } });
+        card.querySelectorAll('.cc-ed-cancel').forEach(b => b.onclick = () => { _ed = -1; render(); });
+        card.querySelectorAll('.cc-ed-save').forEach(b => b.onclick = () => {
+          const i = parseInt(b.dataset.i,10); if (isNaN(i) || !store.contacts[i]) return;
+          const name=(q('#ccEdName').value||'').trim(), role=(q('#ccEdRole').value||'').trim(), phone=(q('#ccEdPhone').value||'').trim(), email=(q('#ccEdEmail').value||'').trim();
+          if (!name && !phone) { alert('이름 또는 연락처를 입력하세요'); return; }
+          Object.assign(store.contacts[i], { name, role, phone, email, updatedAt: new Date().toISOString(), updatedBy: me() });
+          save(); _ed = -1; render();
+        });
+        card.querySelectorAll('.cc-del').forEach(b => b.onclick = () => {
+          const i = parseInt(b.dataset.i,10); if (isNaN(i) || !store.contacts[i]) return;
+          if (!confirm('이 담당자를 삭제하시겠습니까?')) return;
+          const k = keyOf(store.contacts[i]);
+          if (!Array.isArray(store.contactsDeleted)) store.contactsDeleted = [];
+          if (!store.contactsDeleted.includes(k)) store.contactsDeleted.push(k);   // tombstone (동기화 부활 차단)
+          store.contacts.splice(i,1);
+          if (_ed === i) _ed = -1;
+          save(); render();
+        });
+        card.querySelectorAll('.cc-pri').forEach(b => b.onclick = () => {
+          const i = parseInt(b.dataset.i,10); if (isNaN(i)) return;
+          store.contacts.forEach((c,j) => c.primary = (j === i));
+          save(); render();
+        });
+        card.querySelectorAll('.cc-phone').forEach(a => a.onclick = (e) => { e.preventDefault(); if (window._showContactStores) window._showContactStores(a.dataset.phone, a.dataset.name); });
+      };
+
+      render();
     })();
 
     /* ── 메모 탭: 매장 일반 메모 입력 (store.storeMemos[]) ── */

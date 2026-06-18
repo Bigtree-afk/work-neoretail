@@ -791,6 +791,7 @@
     const jobAddr = String(job.address || '').trim();
     const srcType = String(job.lineCategory || job.type || '').trim();
     let added = 0, updated = 0;
+    const tomb = new Set(Array.isArray(s.contactsDeleted) ? s.contactsDeleted : []);  // 삭제된 담당자 재적재 차단
     list.forEach(c => {
       const name  = String(c.name  || '').trim();
       const phone = String(c.phone || '').trim();
@@ -799,6 +800,8 @@
       const addr  = String(c.address || jobAddr || '').trim();
       if (!name && !phone) return;   // 빈 연락처 skip
       const pk = _contactPhoneKey(phone);
+      const tkey = pk || ('n:' + name + '|' + role);
+      if (tomb.has(tkey)) return;    // 사용자가 매장상세에서 삭제한 담당자 → 다시 적재하지 않음
       // 한 매장 내 중복등록 금지 — 전화번호(정규화) 기준 dedupe. 같은 사람이면 한 건으로 모음.
       //   ① 전화 매칭 → 그 항목에 빈 필드만 보강 (전화만 있던 항목에 이름/직책/이메일 나중 입력 시 갱신)
       //   ② 전화 매칭 실패 + 이름 있음 → 같은 이름의 '전화 없는' 항목에 병합 (이름만 있던 항목에 전화 추가)

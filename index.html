@@ -1405,6 +1405,8 @@
               </div>
               <div id="detailNotesList" style="display:flex;flex-direction:column;gap:6px"></div>
             </div>
+            <!-- 👤 담당자 (store.contacts[]) — 내용은 app-07.js renderStoreContacts 가 렌더 -->
+            <div class="sdv2-info-card" id="detailContactsCard" style="margin-top:14px"></div>
             <!-- 정보 변경 이력 (있을 때만) -->
             <div class="sdv2-info-card" id="detailChangeLogCard" style="display:none;margin-top:14px">
               <h4>📜 정보 변경 이력 <span id="detailChangeCount" style="margin-left:6px;font-size:11px;color:var(--gray-500);font-weight:600"></span></h4>
@@ -3941,14 +3943,14 @@
 </div>
 
 <!-- app.js 를 4,000줄 가드레일 준수 위해 순서 세그먼트로 분할 로드 (concat == 옛 app.js, defer 순서보존) -->
-<script src="/app/app-01.js?v=2026-06-17-store-note-edit" defer></script>
-<script src="/app/app-02.js?v=2026-06-17-store-note-edit" defer></script>
-<script src="/app/app-03.js?v=2026-06-17-store-note-edit" defer></script>
-<script src="/app/app-04.js?v=2026-06-17-store-note-edit" defer></script>
-<script src="/app/app-05.js?v=2026-06-17-store-note-edit" defer></script>
-<script src="/app/app-06.js?v=2026-06-17-store-note-edit" defer></script>
-<script src="/app/app-07.js?v=2026-06-17-store-note-edit" defer></script>
-<script src="/app/app-08.js?v=2026-06-17-store-note-edit" defer></script>
+<script src="/app/app-01.js?v=2026-06-18-store-contacts-ui" defer></script>
+<script src="/app/app-02.js?v=2026-06-18-store-contacts-ui" defer></script>
+<script src="/app/app-03.js?v=2026-06-18-store-contacts-ui" defer></script>
+<script src="/app/app-04.js?v=2026-06-18-store-contacts-ui" defer></script>
+<script src="/app/app-05.js?v=2026-06-18-store-contacts-ui" defer></script>
+<script src="/app/app-06.js?v=2026-06-18-store-contacts-ui" defer></script>
+<script src="/app/app-07.js?v=2026-06-18-store-contacts-ui" defer></script>
+<script src="/app/app-08.js?v=2026-06-18-store-contacts-ui" defer></script>
 <script src="/app/supplies-reg.js?v=2026-06-17-contact-blank" defer></script>
 </body>
 </html>
