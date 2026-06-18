@@ -2080,6 +2080,7 @@
             <input id="ccAddRole" placeholder="직책" style="${inSty};width:84px">
             <input id="ccAddPhone" inputmode="tel" placeholder="연락처" style="${inSty};width:130px">
             <input id="ccAddEmail" placeholder="이메일(선택)" style="${inSty};width:140px">
+            <input id="ccAddMemo" maxlength="10" placeholder="메모(10자)" style="${inSty};width:100px">
             <button class="cc-add-save" style="${btnP};background:var(--primary);color:#fff">저장</button>
             <button class="cc-add-cancel" style="${btnP};background:var(--gray-100);color:var(--gray-700);border:1px solid var(--gray-200)">취소</button>
           </div>` : '';
@@ -2090,6 +2091,7 @@
               <input id="ccEdRole" value="${escC(c.role||'')}" placeholder="직책" style="${inSty};width:84px">
               <input id="ccEdPhone" inputmode="tel" value="${escC(c.phone||'')}" placeholder="연락처" style="${inSty};width:130px">
               <input id="ccEdEmail" value="${escC(c.email||'')}" placeholder="이메일" style="${inSty};width:140px">
+              <input id="ccEdMemo" maxlength="10" value="${escC(c.memo||'')}" placeholder="메모(10자)" style="${inSty};width:100px">
               <button class="cc-ed-save" data-i="${i}" style="${btnP};background:var(--primary);color:#fff">저장</button>
               <button class="cc-ed-cancel" style="${btnP};background:#fff;color:var(--gray-600);border:1px solid var(--gray-300)">취소</button>
             </div>`;
@@ -2097,11 +2099,12 @@
           const role = c.role ? `<span style="color:var(--gray-500);font-size:11.5px">${escC(c.role)}</span>` : '';
           const phone = c.phone ? `<a href="#" class="cc-phone" data-phone="${escC(c.phone)}" data-name="${escC(c.name||'')}" title="이 번호가 관여된 다른 매장 보기" style="color:#1d4ed8;text-decoration:none;font-weight:700">📞 ${escC(c.phone)}</a>` : '';
           const email = c.email ? `<span style="color:var(--gray-400);font-size:11px">✉ ${escC(c.email)}</span>` : '';
+          const memo = c.memo ? `<span style="background:#fef9c3;color:#854d0e;font-size:11px;font-weight:600;padding:1px 7px;border-radius:8px">📝 ${escC(c.memo)}</span>` : '';
           const meta = (c.sourceJobType || c.addedBy) ? `<span style="color:var(--gray-300);font-size:10px">${c.sourceJobType?escC(c.sourceJobType):''}${c.sourceJobType&&c.addedBy?' · ':''}${c.addedBy?escC(c.addedBy):''}</span>` : '';
           return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 11px;border:1px solid var(--gray-200);border-left:3px solid ${c.primary?'#f59e0b':'var(--gray-200)'};border-radius:8px;background:#fff">
             <button class="cc-pri" data-i="${i}" title="${c.primary?'대표 담당자':'대표로 지정'}" style="background:none;border:none;cursor:pointer;font-size:15px;padding:0;line-height:1;color:${c.primary?'#f59e0b':'var(--gray-300)'}">${c.primary?'★':'☆'}</button>
             <b style="font-size:13px">${escC(c.name||'(이름없음)')}</b>
-            ${role} ${phone} ${email} ${meta}
+            ${role} ${phone} ${email} ${memo} ${meta}
             <span style="flex:1"></span>
             <button class="cc-edit" data-i="${i}" title="수정" style="background:none;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 3px">✏️</button>
             <button class="cc-del" data-i="${i}" title="삭제" style="background:none;border:none;color:var(--gray-400);font-size:14px;cursor:pointer;padding:0 3px">✕</button>
@@ -2121,21 +2124,21 @@
         const addBtn = q('.cc-add-btn'); if (addBtn) addBtn.onclick = () => { _adding = true; _ed = -1; render(); const i=q('#ccAddName'); if(i) i.focus(); };
         const addCancel = q('.cc-add-cancel'); if (addCancel) addCancel.onclick = () => { _adding = false; render(); };
         const addSave = q('.cc-add-save'); if (addSave) addSave.onclick = () => {
-          const name=(q('#ccAddName').value||'').trim(), role=(q('#ccAddRole').value||'').trim(), phone=(q('#ccAddPhone').value||'').trim(), email=(q('#ccAddEmail').value||'').trim();
+          const name=(q('#ccAddName').value||'').trim(), role=(q('#ccAddRole').value||'').trim(), phone=(q('#ccAddPhone').value||'').trim(), email=(q('#ccAddEmail').value||'').trim(), memo=(q('#ccAddMemo').value||'').trim().slice(0,10);
           if (!name && !phone) { alert('이름 또는 연락처를 입력하세요'); return; }
           if (!Array.isArray(store.contacts)) store.contacts = [];
           const k = normP(phone) || ('n:'+name+'|'+role);
           if (Array.isArray(store.contactsDeleted)) store.contactsDeleted = store.contactsDeleted.filter(x => x !== k);   // 재등록 시 tombstone 해제
-          store.contacts.push({ name, role, phone, email, address:'', primary: visible().length===0, addedAt: nowStamp(), addedBy: me(), updatedAt: new Date().toISOString() });
+          store.contacts.push({ name, role, phone, email, memo, address:'', primary: visible().length===0, addedAt: nowStamp(), addedBy: me(), updatedAt: new Date().toISOString() });
           save(); _adding = false; render();
         };
         card.querySelectorAll('.cc-edit').forEach(b => b.onclick = () => { _ed = parseInt(b.dataset.i,10); _adding = false; render(); const i=q('#ccEdName'); if(i){ i.focus(); } });
         card.querySelectorAll('.cc-ed-cancel').forEach(b => b.onclick = () => { _ed = -1; render(); });
         card.querySelectorAll('.cc-ed-save').forEach(b => b.onclick = () => {
           const i = parseInt(b.dataset.i,10); if (isNaN(i) || !store.contacts[i]) return;
-          const name=(q('#ccEdName').value||'').trim(), role=(q('#ccEdRole').value||'').trim(), phone=(q('#ccEdPhone').value||'').trim(), email=(q('#ccEdEmail').value||'').trim();
+          const name=(q('#ccEdName').value||'').trim(), role=(q('#ccEdRole').value||'').trim(), phone=(q('#ccEdPhone').value||'').trim(), email=(q('#ccEdEmail').value||'').trim(), memo=(q('#ccEdMemo').value||'').trim().slice(0,10);
           if (!name && !phone) { alert('이름 또는 연락처를 입력하세요'); return; }
-          Object.assign(store.contacts[i], { name, role, phone, email, updatedAt: new Date().toISOString(), updatedBy: me() });
+          Object.assign(store.contacts[i], { name, role, phone, email, memo, updatedAt: new Date().toISOString(), updatedBy: me() });
           save(); _ed = -1; render();
         });
         card.querySelectorAll('.cc-del').forEach(b => b.onclick = () => {
