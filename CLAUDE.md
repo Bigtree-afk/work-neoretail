@@ -661,7 +661,10 @@ else if (cond) { elA.innerHTML = ... } else { elA.innerHTML = ... }
 
 **매장 매칭**: `_findStoreInList`(storeId→사업자→상호 **정확일치**) — 교차오염 금지 (CLAUDE.md "🏪 매장 ↔ 작업 매칭 규칙"과 동일 원칙).
 
-**현재 범위 = 적재만. 향후(UI 단계)**: 매장상세 "담당자 목록" 표시 + 폼 자동완성 재사용. ⚠ **폼에 이메일 입력칸이 아직 없어** `email` 은 스키마만 준비(값 미수집) — 입력칸 추가는 UI 단계에서. ⚠ 모바일 `saveStores` 는 cloud push 안 해, 모바일 생성 연락처는 PC 백필이 흡수(즉시성 아님).
+**UI = PC 구현 완료 (2026-06-18)**: 매장상세 `🏪 매장정보` 탭에 **👤 담당자 섹션**(`app-07.js` `renderStoreContacts`, host `#detailContactsCard`) — 누적 contacts 목록 + 직접 추가/수정/삭제/대표(★)지정. 담당자 전화 클릭 → **동일전화 cross-store 모달**(`window._showContactStores`) = 같은 번호가 담당자로 등록된 다른 매장 목록(다점포 사장 파악).
+- **삭제 tombstone**: 매장상세 삭제는 `store.contactsDeleted[]`(키 집합: 전화정규화 or `'n:이름|직책'`)에 키를 union 으로 기록. `additive-by-id` 머지 부활 + `ingestJobContactsToStore` 재적재 **양쪽 차단**. 머지 정책 `contactsDeleted:'aliases-union'` 을 **클라이언트(app-01)·서버(sync.js) 양쪽**에 등록(동일 정책 의무). 재등록 시 tombstone 자동 해제.
+- 추가/수정은 phone 기준 `additive-by-id` local-wins 머지라 안전. 미등록 매장(`store.id` 없음)은 안내만 표시. 매장상세 담당자 추가폼은 **이메일 입력칸 포함**(값 수집).
+- ⚠ **향후**: 업무 등록 폼(job)들엔 아직 이메일 입력칸 없음(스키마만) · 폼 자동완성 재사용 · **모바일 m/* 매장상세에 동일 섹션 미구현**. ⚠ 모바일 `saveStores` 는 cloud push 안 해, 모바일 생성 연락처는 PC 백필이 흡수(즉시성 아님).
 
 ### 🔄 매장 데이터 동기화 — 정책 테이블 기반 머지 (필수 규칙)
 
