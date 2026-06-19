@@ -267,9 +267,21 @@
                           ? window._threadMigrate(existing.thread) : existing.thread;
           existing.completed = false;
           existing.status = '진행중';
+          // 🔑 폼에 입력한 매장 담당자 연락처를 기존 AS 에도 보강(빈 칸만) + 매장 적재 (2026-06-19 근본원인 수정)
+          try {
+            const _cN = (document.getElementById('jobContactName')  || {}).value?.trim() || '';
+            const _cR = (document.getElementById('jobContactRole')  || {}).value?.trim() || '';
+            const _cP = (document.getElementById('jobContactPhone') || {}).value?.trim() || '';
+            if (_cN || _cP) {
+              if (!existing.contactName && _cN)  existing.contactName  = _cN;
+              if (!existing.contactRole && _cR)  existing.contactRole  = _cR;
+              if (!existing.contactPhone && _cP) existing.contactPhone = _cP;
+            }
+          } catch(_){}
           jobs[pick.idx] = existing;
           if (typeof saveJobs === 'function') saveJobs(jobs);
           try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
+          try { if (typeof window.ingestJobContactsToStore === 'function') window.ingestJobContactsToStore(existing); } catch(_){}
           window._asInlineEditJobId = existing.id;
           window._jobThreadDraft = [];
           // UI 인라인 편집 모드 전환
@@ -318,6 +330,12 @@
           engineer: '',
           address: '',
           notes: '',
+          // 🔑 매장 담당자 연락처 — newJobModal 폼 값을 함께 저장(thread-first 경로가 saveNewJob 을
+          //   우회하면서 연락처가 누락되던 근본원인 수정, 2026-06-19). category 도 명시.
+          category: 'as',
+          contactName:  (document.getElementById('jobContactName')  || {}).value?.trim() || '',
+          contactRole:  (document.getElementById('jobContactRole')  || {}).value?.trim() || '',
+          contactPhone: (document.getElementById('jobContactPhone') || {}).value?.trim() || '',
           equipment: [], equipTotal: 0,
           thread: (typeof window._threadMigrate === 'function') ? window._threadMigrate(initialThread) : initialThread,
           vandocs: { van:{status:'접수',tid:'',serial:''}, easy:{status:'접수',tid:''}, kakao:{status:'접수',tid:''} },
@@ -327,6 +345,8 @@
         jobs.unshift(newJob);
         if (typeof saveJobs === 'function') saveJobs(jobs);
         try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
+        // 매장 연락처 누적(saveNewJob 과 동일) — 입력한 매장 담당자를 매장 DB 에 적재
+        try { if (typeof window.ingestJobContactsToStore === 'function') window.ingestJobContactsToStore(newJob); } catch(_){}
         window._asInlineEditJobId = newJob.id;
         window._jobThreadDraft = [];
         try { document.body.classList.add('as-inline-edit-mode'); } catch(e){}

@@ -698,7 +698,8 @@ else if (cond) { elA.innerHTML = ... } else { elA.innerHTML = ... }
 - `ingestJobContactsToStore(job, opts)` — 작업 연락처를 매장에 누적. `opts.storesArr` 주면 배치(작업마다 저장 안 함, caller 가 1회 saveStores — 백필 성능).
 - `getStoreContacts(storeRef)` · `migrateJobContactsToStore()` (페이지 로드 +3초 1회 백필, idempotent).
 
-**적재 트리거**: `saveNewJob`(AS/소모품/신규) · `saveVanJob`(VAN) 저장 시 + 로드 백필(전체 작업 스캔 → 모바일 생성분도 PC 가 흡수).
+**적재 트리거**: `saveNewJob`(AS/소모품/신규) · `saveVanJob`(VAN) · **`_submitNewRoot`(AS thread-first 즉시등록, app-06)** 저장 시 + 로드 백필(전체 작업 스캔 → 모바일 생성분도 PC 가 흡수).
+- ⚠ **근본원인 주의 (2026-06-19)**: AS 를 thread(요청접수)로 바로 등록하면 `saveNewJob` 이 아니라 `_submitNewRoot` 라이브-세이브 경로가 작업을 만든다. 이 경로가 폼의 `jobContactName/Role/Phone` 을 안 읽고 `ingestJobContactsToStore` 도 호출 안 해, **입력한 매장 담당자 연락처가 통째로 유실되던 버그**가 있었음(한마음식자재마트 향남점 사례). → 두 분기(신규 생성·기존 AS 추가) 모두 연락처 저장 + 적재 추가함. **새 inline 작업생성 경로를 만들 땐 반드시 연락처 저장 + `ingestJobContactsToStore` 호출**(saveNewJob 우회 금지).
 
 **매장 매칭**: `_findStoreInList`(storeId→사업자→상호 **정확일치**) — 교차오염 금지 (CLAUDE.md "🏪 매장 ↔ 작업 매칭 규칙"과 동일 원칙).
 
