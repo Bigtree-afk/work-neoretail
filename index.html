@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
-<link rel="stylesheet" href="/app.css?v=2026-06-19-contact-underreq">
+<link rel="stylesheet" href="/app.css?v=2026-06-19-newjob-unify">
 <!-- Google Identity Services (Sign in with Google) -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <!-- heic2any (iPhone HEIC → JPEG 변환) — 필요 시 로드 -->
@@ -2173,21 +2173,9 @@
             <span style="font-size:10px;color:var(--gray-400);font-weight:400">🔍 검색</span>
             <button type="button" onclick="toggleUnregisteredStore()" id="unregBtn" style="float:right;background:none;border:1px solid var(--gray-300);color:var(--gray-500);font-size:10px;padding:2px 8px;border-radius:6px;cursor:pointer;font-weight:600">+ 미등록 가맹점</button>
           </label>
-          <!-- 검색 범위 라디오 (위) -->
-          <div style="display:flex;gap:4px;margin-bottom:5px;flex-wrap:wrap">
-            <label style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:#fff;border:1px solid var(--gray-200);border-radius:14px;cursor:pointer;font-size:11px;font-weight:600">
-              <input type="radio" name="jobStoreScope" value="name_biz" checked onchange="runJobStoreSearch()" style="margin:0">상호·사업자
-            </label>
-            <label style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:#fff;border:1px solid var(--gray-200);border-radius:14px;cursor:pointer;font-size:11px;font-weight:600">
-              <input type="radio" name="jobStoreScope" value="ceo" onchange="runJobStoreSearch()" style="margin:0">대표자
-            </label>
-            <label style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:#fff;border:1px solid var(--gray-200);border-radius:14px;cursor:pointer;font-size:11px;font-weight:600">
-              <input type="radio" name="jobStoreScope" value="addr" onchange="runJobStoreSearch()" style="margin:0">주소
-            </label>
-          </div>
-          <!-- 검색 입력 (아래) -->
+          <!-- 검색 입력 — 통일 토큰 검색(상호·주소·사업자·대표·코드 한 번에). 옛 범위 라디오 폐기(2026-06-19) -->
           <div style="position:relative">
-            <input type="text" id="jobStoreName" placeholder="검색어를 입력하세요..." autocomplete="off" oninput="runJobStoreSearch();_resetStorePickInfo()" onfocus="runJobStoreSearch()" onblur="setTimeout(()=>{const p=document.getElementById('jobStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px;width:100%">
+            <input type="text" id="jobStoreName" placeholder="매장명 / 주소 / 사업자번호 / 대표 검색 (예: 노원 오케이마트)" autocomplete="off" oninput="runJobStoreSearch();_resetStorePickInfo()" onfocus="runJobStoreSearch()" onblur="setTimeout(()=>{const p=document.getElementById('jobStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px;width:100%">
             <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--gray-400);pointer-events:none">🔍</span>
           </div>
           <!-- 선택된 매장의 사업자 정보 — 혼선 방지용 -->
@@ -3946,14 +3934,14 @@
 </div>
 
 <!-- app.js 를 4,000줄 가드레일 준수 위해 순서 세그먼트로 분할 로드 (concat == 옛 app.js, defer 순서보존) -->
-<script src="/app/app-01.js?v=2026-06-19-contact-underreq" defer></script>
-<script src="/app/app-02.js?v=2026-06-19-contact-underreq" defer></script>
-<script src="/app/app-03.js?v=2026-06-19-contact-underreq" defer></script>
-<script src="/app/app-04.js?v=2026-06-19-contact-underreq" defer></script>
-<script src="/app/app-05.js?v=2026-06-19-contact-underreq" defer></script>
-<script src="/app/app-06.js?v=2026-06-19-contact-underreq" defer></script>
-<script src="/app/app-07.js?v=2026-06-19-contact-underreq" defer></script>
-<script src="/app/app-08.js?v=2026-06-19-contact-underreq" defer></script>
+<script src="/app/app-01.js?v=2026-06-19-newjob-unify" defer></script>
+<script src="/app/app-02.js?v=2026-06-19-newjob-unify" defer></script>
+<script src="/app/app-03.js?v=2026-06-19-newjob-unify" defer></script>
+<script src="/app/app-04.js?v=2026-06-19-newjob-unify" defer></script>
+<script src="/app/app-05.js?v=2026-06-19-newjob-unify" defer></script>
+<script src="/app/app-06.js?v=2026-06-19-newjob-unify" defer></script>
+<script src="/app/app-07.js?v=2026-06-19-newjob-unify" defer></script>
+<script src="/app/app-08.js?v=2026-06-19-newjob-unify" defer></script>
 <script src="/app/supplies-reg.js?v=2026-06-18-store-search" defer></script>
 </body>
 </html>

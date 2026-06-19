@@ -2460,18 +2460,21 @@
     populateEngineerSelect();
   }
 
-  /* 새 작업 모달의 점포명 검색 */
+  /* 새 작업 모달의 점포명 검색 — 통일 토큰 검색(_searchStores) 사용 (2026-06-19)
+     상호+주소+사업자+대표+거래처코드 토큰 매칭(비연속·역순). 옛 범위 라디오(_matchStore) 폐기. */
   function runJobStoreSearch() {
     const inp = document.getElementById('jobStoreName');
     const panel = document.getElementById('jobStoreResults');
     if (!inp || !panel) return;
-    const q = _normalizeSearch(inp.value);
-    const scopeRadio = document.querySelector('input[name="jobStoreScope"]:checked');
-    const scope = scopeRadio ? scopeRadio.value : 'name_biz';
-    const stores = getStores();
-    let matches = stores;
-    if (q) matches = stores.filter(s => _matchStore(s, q, scope));
-    matches = matches.slice(0, 30);
+    const raw = String(inp.value || '');
+    if (!raw.trim()) { panel.style.display = 'none'; panel.innerHTML = ''; return; }
+    let matches;
+    if (typeof window._searchStores === 'function') {
+      matches = window._searchStores(raw, 30) || [];
+    } else {
+      const q = _normalizeSearch(raw);
+      matches = q ? getStores().filter(s => _matchStore(s, q, 'name_biz')).slice(0, 30) : [];
+    }
     if (matches.length === 0) {
       panel.innerHTML = `<div style="padding:12px 14px;font-size:12px;color:var(--gray-400);text-align:center">검색 결과가 없습니다.</div>`;
       panel.style.display = 'block';
