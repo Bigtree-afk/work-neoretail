@@ -2175,7 +2175,7 @@
           </label>
           <!-- 검색 입력 — 통일 토큰 검색(상호·주소·사업자·대표·코드 한 번에). 옛 범위 라디오 폐기(2026-06-19) -->
           <div style="position:relative">
-            <input type="text" id="jobStoreName" placeholder="매장명 / 주소 / 사업자번호 / 대표 검색 (예: 노원 오케이마트)" autocomplete="off" oninput="runJobStoreSearch();_resetStorePickInfo()" onfocus="runJobStoreSearch()" onblur="setTimeout(()=>{const p=document.getElementById('jobStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px;width:100%">
+            <input type="text" id="jobStoreName" placeholder="매장명 / 주소 / 사업자번호 / 대표 검색 (예: 노원 오케이마트)" autocomplete="off" oninput="runJobStoreSearch();_resetStorePickInfo()" onfocus="runJobStoreSearch()" onkeydown="runJobStoreKey(event)" onblur="setTimeout(()=>{const p=document.getElementById('jobStoreResults');if(p)p.style.display='none'},180)" style="padding-right:32px;width:100%">
             <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--gray-400);pointer-events:none">🔍</span>
           </div>
           <!-- 선택된 매장의 사업자 정보 — 혼선 방지용 -->
@@ -3934,14 +3934,14 @@
 </div>
 
 <!-- app.js 를 4,000줄 가드레일 준수 위해 순서 세그먼트로 분할 로드 (concat == 옛 app.js, defer 순서보존) -->
-<script src="/app/app-01.js?v=2026-06-19-newjob-unify" defer></script>
-<script src="/app/app-02.js?v=2026-06-19-newjob-unify" defer></script>
-<script src="/app/app-03.js?v=2026-06-19-newjob-unify" defer></script>
-<script src="/app/app-04.js?v=2026-06-19-newjob-unify" defer></script>
-<script src="/app/app-05.js?v=2026-06-19-newjob-unify" defer></script>
-<script src="/app/app-06.js?v=2026-06-19-newjob-unify" defer></script>
-<script src="/app/app-07.js?v=2026-06-19-newjob-unify" defer></script>
-<script src="/app/app-08.js?v=2026-06-19-newjob-unify" defer></script>
+<script src="/app/app-01.js?v=2026-06-19-store-kbd-nav" defer></script>
+<script src="/app/app-02.js?v=2026-06-19-store-kbd-nav" defer></script>
+<script src="/app/app-03.js?v=2026-06-19-store-kbd-nav" defer></script>
+<script src="/app/app-04.js?v=2026-06-19-store-kbd-nav" defer></script>
+<script src="/app/app-05.js?v=2026-06-19-store-kbd-nav" defer></script>
+<script src="/app/app-06.js?v=2026-06-19-store-kbd-nav" defer></script>
+<script src="/app/app-07.js?v=2026-06-19-store-kbd-nav" defer></script>
+<script src="/app/app-08.js?v=2026-06-19-store-kbd-nav" defer></script>
 <script src="/app/supplies-reg.js?v=2026-06-18-store-search" defer></script>
 </body>
 </html>

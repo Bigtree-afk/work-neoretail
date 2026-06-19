@@ -2489,7 +2489,7 @@
       const addr = esc(s.addr || s.address || '');
       const sub = [ceo, biz, tel].filter(Boolean).join(' · ');
       const args = `${JSON.stringify(name).replace(/"/g,'&quot;')}, ${JSON.stringify(addr).replace(/"/g,'&quot;')}, ${JSON.stringify(biz).replace(/"/g,'&quot;')}, ${JSON.stringify(ceo).replace(/"/g,'&quot;')}`;
-      return `<div onclick="pickJobStore(${args})" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--gray-100)" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+      return `<div class="js-store-result" onclick="pickJobStore(${args})" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--gray-100)" onmouseover="window._jobStoreHL&&window._jobStoreHL(this)" onmouseout="this.style.background=''">
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
           <div style="font-size:13px;font-weight:700;color:var(--gray-800)">${name}${signage ? ` <span style="font-size:11.5px;color:#1d4ed8;font-weight:600">🪧 ${signage}</span>` : ''}</div>
           ${biz ? `<code style="font-size:11px;color:var(--gray-600);background:#F3F4F6;padding:1px 6px;border-radius:3px;font-family:monospace">${biz}</code>` : ''}
@@ -2498,8 +2498,46 @@
         ${addr ? `<div style="font-size:11px;color:var(--gray-400);margin-top:1px">${addr}</div>` : ''}
       </div>`;
     }).join('');
+    window._jobStoreActiveIdx = -1;
     panel.style.display = 'block';
   }
+
+  /* 매장 검색 결과 키보드 네비 — ↓/↑/Tab 이동, Enter 선택, Esc 닫기 (runJobStoreSearch 패널) */
+  window._jobStoreActiveIdx = -1;
+  function _jobStoreResultEls() {
+    const p = document.getElementById('jobStoreResults');
+    return p ? Array.from(p.querySelectorAll('.js-store-result')) : [];
+  }
+  window._jobStoreHL = function(el) {
+    const els = _jobStoreResultEls();
+    const idx = els.indexOf(el);
+    if (idx < 0) return;
+    window._jobStoreActiveIdx = idx;
+    els.forEach((e, i) => { e.style.background = (i === idx) ? '#EEF2FF' : ''; });
+  };
+  function _jobStoreMove(delta) {
+    const els = _jobStoreResultEls();
+    if (!els.length) return;
+    let idx = window._jobStoreActiveIdx;
+    idx = (idx < 0 && delta < 0) ? els.length - 1 : idx + delta;
+    idx = ((idx % els.length) + els.length) % els.length;
+    window._jobStoreActiveIdx = idx;
+    els.forEach((e, i) => { e.style.background = (i === idx) ? '#EEF2FF' : ''; });
+    try { els[idx].scrollIntoView({ block: 'nearest' }); } catch(_){}
+  }
+  window.runJobStoreKey = function(e) {
+    const panel = document.getElementById('jobStoreResults');
+    if (!panel || panel.style.display === 'none') return;
+    const els = _jobStoreResultEls();
+    if (!els.length) return;
+    const k = e.key;
+    if (k === 'ArrowDown' || (k === 'Tab' && !e.shiftKey)) { e.preventDefault(); _jobStoreMove(1); }
+    else if (k === 'ArrowUp' || (k === 'Tab' && e.shiftKey)) { e.preventDefault(); _jobStoreMove(-1); }
+    else if (k === 'Enter') {
+      const idx = window._jobStoreActiveIdx;
+      if (idx >= 0 && els[idx]) { e.preventDefault(); els[idx].click(); }
+    } else if (k === 'Escape') { panel.style.display = 'none'; window._jobStoreActiveIdx = -1; }
+  };
 
   function pickJobStore(name, address, biz, ceo) {
     const inp = document.getElementById('jobStoreName');
