@@ -268,10 +268,12 @@
           existing.completed = false;
           existing.status = '진행중';
           // 🔑 폼에 입력한 매장 담당자 연락처를 기존 AS 에도 보강(빈 칸만) + 매장 적재 (2026-06-19 근본원인 수정)
+          //   새-요청접수 폼 칸(__nrC*) 우선, 없으면 정적 블록(jobContact*) (옵션 B)
           try {
-            const _cN = (document.getElementById('jobContactName')  || {}).value?.trim() || '';
-            const _cR = (document.getElementById('jobContactRole')  || {}).value?.trim() || '';
-            const _cP = (document.getElementById('jobContactPhone') || {}).value?.trim() || '';
+            const _gc = (suf, fb) => ((document.getElementById(containerId + suf) || {}).value?.trim()) || ((document.getElementById(fb) || {}).value?.trim()) || '';
+            const _cN = _gc('__nrCName', 'jobContactName');
+            const _cR = _gc('__nrCRole', 'jobContactRole');
+            const _cP = _gc('__nrCPhone', 'jobContactPhone');
             if (_cN || _cP) {
               if (!existing.contactName && _cN)  existing.contactName  = _cN;
               if (!existing.contactRole && _cR)  existing.contactRole  = _cR;
@@ -321,6 +323,8 @@
                           ? (getStores() || []).find(s => (s.name || '').trim() === storeName) : null;
         const draftExtras = Array.isArray(window._jobThreadDraft) ? window._jobThreadDraft.slice() : [];
         const initialThread = [entry].concat(draftExtras);
+        // 🔑 매장 담당자 연락처 — 새-요청접수 폼 칸(__nrC*) 우선, 없으면 정적 블록(jobContact*) (옵션 B)
+        const _gc = (suf, fb) => ((document.getElementById(containerId + suf) || {}).value?.trim()) || ((document.getElementById(fb) || {}).value?.trim()) || '';
         const newJob = {
           id: 'JOB-' + Date.now().toString(36).toUpperCase(),
           type: 'AS 처리',
@@ -330,12 +334,11 @@
           engineer: '',
           address: '',
           notes: '',
-          // 🔑 매장 담당자 연락처 — newJobModal 폼 값을 함께 저장(thread-first 경로가 saveNewJob 을
-          //   우회하면서 연락처가 누락되던 근본원인 수정, 2026-06-19). category 도 명시.
+          // thread-first 경로가 saveNewJob 을 우회하면서 연락처가 누락되던 근본원인 수정(2026-06-19). category 명시.
           category: 'as',
-          contactName:  (document.getElementById('jobContactName')  || {}).value?.trim() || '',
-          contactRole:  (document.getElementById('jobContactRole')  || {}).value?.trim() || '',
-          contactPhone: (document.getElementById('jobContactPhone') || {}).value?.trim() || '',
+          contactName:  _gc('__nrCName', 'jobContactName'),
+          contactRole:  _gc('__nrCRole', 'jobContactRole'),
+          contactPhone: _gc('__nrCPhone', 'jobContactPhone'),
           equipment: [], equipTotal: 0,
           thread: (typeof window._threadMigrate === 'function') ? window._threadMigrate(initialThread) : initialThread,
           vandocs: { van:{status:'접수',tid:'',serial:''}, easy:{status:'접수',tid:''}, kakao:{status:'접수',tid:''} },

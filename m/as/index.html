@@ -381,26 +381,6 @@
       </div>
     </div>
 
-    <!-- 매장 담당자 -->
-    <div class="sec">
-      <div class="sec-h">👤 매장 담당자 <span class="hint">기존 연락처 선택 또는 직접 입력</span></div>
-      <select class="field-input" id="fContactPicker" onchange="onContactPick()" style="display:none;margin-bottom:8px"><option value="">+ 직접 입력</option></select>
-      <div class="grid2">
-        <div class="field">
-          <div class="field-label">이름</div>
-          <input class="field-input" id="fContactName" type="text" placeholder="예: 홍길동">
-        </div>
-        <div class="field">
-          <div class="field-label">직책</div>
-          <input class="field-input" id="fContactRole" type="text" placeholder="예: 점장 / 사장">
-        </div>
-      </div>
-      <div class="field" style="margin-bottom:0">
-        <div class="field-label">연락처</div>
-        <input class="field-input" id="fContactPhone" type="tel" placeholder="010-0000-0000" inputmode="tel">
-      </div>
-    </div>
-
     <!-- 처리 담당 (이 요청을 처리할 우리 직원) — 매장 담당자(현장 연락처)와 별개 -->
     <div class="sec">
       <div class="sec-h">👷 처리 담당 <span class="hint">이 요청 담당 직원</span></div>
@@ -435,6 +415,26 @@
         ✅ 바로 완료 처리
         <span style="margin-left:auto;font-size:10.5px;color:#15803d;font-weight:500">요청접수 + 완료 동시 등록</span>
       </label>
+    </div>
+
+    <!-- 매장 담당자 — 요청접수 하위 (옵션 B, 2026-06-19) -->
+    <div class="sec">
+      <div class="sec-h">👤 이 요청의 매장 담당자 <span class="hint">기존 연락처 선택 또는 직접 입력</span></div>
+      <select class="field-input" id="fContactPicker" onchange="onContactPick()" style="display:none;margin-bottom:8px"><option value="">+ 직접 입력</option></select>
+      <div class="grid2">
+        <div class="field">
+          <div class="field-label">이름</div>
+          <input class="field-input" id="fContactName" type="text" placeholder="예: 홍길동">
+        </div>
+        <div class="field">
+          <div class="field-label">직책</div>
+          <input class="field-input" id="fContactRole" type="text" placeholder="예: 점장 / 사장">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <div class="field-label">연락처</div>
+        <input class="field-input" id="fContactPhone" type="tel" placeholder="010-0000-0000" inputmode="tel">
+      </div>
     </div>
 
     <!-- LINE 체크 -->

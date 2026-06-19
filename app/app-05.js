@@ -2673,6 +2673,17 @@
   }
 
   // 메인 렌더러 — newJobModal 과 editNewopen 양쪽에서 공유
+  // 👤 새-요청접수 폼의 매장 담당자 드롭다운 선택 → 이름/직책/연락처 자동 채움 (옵션 B)
+  window._nrContactPick = function(containerId) {
+    const sel = document.getElementById(containerId + '__nrCPicker'); if (!sel) return;
+    const list = window._nrContactList || [];
+    const idx = sel.value === '' ? -1 : parseInt(sel.value, 10);
+    if (idx < 0 || !list[idx]) return;   // '직접 입력' — 기존 입력 유지
+    const c = list[idx];
+    const set = (suf, v) => { const e = document.getElementById(containerId + suf); if (e) e.value = v || ''; };
+    set('__nrCName', c.name); set('__nrCRole', c.role); set('__nrCPhone', c.phone);
+  };
+
   window._renderThreadGroups = function(containerId, thread, opts) {
     const root = document.getElementById(containerId);
     if (!root) return;
@@ -2767,10 +2778,36 @@
     // 새 ROOT 입력 폼 (토글)
     const newRootOpen = !!openMap['__newroot__'];
     const newRootAttId = containerId + '__newroot_att';
+    // 👤 요청접수 시 매장 담당자 — AS 등록(jobThreadContainer)에서만 새-요청접수 폼 하위에 노출 (2026-06-19, 옵션 B)
+    let _nrContactHtml = '';
+    if (window._currentJobContext === 'as' && containerId === 'jobThreadContainer') {
+      let _nrContacts = [];
+      try {
+        const _snm = (document.getElementById('jobStoreName') || {}).value || '';
+        if (_snm && typeof window.getStoreContacts === 'function') {
+          _nrContacts = (window.getStoreContacts({ storeName: _snm }) || []).filter(c => c && (c.name || c.phone));
+        }
+      } catch(_){}
+      window._nrContactList = _nrContacts;
+      const _opts = '<option value="">+ 직접 입력</option>' + _nrContacts.map((c,i) =>
+        `<option value="${i}">${escFn([c.name||'(이름없음)', c.role, c.phone].filter(Boolean).join(' · '))}</option>`).join('');
+      const _ist = 'width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--gray-200);border-radius:6px;font-family:inherit;box-sizing:border-box';
+      _nrContactHtml = `
+        <div style="margin-top:8px;padding:8px 10px;background:#F9FAFB;border:1px solid var(--gray-200);border-radius:6px">
+          <div style="font-size:11px;color:var(--gray-600);font-weight:700;margin-bottom:5px">👤 이 요청의 매장 담당자 <span style="font-weight:400;color:var(--gray-400)">기존 연락처 선택 또는 직접 입력</span></div>
+          <select id="${escFn(containerId)}__nrCPicker" onchange="window._nrContactPick&&window._nrContactPick('${escFn(containerId)}')" style="${_ist};margin-bottom:6px;border-color:var(--gray-300);${_nrContacts.length?'':'display:none'}">${_opts}</select>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+            <input type="text" id="${escFn(containerId)}__nrCName" placeholder="이름" autocomplete="off" style="${_ist}">
+            <input type="text" id="${escFn(containerId)}__nrCRole" placeholder="직책" autocomplete="off" style="${_ist}">
+            <input type="tel" id="${escFn(containerId)}__nrCPhone" placeholder="연락처" autocomplete="off" style="${_ist}">
+          </div>
+        </div>`;
+    }
     const newRootFormHtml = newRootOpen ? `
       <div style="background:#fff;border:1px solid #BFDBFE;border-top:none;padding:10px 12px">
         <textarea id="${escFn(containerId)}__newroot" placeholder="새 요청 내용을 입력하세요..." style="width:100%;min-height:48px;padding:7px 9px;border:1px solid var(--gray-200);border-radius:6px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
         <div id="${escFn(newRootAttId)}" style="margin-top:6px"></div>
+        ${_nrContactHtml}
         <div style="margin-top:8px;display:flex;gap:7px">
           <button type="button" class="btn btn-primary btn-sm" onclick="window._submitNewRoot('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},false)" style="flex:1;padding:9px;font-size:12.5px;font-weight:800">등록</button>
           <button type="button" class="btn btn-sm" onclick="window._submitNewRoot('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},true)" style="flex:1;padding:9px;font-size:12.5px;font-weight:800;background:#06C755;color:#fff;border:none">📡 등록 후 LINE 발송</button>
