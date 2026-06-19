@@ -3006,10 +3006,10 @@ ${text.slice(0, 4000)}`;
      점수: 이름 일치 +3, 주소 일치 +2, 별칭 일치 +2, 부분 +1, 위치 보너스 */
   function _scoreStore(s, tokens) {
     const norm = (x) => String(x||'').toLowerCase().replace(/\s+/g,'');
-    const name  = norm(s.name);
-    const addr  = norm(s.address);
-    const bizNo = norm(s.bizNo);
-    const ceo   = norm(s.ceo);
+    const name  = norm(s.name || s.storeName);
+    const addr  = norm(s.address || s.addr);
+    const bizNo = norm(s.bizNo || s.biz);
+    const ceo   = norm(s.ceo || s.ceoName);
     const aliases = (Array.isArray(s.aliases) ? s.aliases : []).map(norm);
 
     let score = 0;
@@ -3043,4 +3043,7 @@ ${text.slice(0, 4000)}`;
       .sort((a, b) => b.score - a.score || b.matchedTokens - a.matchedTokens);
     return scored.slice(0, limit).map(x => x.s);
   }
+  // 다른 IIFE(예: supplies-reg.js)에서도 재사용하도록 window 노출 — 토큰 기반(상호+주소+사업자+대표+aliases)
+  window._searchStores = _searchStores;
+  window._scoreStore = _scoreStore;
 

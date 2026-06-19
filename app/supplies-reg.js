@@ -41,11 +41,18 @@
   const _blankRow = () => ({ type: CAT[0].type, mode: 'support', qty: 1, amount: 0, etcName: '' });
 
   function _searchStores(q) {
+    // 우선 공용 토큰 검색(app-02) 사용 — 상호+주소+사업자+대표+aliases, 비연속 토큰 매칭
     if (typeof window._searchStores === 'function') { try { return window._searchStores(q, 8) || []; } catch (_) {} }
+    // fallback — 공용 함수 미로드 시: 토큰 AND 매칭(상호+주소+사업자 통합 blob)
     const all = (typeof getStores === 'function' ? getStores() : []) || [];
-    const nq = _norm(q), dq = String(q || '').replace(/\D/g, '');
-    if (!q) return [];
-    return all.filter(s => _norm(s.name || s.storeName).includes(nq) || (dq && String(s.biz || s.bizNo || '').replace(/\D/g, '').includes(dq)) || _norm(s.addr || s.address).includes(nq)).slice(0, 8);
+    if (!q || !q.trim()) return [];
+    const tokens = q.trim().split(/\s+/).map(_norm).filter(Boolean);
+    if (!tokens.length) return [];
+    return all.filter(s => {
+      const blob = _norm([s.name, s.storeName, s.addr, s.address, s.biz, s.bizNo, s.ceo, ...(Array.isArray(s.aliases) ? s.aliases : [])].filter(Boolean).join(' '));
+      const digits = String(s.biz || s.bizNo || '').replace(/\D/g, '');
+      return tokens.every(t => blob.includes(t) || (/^\d+$/.test(t) && digits.includes(t)));
+    }).slice(0, 8);
   }
 
   function _ensureAC() {
