@@ -383,7 +383,8 @@
 
     <!-- 매장 담당자 -->
     <div class="sec">
-      <div class="sec-h">👤 매장 담당자 <span class="hint">현장 연락처</span></div>
+      <div class="sec-h">👤 매장 담당자 <span class="hint">기존 연락처 선택 또는 직접 입력</span></div>
+      <select class="field-input" id="fContactPicker" onchange="onContactPick()" style="display:none;margin-bottom:8px"><option value="">+ 직접 입력</option></select>
       <div class="grid2">
         <div class="field">
           <div class="field-label">이름</div>
@@ -876,6 +877,7 @@ function renderForm(r){
       $('fContactName').value = j.contactName || '';
       $('fContactRole').value = j.contactRole || '';
       $('fContactPhone').value = j.contactPhone || '';
+      try { populateContactPicker(_formStore); } catch(_){}
       try { const a=$('fAssignee'); if(a) a.innerHTML = (window._staffOptionsHtml ? window._staffOptionsHtml(j.engineer||j.assignee||'') : '<option value="">미배정</option>'); } catch(_){}
       $('fAsReceivedAt').value = j.asReceivedAt || '';
       $('fAsDueDate').value = fmtDate(j.asDueDate);
@@ -1054,6 +1056,41 @@ window.pickStore = function(s){
   $('fStoreResults').style.display = 'none';
   showPicked(s);
   checkMergeTarget();
+  try { populateContactPicker(s); } catch(_){}
+};
+
+// 👤 매장 담당자 picker — 선택 매장의 store.contacts 를 드롭다운에 채움(요청접수 시 기존 연락처 선택)
+let _contactPickList = [];
+function populateContactPicker(s){
+  const sel = $('fContactPicker'); if (!sel) return;
+  let contacts = [];
+  try {
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    const sid = s && s.id;
+    const st = sid ? stores.find(x => x.id === sid) : null;
+    if (st) {
+      const tomb = new Set(Array.isArray(st.contactsDeleted) ? st.contactsDeleted : []);
+      const keyOf = (c) => String(c.phone||'').replace(/\D/g,'') || ('n:' + String(c.name||'').trim() + '|' + String(c.role||'').trim());
+      contacts = (Array.isArray(st.contacts) ? st.contacts : []).filter(c => c && (c.name || c.phone) && !tomb.has(keyOf(c)));
+    }
+  } catch(_){}
+  _contactPickList = contacts;
+  if (!contacts.length) { sel.style.display = 'none'; sel.innerHTML = '<option value="">+ 직접 입력</option>'; return; }
+  sel.innerHTML = '<option value="">+ 직접 입력</option>' + contacts.map((c,i) => {
+    const label = [c.name || '(이름없음)', c.role, c.phone].filter(Boolean).join(' · ');
+    return `<option value="${i}">${esc(label)}</option>`;
+  }).join('');
+  sel.value = '';
+  sel.style.display = 'block';
+}
+window.onContactPick = function(){
+  const sel = $('fContactPicker'); if (!sel) return;
+  const idx = sel.value === '' ? -1 : parseInt(sel.value, 10);
+  if (idx < 0 || !_contactPickList[idx]) return;   // 직접 입력 — 기존 입력 유지
+  const c = _contactPickList[idx];
+  $('fContactName').value  = c.name  || '';
+  $('fContactRole').value  = c.role  || '';
+  $('fContactPhone').value = c.phone || '';
 };
 
 // 매장 검색 0건 → 정식 등록 모달 (m-core promptRegisterStore)

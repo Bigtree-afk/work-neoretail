@@ -2435,6 +2435,8 @@
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
+    // 👤 매장 담당자 picker 초기화 (매장 선택 시 다시 채워짐)
+    { const cp = document.getElementById('jobContactPicker'); if (cp) { cp.innerHTML = '<option value="">+ 직접 입력</option>'; cp.style.display = 'none'; } window._jobContactPickList = []; }
     ['asTargetVAN','asTargetPOS','asTargetKIO','asTargetETC'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.checked = false;
@@ -2524,8 +2526,49 @@
     try { _renderJobStoreVanProfile(name, biz); } catch(e) { console.warn('[vanProfile] ', e); }
     // VAN 서류 진행 — 매장 정보로 read-only 표시 갱신
     try { _renderStoreVanInfoReadonly('jobVandocsContainer', name, biz); } catch(e) { console.warn('[vandocReadonly] ', e); }
+    // 👤 매장 담당자 picker — 선택 매장의 기존 연락처를 드롭다운에 채움
+    try { _populateJobContactPicker(name, biz); } catch(e) { console.warn('[contactPicker] ', e); }
   }
   window.pickJobStore = pickJobStore;
+
+  /* 👤 요청접수 시 매장 담당자 선택 — 매장 store.contacts 를 드롭다운에 채워 고르면 자동 채움 (2026-06-19)
+     (재고조사/소모품/VAN 확대 예정. 현재 newJobModal = 신규/AS 적용) */
+  function _populateJobContactPicker(name, biz) {
+    const sel = document.getElementById('jobContactPicker');
+    if (!sel) return;
+    let contacts = [];
+    try {
+      const st = (typeof _findStoreByNameOrBiz === 'function') ? _findStoreByNameOrBiz(name, biz) : null;
+      if (st) {
+        const tomb = new Set(Array.isArray(st.contactsDeleted) ? st.contactsDeleted : []);
+        const keyOf = (c) => String(c.phone||'').replace(/\D/g,'') || ('n:' + String(c.name||'').trim() + '|' + String(c.role||'').trim());
+        contacts = (Array.isArray(st.contacts) ? st.contacts : []).filter(c => c && (c.name || c.phone) && !tomb.has(keyOf(c)));
+      }
+    } catch(_){}
+    window._jobContactPickList = contacts;
+    const escFn = (typeof esc === 'function') ? esc : (s)=>String(s==null?'':s);
+    if (!contacts.length) { sel.style.display = 'none'; sel.innerHTML = '<option value="">+ 직접 입력</option>'; return; }
+    sel.innerHTML = '<option value="">+ 직접 입력</option>' + contacts.map((c,i) => {
+      const label = [c.name || '(이름없음)', c.role, c.phone].filter(Boolean).join(' · ');
+      return `<option value="${i}">${escFn(label)}</option>`;
+    }).join('');
+    sel.value = '';
+    sel.style.display = 'block';
+  }
+  window._populateJobContactPicker = _populateJobContactPicker;
+  function _onJobContactPick() {
+    const sel = document.getElementById('jobContactPicker');
+    if (!sel) return;
+    const list = window._jobContactPickList || [];
+    const idx = sel.value === '' ? -1 : parseInt(sel.value, 10);
+    if (idx < 0 || !list[idx]) return;   // '직접 입력' — 기존 입력값 유지
+    const c = list[idx];
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v || ''; };
+    set('jobContactName', c.name);
+    set('jobContactRole', c.role);
+    set('jobContactPhone', c.phone);
+  }
+  window._onJobContactPick = _onJobContactPick;
 
   // 신규 폼 — 매장의 VAN/간편결제 정보를 read-only 카드로 표시
   // (편집 X — VAN 메뉴/매장 상세 모달에서만 편집. 신규 폼은 조회 전용)
