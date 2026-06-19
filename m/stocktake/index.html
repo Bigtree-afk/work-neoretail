@@ -540,7 +540,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-06-19-store-search-sep"></script>
+<script src="/m-core.js?v=2026-06-19-done-sort"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수 & 헬퍼
@@ -694,12 +694,7 @@ function renderEntry(){
   const filtered = recs.filter(r => String(r.status||'상담') !== '마감');
   // 정렬: scheduleDate 임박순 (오름차순). 없으면 consultDate, doneDate, createdAt
   const today = todayKst();
-  filtered.sort((a, b) => {
-    const ka = a.scheduleDate || a.consultDate || '9999-12-31';
-    const kb = b.scheduleDate || b.consultDate || '9999-12-31';
-    if (ka !== kb) return ka.localeCompare(kb);
-    return (b.createdAt||0) - (a.createdAt||0);
-  });
+  filtered.sort(window._jobDoneSort || ((a,b) => (b.createdAt||0) - (a.createdAt||0)));  // job-done-sort 통일
 
   if (!filtered.length) {
     list.innerHTML = '<div class="empty">진행 중인 재고조사가 없습니다.<br>위에서 새 조사를 등록해보세요.</div>';

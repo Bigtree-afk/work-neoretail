@@ -1255,6 +1255,19 @@
     if (matchedTokens === tokens.length && tokens.length >= 2) score += 5;   // 전체 토큰 매칭 보너스
     return { score, matchedTokens };
   }
+  /* 🔢 전 메뉴 공통 작업 정렬 (GLOBAL_RULE: job-done-sort, 2026-06-19 — PC app-01 와 동일 SSOT-쌍)
+     미완료 먼저(등록 desc) → 완료(완료시각 desc). 도메인 우선순위(미수/긴급) 미적용. */
+  function _jobDoneSort(a, b) {
+    const doneFn = (typeof global._isJobEffectivelyDone === 'function') ? global._isJobEffectivelyDone
+                 : (typeof global._isJobDone === 'function') ? global._isJobDone
+                 : (j => !!(j && (j.completed || /완료/.test(String(j.status||'')))));
+    const aD = doneFn(a) ? 1 : 0, bD = doneFn(b) ? 1 : 0;
+    if (aD !== bD) return aD - bD;                                  // 미완료 먼저
+    const reg = (j) => Number(j.createdAt) || Date.parse(j.createdAt) || 0;
+    const dts = (j) => Number(j.completedAt) || Date.parse(j.completedAt)
+                    || Number(j.doneAt) || Date.parse(j.doneAt) || reg(j);
+    return aD ? (dts(b) - dts(a)) : (reg(b) - reg(a));              // 완료: 완료시각desc / 미완료: 등록desc
+  }
   function _searchStores(val, limit = 8) {
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     if (!val || !String(val).trim()) return [];
@@ -1985,6 +1998,7 @@
   global._normStoreKey = _normStoreKey;
   global._searchStores = _searchStores;   // 매장명 통합 검색 SSOT (PC app-02 와 동일 로직)
   global._scoreStore = _scoreStore;
+  global._jobDoneSort = _jobDoneSort;      // 작업 정렬 SSOT (PC app-01 와 동일 로직)
 
   // thread
   global._normalizeStatus = _normalizeStatus;

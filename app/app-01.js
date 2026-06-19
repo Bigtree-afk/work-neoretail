@@ -971,32 +971,9 @@
       // 카테고리 뱃지
       const subCats = [...new Set(g.jobs.map(j => j.type || j.category || ''))].filter(Boolean).slice(0, 3);
       badgesHtml = subCats.map(c => `<span class="gbtag ${cat}">${escFn(c)}</span>`).join('');
-      // 🏷️ 소모품 매장 내 정렬 규칙 (GLOBAL_RULE: supplies-store-sort):
-      //   ① 미수 (postpaid · 잔액 > 0 · arPaid=false) → 최상단
-      //   ② 그 외 → updatedAt > createdAt > shipDate (분 단위까지) desc
-      //   완료/미완료 섞여도 미수가 항상 위. createdAt/updatedAt 은 ms 정밀도라
-      //   같은 일자라도 등록 시·분 단위로 안정 정렬됨.
-      if (cat === 'supplies') {
-        const _isOutstanding = (j) => {
-          const mode = j.supplyMode || ((Number(j.amount)>0 && /(후불|미수)/i.test(String(j.payment||j.note||j.notes||''))) ? 'postpaid' : (Number(j.amount)>0 ? 'prepaid' : 'support'));
-          if (mode !== 'postpaid') return false;
-          if (j.arPaid) return false;
-          const amt = Number(j.amount)||0;
-          const paid = Number(j.arPaidAmount)||0;
-          return Math.max(0, amt - paid) > 0;
-        };
-        const _touch = (j) => {
-          let v = Number(j.updatedAt||0) || Number(j.createdAt||0);
-          if (!v && j.shipDate) { const t = Date.parse(String(j.shipDate).replace(' ','T')); if (!isNaN(t)) v = t; }
-          return v;
-        };
-        g.jobs = g.jobs.slice().sort((a,b) => {
-          const ao = _isOutstanding(a) ? 0 : 1;
-          const bo = _isOutstanding(b) ? 0 : 1;
-          if (ao !== bo) return ao - bo;       // 미수 먼저
-          return _touch(b) - _touch(a);         // 최신 먼저 (분 단위)
-        });
-      }
+      // 🔢 매장 그룹 내 정렬 — 전 카테고리 공통 규칙(job-done-sort): 미완료(등록desc) → 완료(완료시각desc).
+      //   (이전 소모품 '미수 먼저' 등 도메인 우선순위는 통일 규칙으로 제거 — 2026-06-19)
+      g.jobs = g.jobs.slice().sort(window._jobDoneSort);
       subsHtml = g.jobs.map(j => {
         const dd = _hubDday(j);
         const wnCls = dd.urgent ? 'urgent' : (dd.done ? 'done' : '');
@@ -1102,7 +1079,7 @@
             ? `<button class="hub-line-btn" style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;border-radius:5px;padding:3px 8px;cursor:pointer;font-weight:700;font-size:11px;white-space:nowrap;margin-left:3px" title="등록된 가맹점에 연결" onclick="event.stopPropagation();linkRegisteredStore('${escFn(j.id)}')">🔗 연결</button>`
             : `<button class="hub-line-btn" style="color:var(--gray-400);border:1px solid var(--gray-200);border-radius:5px;padding:3px 6px;cursor:pointer;font-size:11px;white-space:nowrap;margin-left:3px" title="가맹점 연결 해제" onclick="event.stopPropagation();unlinkStore('${escFn(j.id)}')">🔓</button>`)
           : '';
-        return `<div class="hub-sj" onclick="${onclick}">
+        return `<div class="hub-sj ${dd.done ? 'done' : ''}" onclick="${onclick}">
           <div class="sjl">
             <span class="sjtag ${cat}">${escFn(j.type || cat)}</span>
             <div class="sjti">${titleHtml}${cat === 'supplies' && (j.unregistered || !j.storeId) ? ' <span style="background:#FEF3C7;color:#92400E;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;vertical-align:middle">미등록</span>' : ''}</div>
@@ -1271,6 +1248,22 @@
   function _groupRoots(g)         { return g.jobs.flatMap(j => _jobRoots(j)); }
   function _groupIncomplete(g)    { return g.jobs.flatMap(j => _jobIncompleteRoots(j)); }
   function _groupCompleted(g)     { return g.jobs.flatMap(j => _jobCompletedRoots(j)); }
+
+  /* 🔢 전 메뉴 공통 작업 정렬 (GLOBAL_RULE: job-done-sort, 2026-06-19)
+     미완료 먼저(등록 desc) → 완료(완료시각 desc). 도메인 우선순위(미수/긴급) 미적용.
+     ⚠ m-core.js _jobDoneSort 와 동일 로직 유지 의무(PC·모바일 SSOT-쌍). */
+  function _jobDoneSort(a, b) {
+    const doneFn = (typeof window._isJobEffectivelyDone === 'function') ? window._isJobEffectivelyDone
+                 : (typeof window._isJobDone === 'function') ? window._isJobDone
+                 : (j => !!(j && (j.completed || /완료/.test(String(j.status||'')))));
+    const aD = doneFn(a) ? 1 : 0, bD = doneFn(b) ? 1 : 0;
+    if (aD !== bD) return aD - bD;                                  // 미완료 먼저
+    const reg = (j) => Number(j.createdAt) || Date.parse(j.createdAt) || 0;
+    const dts = (j) => Number(j.completedAt) || Date.parse(j.completedAt)
+                    || Number(j.doneAt) || Date.parse(j.doneAt) || reg(j);
+    return aD ? (dts(b) - dts(a)) : (reg(b) - reg(a));              // 완료: 완료시각desc / 미완료: 등록desc
+  }
+  window._jobDoneSort = _jobDoneSort;
 
   function _hubGenericRender(opts) {
     // opts: { containerId, filtersId, searchId, cats:[...], cardCat, urgentIfPending, byRoots, includeChurn, extraFilter }

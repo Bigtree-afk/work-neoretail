@@ -133,18 +133,37 @@ grep -rn "getTimezoneOffset" index.html m-core.js m/ | grep "setMinutes\|getMinu
 | KST 일시(ts/at) | `_kstNow()` / `_kstDateTimeStr()` / `_kstStamp()` | `new Date().toISOString()` |
 | 시각 절대 timestamp(정렬/계산 전용, 표시 X) | `new Date().toISOString()` 허용 | — |
 
-## 🔢 카테고리별 hub 정렬 규칙 (필수)
+## 🔢 작업 리스트 통일 정렬·완료표시 규칙 (필수 — 2026-06-19, 전 메뉴 통일)
 
-**원칙**: 매장 그룹 내(하위 sub-card) 정렬은 도메인 의미에 맞게 — 사용자가 가장 먼저 처리해야 할 항목이 위에 와야 한다. 단순 createdAt desc 로는 부족.
+**원칙**: 모든 메뉴(신규·AS·VAN·재고조사·소모품 — PC·모바일)의 작업 리스트는 **단일 규칙**으로 정렬·표시한다. 메뉴별 도메인 우선순위(미수/긴급 먼저)는 **제거**(혼란 방지·통일).
 
-| 카테고리 | 정렬 1순위 | 정렬 2순위 (tie-break) |
-|---|---|---|
-| **소모품** (`supplies`) | **미수 (postpaid · 잔액>0 · arPaid=false)** 먼저 | `updatedAt > createdAt > shipDate` desc (분 단위) |
-| **AS** | 긴급 (urgent D-day) 먼저 | 접수일 desc |
-| **신규** | 미완료 ROOT 있는 것 먼저, 그 안에서 오픈일 임박 우선 | createdAt desc |
-| **VAN** | 진행중 먼저 | 업무일 desc |
+**정렬 (SSOT = `window._jobDoneSort`)**:
+```
+1) 미완료(진행중) 먼저  →  미완료끼리: 등록(createdAt) 내림차순
+2) 완료 나중            →  완료끼리: 완료시각(completedAt→doneAt→createdAt) 내림차순
+```
 
-**구현 위치**: `_hubRenderGroup` 의 `subsHtml = g.jobs.map(...)` 직전에 `g.jobs = g.jobs.slice().sort(...)` 로 정렬.
+**완료 카드 시각 표시**: **배경 옅은 회색 `#F3F4F6`** + 기존 `✅ 완료` 상태 배지 유지. (이전 초록 좌측 border 는 제거.)
+
+**⚠ SSOT 쌍둥이 정의** (PC 가 m-core 미로드 → `_searchStores`·`_sigSkip` 와 동일 패턴):
+- PC: `app/app-01.js` `window._jobDoneSort`
+- 모바일: `m-core.js` `global._jobDoneSort`
+- **한쪽 수정 시 반드시 다른 쪽도 동일하게.**
+
+**적용처**:
+- PC 허브 `_hubRenderGroup`: `g.jobs.slice().sort(window._jobDoneSort)` (전 카테고리 공통). 완료 서브카드 `.hub-sj.done{background:#F3F4F6}`(app.css).
+- PC AS관리 `renderAsMgmt`: `view.sort(window._jobDoneSort)` + 완료 행 `background:#F3F4F6`.
+- 모바일 5개 SPA `renderEntry`: `.sort(window._jobDoneSort)` + `.card.done{background:#F3F4F6}`.
+- (예외) 재고조사 모바일 entry 는 완료 건을 숨김(stage 기반) → 회색 표시 대상 없음. 정렬만 통일.
+
+**금지**:
+- 메뉴별 자체 정렬(미수/긴급/일정 우선) 신규 작성 — 반드시 `_jobDoneSort` 사용.
+- 완료 카드에 초록 border 등 별도 강조 — 옅은 회색 배경 + ✅배지로 통일.
+- 한쪽(PC/m-core)만 정렬 규칙 수정(기기별 순서 불일치).
+
+**(구) 카테고리별 도메인 우선순위 — 폐기**: 이전엔 소모품=미수먼저, AS=긴급먼저, 신규=오픈임박, VAN=진행중 으로 그룹내 정렬했으나 2026-06-19 통일 규칙으로 **대체**. 미수/긴급 등은 카드 배지·필터로 식별(정렬 우선순위로는 미반영).
+
+**구현 위치**: `_hubRenderGroup` 의 `subsHtml = g.jobs.map(...)` 직전 `g.jobs = g.jobs.slice().sort(window._jobDoneSort)`.
 
 **시간 정밀도 (필수)**:
 - 모든 작업/메모/thread entry 의 `createdAt` / `updatedAt` 은 **ms 단위 (`Date.now()`)** 로 저장 — 같은 일자 등록도 분·초 단위로 안정 정렬됨.
@@ -271,10 +290,10 @@ bash scripts/bump-mcore.sh "thread-tomb"
 
 | 항목 | 규칙 |
 |---|---|
-| **리스트 정렬** | 미완료 먼저 (위), 완료 아래. 카테고리별 1순위 정렬 (미수/긴급) 도 진행 그룹 내에서 적용 |
+| **리스트 정렬** | **통일 규칙 `window._jobDoneSort`** — 미완료(등록desc) → 완료(완료시각desc). 도메인 우선순위(미수/긴급) 미적용. ("🔢 작업 리스트 통일 정렬·완료표시 규칙" 참조) |
 | **카드 요약 텍스트** | **첫 ROOT(요청접수) 의 text 우선** — 완료된 항목도 원본 요청을 보여줘야 사용자가 어떤 건이었는지 파악 가능 |
 | **fallback 체인** | `firstRoot.text → j.asRequest → j.lineRequest → j.lineParsed → j.memo → j.notes` |
-| **완료 표시** | 카드 좌측 border `#10B981` (초록) + `✅ 완료` 배지 + 약한 음영 (`background:#FAFBFA`, `opacity:0.85`) |
+| **완료 표시** | **배경 옅은 회색 `#F3F4F6`** + `✅ 완료` 배지 (PC `.hub-sj.done`·AS관리 행·모바일 `.card.done`). ~~초록 border~~ 제거(2026-06-19 통일). |
 | **상단 카운트 배지** | 진행 중만 카운트 (완료는 카드에는 표시되지만 배지 숫자에는 포함 안 함) |
 
 ### 위반 사례 (자주 발생 — 매번 지적)
@@ -926,18 +945,15 @@ LINE 메시지 파싱 cron 은 **3중 방어** 구성:
 
 ### 정렬 규칙 (Sort Order)
 
-모든 리스트에서 공통 적용:
+모든 리스트에서 **통일 규칙 `window._jobDoneSort`** 공통 적용 (2026-06-19 — "🔢 작업 리스트 통일 정렬·완료표시 규칙"이 정본):
 
-1. **미완료 건 → 위 (최신 접수 순 desc)**
-2. **완료 건 → 아래 (최신 완료 순 desc)**
+1. **미완료 건 → 위 (등록 createdAt desc)**
+2. **완료 건 → 아래 (완료시각 completedAt→doneAt→createdAt desc)**
 
 ```js
-view.sort((a, b) => {
-  const doneA = isDone(a), doneB = isDone(b);
-  if (doneA !== doneB) return doneA ? 1 : -1;   // 미완료 먼저
-  if (!doneA) return mtime(b) - mtime(a);        // 미완료: 최신 접수 순
-  return completedAt(b) - completedAt(a);         // 완료: 최신 완료 순
-});
+// SSOT: PC app-01 / 모바일 m-core 의 _jobDoneSort (쌍둥이 정의)
+view.sort(window._jobDoneSort);
+// 완료 카드/행: background:#F3F4F6 (옅은 회색) + ✅완료 배지
 ```
 
 ### AS 상세 모달 — 완료는 스레드로 일원화 (필수)

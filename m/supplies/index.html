@@ -76,7 +76,7 @@
   .card{background:#fff;border-radius:12px;padding:13px 14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.04);cursor:pointer}
   .card.req{border-left:4px solid #3B82F6}
   .card.prog{border-left:4px solid #F59E0B}
-  .card.done{border-left:4px solid #10B981}
+  .card.done{background:#F3F4F6}
   .card .topline{display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap}
   .card .nm{font-weight:800;font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pill{display:inline-block;padding:2px 8px;border-radius:11px;font-size:10px;font-weight:800}
@@ -550,7 +550,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-06-19-store-search-sep"></script>
+<script src="/m-core.js?v=2026-06-19-done-sort"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    소모품 품목 카탈로그
@@ -711,12 +711,7 @@ function renderEntry(){
   // 완료건도 함께 노출 — 미완료 위, 완료 아래. 각 그룹 내 최근(updated/created/done) 우선
   const all = jobs.filter(j => cat(j) === 'supplies');
   const ts = j => Number(j.updatedAt || j.createdAt || 0) || (j.receivedAt ? Date.parse(j.receivedAt) : 0);
-  all.sort((a,b) => {
-    const aDone = isDone(a) ? 1 : 0;
-    const bDone = isDone(b) ? 1 : 0;
-    if (aDone !== bDone) return aDone - bDone;          // 미완료 먼저
-    return ts(b) - ts(a);                                 // 최근 먼저
-  });
+  all.sort(window._jobDoneSort || ((a,b) => (b.createdAt||0) - (a.createdAt||0)));  // job-done-sort 통일
   if (!all.length) {
     list.innerHTML = '<div class="empty">소모품 거래 내역이 없습니다.<br>위에서 품목을 선택해 신규 등록하세요.</div>';
     $('appBadge').style.display = 'none';

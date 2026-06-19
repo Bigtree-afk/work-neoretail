@@ -1028,22 +1028,13 @@
       if (j.asReceivedAt) return new Date(j.asReceivedAt.replace(' ','T')+':00').getTime();
       return Number(j.createdAt || 0);
     };
-    view.sort((a, b) => {
-      if (_asMgmtFilter === 'done') {
-        return (new Date(b.completedAt||0).getTime()) - (new Date(a.completedAt||0).getTime());
-      }
-      if (_asMgmtFilter === 'all') {
-        const doneA = isDone(a), doneB = isDone(b);
-        // 미완료 먼저
-        if (doneA !== doneB) return doneA ? 1 : -1;
-        // 미완료끼리: 최신 접수 순 (desc)
-        if (!doneA) return _mtime(b) - _mtime(a);
-        // 완료끼리: 최신 완료 순 (desc)
-        return (new Date(b.completedAt||0).getTime()) - (new Date(a.completedAt||0).getTime());
-      }
-      // pending/today/posvan/device: 최신 접수 순 (desc)
-      return _mtime(b) - _mtime(a);
-    });
+    // 🔢 전 메뉴 공통 정렬(job-done-sort): 미완료(등록desc) → 완료(완료시각desc)
+    view.sort(window._jobDoneSort || ((a, b) => {
+      const doneA = isDone(a), doneB = isDone(b);
+      if (doneA !== doneB) return doneA ? 1 : -1;
+      if (!doneA) return _mtime(b) - _mtime(a);
+      return (new Date(b.completedAt||0).getTime()) - (new Date(a.completedAt||0).getTime());
+    }));
 
     const tb = document.getElementById('asMgmtTbody');
     if (!tb) return;
@@ -1095,7 +1086,7 @@
       const nextMeta = AS_STATUS_META[nextStatus];
       const actBtn = `<button class="btn btn-sm" style="background:${nextMeta.bg};color:${nextMeta.color};border:1px solid ${nextMeta.color};font-size:11px;padding:5px 8px;font-weight:700;white-space:nowrap" onclick="event.stopPropagation();cycleAsStatus('${j.id}')" title="현재: ${esc(curStatus)} → 다음: ${esc(nextStatus)}">→ ${nextMeta.icon} ${esc(nextStatus)}</button>`;
 
-      return `<tr style="cursor:pointer" onclick="editNewopen('${j.id}')" title="클릭 — 상세 보기">
+      return `<tr style="cursor:pointer${done ? ';background:#F3F4F6' : ''}" onclick="editNewopen('${j.id}')" title="클릭 — 상세 보기">
         <td>${statusBadge}</td>
         <td><b>${esc(store)}</b>${unregBadge}${lineCatBadge}</td>
         <td>${targetBadges}</td>
