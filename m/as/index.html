@@ -508,7 +508,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-06-17-supply-mtime"></script>
+<script src="/m-core.js?v=2026-06-19-store-search-unify"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1034,7 +1034,7 @@ function doStoreSearch(){
   const norm = window._normalizeSearch || (s => String(s||'').toLowerCase());
   const qn = norm(q);
   const qDigits = q.replace(/\D/g,'');
-  const hits = stores.filter(s => {
+  const hits = (typeof window._searchStores === 'function') ? window._searchStores(q, 8) : stores.filter(s => {
     const nm = norm(s.name || s.storeName || '');
     const al = (Array.isArray(s.aliases) ? s.aliases : []).map(norm).join(' ');
     // API 가 biz 로 보내고 PC 일부 코드는 bizNo/bizno 사용 — 모두 지원

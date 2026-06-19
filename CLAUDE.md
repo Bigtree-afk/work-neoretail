@@ -389,6 +389,28 @@ PC ↔ 모바일에서 동일하게 동작해야 하는 로직 (예: `_isNewJobC
 2. PC index.html 은 `<script src="/m-core.js?v=...">` 로 로드 후 `window.x` 로 호출
 3. 모바일 SPA 는 이미 m-core.js 로드 중
 
+### 🔎 매장명 검색 통일 규칙 (필수 — 2026-06-19)
+
+**원칙**: 모든 메뉴(신규·AS·VAN·재고조사·소모품)의 매장 검색은 **PC·모바일 동일한 통합 토큰 검색**을 사용한다. 메뉴마다 자체 `stores.filter(...)` 를 복붙하지 말 것.
+
+**SSOT 함수**: `window._searchStores(query, limit=8)` (+ 채점 `_scoreStore`).
+- ⚠ **PC `app/app-02.js` 와 모바일 `m-core.js` 에 동일 로직으로 쌍둥이 정의**(PC 가 m-core 를 로드하지 않으므로 — `_sigSkip`·`_mergeJobRecord` 와 동일 패턴). **한쪽 수정 시 반드시 다른 쪽도 동일하게 수정.** 양쪽 모두 `window._searchStores`/`window._scoreStore` 노출.
+
+**검색 규칙** (`_scoreStore`):
+- 질의를 **공백으로 토큰 분리** → 각 토큰을 **상호(name/storeName) · 주소(address/addr) · 사업자번호(숫자) · 대표(ceo) · 거래처코드(code) · aliases** 에서 매칭.
+- **비연속·역순 매칭**: "테스트마트 노원", "노원 오케이마트" 모두 매칭됨(상호+지역을 붙여 입력 안 해도 됨).
+- 토큰별 점수 합산 + **전체 토큰 매칭 시 보너스(+5)** → 전부 맞는 매장이 상위 정렬.
+- 사업자번호는 입력 숫자 3자리 이상일 때만 매칭(빈 문자 includes 버그 차단).
+
+**사용처**:
+- PC: Autocomplete `store`/`supplyStore` kind 의 `search` 가 `_searchStores` 호출 (모든 PC 폼 공통).
+- 모바일: 각 SPA `doStoreSearch()` 의 `const hits = (typeof window._searchStores==='function') ? window._searchStores(q,8) : <기존필터 fallback>`.
+
+**금지**:
+- 메뉴별 자체 매장 필터(`stores.filter(s=>s.name.includes(...))`) 신규 작성 — 반드시 `_searchStores` 사용.
+- 식별/매칭용 `_normStoreKey` 와 혼동 금지(그건 매장 식별 전용 — "🏪 매장 ↔ 작업 매칭 규칙" 참조). 검색은 `_searchStores`/`_scoreStore`.
+- 한쪽(PC 또는 m-core)만 규칙 수정 (쌍둥이 불일치 → OS/기기별 검색결과 차이).
+
 ## UI 규칙 (글로벌 — 필수)
 
 ### 자동완성 / 검색 제안 드롭다운 — `Autocomplete` 헬퍼 사용 의무

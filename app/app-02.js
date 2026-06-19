@@ -3005,11 +3005,13 @@ ${text.slice(0, 4000)}`;
      "자연들 오이도" → "자연들마트 오이도점" 같은 케이스 우선
      점수: 이름 일치 +3, 주소 일치 +2, 별칭 일치 +2, 부분 +1, 위치 보너스 */
   function _scoreStore(s, tokens) {
+    // ⚠ m-core.js _scoreStore 와 동일 로직 유지 의무 (PC·모바일 SSOT-쌍, 2026-06-19)
     const norm = (x) => String(x||'').toLowerCase().replace(/\s+/g,'');
-    const name  = norm(s.name || s.storeName);
-    const addr  = norm(s.address || s.addr);
-    const bizNo = norm(s.bizNo || s.biz);
-    const ceo   = norm(s.ceo || s.ceoName);
+    const name    = norm(s.name || s.storeName);
+    const addr    = norm(s.address || s.addr);
+    const bizNo   = String(s.bizNo || s.biz || s.bizno || '').replace(/\D/g,'');
+    const ceo     = norm(s.ceo || s.ceoName);
+    const code    = norm(s.code);
     const aliases = (Array.isArray(s.aliases) ? s.aliases : []).map(norm);
 
     let score = 0;
@@ -3018,14 +3020,15 @@ ${text.slice(0, 4000)}`;
       if (!t) continue;
       const nt = norm(t);
       if (!nt) continue;
+      const dt = String(t).replace(/\D/g,'');
       let hit = false;
       if (name === nt)            { score += 10; hit = true; }
       else if (name.includes(nt)) { score += 4;  hit = true; }
       if (aliases.some(a => a === nt))            { score += 8; hit = true; }
       else if (aliases.some(a => a.includes(nt))) { score += 3; hit = true; }
       if (addr.includes(nt))      { score += 2;  hit = true; }
-      if (bizNo === nt)           { score += 9;  hit = true; }
-      else if (bizNo.includes(nt)){ score += 2;  hit = true; }
+      if (code && code.includes(nt)) { score += 3; hit = true; }
+      if (dt.length >= 3 && bizNo.includes(dt))   { score += (bizNo === dt ? 9 : 2); hit = true; }
       if (ceo.includes(nt))       { score += 1;  hit = true; }
       if (hit) matchedTokens++;
     }

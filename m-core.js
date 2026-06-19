@@ -1225,6 +1225,47 @@
     return String(s||'').toLowerCase().replace(/\s+/g, '');
   }
 
+  /* 🔎 매장명 통합 검색 (PC app-02 와 동일 SSOT-쌍 — 둘이 항상 일치해야 함, 2026-06-19)
+     규칙: 질의를 공백으로 토큰 분리 → 각 토큰을 상호/주소/사업자/대표/거래처코드/aliases
+     에서 매칭(비연속·역순 OK). 전체 토큰 매칭이 상위 정렬. 신규/AS/VAN/재고조사/소모품
+     모든 메뉴(PC·모바일)가 이 함수를 사용. */
+  function _scoreStore(s, tokens) {
+    const norm = (x) => String(x||'').toLowerCase().replace(/\s+/g,'');
+    const name    = norm(s.name || s.storeName);
+    const addr    = norm(s.address || s.addr);
+    const bizNo   = String(s.bizNo || s.biz || s.bizno || '').replace(/\D/g,'');
+    const ceo     = norm(s.ceo || s.ceoName);
+    const code    = norm(s.code);
+    const aliases = (Array.isArray(s.aliases) ? s.aliases : []).map(norm);
+    let score = 0, matchedTokens = 0;
+    for (const t of tokens) {
+      const nt = norm(t); if (!nt) continue;
+      const dt = String(t).replace(/\D/g,'');
+      let hit = false;
+      if (name === nt)            { score += 10; hit = true; }
+      else if (name.includes(nt)) { score += 4;  hit = true; }
+      if (aliases.some(a => a === nt))            { score += 8; hit = true; }
+      else if (aliases.some(a => a.includes(nt))) { score += 3; hit = true; }
+      if (addr.includes(nt))      { score += 2; hit = true; }
+      if (code && code.includes(nt)) { score += 3; hit = true; }
+      if (dt.length >= 3 && bizNo.includes(dt))   { score += (bizNo === dt ? 9 : 2); hit = true; }
+      if (ceo.includes(nt))       { score += 1; hit = true; }
+      if (hit) matchedTokens++;
+    }
+    if (matchedTokens === tokens.length && tokens.length >= 2) score += 5;   // 전체 토큰 매칭 보너스
+    return { score, matchedTokens };
+  }
+  function _searchStores(val, limit = 8) {
+    const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
+    if (!val || !String(val).trim()) return [];
+    const tokens = String(val).trim().split(/\s+/).filter(t => t.length > 0);
+    if (!tokens.length) return [];
+    return stores.map(s => ({ s, ...(_scoreStore(s, tokens)) }))
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score || b.matchedTokens - a.matchedTokens)
+      .slice(0, limit).map(x => x.s);
+  }
+
   /* ═══════════════════════════════════════════════════════════
    * Thread 시스템 — index.html L18565 / L18571 / L18609
    * ═══════════════════════════════════════════════════════════ */
@@ -1941,6 +1982,8 @@
   global._forceResyncFromCloud = _forceResyncFromCloud;
   global._normalizeSearch = _normalizeSearch;
   global._normStoreKey = _normStoreKey;
+  global._searchStores = _searchStores;   // 매장명 통합 검색 SSOT (PC app-02 와 동일 로직)
+  global._scoreStore = _scoreStore;
 
   // thread
   global._normalizeStatus = _normalizeStatus;
