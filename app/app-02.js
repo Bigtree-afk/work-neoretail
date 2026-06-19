@@ -816,11 +816,14 @@
       }
       if (ex) {
         let ch = false;
-        if (!ex.name && name)    { ex.name = name; ch = true; }
-        if (!ex.phone && phone)  { ex.phone = phone; ch = true; }
-        if (!ex.role && role)    { ex.role = role; ch = true; }
-        if (!ex.email && email)  { ex.email = email; ch = true; }
-        if (!ex.address && addr) { ex.address = addr; ch = true; }
+        // opts.allowUpdate=true(등록 폼 등 명시적 사용자 입력): 비어있지 않은 입력으로 갱신(이름/직책 수정 반영).
+        //   기본(false, 자동 백필): 빈 칸만 보강 — 옛 작업이 매장 연락처를 잘못 덮어쓰는 사고 방지.
+        const upd = !!opts.allowUpdate;
+        const apply = (key, val) => {
+          if (!val) return;                                  // 빈 입력은 무시(삭제 아님)
+          if (upd ? (ex[key] !== val) : !ex[key]) { ex[key] = val; ch = true; }
+        };
+        apply('name', name); apply('phone', phone); apply('role', role); apply('email', email); apply('address', addr);
         if (ch) { ex.updatedAt = new Date().toISOString(); ex.updatedBy = me; updated++; }
       } else {
         s.contacts.push({ name, role, phone, email, address: addr, primary: !!c.primary,

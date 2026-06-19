@@ -267,23 +267,23 @@
                           ? window._threadMigrate(existing.thread) : existing.thread;
           existing.completed = false;
           existing.status = '진행중';
-          // 🔑 폼에 입력한 매장 담당자 연락처를 기존 AS 에도 보강(빈 칸만) + 매장 적재 (2026-06-19 근본원인 수정)
-          //   새-요청접수 폼 칸(__nrC*) 우선, 없으면 정적 블록(jobContact*) (옵션 B)
+          // 🔑 폼에 입력한 매장 담당자 연락처를 기존 AS 에도 반영(입력값 우선) + 매장 적재 (2026-06-19)
+          //   새-요청접수 폼 칸(__nrC*) 우선, 없으면 정적 블록(jobContact*) (옵션 B). 사용자가 입력한 값이면 갱신.
           try {
             const _gc = (suf, fb) => ((document.getElementById(containerId + suf) || {}).value?.trim()) || ((document.getElementById(fb) || {}).value?.trim()) || '';
             const _cN = _gc('__nrCName', 'jobContactName');
             const _cR = _gc('__nrCRole', 'jobContactRole');
             const _cP = _gc('__nrCPhone', 'jobContactPhone');
             if (_cN || _cP) {
-              if (!existing.contactName && _cN)  existing.contactName  = _cN;
-              if (!existing.contactRole && _cR)  existing.contactRole  = _cR;
-              if (!existing.contactPhone && _cP) existing.contactPhone = _cP;
+              if (_cN) existing.contactName  = _cN;   // 빈 입력은 기존값 유지, 입력 있으면 갱신
+              if (_cR) existing.contactRole  = _cR;
+              if (_cP) existing.contactPhone = _cP;
             }
           } catch(_){}
           jobs[pick.idx] = existing;
           if (typeof saveJobs === 'function') saveJobs(jobs);
           try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
-          try { if (typeof window.ingestJobContactsToStore === 'function') window.ingestJobContactsToStore(existing); } catch(_){}
+          try { if (typeof window.ingestJobContactsToStore === 'function') window.ingestJobContactsToStore(existing, { allowUpdate:true }); } catch(_){}
           window._asInlineEditJobId = existing.id;
           window._jobThreadDraft = [];
           // UI 인라인 편집 모드 전환
@@ -349,7 +349,7 @@
         if (typeof saveJobs === 'function') saveJobs(jobs);
         try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
         // 매장 연락처 누적(saveNewJob 과 동일) — 입력한 매장 담당자를 매장 DB 에 적재
-        try { if (typeof window.ingestJobContactsToStore === 'function') window.ingestJobContactsToStore(newJob); } catch(_){}
+        try { if (typeof window.ingestJobContactsToStore === 'function') window.ingestJobContactsToStore(newJob, { allowUpdate:true }); } catch(_){}
         window._asInlineEditJobId = newJob.id;
         window._jobThreadDraft = [];
         try { document.body.classList.add('as-inline-edit-mode'); } catch(e){}

@@ -2389,7 +2389,7 @@
       }
     } catch(e) { console.warn('[saveNewJob vandoc→store sync]', e); }
     // 📇 입력한 연락처(이름/직책/전화/이메일/주소)를 매장에 누적 (다음 업무·매장상세에서 재사용)
-    try { if (typeof ingestJobContactsToStore === 'function') ingestJobContactsToStore(job); } catch(e){ console.warn('[saveNewJob contacts→store]', e); }
+    try { if (typeof ingestJobContactsToStore === 'function') ingestJobContactsToStore(job, { allowUpdate:true }); } catch(e){ console.warn('[saveNewJob contacts→store]', e); }
     // AS 머지 저장은 1.5초 디바운스 대신 즉시 푸시 — stale cloud 가 머지된 thread 를 덮을 위험 차단
     if (mergedIntoExisting) {
       try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}

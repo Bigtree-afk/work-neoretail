@@ -276,7 +276,7 @@
     const created = [];
     valid.forEach((r, k) => { const job = _buildJob(r, contact, asDone, ts, author, k); jobs.unshift(job); created.push(job); });
     if (typeof saveJobs === 'function') saveJobs(jobs);
-    try { created.forEach(j => { if (typeof window.ingestJobContactsToStore === 'function') window.ingestJobContactsToStore(j); }); } catch (_) {}
+    try { created.forEach(j => { if (typeof window.ingestJobContactsToStore === 'function') window.ingestJobContactsToStore(j, { allowUpdate:true }); }); } catch (_) {}
     try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud({ toast: false }); } catch (_) {}
     if (typeof closeModal === 'function') closeModal('supplyRegModal');
     try { if (typeof window.renderSuppliesHub === 'function') window.renderSuppliesHub(); } catch (_) {}

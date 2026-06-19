@@ -2553,7 +2553,7 @@
       } catch(e) { console.warn('[saveVanJob] store profile update failed:', e); }
     }
     // 📇 입력한 연락처(이름/직책/전화/이메일/주소)를 매장에 누적
-    try { if (typeof ingestJobContactsToStore === 'function') ingestJobContactsToStore(newJob); } catch(e){ console.warn('[saveVanJob contacts→store]', e); }
+    try { if (typeof ingestJobContactsToStore === 'function') ingestJobContactsToStore(newJob, { allowUpdate:true }); } catch(e){ console.warn('[saveVanJob contacts→store]', e); }
     // 즉시 cloud push (debounce 우회)
     try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}
     // 📡 LINE 발송 — opts.wantLine 우선(요청접수 [등록 후 LINE 발송] 버튼), 없으면 구 체크박스 fallback
