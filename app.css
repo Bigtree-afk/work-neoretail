@@ -318,20 +318,20 @@
   .hub-group.expanded .hub-ghead .gchev{transform:rotate(90deg)}
   .hub-gjobs{display:none;border-top:1px solid var(--gray-100);background:var(--gray-50);padding:10px 14px;flex-direction:column;gap:8px}
   .hub-group.expanded .hub-gjobs{display:flex}
-  .hub-sj{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;transition:all .12s;font-size:12px}
+  .hub-sj{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:6px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;transition:all .12s;font-size:12px}
   .hub-sj:hover{border-color:var(--primary);box-shadow:0 2px 6px rgba(0,0,0,.05)}
   .hub-sj .sjl{flex:1;min-width:0}
   .hub-sj .sjtag{display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:99px;color:#fff;margin-right:4px}
   .hub-sj .sjtag.new{background:var(--success)}.hub-sj .sjtag.as{background:var(--warning)}
   .hub-sj .sjtag.van{background:var(--primary)}.hub-sj .sjtag.supplies{background:#8B5CF6}
   .hub-sj .sjtag.churn{background:var(--danger)}
-  .hub-sj .sjti{font-weight:700;color:var(--gray-900);margin-top:2px;font-size:12.5px}
-  .hub-sj .sjmt{font-size:10.5px;color:var(--gray-500);margin-top:2px}
+  .hub-sj .sjti{font-weight:700;color:var(--gray-900);margin-top:1px;font-size:12.5px}
+  .hub-sj .sjmt{font-size:10.5px;color:var(--gray-500);margin-top:1px}
   .hub-sj .sjwn{font-size:10.5px;background:var(--gray-100);color:var(--gray-700);padding:3px 8px;border-radius:6px;font-weight:700;flex-shrink:0}
   .hub-sj .sjwn.urgent{background:var(--neo-red);color:#fff}
   .hub-sj .sjwn.done{background:#d1fae5;color:#065f46}
   /* 완료 업무 카드 — 옅은 회색 배경 (GLOBAL_RULE: job-done-sort, 2026-06-19) */
-  .hub-sj.done{background:#F3F4F6}
+  .hub-sj.done{background:#D1D5DB}
   .hub-sj .hub-line-btn{flex-shrink:0;background:#06C7551A;color:#04A047;border:1px solid #06C75555;border-radius:7px;padding:5px 9px;font-size:13px;font-weight:700;cursor:pointer;line-height:1;transition:all .12s}
   .hub-sj .hub-line-btn:hover{background:#06C755;color:#fff;border-color:#06C755;transform:scale(1.08)}
   .hub-empty{padding:40px 20px;text-align:center;color:var(--gray-400);font-size:12px;background:#fff;border:1px dashed var(--gray-300);border-radius:10px}

@@ -1086,7 +1086,7 @@
       const nextMeta = AS_STATUS_META[nextStatus];
       const actBtn = `<button class="btn btn-sm" style="background:${nextMeta.bg};color:${nextMeta.color};border:1px solid ${nextMeta.color};font-size:11px;padding:5px 8px;font-weight:700;white-space:nowrap" onclick="event.stopPropagation();cycleAsStatus('${j.id}')" title="현재: ${esc(curStatus)} → 다음: ${esc(nextStatus)}">→ ${nextMeta.icon} ${esc(nextStatus)}</button>`;
 
-      return `<tr style="cursor:pointer${done ? ';background:#F3F4F6' : ''}" onclick="editNewopen('${j.id}')" title="클릭 — 상세 보기">
+      return `<tr style="cursor:pointer${done ? ';background:#D1D5DB' : ''}" onclick="editNewopen('${j.id}')" title="클릭 — 상세 보기">
         <td>${statusBadge}</td>
         <td><b>${esc(store)}</b>${unregBadge}${lineCatBadge}</td>
         <td>${targetBadges}</td>

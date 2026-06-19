@@ -143,7 +143,7 @@ grep -rn "getTimezoneOffset" index.html m-core.js m/ | grep "setMinutes\|getMinu
 2) 완료 나중            →  완료끼리: 완료시각(completedAt→doneAt→createdAt) 내림차순
 ```
 
-**완료 카드 시각 표시**: **배경 옅은 회색 `#F3F4F6`** + 기존 `✅ 완료` 상태 배지 유지. (이전 초록 좌측 border 는 제거.)
+**완료 카드 시각 표시**: **배경 옅은 회색 `#D1D5DB`** + 기존 `✅ 완료` 상태 배지 유지. (이전 초록 좌측 border 는 제거.)
 
 **⚠ SSOT 쌍둥이 정의** (PC 가 m-core 미로드 → `_searchStores`·`_sigSkip` 와 동일 패턴):
 - PC: `app/app-01.js` `window._jobDoneSort`
@@ -151,9 +151,9 @@ grep -rn "getTimezoneOffset" index.html m-core.js m/ | grep "setMinutes\|getMinu
 - **한쪽 수정 시 반드시 다른 쪽도 동일하게.**
 
 **적용처**:
-- PC 허브 `_hubRenderGroup`: `g.jobs.slice().sort(window._jobDoneSort)` (전 카테고리 공통). 완료 서브카드 `.hub-sj.done{background:#F3F4F6}`(app.css).
-- PC AS관리 `renderAsMgmt`: `view.sort(window._jobDoneSort)` + 완료 행 `background:#F3F4F6`.
-- 모바일 5개 SPA `renderEntry`: `.sort(window._jobDoneSort)` + `.card.done{background:#F3F4F6}`.
+- PC 허브 `_hubRenderGroup`: `g.jobs.slice().sort(window._jobDoneSort)` (전 카테고리 공통). 완료 서브카드 `.hub-sj.done{background:#D1D5DB}`(app.css).
+- PC AS관리 `renderAsMgmt`: `view.sort(window._jobDoneSort)` + 완료 행 `background:#D1D5DB`.
+- 모바일 5개 SPA `renderEntry`: `.sort(window._jobDoneSort)` + `.card.done{background:#D1D5DB}`.
 - (예외) 재고조사 모바일 entry 는 완료 건을 숨김(stage 기반) → 회색 표시 대상 없음. 정렬만 통일.
 
 **금지**:
@@ -293,7 +293,7 @@ bash scripts/bump-mcore.sh "thread-tomb"
 | **리스트 정렬** | **통일 규칙 `window._jobDoneSort`** — 미완료(등록desc) → 완료(완료시각desc). 도메인 우선순위(미수/긴급) 미적용. ("🔢 작업 리스트 통일 정렬·완료표시 규칙" 참조) |
 | **카드 요약 텍스트** | **첫 ROOT(요청접수) 의 text 우선** — 완료된 항목도 원본 요청을 보여줘야 사용자가 어떤 건이었는지 파악 가능 |
 | **fallback 체인** | `firstRoot.text → j.asRequest → j.lineRequest → j.lineParsed → j.memo → j.notes` |
-| **완료 표시** | **배경 옅은 회색 `#F3F4F6`** + `✅ 완료` 배지 (PC `.hub-sj.done`·AS관리 행·모바일 `.card.done`). ~~초록 border~~ 제거(2026-06-19 통일). |
+| **완료 표시** | **배경 옅은 회색 `#D1D5DB`** + `✅ 완료` 배지 (PC `.hub-sj.done`·AS관리 행·모바일 `.card.done`). ~~초록 border~~ 제거(2026-06-19 통일). |
 | **상단 카운트 배지** | 진행 중만 카운트 (완료는 카드에는 표시되지만 배지 숫자에는 포함 안 함) |
 
 ### 위반 사례 (자주 발생 — 매번 지적)
@@ -953,7 +953,7 @@ LINE 메시지 파싱 cron 은 **3중 방어** 구성:
 ```js
 // SSOT: PC app-01 / 모바일 m-core 의 _jobDoneSort (쌍둥이 정의)
 view.sort(window._jobDoneSort);
-// 완료 카드/행: background:#F3F4F6 (옅은 회색) + ✅완료 배지
+// 완료 카드/행: background:#D1D5DB (옅은 회색) + ✅완료 배지
 ```
 
 ### AS 상세 모달 — 완료는 스레드로 일원화 (필수)
