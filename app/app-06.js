@@ -216,6 +216,15 @@
     } catch(_){}
     const entry = { ts, author: who, status: '요청접수', text, threadId: _newThreadId(), parentId: null };
     if (Array.isArray(attachments) && attachments.length) entry.attachments = attachments;
+    // 👤 이 요청접수의 매장 담당자 — ROOT entry 에 부착(요청건별 표시용). 새-요청접수 폼(__nrC*) 우선, 없으면 정적 칸.
+    {
+      const _ec = {
+        name:  ((document.getElementById(containerId + '__nrCName')  || {}).value || (document.getElementById('jobContactName')  || {}).value || '').trim(),
+        role:  ((document.getElementById(containerId + '__nrCRole')  || {}).value || (document.getElementById('jobContactRole')  || {}).value || '').trim(),
+        phone: ((document.getElementById(containerId + '__nrCPhone') || {}).value || (document.getElementById('jobContactPhone') || {}).value || '').trim(),
+      };
+      if (_ec.name || _ec.phone) entry.contact = _ec;
+    }
     // 첨부 draft 초기화
     delete window._threadFormAttachments[attKey];
     delete window._threadFormUploaderCtl[attKey];

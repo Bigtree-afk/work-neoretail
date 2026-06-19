@@ -2819,6 +2819,9 @@
       bodyHtml = `<div style="background:#fff;border:1px solid #BFDBFE;border-top:none;border-radius:0 0 10px 10px;padding:18px;text-align:center;color:#64748B;font-size:11.5px">요청이 없습니다 — 위 [＋ 새 요청 접수] 버튼으로 첫 요청을 등록하세요</div>`;
     } else {
       bodyHtml = `<div style="background:#fff;border:1px solid #BFDBFE;border-top:none;border-radius:0 0 10px 10px;padding:10px 12px;display:flex;flex-direction:column;gap:10px">`;
+      // 👤 job 레벨 연락처(기존 AS 호환) — ROOT 에 자체 contact 없을 때 첫 ROOT 에 1회 fallback 표시
+      const _jobC = (function(){ try { const jj = (jobId && typeof getJobs === 'function') ? (getJobs()||[]).find(x => x.id === jobId) : null; if (jj && (jj.contactName || jj.contactPhone)) return { name: jj.contactName||'', role: jj.contactRole||'', phone: jj.contactPhone||'' }; } catch(_){} return null; })();
+      let _jobCUsed = false;
       limitedRoots.forEach(r => {
         const kids = childrenByRoot.get(r.threadId) || [];
         const gStatus = _groupStatus(r, kids);
@@ -2847,6 +2850,13 @@
               <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><span style="font-weight:700">📅 처리예정</span>
                 <input type="date" value="${escFn((r.dueDate||'').slice(0,10))}" onchange="window._threadSetReqDue('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',this.value)" style="padding:3px 6px;border:1px solid var(--gray-300);border-radius:6px;font-size:11.5px;background:#fff;font-family:inherit"></span>
             </div>
+            ${(function(){
+              let rc = (r.contact && (r.contact.name || r.contact.phone)) ? r.contact : null;
+              if (!rc && _jobC && !_jobCUsed) { rc = _jobC; _jobCUsed = true; }   // 기존 AS: 첫 ROOT 에 job 연락처 1회 표시
+              if (!rc) return '';
+              const parts = [rc.name, rc.role, rc.phone].filter(Boolean).map(x=>escFn(x)).join(' · ');
+              return `<div style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#1d4ed8;background:#EFF6FF;border:1px solid #DBEAFE;border-radius:7px;padding:3px 9px;align-self:flex-start"><span style="font-weight:700">👤 매장담당</span> ${parts}</div>`;
+            })()}
             ${(summaryText && !expanded) ? `<div style="font-size:12px;color:var(--gray-800);line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escFn(summaryText)}</div>` : ''}
           </div>`;
 
