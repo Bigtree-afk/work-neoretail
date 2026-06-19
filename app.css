@@ -469,6 +469,8 @@
   #newopenDetailModal .modal-header { position: sticky; top: 0; z-index: 6; background: #FFF8E7; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
   /* 새 작업 등록(신규/AS) 모달 — 상단 헤더 고정 (2026-06-19, 다른 모달과 통일) */
   #newJobModal .modal-header { position: sticky; top: 0; z-index: 6; background: #FFF8E7; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+  /* AS 등록은 thread 의 [등록]/[📡 LINE] 으로 저장 → 하단 푸터(작업등록/취소/LINE) 숨김. 신규는 유지(saveNewJob). (2026-06-19) */
+  body.as-mode #newJobModal .modal-footer { display: none !important; }
   #newopenDetailModal .modal.nd-max { width: 97vw !important; max-width: 97vw !important; height: 94vh !important; max-height: 94vh !important; }
   .modal { background: #FFF8E7; border-radius: 12px; box-shadow: 6px 6px 0 #1A1614; width: 560px; max-height: 85vh; overflow-y: auto; }
   .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
