@@ -1258,7 +1258,8 @@
   function _searchStores(val, limit = 8) {
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     if (!val || !String(val).trim()) return [];
-    const tokens = String(val).trim().split(/\s+/).filter(t => t.length > 0);
+    // 구분자 분리: 공백 + / , · ; | (사업자번호 보존 위해 - . 은 분리 안 함). 순서 무관 토큰 매칭.
+    const tokens = String(val).trim().split(/[\s/,·;|]+/).filter(t => t.length > 0);
     if (!tokens.length) return [];
     return stores.map(s => ({ s, ...(_scoreStore(s, tokens)) }))
       .filter(x => x.score > 0)

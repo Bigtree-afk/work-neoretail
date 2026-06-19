@@ -3040,7 +3040,8 @@ ${text.slice(0, 4000)}`;
   function _searchStores(val, limit = 5) {
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
     if (!val.trim()) return [];
-    const tokens = val.trim().split(/\s+/).filter(t => t.length > 0);
+    // 구분자 분리: 공백 + / , · ; | (사업자번호 보존 위해 - . 은 분리 안 함). 순서 무관 토큰 매칭.
+    const tokens = val.trim().split(/[\s/,·;|]+/).filter(t => t.length > 0);
     const scored = stores.map(s => ({ s, ...(_scoreStore(s, tokens)) }))
       .filter(x => x.score > 0)
       .sort((a, b) => b.score - a.score || b.matchedTokens - a.matchedTokens);
