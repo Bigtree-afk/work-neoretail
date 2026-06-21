@@ -1014,124 +1014,160 @@
     try { hydrateDashboardJobs(); } catch(e){}
   };
 
+  // ⏱ 'YYYY-MM-DD HH:MM'(KST 표시문자) → ms
+  function _asTsMs(ts){ if(!ts) return 0; const t=Date.parse(String(ts).replace(' ','T')); return isNaN(t)?0:t; }
+  function _asJobMtime(j){ return Number(j.updatedAt)||Date.parse(j.updatedAt)||Number(j.createdAt)||Date.parse(j.createdAt)||0; }
+  function _asJobContact(j){ return (j.contactName||j.contactPhone)?{name:j.contactName||'',role:j.contactRole||'',phone:j.contactPhone||''}:null; }
+  const _GS_META = { '요청접수':{bg:'#E0F2FE',color:'#0369A1',icon:'📥'}, '진행':{bg:'#FEF3C7',color:'#92400E',icon:'🔧'}, '완료':{bg:'#DCFCE7',color:'#15803d',icon:'✅'} };
+
   function hydrateAsMgmt() {
     const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
-    const all = jobs.filter(isAsJob);
+    const asJobs = jobs.filter(isAsJob);
     const today = new Date();
     const todayStr = today.toISOString().slice(0,10);
     const ym = todayStr.slice(0,7);
-    const isDone = _isAsDone;
-    const pending = all.filter(j => !isDone(j));
-    const over48 = pending.filter(j => {
-      const ts = j.asReceivedAt ? new Date(j.asReceivedAt.replace(' ','T')+':00').getTime()
-              : (j.createdAt ? Number(j.createdAt) : 0);
-      return ts && (Date.now() - ts) > 48 * 3600 * 1000;
+
+    // 🔎 요청접수(ROOT) 단위로 펼침 — 한 AS 작업의 각 요청을 개별 건으로 관리·조회 (A안, 2026-06-21)
+    const roots = [];
+    asJobs.forEach(j => {
+      const th = Array.isArray(j.thread) ? j.thread : [];
+      const rootEntries = th.filter(e => e && e.parentId == null);
+      if (rootEntries.length === 0) {
+        roots.push({ job:j, threadId:null, text:(j.asRequest||j.notes||''), ts:_asJobMtime(j),
+          gstatus:(_isAsDone(j)?'완료':'요청접수'), done:_isAsDone(j), assignee:(j.engineer||''),
+          due:(j.asDueDate||''), contact:_asJobContact(j), completedAt:(new Date(j.completedAt||0).getTime()||0) });
+        return;
+      }
+      rootEntries.forEach(r => {
+        const kids = th.filter(e => e && e.parentId === r.threadId);
+        const gs = _groupStatus(r, kids);
+        const compChild = kids.filter(c=>c.status==='완료').sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||'')))[0];
+        roots.push({ job:j, threadId:r.threadId, text:(r.text||''), ts:(_asTsMs(r.ts)||_asJobMtime(j)),
+          gstatus:gs, done:(gs==='완료'), assignee:(r.assignee||''), due:(r.dueDate||''),
+          contact:(r.contact && (r.contact.name||r.contact.phone))?r.contact:_asJobContact(j),
+          completedAt:(_asTsMs(compChild&&compChild.ts)) });
+      });
     });
-    const todayDue = pending.filter(j => (j.asDueDate || '').slice(0,10) === todayStr);
-    const doneThisMonth = all.filter(j => isDone(j) && ((j.completedAt||j.createdAt||0) && new Date(j.completedAt||j.createdAt||0).toISOString().slice(0,7) === ym));
 
+    // 카운트 (요청접수 ROOT 기준)
+    const pendingR = roots.filter(x => !x.done);
+    const over48R  = pendingR.filter(x => x.ts && (Date.now()-x.ts) > 48*3600*1000);
+    const todayR   = pendingR.filter(x => (x.due||'').slice(0,10) === todayStr);
+    const doneMonthR = roots.filter(x => x.done && x.completedAt && new Date(x.completedAt).toISOString().slice(0,7) === ym);
     const setText = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
-    setText('asMgmtPending', pending.length);
-    setText('asMgmtPendingSub', pending.length === 0 ? '접수 없음' : '접수 대기');
-    setText('asMgmtOver48', over48.length);
-    setText('asMgmtToday', todayDue.length);
-    setText('asMgmtDone', doneThisMonth.length);
+    setText('asMgmtPending', pendingR.length);
+    setText('asMgmtPendingSub', pendingR.length === 0 ? '접수 없음' : '접수 대기');
+    setText('asMgmtOver48', over48R.length);
+    setText('asMgmtToday', todayR.length);
+    setText('asMgmtDone', doneMonthR.length);
 
-    // 필터링
-    let view = all.slice();
+    // 필터 (ROOT 단위)
+    let view = roots.slice();
     const q = String(document.getElementById('asMgmtSearch')?.value || '').toLowerCase().replace(/\s+/g,'');
-    if (_asMgmtFilter === 'pending')  view = view.filter(j => !isDone(j));
-    else if (_asMgmtFilter === 'today') view = view.filter(j => !isDone(j) && (j.asDueDate||'').slice(0,10) === todayStr);
-    else if (_asMgmtFilter === 'done')  view = view.filter(isDone);
-    else if (_asMgmtFilter === 'posvan') view = view.filter(j => !isDone(j) && (['pos_as','van_as','as_pos_van'].includes(j.lineCategory) || (!j.lineCategory && !(Array.isArray(j.asTargets) && j.asTargets.includes('이동단말기')))));
-    else if (_asMgmtFilter === 'device') view = view.filter(j => !isDone(j) && (j.lineCategory === 'device_mgmt' || (Array.isArray(j.asTargets) && j.asTargets.includes('이동단말기'))));
+    if (_asMgmtFilter === 'pending')  view = view.filter(x => !x.done);
+    else if (_asMgmtFilter === 'today') view = view.filter(x => !x.done && (x.due||'').slice(0,10) === todayStr);
+    else if (_asMgmtFilter === 'done')  view = view.filter(x => x.done);
+    else if (_asMgmtFilter === 'posvan') view = view.filter(x => !x.done && (['pos_as','van_as','as_pos_van'].includes(x.job.lineCategory) || (!x.job.lineCategory && !(Array.isArray(x.job.asTargets) && x.job.asTargets.includes('이동단말기')))));
+    else if (_asMgmtFilter === 'device') view = view.filter(x => !x.done && (x.job.lineCategory === 'device_mgmt' || (Array.isArray(x.job.asTargets) && x.job.asTargets.includes('이동단말기'))));
     if (q) {
-      view = view.filter(j => {
-        const blob = [j.store, j.storeName, j.notes, j.address, j.engineer]
+      view = view.filter(x => {
+        const blob = [x.job.store, x.job.storeName, x.text, x.contact&&x.contact.name, x.contact&&x.contact.phone, x.assignee]
           .filter(Boolean).join(' | ').toLowerCase().replace(/\s+/g,'');
         return blob.includes(q);
       });
     }
-    // 정렬 규칙:
-    //   전체(all): ① 미완료 먼저 ② 미완료 내에서 최신 접수 순 ③ 완료 내에서 최신 완료 순
-    //   미처리(pending)/필터: 최신 접수 순 (최근 건 위)
-    //   완료(done): 최신 완료 순
-    const _mtime = j => {
-      if (j.asReceivedAt) return new Date(j.asReceivedAt.replace(' ','T')+':00').getTime();
-      return Number(j.createdAt || 0);
-    };
-    // 🔢 전 메뉴 공통 정렬(job-done-sort): 미완료(등록desc) → 완료(완료시각desc)
-    view.sort(window._jobDoneSort || ((a, b) => {
-      const doneA = isDone(a), doneB = isDone(b);
-      if (doneA !== doneB) return doneA ? 1 : -1;
-      if (!doneA) return _mtime(b) - _mtime(a);
-      return (new Date(b.completedAt||0).getTime()) - (new Date(a.completedAt||0).getTime());
-    }));
+    // 정렬: 미완료(접수 desc) → 완료(완료시각 desc)
+    view.sort((a,b) => { if (a.done !== b.done) return a.done ? 1 : -1; return a.done ? (b.completedAt - a.completedAt) : (b.ts - a.ts); });
 
     const tb = document.getElementById('asMgmtTbody');
     if (!tb) return;
-    // 🛡 어른거림 방지 — 필터+내용 동일하면 재구축 skip (행별 select 재생성 차단)
     {
-      const _amSig = 'asmgmt|' + (_asMgmtFilter||'') + '|' + JSON.stringify(view.map(j=>[j.id,j.status||'',j.completed?1:0,j.updatedAt||0,(Array.isArray(j.thread)?j.thread.length:0)]));
+      const _amSig = 'asmgmtR|' + (_asMgmtFilter||'') + '|' + JSON.stringify(view.map(x=>[x.job.id, x.threadId||'', x.gstatus, x.assignee, x.due, (x.contact&&x.contact.phone)||'']));
       if (window._sigSkip && window._sigSkip(tb, _amSig)) return;
     }
     if (view.length === 0) {
       tb.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:13px">
         <div style="font-size:36px;margin-bottom:10px">🔧</div>
-        <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">해당 조건에 맞는 AS 가 없습니다</div>
+        <div style="font-weight:700;color:var(--gray-500);margin-bottom:4px">해당 조건에 맞는 요청접수가 없습니다</div>
       </td></tr>`;
       return;
     }
 
-    tb.innerHTML = view.map(j => {
-      const done = isDone(j);
-      const recv = j.asReceivedAt || (j.createdAt ? new Date(Number(j.createdAt)).toISOString().slice(0,16).replace('T',' ') : '-');
-      const ts = j.asReceivedAt ? new Date(j.asReceivedAt.replace(' ','T')+':00').getTime() : Number(j.createdAt||0);
-      const hours = ts ? Math.round((Date.now() - ts) / 3600000) : 0;
+    tb.innerHTML = view.map(x => {
+      const j = x.job, done = x.done;
+      const recv = x.threadId ? '' : '';
+      const recvTxt = (function(){ const m = x.ts ? new Date(x.ts) : null; return m ? m.toISOString().slice(0,16).replace('T',' ') : '-'; })();
+      const hours = x.ts ? Math.round((Date.now() - x.ts) / 3600000) : 0;
       const elapsedTxt = done
         ? '<span style="color:var(--success);font-weight:700">완료</span>'
         : hours >= 72 ? `<span style="color:var(--danger);font-weight:700">${hours}h ⚠</span>`
         : hours >= 48 ? `<span style="color:var(--warning);font-weight:700">${hours}h</span>`
         : `<span style="color:var(--gray-600)">${hours}h</span>`;
-      const due = [j.asDueDate, j.asDueTime].filter(Boolean).join(' ');
+      const due = (x.due||'').slice(0,10);
       const targets = Array.isArray(j.asTargets) ? j.asTargets : [];
       const targetIcons = { 'VAN':'💳', 'POS':'🖥', '키오스크':'📟', '기타':'📦' };
       const targetBadges = targets.length
         ? targets.map(t => `<span style="display:inline-block;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:2px">${targetIcons[t]||''} ${esc(t)}</span>`).join('')
         : '<span style="color:var(--gray-300);font-size:11px">-</span>';
-      const curStatus = j.status || '접수';
-      const meta = AS_STATUS_META[curStatus] || AS_STATUS_META['접수'];
-      const statusBadge = `<span class="badge" style="background:${meta.bg};color:${meta.color};font-weight:700">${meta.icon} ${esc(curStatus)}</span>`;
+      const gm = _GS_META[x.gstatus] || _GS_META['요청접수'];
+      const statusBadge = `<span class="badge" style="background:${gm.bg};color:${gm.color};font-weight:700">${gm.icon} ${esc(x.gstatus)}</span>`;
       const store = j.store || j.storeName || '-';
       const unregBadge = j.unregistered ? '<span style="margin-left:4px;background:#FEF3C7;color:#92400E;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700">미등록</span>' : '';
-      const lineCatBadge = (j.source === 'line' && j.lineCategory && LINE_TYPE_META[j.lineCategory])
-        ? `<span style="margin-left:4px;background:${LINE_TYPE_META[j.lineCategory].bg};color:${LINE_TYPE_META[j.lineCategory].color};font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700" title="Line 분류">${LINE_TYPE_META[j.lineCategory].label}</span>`
-        : '';
-      // 담당 — 진행/미처리 건은 인라인 select 로 즉시 배정 (최신 요청접수 기준), 완료 건은 읽기전용
-      const curAsg = _asCurrentAssignee(j);
-      const eng = done
-        ? (curAsg ? esc(curAsg) : '<span style="color:var(--gray-400)">-</span>')
-        : `<select onclick="event.stopPropagation()" onchange="event.stopPropagation();window._asmgmtAssign('${j.id}',this.value)" style="font-size:11.5px;font-weight:700;padding:3px 6px;border:1px solid ${curAsg?'var(--gray-300)':'var(--danger)'};border-radius:5px;background:#fff;font-family:inherit;max-width:120px" title="담당 배정">${(typeof _jobStaffOptions==='function')?_jobStaffOptions(curAsg):('<option value="">미배정</option>')}</select>`;
-      // 상태 사이클 버튼 — 다음 상태로 토글
-      const curIdx = AS_STATUS_FLOW.indexOf(curStatus);
-      const nextStatus = AS_STATUS_FLOW[(curIdx + 1) % AS_STATUS_FLOW.length];
-      const nextMeta = AS_STATUS_META[nextStatus];
-      const actBtn = `<button class="btn btn-sm" style="background:${nextMeta.bg};color:${nextMeta.color};border:1px solid ${nextMeta.color};font-size:11px;padding:5px 8px;font-weight:700;white-space:nowrap" onclick="event.stopPropagation();cycleAsStatus('${j.id}')" title="현재: ${esc(curStatus)} → 다음: ${esc(nextStatus)}">→ ${nextMeta.icon} ${esc(nextStatus)}</button>`;
+      const contactLine = (x.contact && (x.contact.name||x.contact.phone))
+        ? `<div style="font-size:10.5px;color:#1d4ed8;margin-top:2px">👤 ${esc([x.contact.name, x.contact.role, x.contact.phone].filter(Boolean).join(' · '))}</div>` : '';
+      const tid = esc(x.threadId || '');
+      const eng = (done || !x.threadId)
+        ? (x.assignee ? esc(x.assignee) : '<span style="color:var(--gray-400)">-</span>')
+        : `<select onclick="event.stopPropagation()" onchange="event.stopPropagation();window._asmgmtAssignRoot('${j.id}','${tid}',this.value)" style="font-size:11.5px;font-weight:700;padding:3px 6px;border:1px solid ${x.assignee?'var(--gray-300)':'var(--danger)'};border-radius:5px;background:#fff;font-family:inherit;max-width:120px" title="담당 배정">${(typeof _jobStaffOptions==='function')?_jobStaffOptions(x.assignee):('<option value="">미배정</option>')}</select>`;
+      const actBtn = (done || !x.threadId)
+        ? `<button class="btn btn-sm" style="background:#fff;color:var(--gray-600);border:1px solid var(--gray-300);font-size:11px;padding:5px 10px;font-weight:700" onclick="event.stopPropagation();editNewopen('${j.id}')">열기</button>`
+        : `<button class="btn btn-sm" style="background:#15803D;color:#fff;border:none;font-size:11px;padding:5px 10px;font-weight:800;white-space:nowrap" onclick="event.stopPropagation();window._asmgmtCompleteRoot('${j.id}','${tid}')" title="이 요청접수 완료">✅ 완료</button>`;
 
       return `<tr style="cursor:pointer${done ? ';background:#DFE2E6;box-shadow:inset 2px 0 0 #15803D' : ''}" onclick="editNewopen('${j.id}')" title="클릭 — 상세 보기">
         <td>${statusBadge}</td>
-        <td><b>${esc(store)}</b>${unregBadge}${lineCatBadge}</td>
+        <td><b>${esc(store)}</b>${unregBadge}</td>
         <td>${targetBadges}</td>
-        <td style="font-size:11px;color:var(--gray-600);font-family:monospace">${esc(recv)}</td>
+        <td style="font-size:11px;color:var(--gray-600);font-family:monospace">${esc(recvTxt)}</td>
         <td style="font-size:11px;color:var(--gray-600)">${esc(due || '-')}</td>
         <td>${elapsedTxt}</td>
-        <td style="font-size:12px;color:var(--gray-600);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(j.asRequest || j.notes || j.description || '')}">${esc(j.asRequest || j.notes || j.description || '-')}</td>
+        <td style="font-size:12px;color:var(--gray-600);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.text)}">${esc(x.text || '-')}${contactLine}</td>
         <td style="font-size:12px">${eng}</td>
         <td style="text-align:center" onclick="event.stopPropagation()">${actBtn}</td>
       </tr>`;
     }).join('');
   }
   window.hydrateAsMgmt = hydrateAsMgmt;
+
+  // 요청접수(ROOT) 단위 담당 배정
+  window._asmgmtAssignRoot = function(jobId, threadId, val) {
+    const jobs = getJobs(); const j = jobs.find(x => x.id === jobId);
+    if (!j || !Array.isArray(j.thread)) return;
+    const r = j.thread.find(e => e && e.threadId === threadId && e.parentId == null);
+    if (!r) return;
+    r.assignee = val || ''; j.updatedAt = Date.now();
+    saveJobs(jobs); try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(_){}
+    hydrateAsMgmt();
+  };
+  // 요청접수(ROOT) 단위 완료 처리 — 완료 child 추가 + job status 롤업
+  window._asmgmtCompleteRoot = function(jobId, threadId) {
+    const jobs = getJobs(); const j = jobs.find(x => x.id === jobId);
+    if (!j || !Array.isArray(j.thread)) return;
+    const r = j.thread.find(e => e && e.threadId === threadId && e.parentId == null);
+    if (!r) return;
+    const kids = j.thread.filter(e => e && e.parentId === threadId);
+    if (kids.some(c => c.status === '완료')) return;   // 이미 완료
+    const ts = (typeof _kstNow === 'function') ? _kstNow() : new Date(Date.now()+9*3600000).toISOString().slice(0,16).replace('T',' ');
+    const who = (typeof _currentUserName === 'function') ? _currentUserName() : '';
+    j.thread.push({ ts, author: who, status: '완료', text: '(완료 처리)',
+      threadId: (typeof _newThreadId === 'function' ? _newThreadId() : 'TR-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6)),
+      parentId: threadId });
+    if (typeof window._recomputeJobStatus === 'function') window._recomputeJobStatus(j);
+    j.updatedAt = Date.now();
+    saveJobs(jobs); try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(_){}
+    try { if (typeof showToast === 'function') showToast('✅ 요청접수 완료 처리'); } catch(_){}
+    hydrateAsMgmt();
+    try { if (typeof hydrateDashboardJobs === 'function') hydrateDashboardJobs(); } catch(_){}
+  };
 
   function filterAsMgmt(chip, filter) {
     if (chip) {
