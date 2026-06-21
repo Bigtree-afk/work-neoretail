@@ -952,14 +952,20 @@
       });
       subsHtml = sortedRoots.slice(0, 8).map(({ j, r, done }) => {
         const txt = (r.text || '').replace(/\s+/g,' ').slice(0, 70);
-        const meta = j.asDueDate ? `예정 ${j.asDueDate}${j.asDueTime?' '+j.asDueTime:''}` : '';
+        const due = (r.dueDate||'').slice(0,10) || (j.asDueDate||'');
+        const meta = due ? `예정 ${escFn(due)}` : '';
         const onclick = j.id ? `editNewopen('${escFn(j.id)}')` : '';
         const lineBtn = (j.id && !r._synthetic) ? `<button class="hub-line-btn" title="📡 이 요청 LINE 발송" onclick="event.stopPropagation();window._hubLineSend('${escFn(j.id)}','${escFn(r.threadId||'')}')">📡</button>` : '';
-        return `<div class="hub-sj" onclick="${onclick}">
+        // 요청접수별 매장 담당자 — ROOT contact 우선, 없으면 job 연락처
+        const rc = (r.contact && (r.contact.name||r.contact.phone)) ? r.contact
+                 : ((j.contactName||j.contactPhone) ? { name:j.contactName||'', role:j.contactRole||'', phone:j.contactPhone||'' } : null);
+        const contactLine = rc ? `<div class="sjmt" style="color:#1d4ed8">👤 ${escFn([rc.name, rc.role, rc.phone].filter(Boolean).join(' · '))}</div>` : '';
+        return `<div class="hub-sj ${done?'done':''}" onclick="${onclick}">
           <div class="sjl">
             <span class="sjtag ${cat}" style="${done?'opacity:0.6':''}">${done?'✅ 완료':'📥 요청접수'}</span>
             <div class="sjti">${escFn(txt || '(내용 없음)')}</div>
             <div class="sjmt">${r.ts ? '📅 '+escFn(r.ts)+' · ' : ''}${escFn(r.author||'')}${meta?' · '+meta:''}</div>
+            ${contactLine}
           </div>
           ${lineBtn}
           <div class="sjwn ${done?'done':''}">${done?'완료':'진행중'}</div>
@@ -1454,8 +1460,7 @@
       cats: ['as', 'churn'],
       cardCat: 'as',
       urgentIfPending: true,
-      byRoots: false,    // AS — 작업(job) 단위 카드 (대시보드와 카운트 통일)
-      countByJob: true,  // 카운트도 작업 단위 = 메인 대시보드와 동일(18)
+      byRoots: true,     // AS — 요청접수(ROOT) 단위 카드·카운트 (건별 관리·조회, 2026-06-21 A안)
       sortBy: (window._asHubSort || 'recent'),  // 'recent'(최근 등록순) | 'name'(매장명순)
       cntMap: { all:'ashubCntAll', prog:'ashubCntProg', done:'ashubCntDone', urgent:'ashubCntUrg' },
     });
