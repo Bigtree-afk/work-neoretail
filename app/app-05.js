@@ -2676,7 +2676,7 @@
   // 👤 새-요청접수 폼의 매장 담당자 드롭다운 선택 → 이름/직책/연락처 자동 채움 (옵션 B)
   window._nrContactPick = function(containerId) {
     const sel = document.getElementById(containerId + '__nrCPicker'); if (!sel) return;
-    const list = window._nrContactList || [];
+    const list = (window._nrContactMap && window._nrContactMap[containerId]) || window._nrContactList || [];
     const idx = sel.value === '' ? -1 : parseInt(sel.value, 10);
     if (idx < 0 || !list[idx]) return;   // '직접 입력' — 기존 입력 유지
     const c = list[idx];
@@ -2780,15 +2780,20 @@
     const newRootAttId = containerId + '__newroot_att';
     // 👤 요청접수 시 매장 담당자 — AS 등록(jobThreadContainer)에서만 새-요청접수 폼 하위에 노출 (2026-06-19, 옵션 B)
     let _nrContactHtml = '';
-    if (window._currentJobContext === 'as' && containerId === 'jobThreadContainer') {
+    // AS 작업의 새-요청접수 폼이면 담당자 입력칸 노출 — 신규 등록(jobThreadContainer)·기존 AS 상세(jobThreadContainerEdit-*) 모두.
+    const _nrIsAs = (window._currentJobContext === 'as') || (function(){ try { if (jobId && typeof getJobs === 'function') { const jj = (getJobs()||[]).find(x => x.id === jobId); return jj && typeof window.classifyJobCategory === 'function' && window.classifyJobCategory(jj) === 'as'; } } catch(_){} return false; })();
+    if (_nrIsAs) {
       let _nrContacts = [];
       try {
-        const _snm = (document.getElementById('jobStoreName') || {}).value || '';
-        if (_snm && typeof window.getStoreContacts === 'function') {
-          _nrContacts = (window.getStoreContacts({ storeName: _snm }) || []).filter(c => c && (c.name || c.phone));
+        let _ref = null;
+        if (jobId && typeof getJobs === 'function') { const jj = (getJobs()||[]).find(x => x.id === jobId); if (jj) _ref = { storeId: jj.storeId, storeName: jj.storeName || jj.store }; }
+        if (!_ref) { const _snm = (document.getElementById('jobStoreName') || {}).value || ''; if (_snm) _ref = { storeName: _snm }; }
+        if (_ref && typeof window.getStoreContacts === 'function') {
+          _nrContacts = (window.getStoreContacts(_ref) || []).filter(c => c && (c.name || c.phone));
         }
       } catch(_){}
-      window._nrContactList = _nrContacts;
+      window._nrContactMap = window._nrContactMap || {};
+      window._nrContactMap[containerId] = _nrContacts;
       const _opts = '<option value="">+ 직접 입력</option>' + _nrContacts.map((c,i) =>
         `<option value="${i}">${escFn([c.name||'(이름없음)', c.role, c.phone].filter(Boolean).join(' · '))}</option>`).join('');
       const _ist = 'width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--gray-200);border-radius:6px;font-family:inherit;box-sizing:border-box';
