@@ -1432,6 +1432,8 @@
     list[idx] = { ...list[idx], [field]: (value||'').trim() };
     _writeJobContacts(job, list);
     saveJobs(jobs);
+    // 🔑 매장 연락처에도 즉시 반영 — 이름/직책 수정이 store.contacts(드롭다운 소스)에 갱신되도록 (2026-06-22)
+    try { if (typeof window.ingestJobContactsToStore === 'function') window.ingestJobContactsToStore(job, { allowUpdate:true }); } catch(_){}
     try { hydrateNewopen('all'); } catch(e){}
   }
   window.updateJobContactAt = updateJobContactAt;
