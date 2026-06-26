@@ -847,9 +847,13 @@
     return `
       <div class="eap-sech" style="display:flex;align-items:center;gap:8px;margin-top:0">🧭 사용자별 결재 루트 <span class="eap-meta">— 기안 시 자동 적용</span><button class="eap-btn eap-btn-p eap-btn-sm" style="margin-left:auto" onclick="EAP.openRouteBulk()">📋 일괄 설정</button></div>
       <table class="eap-table"><thead><tr><th>기안자</th><th>기본 결재선</th><th></th></tr></thead><tbody>${routeRows}</tbody></table>
-      <div class="eap-sech">💬 직원 LINE userId (결재 알림용)</div>
+      <div class="eap-sech">💬 직원 LINE userId (결재 알림용) <span class="eap-meta">— 직원이 LINE 봇/단톡방에서 발언하면 자동 수집됨</span></div>
       <table class="eap-table"><thead><tr><th>직원</th><th>LINE userId</th></tr></thead><tbody>${lineRows}</tbody></table>
-      <button class="eap-btn eap-btn-o eap-btn-sm" style="margin-top:8px" onclick="EAP.saveLineMap()">💾 LINE userId 저장</button>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="eap-btn eap-btn-p eap-btn-sm" onclick="EAP.fillLineFromProfiles()">📥 LINE에서 자동 채우기</button>
+        <button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.saveLineMap()">💾 LINE userId 저장</button>
+      </div>
+      <div class="eap-meta" id="eapLineFillMsg" style="margin-top:6px"></div>
       <div class="eap-sech">📄 문서 양식 <button class="eap-btn eap-btn-p eap-btn-sm" style="margin-left:8px" onclick="EAP.openTpl()">+ 새 양식</button></div>
       ${tplCards}`;
   }
@@ -857,6 +861,33 @@
     const map = {};
     document.querySelectorAll('#eapContainer [data-eaplm]').forEach(el => { const v = el.value.trim(); if (v) map[el.getAttribute('data-eaplm')] = v; });
     saveCfgKey('lineMap', map); toast('💾 LINE userId 저장됨');
+  };
+  EAP.fillLineFromProfiles = async function () {
+    const msg = document.getElementById('eapLineFillMsg');
+    if (msg) msg.textContent = '⏳ LINE 프로필 불러오는 중…';
+    try {
+      const res = await fetch('/api/line-profiles');
+      const data = await res.json();
+      const profiles = data.profiles || {};   // { userId: displayName }
+      // displayName(정규화) → userId 역매핑
+      const norm = s => String(s || '').replace(/\s+/g, '').toLowerCase();
+      const nameToId = {};
+      Object.entries(profiles).forEach(([uid, dn]) => { const k = norm(dn); if (k && !nameToId[k]) nameToId[k] = uid; });
+      const users = getUsers();
+      let filled = 0; const unmatched = [];
+      document.querySelectorAll('#eapContainer [data-eaplm]').forEach(el => {
+        const name = el.getAttribute('data-eaplm');
+        if (el.value.trim()) return;  // 이미 입력된 건 보존
+        let uid = nameToId[norm(name)];
+        if (!uid) {  // 닉네임 매칭
+          const u = users.find(u => u && u.name === name);
+          if (u && Array.isArray(u.nicknames)) for (const nk of u.nicknames) { if (nameToId[norm(nk)]) { uid = nameToId[norm(nk)]; break; } }
+        }
+        if (uid) { el.value = uid; filled++; } else unmatched.push(name);
+      });
+      if (msg) msg.innerHTML = `✅ ${filled}명 자동 입력 (수집 ${data.count || 0}건)${unmatched.length ? ` · 미매칭: ${unmatched.map(esc).join(', ')}` : ''}<br><span style="color:#94A3B8">확인 후 <b>💾 저장</b> 을 눌러주세요. 미매칭 직원은 LINE 봇/단톡방에서 한 번 발언하면 수집됩니다.</span>`;
+      toast(`📥 ${filled}명 자동 입력`);
+    } catch (e) { if (msg) msg.textContent = '🔴 불러오기 실패: ' + e.message; }
   };
 
   // 단일 루트 편집
