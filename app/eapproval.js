@@ -76,9 +76,10 @@
     if (a && ADMIN_EMAILS.includes((a.id || a.email || '').toLowerCase())) return true;
     return false;
   }
-  // 연차 일수(부여/사용)를 편집할 수 있는 사람 — 관리자 + 지정 담당자
-  const LEAVE_EDITORS = ['이동호', '김혜연'];
-  function canEditLeave() { return isAdmin() || LEAVE_EDITORS.includes(ME()); }
+  // 연차 일수(부여/사용) + 결재 루트를 관리할 수 있는 담당자 — 관리자 외 추가 권한
+  const MANAGERS = ['이동호', '김혜연'];
+  function canEditLeave() { return isAdmin() || MANAGERS.includes(ME()); }
+  function canManageRoutes() { return isAdmin() || MANAGERS.includes(ME()); }
   function userTitle(name) {
     const u = getUsers().find(u => u && u.name === name);
     return (u && u.title) || '';
@@ -279,7 +280,7 @@
         <button class="eap-tab on" data-tab="appr" onclick="EAP.switchTab('appr')">📋 결재함</button>
         <button class="eap-tab" data-tab="leave" onclick="EAP.switchTab('leave')">🌴 연차관리</button>
         <button class="eap-tab" data-tab="sch" onclick="EAP.switchTab('sch')">📅 일정</button>
-        <button class="eap-tab eap-admin-only" data-tab="tpl" onclick="EAP.switchTab('tpl')">⚙️ 양식·루트</button>
+        <button class="eap-tab eap-mgr-only" data-tab="tpl" onclick="EAP.switchTab('tpl')">⚙️ 양식·루트</button>
       </div>
       <div id="eap-view" class="eap-view"></div>
     </div>
@@ -287,9 +288,9 @@
   }
 
   function bindTabs() {
-    const admin = isAdmin();
-    document.querySelectorAll('#eapContainer .eap-admin-only').forEach(el => { el.style.display = admin ? '' : 'none'; });
-    if (!admin && TAB === 'tpl') TAB = 'appr';
+    const showMgr = isAdmin() || canManageRoutes();
+    document.querySelectorAll('#eapContainer .eap-mgr-only').forEach(el => { el.style.display = showMgr ? '' : 'none'; });
+    if (!showMgr && TAB === 'tpl') TAB = 'appr';
     document.querySelectorAll('#eapContainer .eap-tab').forEach(b => b.classList.toggle('on', b.getAttribute('data-tab') === TAB));
   }
 
@@ -398,6 +399,7 @@
     const k = KIND[d.kind] || KIND.gen;
     const t = tplById(d.tplId) || { id: d.tplId, name: d.tpl || k.label.replace(/^\S+\s/, ''), fields: (d.fields || []).map(f => ({ label: f.label, type: f.type })) };
     const vals = {}; (d.fields || []).forEach(f => { vals[f.label] = f.value; });
+    if (!vals['제목']) vals['제목'] = d.title;  // 옛 문서: 제목 필드 없으면 doc.title 로 표시
 
     const histHtml = (d.history || []).map(h =>
       `<div class="eap-hist"><b>${esc(h.n)}</b> <span class="eap-hact ${h.act === '반려' ? 'rej' : ''}">${esc(h.act)}</span> <span class="eap-hts">${esc(h.at)}</span>${h.op ? `<div class="eap-hop">"${esc(h.op)}"</div>` : ''}</div>`
@@ -542,7 +544,7 @@
         <div class="eap-mhead"><h3>✏️ 새 기안</h3><button class="eap-x" onclick="EAP.closeModal()">✕</button></div>
         <div class="eap-fld"><label>문서 양식</label>
           <select id="eapTplSel" onchange="EAP.onTplChange(this.value)">${tplOpts}</select></div>
-        <div class="eap-fld"><label>제목</label><input id="eapTitle" type="text" placeholder="제목 입력"></div>
+        <div class="eap-fld"><label>제목</label><input id="eapTitle" type="text" placeholder="제목 입력" oninput="EAP.onTitleTop()"></div>
         <div id="eapDraftFields"></div>
         <div class="eap-fld"><label>📎 첨부 (이미지/파일)</label>
           <div class="eap-att-zone" onclick="document.getElementById('eapAttInput').click()">파일 선택 또는 여기 클릭</div>
@@ -565,8 +567,30 @@
   EAP.onTplChange = function (id) { draftTpl = tplById(id); renderDraftFields(); };
   function renderDraftFields() {
     const box = document.getElementById('eapDraftFields');
-    if (box) box.innerHTML = draftTpl ? docFormHtml(draftTpl, 'input', {}) : '';
+    if (!box) return;
+    box.innerHTML = draftTpl ? docFormHtml(draftTpl, 'input', {}) : '';
+    if (!draftTpl) return;
+    try { EAP.onTitleTop(); } catch (_) {}  // 상단 제목 → 내용부분 제목란 동기화
+    if (draftTpl.cat === 'leave') {  // 연차: 시작/종료일·휴가종류 변경 시 일수 자동 계산
+      box.querySelectorAll('input[type=date]').forEach(i => i.addEventListener('change', EAP.recalcLeaveDays));
+      const sel = box.querySelector('[data-eapf="휴가 종류"]'); if (sel) sel.addEventListener('change', EAP.recalcLeaveDays);
+    }
   }
+  // 제목란 양방향 동기화
+  EAP.onTitleForm = function (el) { const t = document.getElementById('eapTitle'); if (t) t.value = el.value; };
+  EAP.onTitleTop = function () { const f = document.querySelector('#eapDraftFields [data-eapf="제목"]'); const t = document.getElementById('eapTitle'); if (f && t) f.value = t.value; };
+  // 연차 일수 자동 계산 (시작일~종료일, 반차 0.5)
+  EAP.recalcLeaveDays = function () {
+    const box = document.getElementById('eapDraftFields'); if (!box) return;
+    const dates = [...box.querySelectorAll('input[type=date]')].map(i => i.value).filter(Boolean).sort();
+    if (!dates.length) return;
+    const from = dates[0], to = dates[dates.length - 1];
+    let days = Math.max(1, Math.round((new Date(to) - new Date(from)) / 86400000) + 1);
+    const sel = box.querySelector('[data-eapf="휴가 종류"]');
+    if (sel && /반차/.test(sel.value) && from === to) days = 0.5;
+    const dayInput = box.querySelector('[data-eapf="일 수"]') || [...box.querySelectorAll('[data-eapf]')].find(el => /일\s*수|일수/.test(el.getAttribute('data-eapf')));
+    if (dayInput) dayInput.value = days;
+  };
   EAP.toggleLine = function (n) {
     const i = draftLine.indexOf(n); if (i >= 0) draftLine.splice(i, 1); else draftLine.push(n);
     refreshLinePick(); updateLinePreview();
@@ -619,15 +643,16 @@
   }
   EAP.submitDraft = function () {
     if (!draftTpl) { toast('양식을 선택하세요'); return; }
-    const title = (document.getElementById('eapTitle') || {}).value.trim() || draftTpl.name;
-    // 필드 수집
+    // 필드 수집 (제목 포함 — effFields)
     const fields = [];
-    (draftTpl.fields || []).forEach(f => {
+    effFields(draftTpl).forEach(f => {
       const el = document.querySelector(`#eapDraftFields [data-eapf="${cssEsc(f.label)}"]`);
       let val = el ? el.value : '';
       if (f.type === 'money' || f.type === 'number') val = String(val).replace(/,/g, '');
       fields.push({ label: f.label, type: f.type, value: val });
     });
+    const titleField = fields.find(f => f.label === '제목');
+    const title = (document.getElementById('eapTitle') || {}).value.trim() || (titleField && titleField.value.trim()) || draftTpl.name;
     const cat = draftTpl.cat || 'gen';
     const me = ME();
     const line = [{ n: me, role: '기안' }, ...draftLine.map(n => ({ n, role: '결재' }))];
@@ -675,7 +700,14 @@
     }
     if (type === 'date') return `<input ${da} type="date" value="${esc(v || '')}">`;
     if (type === 'money' || type === 'number') return `<input ${da} type="text" inputmode="numeric" value="${esc(commaFmt(v))}" oninput="EAP.fmtNum(this)">`;
+    if (label === '제목') return `<input ${da} type="text" value="${esc(v)}" placeholder="제목" oninput="EAP.onTitleForm(this)">`;  // 내용부분 제목란 ↔ 상단 제목란 동기화
     return `<input ${da} type="text" value="${esc(v)}">`;
+  }
+  // 모든 양식 내용부분에 '제목' 필드를 보장 (없으면 맨 앞에 추가)
+  function effFields(t) {
+    const fs = (t && Array.isArray(t.fields)) ? t.fields.slice() : [];
+    if (!fs.some(f => f && f.label === '제목')) fs.unshift({ label: '제목', type: 'text' });
+    return fs;
   }
   EAP.fmtNum = function (el) {
     let raw = String(el.value || '').replace(/[^0-9.]/g, '');
@@ -689,12 +721,12 @@
   function cell(label, type, vals, mode, opts) { return `<td class="${mode === 'view' ? 'val' : ''}">${ci(label, type, vals, mode, opts)}</td>`; }
 
   function docFormHtml(t, mode, vals) {
-    let inner;
+    let inner; let cols4 = false;
     const byLabel = {}; (t.fields || []).forEach(f => { byLabel[f.label] = f; });
     const has = l => byLabel[l];
     const C = (l, m2) => has(l) ? ci(l, byLabel[l].type, vals, m2 || mode, byLabel[l].options) : '';
 
-    if (t.id === 't-pay' && has('결제 방법')) {
+    if (t.id === 't-pay' && has('결제 방법')) { cols4 = true;
       inner = `<colgroup><col style="width:18%"><col style="width:32%"><col style="width:18%"><col style="width:32%"></colgroup>
         <tr><th>결제 방법</th><td>${C('결제 방법')}</td><th>수령 방법</th><td>${C('수령 방법')}</td></tr>
         <tr><th>사용 부서</th><td>${C('사용 부서')}</td><th>은 행 명</th><td>${C('은 행 명')}</td></tr>
@@ -702,7 +734,7 @@
         <tr><th>계좌 번호</th><td colspan="3">${C('계좌 번호')}</td></tr>
         <tr><th>금   액</th><td colspan="3">${C('금   액')}</td></tr>
         <tr><th>사용 내역</th><td colspan="3">${C('사용 내역')}</td></tr>`;
-    } else if (t.id === 't-trip-req' && has('소 속')) {
+    } else if (t.id === 't-trip-req' && has('소 속')) { cols4 = true;
       inner = `<colgroup><col style="width:18%"><col style="width:32%"><col style="width:18%"><col style="width:32%"></colgroup>
         <tr><th>소 속</th><td>${C('소 속')}</td><th>직 위</th><td>${C('직 위')}</td></tr>
         <tr><th>성 명</th><td>${C('성 명')}</td><th>출장 장소</th><td>${C('출장 장소')}</td></tr>
@@ -714,6 +746,12 @@
       inner = `<colgroup><col style="width:30%"><col></colgroup>` + (t.fields || []).map(f =>
         row(esc(f.label), cell(f.label, f.type, vals, mode, f.options).replace(/^<td[^>]*>|<\/td>$/g, ''))
       ).join('');
+    }
+    // 제목 필드가 양식에 없으면 colgroup 직후에 제목 행 추가 (모든 양식 내용부분에 제목란 보장)
+    if (!has('제목')) {
+      const span = cols4 ? ' colspan="3"' : '';
+      const titleRow = `<tr><th>제목</th><td${span} class="${mode === 'view' ? 'val' : ''}">${ci('제목', 'text', vals, mode)}</td></tr>`;
+      inner = inner.replace('</colgroup>', '</colgroup>' + titleRow);
     }
     return `<div class="eap-docform"><div class="eap-docform-title">${esc(t.name)}</div><div class="eap-tblwrap"><table class="eap-tbl">${inner}</table></div></div>`;
   }
@@ -852,7 +890,8 @@
 
   /* ════════════════ 양식·루트 관리 (tpl) — 관리자 ════════════════ */
   function renderTpl() {
-    if (!isAdmin()) return '<div class="eap-empty">관리자 전용 화면입니다</div>';
+    const admin = isAdmin();
+    if (!admin && !canManageRoutes()) return '<div class="eap-empty">관리자 전용 화면입니다</div>';
     const R = getRoutes();
     const routeRows = STAFF().map(n => {
       const r = (R[n] || []).filter(Boolean);
@@ -867,9 +906,7 @@
           <span style="margin-left:auto;display:flex;gap:6px"><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.openTpl(${J(t.id)})">수정</button><button class="eap-btn eap-btn-rej eap-btn-sm" onclick="EAP.delTpl(${J(t.id)})">삭제</button></span></div>
         <div class="eap-meta">${(t.fields || []).slice(0, 8).map(f => esc(f.label)).join(' · ')}</div></div>`;
     }).join('');
-    return `
-      <div class="eap-sech" style="display:flex;align-items:center;gap:8px;margin-top:0">🧭 사용자별 결재 루트 <span class="eap-meta">— 기안 시 자동 적용</span><button class="eap-btn eap-btn-p eap-btn-sm" style="margin-left:auto" onclick="EAP.openRouteBulk()">📋 일괄 설정</button></div>
-      <table class="eap-table"><thead><tr><th>기안자</th><th>기본 결재선</th><th></th></tr></thead><tbody>${routeRows}</tbody></table>
+    const adminSections = admin ? `
       <div class="eap-sech">💬 직원 LINE userId (결재 알림용) <span class="eap-meta">— 직원이 LINE 봇/단톡방에서 발언하면 자동 수집됨</span></div>
       <table class="eap-table"><thead><tr><th>직원</th><th>LINE userId</th></tr></thead><tbody>${lineRows}</tbody></table>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
@@ -878,7 +915,11 @@
       </div>
       <div class="eap-meta" id="eapLineFillMsg" style="margin-top:6px"></div>
       <div class="eap-sech">📄 문서 양식 <button class="eap-btn eap-btn-p eap-btn-sm" style="margin-left:8px" onclick="EAP.openTpl()">+ 새 양식</button></div>
-      ${tplCards}`;
+      ${tplCards}` : '';
+    return `
+      <div class="eap-sech" style="display:flex;align-items:center;gap:8px;margin-top:0">🧭 사용자별 결재 루트 <span class="eap-meta">— 기안 시 자동 적용</span><button class="eap-btn eap-btn-p eap-btn-sm" style="margin-left:auto" onclick="EAP.openRouteBulk()">📋 일괄 설정</button></div>
+      <table class="eap-table"><thead><tr><th>기안자</th><th>기본 결재선</th><th></th></tr></thead><tbody>${routeRows}</tbody></table>
+      ${adminSections}`;
   }
   EAP.saveLineMap = function () {
     const map = {};
@@ -916,6 +957,7 @@
   // 단일 루트 편집
   let _routeUser = null, _routeLine = [];
   EAP.openRoute = function (n) {
+    if (!canManageRoutes()) { toast('결재 루트 편집 권한이 없습니다'); return; }
     _routeUser = n; _routeLine = (getRoutes()[n] || []).filter(x => x && x !== n);
     renderRouteModal();
   };
@@ -931,11 +973,11 @@
     openModal(html);
   }
   EAP.toggleRouteStep = function (x) { const i = _routeLine.indexOf(x); if (i >= 0) _routeLine.splice(i, 1); else _routeLine.push(x); renderRouteModal(); };
-  EAP.saveRoute = function () { const R = getRoutes(); R[_routeUser] = _routeLine.slice(); saveCfgKey('routes', R); EAP.closeModal(); renderTab(); toast('🧭 ' + _routeUser + ' 루트 저장'); };
+  EAP.saveRoute = function () { if (!canManageRoutes()) { toast('권한이 없습니다'); return; } const R = getRoutes(); R[_routeUser] = _routeLine.slice(); saveCfgKey('routes', R); EAP.closeModal(); renderTab(); toast('🧭 ' + _routeUser + ' 루트 저장'); };
 
   // 일괄 루트 편집
   let _bulkTargets = [], _bulkLine = [];
-  EAP.openRouteBulk = function () { _bulkTargets = STAFF().slice(); _bulkLine = []; renderRouteBulk(); };
+  EAP.openRouteBulk = function () { if (!canManageRoutes()) { toast('결재 루트 편집 권한이 없습니다'); return; } _bulkTargets = STAFF().slice(); _bulkLine = []; renderRouteBulk(); };
   function renderRouteBulk() {
     const staff = STAFF();
     const allOn = staff.every(n => _bulkTargets.includes(n));
@@ -955,6 +997,7 @@
   EAP.bulkAll = function () { const staff = STAFF(); _bulkTargets = staff.every(n => _bulkTargets.includes(n)) ? [] : staff.slice(); renderRouteBulk(); };
   EAP.bulkLine = function (x) { const i = _bulkLine.indexOf(x); if (i >= 0) _bulkLine.splice(i, 1); else _bulkLine.push(x); renderRouteBulk(); };
   EAP.saveRouteBulk = function () {
+    if (!canManageRoutes()) { toast('권한이 없습니다'); return; }
     if (!_bulkTargets.length) { toast('적용 대상을 선택하세요'); return; }
     const R = getRoutes(); _bulkTargets.forEach(n => { R[n] = _bulkLine.filter(x => x !== n); }); saveCfgKey('routes', R);
     EAP.closeModal(); renderTab(); toast('📋 ' + _bulkTargets.length + '명에 결재선 일괄 적용');

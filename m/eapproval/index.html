@@ -263,11 +263,16 @@
     if(type==='select'){const o=String(opts||'').split(',').map(s=>s.trim()).filter(Boolean);return '<select '+da+'><option value="">선택</option>'+o.map(x=>'<option '+(x===v?'selected':'')+'>'+esc(x)+'</option>').join('')+'</select>';}
     if(type==='date')return '<input '+da+' type="date" value="'+esc(v||'')+'">';
     if(type==='money'||type==='number')return '<input '+da+' type="text" inputmode="numeric" value="'+esc(commaFmt(v))+'" oninput="_eapFmt(this)">';
+    if(label==='제목')return '<input '+da+' type="text" value="'+esc(v)+'" placeholder="제목" oninput="_eapTitleForm(this)">';
     return '<input '+da+' type="text" value="'+esc(v)+'">';
   }
   window._eapFmt=function(el){let raw=String(el.value||'').replace(/[^0-9.]/g,'');const p=raw.split('.');let i=p[0].replace(/^0+(?=\d)/,'');i=i?Number(i).toLocaleString('ko-KR'):'';el.value=p.length>1?(i||'0')+'.'+p.slice(1).join(''):i;};
+  // 모든 양식 내용부분에 '제목' 필드 보장
+  function effFields(t){const fs=(t&&Array.isArray(t.fields))?t.fields.slice():[];if(!fs.some(f=>f&&f.label==='제목'))fs.unshift({label:'제목',type:'text'});return fs;}
   function docFormHtml(t,mode,vals){
-    const rows=(t.fields||[]).map(f=>'<tr><th>'+esc(f.label)+'</th><td class="'+(mode==='view'?'val':'')+'">'+ci(f.label,f.type,vals,mode,f.options)+'</td></tr>').join('');
+    const hasTitle=(t.fields||[]).some(f=>f.label==='제목');
+    let rows=(t.fields||[]).map(f=>'<tr><th>'+esc(f.label)+'</th><td class="'+(mode==='view'?'val':'')+'">'+ci(f.label,f.type,vals,mode,f.options)+'</td></tr>').join('');
+    if(!hasTitle){rows='<tr><th>제목</th><td class="'+(mode==='view'?'val':'')+'">'+ci('제목','text',vals,mode)+'</td></tr>'+rows;}
     return '<div class="docform-title">'+esc(t.name)+'</div><div class="tblwrap"><table class="tbl"><colgroup><col style="width:32%"><col></colgroup>'+rows+'</table></div>';
   }
 
@@ -288,6 +293,7 @@
     const k=KIND[d.kind]||KIND.gen;
     const t=tplById(d.tplId)||{id:d.tplId,name:d.tpl||'문서',fields:(d.fields||[]).map(f=>({label:f.label,type:f.type}))};
     const vals={};(d.fields||[]).forEach(f=>{vals[f.label]=f.value;});
+    if(!vals['제목'])vals['제목']=d.title;
     const hist=(d.history||[]).map(h=>'<div class="hist"><b>'+esc(h.n)+'</b> <span class="hact '+(h.act==='반려'?'rej':'')+'">'+esc(h.act)+'</span> <span class="hts">'+esc(h.at)+'</span>'+(h.op?'<div class="hop">"'+esc(h.op)+'"</div>':'')+'</div>').join('')||'<div class="meta">이력 없음</div>';
     let act='';
     if(isMyTurn(d)){
@@ -323,34 +329,60 @@
   async function pushCfg(){try{await fetch('/api/eapproval',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({config:getCfg()})});}catch(_){}}
 
   /* ── form (draft) ── */
-  let draftTpl=null,draftLine=[];
+  let draftTpl=null,draftLine=[],draftCC=[];
   function renderForm(){
     const tpls=getTpls();
     if(!tpls.length){document.getElementById('view-form').innerHTML='<div class="empty">등록된 양식이 없습니다.<br>PC에서 양식을 먼저 등록하세요.</div>';return;}
     draftTpl=draftTpl&&tplById(draftTpl.id)?draftTpl:tpls[0];
-    draftLine=myRoute().filter(n=>n!==ME());
+    draftLine=myRoute().filter(n=>n!==ME());draftCC=[];
     const tplOpts=tpls.map(t=>'<option value="'+esc(t.id)+'" '+(draftTpl&&t.id===draftTpl.id?'selected':'')+'>'+esc(t.name)+'</option>').join('');
     const staff=STAFF().filter(n=>n!==ME());
     document.getElementById('view-form').innerHTML=
       '<div class="fld"><label>문서 양식</label><select id="fTpl" onchange="_eapTplChange(this.value)">'+tplOpts+'</select></div>'
-      +'<div class="fld"><label>제목</label><input id="fTitle" placeholder="제목 입력"></div>'
+      +'<div class="fld"><label>제목</label><input id="fTitle" placeholder="제목 입력" oninput="_eapTitleTop()"></div>'
       +'<div id="fFields"></div>'
       +'<div class="fld"><label>결재선 (순서대로 선택)</label><div class="picker" id="fLine">'+staff.map(n=>'<span class="pk '+(draftLine.includes(n)?'on':'')+'" onclick="_eapTL(\''+esc(n)+'\')">'+lblIdx(draftLine,n)+esc(n)+'</span>').join('')+'</div><div class="meta" id="fLinePrev" style="margin-top:6px"></div></div>'
+      +'<div class="fld"><label style="display:flex;align-items:center;gap:8px">참조<button type="button" class="att-btn" style="margin-left:auto" onclick="_eapCCAll()">전체 선택</button></label><div class="picker" id="fCC">'+staff.map(n=>'<span class="pk '+(draftCC.includes(n)?'on':'')+'" onclick="_eapCC(\''+esc(n)+'\')">'+esc(n)+'</span>').join('')+'</div></div>'
       +'<button class="btn btn-p" style="width:100%;margin-top:6px" onclick="_eapSubmit()">📤 상신</button>';
     renderFormFields();updateLinePrev();
   }
   function lblIdx(arr,n){const i=arr.indexOf(n);return i>=0?'<b>'+(i+1)+'</b> ':'';}
-  function renderFormFields(){const b=document.getElementById('fFields');if(b)b.innerHTML=draftTpl?docFormHtml(draftTpl,'input',{}):'';}
+  function renderFormFields(){
+    const b=document.getElementById('fFields');if(!b)return;
+    b.innerHTML=draftTpl?docFormHtml(draftTpl,'input',{}):'';
+    if(!draftTpl)return;
+    try{_eapTitleTop();}catch(_){}
+    if(draftTpl.cat==='leave'){
+      b.querySelectorAll('input[type=date]').forEach(i=>i.addEventListener('change',_eapRecalcDays));
+      const sel=b.querySelector('[data-eapf="휴가 종류"]');if(sel)sel.addEventListener('change',_eapRecalcDays);
+    }
+  }
+  window._eapTitleForm=function(el){const t=document.getElementById('fTitle');if(t)t.value=el.value;};
+  window._eapTitleTop=function(){const f=document.querySelector('#fFields [data-eapf="제목"]');const t=document.getElementById('fTitle');if(f&&t)f.value=t.value;};
+  window._eapRecalcDays=function(){
+    const b=document.getElementById('fFields');if(!b)return;
+    const dates=[...b.querySelectorAll('input[type=date]')].map(i=>i.value).filter(Boolean).sort();
+    if(!dates.length)return;
+    const from=dates[0],to=dates[dates.length-1];
+    let days=Math.max(1,Math.round((new Date(to)-new Date(from))/86400000)+1);
+    const sel=b.querySelector('[data-eapf="휴가 종류"]');if(sel&&/반차/.test(sel.value)&&from===to)days=0.5;
+    const di=b.querySelector('[data-eapf="일 수"]')||[...b.querySelectorAll('[data-eapf]')].find(el=>/일\s*수|일수/.test(el.getAttribute('data-eapf')));
+    if(di)di.value=days;
+  };
   window._eapTplChange=function(id){draftTpl=tplById(id);renderFormFields();};
   window._eapTL=function(n){const i=draftLine.indexOf(n);if(i>=0)draftLine.splice(i,1);else draftLine.push(n);const staff=STAFF().filter(x=>x!==ME());document.getElementById('fLine').innerHTML=staff.map(x=>'<span class="pk '+(draftLine.includes(x)?'on':'')+'" onclick="_eapTL(\''+esc(x)+'\')">'+lblIdx(draftLine,x)+esc(x)+'</span>').join('');updateLinePrev();};
+  window._eapCC=function(n){const i=draftCC.indexOf(n);if(i>=0)draftCC.splice(i,1);else draftCC.push(n);_renderCC();};
+  window._eapCCAll=function(){const staff=STAFF().filter(x=>x!==ME());draftCC=staff.every(x=>draftCC.includes(x))?[]:staff.slice();_renderCC();};
+  function _renderCC(){const box=document.getElementById('fCC');if(!box)return;const staff=STAFF().filter(x=>x!==ME());box.innerHTML=staff.map(x=>'<span class="pk '+(draftCC.includes(x)?'on':'')+'" onclick="_eapCC(\''+esc(x)+'\')">'+esc(x)+'</span>').join('');}
   function updateLinePrev(){const el=document.getElementById('fLinePrev');if(el)el.innerHTML='결재선: <b>'+esc(ME())+'</b>(기안)'+(draftLine.length?' → '+draftLine.map(esc).join(' → '):' <span class="dash">(결재자 미지정)</span>');}
   window._eapSubmit=function(){
     if(!draftTpl){toast('양식을 선택하세요');return;}
-    const title=(document.getElementById('fTitle')||{}).value.trim()||draftTpl.name;
-    const fields=[];(draftTpl.fields||[]).forEach(f=>{const el=document.querySelector('#fFields [data-eapf="'+f.label.replace(/"/g,'\\"')+'"]');let v=el?el.value:'';if(f.type==='money'||f.type==='number')v=String(v).replace(/,/g,'');fields.push({label:f.label,type:f.type,value:v});});
+    const fields=[];effFields(draftTpl).forEach(f=>{const el=document.querySelector('#fFields [data-eapf="'+f.label.replace(/"/g,'\\"')+'"]');let v=el?el.value:'';if(f.type==='money'||f.type==='number')v=String(v).replace(/,/g,'');fields.push({label:f.label,type:f.type,value:v});});
+    const tf=fields.find(f=>f.label==='제목');
+    const title=(document.getElementById('fTitle')||{}).value.trim()||(tf&&tf.value.trim())||draftTpl.name;
     const cat=draftTpl.cat||'gen',me=ME();
     const line=[{n:me,role:'기안'},...draftLine.map(n=>({n,role:'결재'}))];
-    const d={id:genId('D'),kind:cat,title,drafter:me,at:kstNow(),tpl:draftTpl.name,tplId:draftTpl.id,fields,line,step:1,status:'wait',history:[{n:me,act:'기안',at:kstNow()}],cc:[],attachments:[],createdAt:Date.now(),updatedAt:Date.now()};
+    const d={id:genId('D'),kind:cat,title,drafter:me,at:kstNow(),tpl:draftTpl.name,tplId:draftTpl.id,fields,line,step:1,status:'wait',history:[{n:me,act:'기안',at:kstNow()}],cc:draftCC.slice(),attachments:[],createdAt:Date.now(),updatedAt:Date.now()};
     if(cat==='pay'||cat==='buy'){const a=fields.find(f=>f.type==='money');d.amount=a?Number(a.value)||0:0;if(cat==='pay')d.execStatus='pending';}
     if(cat==='leave'){const ds=fields.filter(f=>f.type==='date'&&f.value).map(f=>f.value).sort();const df=fields.find(f=>f.label.includes('일')&&f.type==='number');d.from=ds[0]||kstDate();d.to=ds[ds.length-1]||d.from;d.days=df&&df.value?Number(df.value):Math.max(1,Math.round((new Date(d.to)-new Date(d.from))/86400000)+1);}
     const docs=getDocs();docs.push(d);setDocs(docs);
