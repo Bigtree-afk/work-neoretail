@@ -76,6 +76,9 @@
     if (a && ADMIN_EMAILS.includes((a.id || a.email || '').toLowerCase())) return true;
     return false;
   }
+  // 연차 일수(부여/사용)를 편집할 수 있는 사람 — 관리자 + 지정 담당자
+  const LEAVE_EDITORS = ['이동호', '김혜연'];
+  function canEditLeave() { return isAdmin() || LEAVE_EDITORS.includes(ME()); }
   function userTitle(name) {
     const u = getUsers().find(u => u && u.name === name);
     return (u && u.title) || '';
@@ -746,7 +749,8 @@
     const remain = (Number(lv.total) || 0) - (Number(lv.used) || 0);
     const pct = lv.total ? Math.min(100, Math.round((lv.used / lv.total) * 100)) : 0;
     const myDocs = getDocs().filter(d => d.kind === 'leave' && d.drafter === me).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    const team = isAdmin() ? STAFF().map(n => { const l = getLeave(n); const r = (Number(l.total) || 0) - (Number(l.used) || 0); return `<tr><td>${esc(n)}</td><td>${l.total}</td><td>${l.used}</td><td><b>${r}</b></td></tr>`; }).join('') : '';
+    const canEdit = canEditLeave();
+    const team = (isAdmin() || canEdit) ? STAFF().map(n => { const l = getLeave(n); const r = (Number(l.total) || 0) - (Number(l.used) || 0); return `<tr><td>${esc(n)}</td><td>${l.total}</td><td>${l.used}</td><td><b>${r}</b></td>${canEdit ? `<td><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.openLeaveEdit(${J(n)})">✏️</button></td>` : ''}</tr>`; }).join('') : '';
     return `
       <div class="eap-bar"><div></div><button class="eap-btn eap-btn-p" onclick="EAP.openDraft('t-leave')">🌴 연차 신청</button></div>
       <div class="eap-lvcards">
@@ -757,8 +761,27 @@
       <div class="eap-bar2"><div class="eap-prog"><i style="width:${pct}%"></i></div><span class="eap-meta">${pct}% 사용</span></div>
       <div class="eap-sech">내 연차 신청 내역</div>
       ${myDocs.length ? myDocs.map(docCard).join('') : '<div class="eap-empty">신청 내역 없음</div>'}
-      ${isAdmin() ? `<div class="eap-sech">팀 연차 현황</div><table class="eap-table"><thead><tr><th>직원</th><th>부여</th><th>사용</th><th>잔여</th></tr></thead><tbody>${team}</tbody></table>` : ''}`;
+      ${(isAdmin() || canEdit) ? `<div class="eap-sech">팀 연차 현황${canEdit ? ' <span class="eap-meta">— ✏️ 부여/사용 일수 편집 가능</span>' : ''}</div><table class="eap-table"><thead><tr><th>직원</th><th>부여</th><th>사용</th><th>잔여</th>${canEdit ? '<th></th>' : ''}</tr></thead><tbody>${team}</tbody></table>` : ''}`;
   }
+  EAP.openLeaveEdit = function (n) {
+    if (!canEditLeave()) { toast('연차 편집 권한이 없습니다'); return; }
+    const l = getLeave(n);
+    const html = `<div class="eap-modal">
+      <div class="eap-mhead"><h3>🌴 ${esc(n)} 연차 일수</h3><button class="eap-x" onclick="EAP.closeModal()">✕</button></div>
+      <div class="eap-fld"><label>부여 일수 (총 연차)</label><input id="eapLvTotal" type="text" inputmode="numeric" value="${esc(l.total)}" oninput="EAP.fmtNum(this)"></div>
+      <div class="eap-fld"><label>사용 일수</label><input id="eapLvUsed" type="text" inputmode="numeric" value="${esc(l.used)}" oninput="EAP.fmtNum(this)"></div>
+      <div class="eap-meta">잔여 = 부여 − 사용 (자동 계산)</div>
+      <div class="eap-mactions"><button class="eap-btn eap-btn-p" style="width:100%" onclick="EAP.saveLeaveEdit(${J(n)})">저장</button></div>
+    </div>`;
+    openModal(html);
+  };
+  EAP.saveLeaveEdit = function (n) {
+    if (!canEditLeave()) { toast('연차 편집 권한이 없습니다'); return; }
+    const total = Number(String((document.getElementById('eapLvTotal') || {}).value || '0').replace(/,/g, '')) || 0;
+    const used = Number(String((document.getElementById('eapLvUsed') || {}).value || '0').replace(/,/g, '')) || 0;
+    const all = getLeaveAll(); all[n] = { total, used }; saveCfgKey('leave', all);
+    EAP.closeModal(); renderTab(); toast('🌴 ' + n + ' 연차 ' + total + '일(사용 ' + used + ') 저장');
+  };
 
   /* ════════════════ 일정 (sch) ════════════════ */
   function birthThisYear(b) {
