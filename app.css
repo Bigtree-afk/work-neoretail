@@ -38,7 +38,8 @@
     border-bottom: 1px solid rgba(255,248,231,0.08);
   }
   .topnav-logo {
-    display: flex; align-items: center; gap: 9px; margin-right: 12px; flex-shrink: 0; text-decoration: none;
+    display: flex; align-items: center; gap: 9px; margin-left: 10px; margin-right: 0; flex-shrink: 0; text-decoration: none;
+    order: 4;  /* 로고를 맨 우측으로 */
   }
   .logo-icon {
     width: 32px; height: 32px; background: #FFF8E7; border-radius: 8px;
@@ -50,21 +51,28 @@
   .logo-text { font-size: 14px; font-weight: 800; letter-spacing: -0.01em; color: #FFF8E7; }
   .logo-sub { font-size: 9.5px; color: rgba(255,248,231,0.55); font-family: 'Space Grotesk', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 1px; }
 
-  .topnav-divider { width: 1px; height: 22px; background: rgba(255,248,231,0.15); margin: 0 6px; flex-shrink: 0; }
+  .topnav-divider { width: 1px; height: 22px; background: rgba(255,248,231,0.15); margin: 0 6px; flex-shrink: 0; order: 3; }
 
-  .topnav-links { display: flex; align-items: center; gap: 1px; flex: 1; overflow-x: auto; }
+  /* 메뉴를 좌측 상단부터 배치 (order:1) + 우측 그룹은 margin-right:auto 로 우측 끝으로 밀림 */
+  .topnav-links { display: flex; align-items: center; gap: 8px; flex: 0 1 auto; overflow-x: auto; order: 1; margin-right: auto; }
   .topnav-links::-webkit-scrollbar { display: none; }
   .nav-item {
-    display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 7px;
+    position: relative;
+    display: flex; align-items: center; gap: 5px; padding: 6px 6px; border-radius: 7px;
     font-size: 13px; font-weight: 500; color: rgba(255,248,231,0.7); cursor: pointer; transition: all .15s;
     text-decoration: none; white-space: nowrap; flex-shrink: 0;
+  }
+  /* 메뉴 사이 옅은 ':' 구분자 — pill 바깥(gap 중앙)에 절대배치라 활성 흰 배경에 묻지 않음 */
+  .nav-item:not(:last-child)::after {
+    content: ":"; position: absolute; right: -6px; top: 50%; transform: translateY(-50%);
+    color: rgba(255,248,231,0.3); font-weight: 600; font-size: 13px; pointer-events: none;
   }
   .nav-item:hover { background: rgba(255,248,231,0.08); color: #FFF8E7; }
   .nav-item.active { background: #FFF8E7; color: #1A1614; font-weight: 700; }
   .nav-icon { font-size: 11px; opacity: 0.7; }
   .nav-badge { background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
 
-  .topnav-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: auto; }
+  .topnav-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: 0; order: 2; }
   .topnav-date { font-size: 11.5px; color: rgba(255,248,231,0.55); font-family: 'Space Grotesk', sans-serif; white-space: nowrap; }
   /* 🌤 날씨 + 일시 위젯 (top nav) */
   .nav-clock {
@@ -740,6 +748,8 @@
     .topnav-date { display: none; }
     .topnav-user .user-name, .topnav-user .user-role { display: none; }
     .topnav-divider { display: none; }
+    /* 모바일은 기존대로 로고 좌측·컨트롤 우측 유지 */
+    .topnav-logo { order: 0; margin-left: 0; }
     .hamburger-btn { display: flex; align-items: center; margin-left: auto; }
     .topnav-right { gap: 6px; margin-left: 0; }
     .topnav-right .btn-primary { font-size: 12px; padding: 6px 12px; }
