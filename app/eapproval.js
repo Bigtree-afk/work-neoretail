@@ -1056,7 +1056,7 @@
     const ov = document.createElement('div');
     ov.className = 'eap-ov show';
     ov.innerHTML = html;
-    ov.addEventListener('mousedown', e => { if (e.target === ov) EAP.closeModal(); });
+    // 바깥(backdrop) 클릭으로는 닫지 않음 — ✕ 버튼으로만 닫기 (작성 중 실수 방지)
     host.innerHTML = '';
     host.appendChild(ov);
   }
