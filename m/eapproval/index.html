@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2563EB">
+<title>📝 전자결재 — NeoRetail 모바일</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{--p:#2563EB;--g50:#F8FAFC;--g100:#F1F5F9;--g200:#E2E8F0;--g300:#CBD5E1;--g500:#64748B;--g600:#475569;--g700:#334155;--g900:#0F172A;--ok:#16A34A;--danger:#DC2626}
+  html,body{height:100%;font-family:'Pretendard Variable',-apple-system,sans-serif;background:#F0F2F5;color:var(--g900);-webkit-text-size-adjust:100%}
+  .appbar{position:sticky;top:0;z-index:10;background:linear-gradient(135deg,#1E3A8A,#2563EB);color:#fff;display:flex;align-items:center;gap:8px;padding:11px 14px;padding-top:calc(11px + env(safe-area-inset-top));height:auto}
+  .appbar .back{background:rgba(255,255,255,.16);border:none;color:#fff;width:32px;height:32px;border-radius:9px;font-size:17px;cursor:pointer}
+  .appbar .title{font-size:15.5px;font-weight:800;flex:1}
+  .appbar .pc{color:#fff;background:rgba(255,255,255,.14);padding:5px 10px;border-radius:99px;text-decoration:none;font-size:11px;font-weight:700}
+  .wrap{max-width:760px;margin:0 auto;padding:12px 12px 90px}
+  .view{display:none}.view.active{display:block}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{padding:7px 13px;border-radius:20px;border:1.5px solid var(--g200);background:#fff;font-weight:700;cursor:pointer;font-size:12.5px;color:var(--g600)}
+  .chip.on{background:#EFF6FF;border-color:var(--p);color:var(--p)}
+  .chip .n{display:inline-block;background:var(--danger);color:#fff;font-size:10px;border-radius:10px;padding:0 5px;margin-left:4px}
+  .card{background:#fff;border:1px solid var(--g200);border-radius:12px;padding:13px 14px;margin-bottom:10px;cursor:pointer}
+  .card.done{background:#DFE2E6;border:1px solid #15803D}
+  .ctop{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:6px}
+  .title2{font-size:14px;font-weight:800;margin-bottom:3px}
+  .meta{font-size:11.5px;color:var(--g500)}
+  .kind{font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px}
+  .k-pay{background:#FEF3C7;color:#92400E}.k-buy{background:#DBEAFE;color:#1E40AF}.k-leave{background:#DCFCE7;color:#166534}.k-gen{background:#F3E8FF;color:#7E22CE}
+  .mine{font-size:10px;font-weight:800;background:#FEE2E2;color:#991B1B;padding:2px 7px;border-radius:6px}
+  .st{font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px;margin-left:auto}
+  .s-wait{background:#FEF3C7;color:#92400E}.s-ok{background:#DCFCE7;color:#166534}.s-rej{background:#FEE2E2;color:#991B1B}.s-rec{background:#E2E8F0;color:#475569}
+  .line{display:flex;align-items:center;gap:4px;margin-top:8px;flex-wrap:wrap}
+  .step{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:14px;background:var(--g100);color:var(--g500)}
+  .step.done{background:#DCFCE7;color:#166534}.step.cur{background:#FEF3C7;color:#92400E;box-shadow:0 0 0 2px #FDE68A}.step.rej{background:#FEE2E2;color:#991B1B}
+  .arr{color:var(--g300);font-size:10px}
+  .empty{text-align:center;color:#94A3B8;padding:46px 0;font-size:13px}
+  .btn{border:none;border-radius:10px;padding:12px 15px;font-size:14px;font-weight:800;cursor:pointer}
+  .btn-p{background:var(--p);color:#fff}.btn-o{background:#fff;color:var(--g700);border:1.5px solid var(--g300)}
+  .btn-ok{background:var(--ok);color:#fff}.btn-rej{background:#fff;color:var(--danger);border:1.5px solid #FCA5A5}
+  .fab{position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom));background:var(--p);color:#fff;border:none;border-radius:99px;padding:13px 20px;font-size:14px;font-weight:800;box-shadow:0 6px 18px rgba(37,99,235,.4);cursor:pointer;z-index:20}
+  .sech{font-size:11.5px;font-weight:800;color:var(--g500);margin:15px 0 7px}
+  /* docform */
+  .docform-title{text-align:center;font-size:17px;font-weight:900;letter-spacing:4px;margin:2px 0 10px}
+  .tblwrap{border:2px solid #334155;border-radius:6px;overflow:hidden;margin-bottom:8px}
+  .tbl{width:100%;border-collapse:collapse;border:1px solid #475569;table-layout:fixed;background:#fff}
+  .tbl th{background:#E8EDF3;border:1px solid #475569;padding:8px 6px;font-size:11.5px;font-weight:800;text-align:center;color:#1F2937;word-break:keep-all;width:30%}
+  .tbl td{border:1px solid #475569;padding:0}
+  .tbl td input,.tbl td select,.tbl td textarea{display:block;width:100%;border:none;background:transparent;font-size:13px;outline:none;padding:8px 7px;font-family:inherit;box-sizing:border-box}
+  .tbl td input:focus,.tbl td select:focus,.tbl td textarea:focus{background:#FFFBEB;box-shadow:inset 0 0 0 2px #FCD34D}
+  .tbl td textarea{min-height:52px;resize:vertical}
+  .tbl td.val{padding:8px 7px;font-size:13px;white-space:pre-wrap}
+  .dash{color:#cbd5e1}
+  .fld{margin-bottom:12px}
+  .fld label{display:block;font-size:11.5px;font-weight:800;color:var(--g600);margin-bottom:5px}
+  .fld input,.fld select,.fld textarea{width:100%;padding:11px;border:1px solid var(--g300);border-radius:9px;font-size:14px;background:#fff;font-family:inherit}
+  .fld-ta{width:100%;padding:10px;border:1px solid var(--g300);border-radius:9px;font-size:13px;min-height:54px;margin-bottom:8px;font-family:inherit}
+  .picker{display:flex;flex-wrap:wrap;gap:6px}
+  .pk{padding:8px 12px;border-radius:18px;border:1.5px solid var(--g300);background:#fff;font-size:12.5px;font-weight:700;color:var(--g600);cursor:pointer}
+  .pk.on{background:var(--p);border-color:var(--p);color:#fff}
+  .att-btn{padding:6px 11px;border:1px solid var(--g300);background:#fff;border-radius:7px;font-size:12px;font-weight:700;color:var(--g600);cursor:pointer}
+  .hist{font-size:12px;padding:6px 0;border-bottom:1px solid var(--g100)}
+  .hact{font-weight:800;color:var(--ok);font-size:11px}.hact.rej{color:var(--danger)}
+  .hts{color:#94A3B8;font-size:11px;margin-left:4px}
+  .hop{color:var(--g600);font-size:11.5px;margin-top:2px;padding-left:8px;border-left:2px solid #FCA5A5}
+  .execbox{border-radius:10px;padding:11px 13px;font-size:12.5px;font-weight:700}
+  .execbox.done{background:#F0FDF4;border:1px solid #BBF7D0;color:#166534}
+  .execbox.wait{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E}
+  .actrow{display:flex;gap:8px;margin-top:12px}.actrow .btn{flex:1}
+  .att-imgs{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
+  .att-pv{max-width:46%;max-height:200px;border:1px solid var(--g200);border-radius:9px;cursor:zoom-in}
+  .att-item{border:1px solid var(--g200);border-radius:9px;background:#fff;padding:6px 9px;font-size:11.5px;font-weight:700;color:var(--g600);display:inline-flex;align-items:center;gap:6px;margin:0 6px 6px 0}
+  .att-item img{width:38px;height:38px;object-fit:cover;border-radius:6px}
+  .att-item .x{cursor:pointer;color:var(--danger);font-weight:900}
+  .att-zone{border:1.5px dashed var(--g300);border-radius:10px;padding:13px;background:var(--g50);text-align:center;cursor:pointer;font-size:12.5px;color:var(--g500);font-weight:700}
+  .lb{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9500;display:flex;align-items:center;justify-content:center;padding:20px}
+  .lb img{max-width:96vw;max-height:90vh;border-radius:6px}
+  .lb .x{position:fixed;top:14px;right:16px;background:rgba(255,255,255,.16);color:#fff;border:1.5px solid rgba(255,255,255,.5);border-radius:24px;padding:8px 15px;font-weight:800;font-size:13px}
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--g200);display:flex;justify-content:space-around;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:15}
+  .bottom-nav .item{flex:1;text-align:center;text-decoration:none;color:var(--g500);font-size:10.5px;font-weight:700;padding:3px 0}
+  .bottom-nav .item .icn{display:block;font-size:18px;margin-bottom:1px}
+  .linkcard{background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:11px;margin-top:10px;font-size:12px;color:#166534}
+</style>
+</head>
+<body>
+<header class="appbar">
+  <button class="back" id="backBtn" onclick="appBack()" style="display:none">←</button>
+  <div class="title" id="appTitle">📝 전자결재</div>
+  <a class="pc" href="/?desktop=1">💻 PC</a>
+</header>
+
+<div class="wrap">
+  <section class="view active" id="view-list"></section>
+  <section class="view" id="view-detail"></section>
+  <section class="view" id="view-form"></section>
+</div>
+
+<button class="fab" id="fab" onclick="location.hash='#form'">✏️ 새 기안</button>
+
+<nav class="bottom-nav" id="bottomNav">
+  <a class="item" href="/m/"><span class="icn">🏠</span>홈</a>
+  <a class="item" href="/m/schedule/"><span class="icn">📅</span>일정</a>
+  <a class="item" href="/m/eapproval/"><span class="icn">📝</span>결재</a>
+  <a class="item" href="/m/settings/"><span class="icn">⚙️</span>설정</a>
+</nav>
+
+<script src="/m-core.js?v=2026-06-19-done-green"></script>
+<script>
+/* ════════════════════════════════════════════════
+   전자결재 모바일 SPA
+   ⚠ 데이터 모델·상태전이는 PC app/eapproval.js 와 동일(쌍둥이) — 한쪽 수정 시 양쪽.
+   m-core: esc / _kstNow / _safeSetItem / showToast / getUsers 사용. 로그인 게이트 자동.
+════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+  const DOCS_LS='ns_eap_docs', DOCS_ETAG='ns_eap_docs_etag', CFG_LS='ns_eap_cfg', DEL_LS='ns_eap_deleted';
+  const ADMIN_EMAILS=['zoolex@gmail.com'];
+  let SUB='received';
+
+  /* helpers */
+  const esc = window.esc || (s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+  const J = v=>JSON.stringify(v);
+  function toast(m){try{if(window.showToast)return window.showToast(m);}catch(_){}}
+  function kstNow(){try{if(window._kstNow)return window._kstNow();}catch(_){}return new Date(Date.now()+9*3600*1000).toISOString().slice(0,16).replace('T',' ');}
+  function kstDate(){return new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);}
+  function won(n){return (Number(n)||0).toLocaleString('ko-KR')+'원';}
+  function commaFmt(v){if(v===''||v==null)return '';const n=Number(String(v).replace(/,/g,''));return isNaN(n)?String(v):n.toLocaleString('ko-KR');}
+  function fsize(n){n=Number(n)||0;return n<1024?n+'B':n<1048576?(n/1024).toFixed(0)+'KB':(n/1048576).toFixed(1)+'MB';}
+  function genId(p){return (p||'D')+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
+  function setItem(k,v){try{if(window._safeSetItem)window._safeSetItem(k,v);else localStorage.setItem(k,v);}catch(_){}}
+
+  function getUsers(){try{if(window.getUsers)return window.getUsers()||[];}catch(_){}try{return JSON.parse(localStorage.getItem('ns_users')||'[]');}catch(_){return [];}}
+  function authState(){try{return JSON.parse(localStorage.getItem('ns_auth')||'null');}catch(_){return null;}}
+  function ME(){const a=authState();if(!a)return '';const users=getUsers();const me=users.find(u=>(u.id||'').toLowerCase()===(a.id||a.email||'').toLowerCase());return (me&&me.name)||a.name||a.email||'';}
+  function STAFF(){const names=getUsers().map(u=>u&&u.name).filter(Boolean);const me=ME();if(me&&!names.includes(me))names.unshift(me);return [...new Set(names)];}
+  function isAdmin(){const a=authState();if(a&&a.role==='admin')return true;if(a&&ADMIN_EMAILS.includes((a.id||a.email||'').toLowerCase()))return true;return false;}
+
+  /* data layer */
+  function getDocs(){try{return JSON.parse(localStorage.getItem(DOCS_LS)||'[]');}catch(_){return [];}}
+  function writeDocs(a){setItem(DOCS_LS,JSON.stringify(a));}
+  function setDocs(a){writeDocs(a);schedulePush();}
+  function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_LS)||'{}');}catch(_){return {};}}
+  function getTpls(){const t=getCfg().tpl;return Array.isArray(t)?t:[];}
+  function tplById(id){return getTpls().find(t=>t.id===id);}
+  function getRoutes(){const r=getCfg().routes;return (r&&typeof r==='object')?r:{};}
+  function myRoute(n){const r=getRoutes()[n||ME()];return Array.isArray(r)?r.slice():[];}
+  function getDeleted(){try{return JSON.parse(localStorage.getItem(DEL_LS)||'[]');}catch(_){return [];}}
+
+  let _pushT=null;
+  function schedulePush(){clearTimeout(_pushT);_pushT=setTimeout(doPush,1200);}
+  async function doPush(){
+    try{
+      const res=await fetch('/api/eapproval',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({docs:getDocs()})});
+      if(res.ok){try{localStorage.removeItem(DOCS_ETAG);}catch(_){}}
+    }catch(e){}
+  }
+  let _syncing=false;
+  async function syncFromCloud(){
+    if(_syncing)return;_syncing=true;
+    try{
+      const etag=localStorage.getItem(DOCS_ETAG)||'';
+      const res=await fetch('/api/eapproval',{headers:etag?{'If-None-Match':etag}:{}});
+      if(res.status===304){_syncing=false;return;}
+      if(!res.ok){_syncing=false;return;}
+      const ne=res.headers.get('ETag');if(ne)localStorage.setItem(DOCS_ETAG,ne);
+      const data=await res.json();
+      const cloudDocs=Array.isArray(data.docs)?data.docs:[];
+      const cloudDel=Array.isArray(data.deleted)?data.deleted:[];
+      const delSet=new Set([...getDeleted(),...cloudDel]);
+      try{localStorage.setItem(DEL_LS,JSON.stringify([...delSet]));}catch(_){}
+      const local=getDocs(),byId=new Map(),mt=d=>Number(d&&(d.updatedAt||d.createdAt))||0;
+      for(const d of local)if(d&&d.id&&!delSet.has(String(d.id)))byId.set(String(d.id),d);
+      for(const d of cloudDocs){if(!d||!d.id||delSet.has(String(d.id)))continue;const id=String(d.id),ex=byId.get(id);if(!ex||mt(d)>=mt(ex))byId.set(id,d);}
+      writeDocs([...byId.values()]);
+      const cc=data.config||{};const lc=getCfg();
+      if((Number(cc.updatedAt)||0)>=(Number(lc.updatedAt)||0) && Object.keys(cc).length){try{localStorage.setItem(CFG_LS,JSON.stringify(cc));}catch(_){}}
+      if(parseHash().view==='list')renderList();
+    }catch(e){}
+    _syncing=false;
+  }
+  function notify(to,ev,d){if(!to)return;try{fetch('/api/eapproval-notify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({to,title:d.title,docId:d.id,kind:d.kind,event:ev,drafter:d.drafter})}).catch(()=>{});}catch(_){}}
+
+  const KIND={pay:{label:'💰 지출결의',cls:'k-pay'},buy:{label:'🛒 구매요청',cls:'k-buy'},leave:{label:'🌴 휴가',cls:'k-leave'},gen:{label:'📄 일반',cls:'k-gen'}};
+
+  /* perms */
+  function inParty(d){const me=ME();return d.drafter===me||(d.line||[]).some(s=>s.n===me)||(d.cc||[]).includes(me);}
+  function canView(d){return isAdmin()||inParty(d);}
+  function isMyTurn(d){return d.status==='wait'&&d.line[d.step]&&d.line[d.step].n===ME();}
+  function isCC(d){const me=ME();return (d.cc||[]).includes(me)&&d.drafter!==me&&!(d.line||[]).some(s=>s.n===me);}
+
+  /* router */
+  function parseHash(){
+    const h=(location.hash||'').replace(/^#/,'');
+    if(h.startsWith('detail/'))return {view:'detail',id:h.slice(7)};
+    if(h.startsWith('form'))return {view:'form'};
+    return {view:'list'};
+  }
+  function setView(name){
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    const el=document.getElementById('view-'+name);if(el)el.classList.add('active');
+    document.getElementById('backBtn').style.display=name==='list'?'none':'flex';
+    document.getElementById('bottomNav').style.display=name==='list'?'flex':'none';
+    document.getElementById('fab').style.display=name==='list'?'block':'none';
+    document.getElementById('appTitle').textContent={list:'📝 전자결재',detail:'📄 결재 상세',form:'✏️ 새 기안'}[name]||'📝 전자결재';
+  }
+  function appBack(){const r=parseHash();if(r.view==='detail'||r.view==='form')location.hash='';else location.hash='';}
+  window.appBack=appBack;
+  function render(){
+    const r=parseHash();
+    setView(r.view);
+    if(r.view==='list')renderList();
+    else if(r.view==='detail')renderDetail(r.id);
+    else if(r.view==='form')renderForm();
+  }
+  window.addEventListener('hashchange',render);
+
+  /* ── list ── */
+  function setSub(s){SUB=s;renderList();}
+  window._eapSetSub=setSub;
+  function lineHtml(d){
+    return '<div class="line">'+(d.line||[]).map((s,i)=>{
+      let cls='';if(d.status==='rej'&&i===d.step)cls='rej';else if(i<d.step||d.status==='ok')cls='done';else if(i===d.step&&d.status==='wait')cls='cur';
+      const ic=cls==='done'?'✓ ':cls==='cur'?'⏳ ':cls==='rej'?'✕ ':'';
+      return '<span class="step '+cls+'">'+ic+esc(s.n)+'</span>';
+    }).join('<span class="arr">→</span>')+'</div>';
+  }
+  function stBadge(d){return d.status==='ok'?'<span class="st s-ok">✅ 완료</span>':d.status==='rej'?'<span class="st s-rej">⛔ 반려</span>':d.status==='recalled'?'<span class="st s-rec">↩ 회수</span>':'<span class="st s-wait">진행중</span>';}
+  function card(d){
+    const k=KIND[d.kind]||KIND.gen;const mine=isMyTurn(d);
+    const amt=(d.kind==='pay'||d.kind==='buy')&&d.amount?' · '+won(d.amount):'';
+    const lv=d.kind==='leave'&&d.from?' · '+d.from+'~'+(d.to||d.from):'';
+    const ex=(d.kind==='pay'&&d.status==='ok')?(d.execStatus==='done'?'<span class="kind k-leave">💸완료</span>':'<span class="kind k-pay">💸대기</span>'):'';
+    const done=d.status==='ok'||d.status==='rej';
+    return '<div class="card '+(done?'done':'')+'" onclick="location.hash=\'#detail/'+esc(d.id)+'\'">'
+      +'<div class="ctop"><span class="kind '+k.cls+'">'+k.label+'</span>'+(mine?'<span class="mine">🔔 내 차례</span>':'')+(isCC(d)?'<span class="kind k-gen">👁참조</span>':'')+ex+stBadge(d)+'</div>'
+      +'<div class="title2">'+esc(d.title||'(제목없음)')+'</div>'
+      +'<div class="meta">기안 '+esc(d.drafter)+' · '+esc((d.at||'').slice(0,16))+amt+lv+'</div>'
+      +lineHtml(d)+'</div>';
+  }
+  function renderList(){
+    const docs=getDocs(),me=ME();
+    const cntR=docs.filter(isMyTurn).length;
+    const subs=[['received','받은 결재',cntR],['mine','상신함',null],['done','완료/반려',null]];
+    if(isAdmin())subs.push(['all','전체',null]);
+    let list;
+    if(SUB==='received')list=docs.filter(isMyTurn);
+    else if(SUB==='mine')list=docs.filter(d=>d.drafter===me);
+    else if(SUB==='done')list=docs.filter(d=>d.status!=='wait'&&canView(d));
+    else list=docs.filter(canView);
+    list.sort((a,b)=>(Number(b.updatedAt||b.createdAt)||0)-(Number(a.updatedAt||a.createdAt)||0));
+    const chips=subs.map(([k,l,n])=>'<button class="chip '+(SUB===k?'on':'')+'" onclick="_eapSetSub(\''+k+'\')">'+l+(n?'<span class="n">'+n+'</span>':'')+'</button>').join('');
+    document.getElementById('view-list').innerHTML='<div class="chips">'+chips+'</div>'+(list.length?list.map(card).join(''):'<div class="empty">📭 항목이 없습니다</div>');
+  }
+
+  /* ── docform ── */
+  function ci(label,type,vals,mode,opts){
+    const v=(vals&&vals[label]!=null)?vals[label]:'';
+    if(mode==='view'){if(v===''||v==null)return '<span class="dash">-</span>';if(type==='money')return '<b>'+commaFmt(v)+'원</b>';if(type==='number')return commaFmt(v);return esc(v);}
+    const da='data-eapf="'+esc(label)+'"';
+    if(type==='textarea')return '<textarea '+da+'>'+esc(v)+'</textarea>';
+    if(type==='select'){const o=String(opts||'').split(',').map(s=>s.trim()).filter(Boolean);return '<select '+da+'><option value="">선택</option>'+o.map(x=>'<option '+(x===v?'selected':'')+'>'+esc(x)+'</option>').join('')+'</select>';}
+    if(type==='date')return '<input '+da+' type="date" value="'+esc(v||'')+'">';
+    if(type==='money'||type==='number')return '<input '+da+' type="text" inputmode="numeric" value="'+esc(commaFmt(v))+'" oninput="_eapFmt(this)">';
+    return '<input '+da+' type="text" value="'+esc(v)+'">';
+  }
+  window._eapFmt=function(el){let raw=String(el.value||'').replace(/[^0-9.]/g,'');const p=raw.split('.');let i=p[0].replace(/^0+(?=\d)/,'');i=i?Number(i).toLocaleString('ko-KR'):'';el.value=p.length>1?(i||'0')+'.'+p.slice(1).join(''):i;};
+  function docFormHtml(t,mode,vals){
+    const rows=(t.fields||[]).map(f=>'<tr><th>'+esc(f.label)+'</th><td class="'+(mode==='view'?'val':'')+'">'+ci(f.label,f.type,vals,mode,f.options)+'</td></tr>').join('');
+    return '<div class="docform-title">'+esc(t.name)+'</div><div class="tblwrap"><table class="tbl"><colgroup><col style="width:32%"><col></colgroup>'+rows+'</table></div>';
+  }
+
+  /* ── detail ── */
+  function attView(atts){
+    atts=atts||[];if(!atts.length)return '';
+    const imgs=atts.filter(a=>a.dataUrl);window._eapLb=imgs.map(a=>a.dataUrl);
+    const others=atts.filter(a=>!a.dataUrl);
+    return '<div class="sech">📎 첨부 ('+atts.length+')</div><div class="att-imgs">'+imgs.map((a,i)=>'<img class="att-pv" src="'+a.dataUrl+'" onclick="_eapImg('+i+')">').join('')+'</div>'+others.map(a=>'<div class="att-item">📄 '+esc(a.name)+' '+fsize(a.size)+'</div>').join('');
+  }
+  window._eapImg=function(i){const u=(window._eapLb||[])[i];if(!u)return;const lb=document.createElement('div');lb.className='lb';lb.id='eapLb';lb.innerHTML='<button class="x" onclick="_eapImgClose()">✕ 닫기</button><img src="'+u+'">';lb.onclick=e=>{if(e.target===lb)_eapImgClose();};document.body.appendChild(lb);};
+  window._eapImgClose=function(){const el=document.getElementById('eapLb');if(el)el.remove();};
+
+  function renderDetail(id){
+    const d=getDocs().find(x=>x.id===id);
+    const box=document.getElementById('view-detail');
+    if(!d){box.innerHTML='<div class="empty">문서를 찾을 수 없습니다</div>';return;}
+    const k=KIND[d.kind]||KIND.gen;
+    const t=tplById(d.tplId)||{id:d.tplId,name:d.tpl||'문서',fields:(d.fields||[]).map(f=>({label:f.label,type:f.type}))};
+    const vals={};(d.fields||[]).forEach(f=>{vals[f.label]=f.value;});
+    const hist=(d.history||[]).map(h=>'<div class="hist"><b>'+esc(h.n)+'</b> <span class="hact '+(h.act==='반려'?'rej':'')+'">'+esc(h.act)+'</span> <span class="hts">'+esc(h.at)+'</span>'+(h.op?'<div class="hop">"'+esc(h.op)+'"</div>':'')+'</div>').join('')||'<div class="meta">이력 없음</div>';
+    let act='';
+    if(isMyTurn(d)){
+      act='<textarea id="rejOp" class="fld-ta" placeholder="반려 시 의견 (선택)"></textarea><div class="actrow"><button class="btn btn-ok" onclick="_eapApprove(\''+esc(id)+'\')">✅ 승인</button><button class="btn btn-rej" onclick="_eapReject(\''+esc(id)+'\')">⛔ 반려</button></div>';
+    }else if(d.drafter===ME()&&d.status==='wait'){
+      act='<button class="btn btn-o" style="width:100%;margin-top:12px" onclick="_eapRecall(\''+esc(id)+'\')">↩ 회수</button>';
+    }else if(d.drafter===ME()&&d.status==='recalled'){
+      act='<button class="btn btn-p" style="width:100%;margin-top:12px" onclick="_eapResubmit(\''+esc(id)+'\')">📤 재상신</button>';
+    }
+    let execHtml='';
+    if(d.kind==='pay'&&d.status==='ok'){
+      execHtml=d.execStatus==='done'
+        ?'<div class="sech">자금집행</div><div class="execbox done">✅ 집행완료 <span class="meta">'+esc(d.execBy||'')+' · '+esc(d.execAt||'')+'</span></div>'
+        :'<div class="sech">자금집행</div><div class="execbox wait">⏳ 집행 대기'+(isAdmin()?'<button class="btn btn-ok" style="width:100%;margin-top:8px" onclick="_eapExec(\''+esc(id)+'\')">💸 집행완료 처리</button>':'')+'</div>';
+    }
+    box.innerHTML='<div class="ctop"><span class="kind '+k.cls+'">'+k.label+'</span>'+stBadge(d)+'</div>'
+      +docFormHtml(t,'view',vals)+execHtml
+      +'<div class="sech">결재선</div>'+lineHtml(d)
+      +((d.cc&&d.cc.length)?'<div class="meta" style="margin-top:6px">참조: '+d.cc.map(esc).join(', ')+'</div>':'')
+      +attView(d.attachments)
+      +'<div class="sech">처리 이력</div>'+hist+act;
+  }
+
+  /* ── actions ── */
+  window._eapApprove=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||!isMyTurn(d))return;d.history=d.history||[];d.history.push({n:ME(),act:'승인',at:kstNow()});d.step++;d.updatedAt=Date.now();
+    if(d.step>=d.line.length){d.status='ok';if(d.kind==='leave'&&d.days){const c=getCfg();c.leave=c.leave||{};const l=c.leave[d.drafter]||{total:15,used:0};l.used=(Number(l.used)||0)+Number(d.days);c.leave[d.drafter]=l;c.updatedAt=Date.now();setItem(CFG_LS,JSON.stringify(c));pushCfg();}setDocs(docs);notify(d.drafter,'done',d);toast('✅ 최종 승인');}
+    else{setDocs(docs);notify((d.line[d.step]||{}).n,'request',d);toast('✅ 승인 — 다음 결재자에게');}
+    location.hash='';};
+  window._eapReject=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||!isMyTurn(d))return;const op=(document.getElementById('rejOp')||{}).value||'';d.history=d.history||[];d.history.push({n:ME(),act:'반려',at:kstNow(),op});d.status='rej';d.updatedAt=Date.now();setDocs(docs);notify(d.drafter,'rejected',d);toast('⛔ 반려');location.hash='';};
+  window._eapRecall=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||d.drafter!==ME()||d.status!=='wait')return;d.status='recalled';d.updatedAt=Date.now();d.history=d.history||[];d.history.push({n:ME(),act:'회수',at:kstNow()});setDocs(docs);toast('↩ 회수');location.hash='';};
+  window._eapResubmit=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||d.drafter!==ME()||d.status!=='recalled')return;d.status='wait';d.step=1;d.updatedAt=Date.now();d.history=d.history||[];d.history.push({n:ME(),act:'재상신',at:kstNow()});setDocs(docs);notify((d.line[1]||{}).n,'request',d);toast('📤 재상신');location.hash='';};
+  window._eapExec=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||d.kind!=='pay'||d.status!=='ok'||!isAdmin())return;d.execStatus='done';d.execBy=ME();d.execAt=kstNow();d.updatedAt=Date.now();setDocs(docs);notify(d.drafter,'exec',d);toast('💸 집행완료');render();};
+  async function pushCfg(){try{await fetch('/api/eapproval',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({config:getCfg()})});}catch(_){}}
+
+  /* ── form (draft) ── */
+  let draftTpl=null,draftLine=[];
+  function renderForm(){
+    const tpls=getTpls();
+    if(!tpls.length){document.getElementById('view-form').innerHTML='<div class="empty">등록된 양식이 없습니다.<br>PC에서 양식을 먼저 등록하세요.</div>';return;}
+    draftTpl=draftTpl&&tplById(draftTpl.id)?draftTpl:tpls[0];
+    draftLine=myRoute().filter(n=>n!==ME());
+    const tplOpts=tpls.map(t=>'<option value="'+esc(t.id)+'" '+(draftTpl&&t.id===draftTpl.id?'selected':'')+'>'+esc(t.name)+'</option>').join('');
+    const staff=STAFF().filter(n=>n!==ME());
+    document.getElementById('view-form').innerHTML=
+      '<div class="fld"><label>문서 양식</label><select id="fTpl" onchange="_eapTplChange(this.value)">'+tplOpts+'</select></div>'
+      +'<div class="fld"><label>제목</label><input id="fTitle" placeholder="제목 입력"></div>'
+      +'<div id="fFields"></div>'
+      +'<div class="fld"><label>결재선 (순서대로 선택)</label><div class="picker" id="fLine">'+staff.map(n=>'<span class="pk '+(draftLine.includes(n)?'on':'')+'" onclick="_eapTL(\''+esc(n)+'\')">'+lblIdx(draftLine,n)+esc(n)+'</span>').join('')+'</div><div class="meta" id="fLinePrev" style="margin-top:6px"></div></div>'
+      +'<button class="btn btn-p" style="width:100%;margin-top:6px" onclick="_eapSubmit()">📤 상신</button>';
+    renderFormFields();updateLinePrev();
+  }
+  function lblIdx(arr,n){const i=arr.indexOf(n);return i>=0?'<b>'+(i+1)+'</b> ':'';}
+  function renderFormFields(){const b=document.getElementById('fFields');if(b)b.innerHTML=draftTpl?docFormHtml(draftTpl,'input',{}):'';}
+  window._eapTplChange=function(id){draftTpl=tplById(id);renderFormFields();};
+  window._eapTL=function(n){const i=draftLine.indexOf(n);if(i>=0)draftLine.splice(i,1);else draftLine.push(n);const staff=STAFF().filter(x=>x!==ME());document.getElementById('fLine').innerHTML=staff.map(x=>'<span class="pk '+(draftLine.includes(x)?'on':'')+'" onclick="_eapTL(\''+esc(x)+'\')">'+lblIdx(draftLine,x)+esc(x)+'</span>').join('');updateLinePrev();};
+  function updateLinePrev(){const el=document.getElementById('fLinePrev');if(el)el.innerHTML='결재선: <b>'+esc(ME())+'</b>(기안)'+(draftLine.length?' → '+draftLine.map(esc).join(' → '):' <span class="dash">(결재자 미지정)</span>');}
+  window._eapSubmit=function(){
+    if(!draftTpl){toast('양식을 선택하세요');return;}
+    const title=(document.getElementById('fTitle')||{}).value.trim()||draftTpl.name;
+    const fields=[];(draftTpl.fields||[]).forEach(f=>{const el=document.querySelector('#fFields [data-eapf="'+f.label.replace(/"/g,'\\"')+'"]');let v=el?el.value:'';if(f.type==='money'||f.type==='number')v=String(v).replace(/,/g,'');fields.push({label:f.label,type:f.type,value:v});});
+    const cat=draftTpl.cat||'gen',me=ME();
+    const line=[{n:me,role:'기안'},...draftLine.map(n=>({n,role:'결재'}))];
+    const d={id:genId('D'),kind:cat,title,drafter:me,at:kstNow(),tpl:draftTpl.name,tplId:draftTpl.id,fields,line,step:1,status:'wait',history:[{n:me,act:'기안',at:kstNow()}],cc:[],attachments:[],createdAt:Date.now(),updatedAt:Date.now()};
+    if(cat==='pay'||cat==='buy'){const a=fields.find(f=>f.type==='money');d.amount=a?Number(a.value)||0:0;if(cat==='pay')d.execStatus='pending';}
+    if(cat==='leave'){const ds=fields.filter(f=>f.type==='date'&&f.value).map(f=>f.value).sort();const df=fields.find(f=>f.label.includes('일')&&f.type==='number');d.from=ds[0]||kstDate();d.to=ds[ds.length-1]||d.from;d.days=df&&df.value?Number(df.value):Math.max(1,Math.round((new Date(d.to)-new Date(d.from))/86400000)+1);}
+    const docs=getDocs();docs.push(d);setDocs(docs);
+    if(d.line[1])notify(d.line[1].n,'request',d);
+    draftTpl=null;toast('📤 상신 완료');location.hash='#detail/'+d.id;
+  };
+
+  /* ── boot ── */
+  (async function init(){
+    try{await syncFromCloud();}catch(_){}
+    // 딥링크 ?doc=ID
+    try{const id=new URLSearchParams(location.search).get('doc');if(id&&getDocs().some(d=>d.id===id)){location.hash='#detail/'+id;}}catch(_){}
+    render();
+    setInterval(()=>{if(parseHash().view==='list')syncFromCloud();},30000);
+  })();
+})();
+</script>
+</body>
+</html>

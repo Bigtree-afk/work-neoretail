@@ -95,6 +95,9 @@
     <a class="nav-item" onclick="showScreen('schedulehub')">
       <span class="nav-icon">📅</span> 일정조회
     </a>
+    <a class="nav-item" onclick="showScreen('eapproval')">
+      <span class="nav-icon">📝</span> 전자결재
+    </a>
     <a class="nav-item" onclick="showScreen('improvements')">
       <span class="nav-icon">💡</span> 개선안
     </a>
@@ -156,6 +159,9 @@
   </a>
   <a class="nav-item" onclick="showScreen('schedulehub'); closeMenu()">
     <span class="nav-icon">📅</span> 일정조회
+  </a>
+  <a class="nav-item" onclick="showScreen('eapproval'); closeMenu()">
+    <span class="nav-icon">📝</span> 전자결재
   </a>
   <a class="nav-item" onclick="showScreen('improvements'); closeMenu()">
     <span class="nav-icon">💡</span> 개선안
@@ -1529,6 +1535,13 @@
     <!-- ═══════════════════════════════════════ -->
     <!-- screen-calendar 는 작업/일정 (screen-jobs)로 통합됨. 유지보수성을 위해 빈 div 만 둠. -->
     <div class="screen" id="screen-calendar" style="display:none"></div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- SCREEN: 전자결재 (eApproval) -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="screen" id="screen-eapproval">
+      <div id="eapContainer"></div>
+    </div>
 
     <!-- ═══════════════════════════════════════ -->
     <!-- SCREEN: 사이트 개선안 (모두 공유 / 논의)  -->
@@ -3943,5 +3956,6 @@
 <script src="/app/app-07.js?v=2026-06-22-jobcontact-ingest" defer></script>
 <script src="/app/app-08.js?v=2026-06-22-jobcontact-ingest" defer></script>
 <script src="/app/supplies-reg.js?v=2026-06-19-contact-update" defer></script>
+<script src="/app/eapproval.js?v=2026-06-26-eapproval-init" defer></script>
 </body>
 </html>

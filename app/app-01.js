@@ -501,6 +501,7 @@
     supplieshub: '🏷️ 소모품',
     schedulehub: '📅 일정조회',
     stocktakehub: '📦 재고조사',
+    eapproval: '📝 전자결재',
     improvements: '💡 사이트 개선안',
     consult: '상담 조회',
     stores: '점포관리',
@@ -574,6 +575,9 @@
     }
     if (id === 'improvements' && typeof loadImprovements === 'function') {
       try { loadImprovements(); } catch(e) { console.warn('[improvements] load 실패', e); }
+    }
+    if (id === 'eapproval' && typeof renderEapprovalScreen === 'function') {
+      try { renderEapprovalScreen(); } catch(e) { console.warn('[eapproval] render 실패', e); }
     }
   }
 
