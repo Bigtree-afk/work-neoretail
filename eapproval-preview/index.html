@@ -131,6 +131,20 @@
   .solar-tag{font-size:10px;font-weight:800;background:#DBEAFE;color:#1E40AF;border-radius:5px;padding:1px 6px;margin-left:4px}
   .exec-done{font-size:10.5px;font-weight:800;background:#DCFCE7;color:#166534;border-radius:6px;padding:2px 8px}
   .exec-wait{font-size:10.5px;font-weight:800;background:#FEF3C7;color:#92400E;border-radius:6px;padding:2px 8px}
+  /* 첨부 이미지 미리보기 — 폼보다 작으면 원본, 크면 폼에 맞게 축소 */
+  .att-imgs{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+  .att-preview{max-width:100%;max-height:360px;width:auto;height:auto;border:1px solid var(--g200);border-radius:9px;cursor:zoom-in;display:block}
+  /* 라이트박스 — 클릭 시 원본 보기, 닫기 버튼 */
+  .lb{position:fixed;inset:0;background:rgba(0,0,0,.86);z-index:200;display:none;align-items:center;justify-content:center;overflow:auto;padding:30px}
+  .lb.show{display:flex}
+  .lb img{max-width:96vw;max-height:92vh;width:auto;height:auto;border-radius:6px;cursor:zoom-in;transition:transform .12s}
+  .lb img.zoom{max-width:none;max-height:none;cursor:zoom-out}
+  .lb .lb-x{position:fixed;top:16px;right:18px;background:rgba(255,255,255,.16);color:#fff;border:1.5px solid rgba(255,255,255,.5);border-radius:24px;padding:9px 18px;font-size:13.5px;font-weight:800;cursor:pointer;z-index:201}
+  .lb .lb-hint{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.8);font-size:11.5px;font-weight:700}
+  /* LINE 결재 알림 카드 (모바일 결재 링크 데모) */
+  .line-card{background:#fff;border:1px solid var(--g200);border-radius:12px;padding:12px;margin-top:8px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .line-card .lh{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:#06C755;margin-bottom:6px}
+  .line-card .lbtn{display:block;width:100%;text-align:center;background:#06C755;color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:800;cursor:pointer;margin-top:9px}
 </style>
 </head>
 <body>
@@ -210,6 +224,14 @@
 <div class="ov" id="ovTpl"><div class="modal" id="tplEditBody"></div></div>
 <!-- 생일 편집 모달 -->
 <div class="ov" id="ovBday"><div class="modal" id="bdayBody"></div></div>
+<!-- 결재 루트 편집 모달 -->
+<div class="ov" id="ovRoute"><div class="modal" id="routeBody"></div></div>
+<!-- 이미지 라이트박스 (첨부 원본 보기) -->
+<div class="lb" id="imgLb" onclick="closeImg()">
+  <button class="lb-x" onclick="event.stopPropagation();closeImg()">✕ 닫기</button>
+  <img id="imgLbImg" src="" onclick="event.stopPropagation();this.classList.toggle('zoom')">
+  <div class="lb-hint">이미지 클릭 — 원본↔맞춤 · 바깥/닫기 — 원래대로</div>
+</div>
 
 <script>
 /* ════════ MOCK 데이터 ════════ */
@@ -310,6 +332,20 @@ function birthThisYear(b){
   // 음력은 목업상 동일 월/일을 양력 날짜로 표기 (실제 구현 시 만세력 변환 적용)
   return `${y}-${m}-${d}`;
 }
+
+/* ──── 사용자별 결재 루트(기본 결재선) ──── */
+const ROUTE_KEY='eap_routes';
+function seedRoutes(){
+  if(localStorage.getItem(ROUTE_KEY)) return;
+  // 사용자 → 기본 결재선(순서대로 결재자). 기안자 본인 제외한 결재자 리스트.
+  localStorage.setItem(ROUTE_KEY, JSON.stringify({
+    '김기사':['최팀장','정현우'], '이엔지니어':['최팀장','정현우'],
+    '박현장':['최팀장','정현우'], '최팀장':['정현우'], '한실장':['정현우'], '정현우':[],
+  }));
+}
+const getRoutes=()=>{ try{return JSON.parse(localStorage.getItem(ROUTE_KEY)||'{}')}catch(e){return {}} };
+const setRoutes=r=>localStorage.setItem(ROUTE_KEY, JSON.stringify(r));
+const myRoute=(n)=>{ const r=getRoutes()[n||ME]; return Array.isArray(r)?r.slice():[]; };
 
 const getDocs = () => { try{return JSON.parse(localStorage.getItem(DOC_KEY)||'[]')}catch(e){return []} };
 const setDocs = d => localStorage.setItem(DOC_KEY, JSON.stringify(d));
@@ -418,8 +454,15 @@ function render(){
 }
 /* ──── 양식 관리 렌더 ──── */
 function renderTpl(){
+  // 🧭 사용자별 결재 루트(기본 결재선) 관리 — 관리자
+  const R=getRoutes();
+  const routeHtml = `<div class="sech" style="margin-top:0">🧭 사용자별 결재 루트 <span style="color:var(--g400);font-weight:600">— 기안 시 자동 적용(그 자리서 수정 가능)</span></div>`
+    + '<table style="margin-bottom:16px"><thead><tr><th>기안자</th><th>기본 결재선</th><th></th></tr></thead><tbody>'
+    + STAFF.map(n=>{ const r=(R[n]||[]).filter(Boolean);
+        return `<tr><td><b>${esc(n)}</b></td><td style="color:${r.length?'var(--g700)':'var(--g400)'}">${r.length?(esc(n)+'(기안) → '+r.map(esc).join(' → ')):'미지정'}</td><td><button class="btn btn-o btn-sm" onclick="openRoute('${esc(n)}')">✏️</button></td></tr>`; }).join('')
+    + '</tbody></table>';
   const tpls=getTpls();
-  document.getElementById('tplList').innerHTML = tpls.map(t=>{
+  document.getElementById('tplList').innerHTML = routeHtml + tpls.map(t=>{
     const k=KIND[t.cat]||KIND.gen;
     const preview = t.fields.slice(0,6).map(f=>esc(f.label)).join(' · ') + (t.fields.length>6?' …':'');
     return `<div class="card" style="cursor:default">
@@ -497,10 +540,29 @@ function openDetail(id){
       if(d.drafter===ME && d.status==='recalled') return `<div style="margin-top:14px"><div style="font-size:11.5px;color:var(--g500);text-align:center;margin-bottom:8px">회수한 기안입니다 — 다시 상신할 수 있습니다</div><button class="btn btn-p" style="width:100%" onclick="resubmit('${d.id}')">📤 재상신</button></div>`;
       return `<div style="font-size:12px;color:var(--g400);text-align:center;margin-top:14px">${d.status==='wait'?`현재 <b>${esc((d.line[d.step]||{}).n||'')}</b> 님 결재 대기 중`:d.status==='recalled'?'기안자가 회수한 문서입니다':'결재가 종료된 문서입니다'}</div>`;
     })()}
+    ${(function(){
+      const cur=(d.status==='wait')?((d.line[d.step]||{}).n||''):'';
+      const link='?doc='+d.id;
+      return `<div class="sech">📱 모바일 결재 (LINE 알림)</div>
+        <div class="line-card">
+          <div class="lh">💬 LINE 알림 미리보기${cur?` — 받는사람: ${esc(cur)}`:''}</div>
+          <div style="font-size:12.5px;color:var(--g700);line-height:1.55">[전자결재] ${esc(cur||d.drafter)}님, <b>${esc(d.title)}</b> ${cur?'결재 요청이 도착했습니다.':'문서 알림입니다.'}<br><span style="color:var(--g500)">기안 ${esc(d.drafter)} · ${k.amount&&d.amount?won(d.amount)+'원 · ':''}${esc(d.at)}</span></div>
+          <button class="lbtn" onclick="openByLink('${d.id}')">📱 결재하러 가기 (링크 열기)</button>
+        </div>
+        <div style="font-size:11px;color:var(--g400);margin-top:6px;display:flex;gap:6px;align-items:center">🔗 <span style="font-family:monospace;background:var(--g100);padding:2px 6px;border-radius:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(location.pathname+link)}</span><button class="fld-att-btn" onclick="copyLink('${d.id}')">복사</button></div>`;
+    })()}
   `;
   document.getElementById('ovDetail').classList.add('show');
 }
-function closeDetail(){ document.getElementById('ovDetail').classList.remove('show'); }
+function closeDetail(){ document.getElementById('ovDetail').classList.remove('show'); history.replaceState(null,'',location.pathname); }
+// 🔗 LINE 링크 → 해당 결재건으로 진입 (모바일 승인 데모)
+function openByLink(id){ history.replaceState(null,'','?doc='+id); closeDetail(); const d=getDocs().find(x=>x.id===id); if(!d){ alert('문서를 찾을 수 없습니다'); return; }
+  // 결재 차례인 당사자로 자동 전환(데모) — 실서비스는 로그인 사용자 기준
+  if(d.status==='wait'){ const cur=(d.line[d.step]||{}).n; if(cur && STAFF.includes(cur) && cur!==ME){ ME=cur; localStorage.setItem(ME_KEY,ME); } }
+  history.replaceState(null,'','?doc='+id); render(); openDetail(id);
+  pushToast('📱 LINE 링크로 결재건 진입 — '+(d.status==='wait'?((d.line[d.step]||{}).n+' 님 승인 화면'):'열람'));
+}
+function copyLink(id){ const url=location.origin+location.pathname+'?doc='+id; try{ navigator.clipboard.writeText(url); pushToast('🔗 결재 링크 복사됨'); }catch(e){ pushToast('🔗 '+url); } }
 
 /* ════════ 기안 모달 ════════ */
 /* ──── 양식 등록/수정 ──── */
@@ -549,10 +611,30 @@ function saveTpl(){
 }
 function delTpl(id){ if(!confirm('이 양식을 삭제할까요?')) return; setTpls(getTpls().filter(t=>t.id!==id)); render(); }
 
+/* ──── 결재 루트 편집 (관리자) ──── */
+let _routeUser=null, _routeLine=[];
+function openRoute(n){
+  _routeUser=n; _routeLine=(getRoutes()[n]||[]).filter(x=>x&&x!==n);
+  renderRouteModal(); document.getElementById('ovRoute').classList.add('show');
+}
+function renderRouteModal(){
+  const n=_routeUser;
+  document.getElementById('routeBody').innerHTML=`
+    <div style="display:flex;align-items:center;margin-bottom:10px"><h3>🧭 ${esc(n)} 결재 루트</h3><button class="btn btn-o btn-sm" style="margin-left:auto" onclick="closeRoute()">닫기</button></div>
+    <div style="font-size:12px;color:var(--g500);margin-bottom:8px">결재자를 <b>순서대로</b> 클릭(다시 클릭하면 해제). 기안자 본인은 자동으로 맨 앞.</div>
+    <div class="picker">${STAFF.filter(x=>x!==n).map(x=>{ const idx=_routeLine.indexOf(x); return `<span class="pk ${idx>=0?'on':''}" onclick="toggleRouteStep('${esc(x)}')">${idx>=0?('<b>'+(idx+1)+'</b> '):''}${esc(x)}</span>`; }).join('')}</div>
+    <div style="font-size:12px;color:var(--g600);margin:10px 0">결재선:  <b>${esc(n)}(기안)</b>${_routeLine.length?'  →  '+_routeLine.map(esc).join('  →  '):'  <span style="color:var(--g400)">(없음)</span>'}</div>
+    <button class="btn btn-p" style="width:100%" onclick="saveRoute()">💾 저장</button>`;
+}
+function toggleRouteStep(x){ const i=_routeLine.indexOf(x); if(i>=0) _routeLine.splice(i,1); else _routeLine.push(x); renderRouteModal(); }
+function closeRoute(){ document.getElementById('ovRoute').classList.remove('show'); }
+function saveRoute(){ const R=getRoutes(); R[_routeUser]=_routeLine.slice(); setRoutes(R); closeRoute(); render(); pushToast('🧭 '+_routeUser+' 결재 루트 저장'); }
+
 let draftLine=[], draftCC=[], draftAtt=[];
 function openDraft(prefill){
   const p = prefill||{};
-  draftLine = ME==='정현우'?['최팀장']:['정현우'];
+  // 결재선 기본값 = 내 결재 루트(없으면 아무도 선택 안 됨)
+  draftLine = myRoute().filter(n=>n!==ME);
   draftCC = [];
   draftAtt = [];
   const tpls=getTpls();
@@ -567,11 +649,17 @@ function openDraft(prefill){
       <input type="file" id="draftFile" multiple style="display:none" onchange="addDraftAtt(this.files);this.value=''">
       <div class="att-list" id="draftAttList"></div>
     </div>
-    <div class="fld"><label>결재선 (기안자 본인 → 선택 순서대로)</label>
+    <div class="fld">
+      <label style="display:flex;align-items:center;gap:8px">결재선 <span style="color:var(--g400);font-weight:600">기안자 본인 → 선택 순서대로 · 미선택 시 결재자 없음</span>
+        <button type="button" class="fld-att-btn" style="margin-left:auto" onclick="saveMyRoute()">💾 내 기본 결재선 저장</button>
+      </label>
       <div class="picker" id="linePicker">${STAFF.filter(n=>n!==ME).map(n=>`<span class="pk ${draftLine.includes(n)?'on':''}" onclick="toggleLine('${esc(n)}')">${esc(n)}</span>`).join('')}</div>
       <div id="linePreview" style="font-size:11.5px;color:var(--g500);margin-top:7px"></div>
     </div>
-    <div class="fld"><label>참조 (열람만 · 결재권 없음 · 선택)</label>
+    <div class="fld">
+      <label style="display:flex;align-items:center;gap:8px">참조 <span style="color:var(--g400);font-weight:600">열람만 · 결재권 없음</span>
+        <button type="button" class="fld-att-btn" style="margin-left:auto" onclick="toggleCCAll()" id="ccAllBtn">전체 선택</button>
+      </label>
       <div class="picker" id="ccPicker">${STAFF.filter(n=>n!==ME).map(n=>`<span class="pk ${draftCC.includes(n)?'on':''}" onclick="toggleCC('${esc(n)}')">${esc(n)}</span>`).join('')}</div>
     </div>
     <button class="btn btn-p" style="width:100%" onclick="submitDraft()">📤 상신 (결재 요청)</button>
@@ -669,10 +757,19 @@ function renderDraftAtt(){
 }
 function attView(atts){
   if(!atts||!atts.length) return '';
-  return `<div class="sech">📎 첨부 (${atts.length})</div><div>`+atts.map(a=>a.dataUrl
-    ? `<a class="att-thumb" href="${a.dataUrl}" target="_blank"><img src="${a.dataUrl}"><span>${esc(a.name)}</span></a>`
-    : `<span class="att-thumb">📄 ${esc(a.name)} <span style="color:var(--g400)">${_fsize(a.size)}</span></span>`).join('')+'</div>';
+  const imgs=atts.filter(a=>a.dataUrl), files=atts.filter(a=>!a.dataUrl);
+  window._lbImgs = imgs.map(a=>a.dataUrl);
+  let h=`<div class="sech">📎 첨부 (${atts.length})</div>`;
+  if(imgs.length) h+='<div class="att-imgs">'+imgs.map((a,i)=>`<img class="att-preview" src="${a.dataUrl}" alt="${esc(a.name)}" title="클릭 — 원본 보기" onclick="openImg(${i})">`).join('')+'</div>';
+  if(files.length) h+='<div style="margin-top:6px">'+files.map(a=>`<span class="att-thumb">📄 ${esc(a.name)} <span style="color:var(--g400)">${_fsize(a.size)}</span></span>`).join('')+'</div>';
+  return h;
 }
+function openImg(i){
+  const src=(window._lbImgs||[])[i]; if(!src) return;
+  const im=document.getElementById('imgLbImg'); im.classList.remove('zoom'); im.src=src;
+  document.getElementById('imgLb').classList.add('show');
+}
+function closeImg(){ const lb=document.getElementById('imgLb'); lb.classList.remove('show'); const im=document.getElementById('imgLbImg'); im.classList.remove('zoom'); im.src=''; }
 function toggleLine(n){
   const i=draftLine.indexOf(n);
   if(i>=0) draftLine.splice(i,1); else draftLine.push(n);
@@ -683,6 +780,22 @@ function toggleCC(n){
   const i=draftCC.indexOf(n);
   if(i>=0) draftCC.splice(i,1); else draftCC.push(n);
   document.querySelectorAll('#ccPicker .pk').forEach(el=>el.classList.toggle('on', draftCC.includes(el.textContent)));
+  _syncCCAllBtn();
+}
+function toggleCCAll(){
+  const others=STAFF.filter(n=>n!==ME);
+  const allOn = others.every(n=>draftCC.includes(n));
+  draftCC = allOn ? [] : others.slice();   // 전체선택 ↔ 전체해제 토글
+  document.querySelectorAll('#ccPicker .pk').forEach(el=>el.classList.toggle('on', draftCC.includes(el.textContent)));
+  _syncCCAllBtn();
+}
+function _syncCCAllBtn(){
+  const others=STAFF.filter(n=>n!==ME); const b=document.getElementById('ccAllBtn');
+  if(b) b.textContent = others.length&&others.every(n=>draftCC.includes(n)) ? '전체 해제' : '전체 선택';
+}
+function saveMyRoute(){
+  const r=getRoutes(); r[ME]=draftLine.slice(); setRoutes(r);
+  pushToast('💾 내 기본 결재선 저장됨: '+(draftLine.length?draftLine.join(' → '):'(없음)'));
 }
 function updateLinePreview(){
   document.getElementById('linePreview').textContent = '결재선:  ' + [ME+'(기안)'].concat(draftLine).join('  →  ');
@@ -804,7 +917,9 @@ document.getElementById('meName').onclick = function(){
   const i=STAFF.indexOf(ME); ME=STAFF[(i+1)%STAFF.length]; localStorage.setItem(ME_KEY,ME); render();
 };
 
-seed(); seedTpl(); seedBirth(); render();
+seed(); seedTpl(); seedBirth(); seedRoutes(); render();
+// 🔗 딥링크 — LINE 메시지의 링크(?doc=ID) 로 진입하면 해당 결재 상세 바로 열기 (모바일 승인)
+(function(){ try{ const id=new URLSearchParams(location.search).get('doc'); if(id && getDocs().some(d=>d.id===id)) setTimeout(()=>openByLink(id),60); }catch(e){} })();
 </script>
 </body>
 </html>
