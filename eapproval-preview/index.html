@@ -99,6 +99,38 @@
   .docform-tbl td textarea{min-height:52px;resize:vertical;line-height:1.5}
   .docform-tbl td.val{white-space:pre-wrap;font-size:13.5px;color:#111827;padding:8px}
   .sech{font-size:12px;font-weight:800;color:var(--g500);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.4px}
+  /* 넓은 작성 모달 (기안 — 작성 편의) */
+  .modal.wide{max-width:880px}
+  .modal.wide .docform{padding:18px}
+  .modal.wide .docform-tbl td input,.modal.wide .docform-tbl td select,.modal.wide .docform-tbl td textarea{font-size:14.5px;padding:9px 7px}
+  .modal.wide .docform-tbl td textarea{min-height:96px;line-height:1.6}
+  .modal.wide .fld textarea{min-height:120px}
+  /* 첨부 영역 */
+  .att-zone{border:1.5px dashed var(--g300);border-radius:10px;padding:12px;background:var(--g50);text-align:center;cursor:pointer;font-size:12.5px;color:var(--g500);font-weight:700}
+  .att-zone:hover{border-color:var(--p);color:var(--p)}
+  .att-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .att-item{position:relative;border:1px solid var(--g200);border-radius:9px;background:#fff;padding:7px 9px;font-size:11.5px;font-weight:700;color:var(--g700);display:flex;align-items:center;gap:6px;max-width:200px}
+  .att-item img{width:42px;height:42px;object-fit:cover;border-radius:6px}
+  .att-item .x{cursor:pointer;color:var(--danger);font-weight:900;margin-left:2px}
+  .att-thumb{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--g200);border-radius:8px;padding:4px 8px;background:#fff;font-size:11px;color:var(--g600);margin:3px 4px 0 0}
+  .att-thumb img{width:54px;height:54px;object-fit:cover;border-radius:6px}
+  /* 필드 안 이미지 첨부 버튼 */
+  .fld-att-btn{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--p);background:#EFF6FF;border:1px solid #BFDBFE;border-radius:7px;padding:3px 8px;cursor:pointer;margin-top:5px}
+  /* 일정 / 대시보드 */
+  .dash{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+  @media(min-width:600px){.dash{grid-template-columns:repeat(4,1fr)}}
+  .dcard{background:#fff;border:1px solid var(--g200);border-radius:12px;padding:13px}
+  .dcard .dl{font-size:11px;color:var(--g500);font-weight:700}
+  .dcard .dv{font-size:22px;font-weight:900;margin-top:3px}
+  .sch-item{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--g200);border-radius:10px;padding:9px 12px;margin-bottom:7px}
+  .sch-item .d{font-size:12px;font-weight:800;color:var(--g700);min-width:78px;font-variant-numeric:tabular-nums}
+  .sch-item .ic{font-size:16px}
+  .sch-bday{border-left:4px solid #EC4899}
+  .sch-leave{border-left:4px solid #16A34A}
+  .lunar-tag{font-size:10px;font-weight:800;background:#FCE7F3;color:#9D174D;border-radius:5px;padding:1px 6px;margin-left:4px}
+  .solar-tag{font-size:10px;font-weight:800;background:#DBEAFE;color:#1E40AF;border-radius:5px;padding:1px 6px;margin-left:4px}
+  .exec-done{font-size:10.5px;font-weight:800;background:#DCFCE7;color:#166534;border-radius:6px;padding:2px 8px}
+  .exec-wait{font-size:10.5px;font-weight:800;background:#FEF3C7;color:#92400E;border-radius:6px;padding:2px 8px}
 </style>
 </head>
 <body>
@@ -115,6 +147,7 @@
   <div class="tabs">
     <div class="tab on" id="tab-appr" onclick="switchTab('appr')">📋 전자결재</div>
     <div class="tab" id="tab-leave" onclick="switchTab('leave')">🌴 연차관리</div>
+    <div class="tab" id="tab-sch" onclick="switchTab('sch')">📅 일정</div>
     <div class="tab" id="tab-tpl" onclick="switchTab('tpl')" style="display:none;flex:0 0 auto;padding-left:16px;padding-right:16px">🧾 양식 관리</div>
   </div>
 
@@ -149,6 +182,16 @@
     <table id="teamTbl"><thead><tr><th>직원</th><th>부여</th><th>사용</th><th>잔여</th><th>사용률</th></tr></thead><tbody></tbody></table>
   </section>
 
+  <!-- ===== 일정 (생일·연차) — 모든 사원 열람 ===== -->
+  <section id="view-sch" style="display:none">
+    <div class="dash" id="schDash"></div>
+    <div class="subtabs">
+      <div class="chip on" id="schchip-up" onclick="SCHSUB='up';render()">📅 다가오는 일정</div>
+      <div class="chip" id="schchip-bday" onclick="SCHSUB='bday';render()">🎂 생일 관리</div>
+    </div>
+    <div id="schBody"></div>
+  </section>
+
   <!-- ===== 양식 관리 (관리자) ===== -->
   <section id="view-tpl" style="display:none">
     <div class="row-actions">
@@ -161,10 +204,12 @@
 
 <!-- 결재 상세 모달 -->
 <div class="ov" id="ovDetail"><div class="modal" id="detailBody"></div></div>
-<!-- 기안 모달 -->
-<div class="ov" id="ovDraft"><div class="modal" id="draftBody"></div></div>
+<!-- 기안 모달 (넓은 작성폼) -->
+<div class="ov" id="ovDraft"><div class="modal wide" id="draftBody"></div></div>
 <!-- 양식 등록/수정 모달 -->
 <div class="ov" id="ovTpl"><div class="modal" id="tplEditBody"></div></div>
+<!-- 생일 편집 모달 -->
+<div class="ov" id="ovBday"><div class="modal" id="bdayBody"></div></div>
 
 <script>
 /* ════════ MOCK 데이터 ════════ */
@@ -174,6 +219,7 @@ let ME = localStorage.getItem(ME_KEY) || '정현우';
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const won = n => (Number(n)||0).toLocaleString('ko-KR');
 const today = () => new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
+const todayPlus = (n) => new Date(Date.now()+9*3600*1000+n*86400000).toISOString().slice(0,10);
 const nowts = () => new Date(Date.now()+9*3600*1000).toISOString().slice(0,16).replace('T',' ');
 
 const KIND = {
@@ -194,6 +240,8 @@ function seed(){
       content:'개인 사유 연차 1일', line:[{n:'박현장',role:'기안'},{n:'최팀장',role:'결재'},{n:'정현우',role:'승인'}], step:2, status:'wait', history:[{n:'박현장',act:'기안',at:'2026-05-30 17:40'},{n:'최팀장',act:'승인',at:'2026-05-31 09:10'}] },
     { id:'D4', kind:'gen', title:'5월 업무보고', drafter:'정현우', at:'2026-05-28 10:00', amount:0,
       content:'5월 신규/AS 처리 현황 보고', line:[{n:'정현우',role:'기안'},{n:'한실장',role:'결재'}], step:2, status:'ok', history:[{n:'정현우',act:'기안',at:'2026-05-28 10:00'},{n:'한실장',act:'승인',at:'2026-05-28 15:20'}] },
+    { id:'D5', kind:'leave', title:'연차 신청', drafter:'최팀장', at:'2026-06-02 09:00', amount:0, days:2, from:todayPlus(3), to:todayPlus(4),
+      content:'가족 여행 연차 2일', line:[{n:'최팀장',role:'기안'},{n:'정현우',role:'승인'}], step:2, status:'ok', history:[{n:'최팀장',act:'기안',at:'2026-06-02 09:00'},{n:'정현우',act:'승인',at:'2026-06-02 11:00'}] },
   ];
   localStorage.setItem(DOC_KEY, JSON.stringify(docs));
   localStorage.setItem(LV_KEY, JSON.stringify({
@@ -238,6 +286,31 @@ const getTpls=()=>{ try{return JSON.parse(localStorage.getItem(TPL_KEY)||'[]')}c
 const setTpls=t=>localStorage.setItem(TPL_KEY, JSON.stringify(t));
 const tplById=id=>getTpls().find(t=>t.id===id);
 
+/* ──── 직원 생일 (음/양력) ──── */
+const BIRTH_KEY='eap_birth';
+function seedBirth(){
+  if(localStorage.getItem(BIRTH_KEY)) return;
+  // {date:'YYYY-MM-DD'(입력 기준), cal:'solar'|'lunar'}
+  localStorage.setItem(BIRTH_KEY, JSON.stringify({
+    '정현우':{date:'1985-03-14',cal:'solar'},
+    '김기사':{date:'1990-07-22',cal:'lunar'},
+    '이엔지니어':{date:'1992-11-05',cal:'solar'},
+    '박현장':{date:'1988-01-30',cal:'lunar'},
+    '최팀장':{date:'1980-09-09',cal:'solar'},
+    '한실장':{date:'1979-05-18',cal:'solar'},
+  }));
+}
+const getBirths=()=>{ try{return JSON.parse(localStorage.getItem(BIRTH_KEY)||'{}')}catch(e){return {}} };
+const setBirths=b=>localStorage.setItem(BIRTH_KEY, JSON.stringify(b));
+// 음력→양력 근사 변환 (목업: 실제 만세력 대신 +대략 보정. 실제 구현 시 lunar-javascript 등 라이브러리 사용)
+//   ⚠ 목업 한계: 정확한 음↔양 변환은 만세력 데이터 필요. 여기선 '올해 같은 월/일'을 양력으로 간주해 일정에 표기.
+function birthThisYear(b){
+  if(!b||!b.date) return null;
+  const [,m,d]=b.date.split('-'); const y=new Date(Date.now()+9*3600*1000).getFullYear();
+  // 음력은 목업상 동일 월/일을 양력 날짜로 표기 (실제 구현 시 만세력 변환 적용)
+  return `${y}-${m}-${d}`;
+}
+
 const getDocs = () => { try{return JSON.parse(localStorage.getItem(DOC_KEY)||'[]')}catch(e){return []} };
 const setDocs = d => localStorage.setItem(DOC_KEY, JSON.stringify(d));
 const getLeave = () => { try{return JSON.parse(localStorage.getItem(LV_KEY)||'{}')}catch(e){return {}} };
@@ -272,6 +345,13 @@ function approve(id){
   }
   setDocs(docs); closeDetail(); render();
 }
+// 💸 자금 집행완료 — 지출결의 결재완료 건을 자금집행자(관리자)가 집행 처리
+function execDone(id){
+  const docs=getDocs(); const d=docs.find(x=>x.id===id); if(!d) return;
+  d.execStatus='done'; d.execBy=ME; d.execAt=nowts();
+  setDocs(docs); closeDetail(); render();
+  pushToast('💸 자금 집행완료 — 기안자 '+d.drafter+' 님에게 LINE 알림 발송');
+}
 function reject(id){
   const docs=getDocs(); const d=docs.find(x=>x.id===id); if(!d) return;
   const op = (document.getElementById('rejOpinion')||{}).value||'';
@@ -298,9 +378,9 @@ function resubmit(id){
 }
 
 /* ════════ 렌더 ════════ */
-let TAB='appr', SUB='received';
+let TAB='appr', SUB='received', SCHSUB='up';
 function switchTab(t){ TAB=t;
-  ['appr','leave','tpl'].forEach(x=>{
+  ['appr','leave','sch','tpl'].forEach(x=>{
     document.getElementById('tab-'+x).classList.toggle('on',t===x);
     document.getElementById('view-'+x).style.display=t===x?'':'none';
   });
@@ -324,7 +404,7 @@ function stBadge(d){
 function docCard(d){
   const k=KIND[d.kind];
   return `<div class="card" onclick="openDetail('${d.id}')">
-    <div class="top"><span class="kind ${k.cls}">${k.label}</span>${isMyTurn(d)?'<span class="kind" style="background:#FEE2E2;color:#991B1B">내 결재 차례</span>':''}${isCC(d)?'<span class="kind" style="background:#E0E7FF;color:#3730A3">👁 참조</span>':''}${stBadge(d)}</div>
+    <div class="top"><span class="kind ${k.cls}">${k.label}</span>${isMyTurn(d)?'<span class="kind" style="background:#FEE2E2;color:#991B1B">내 결재 차례</span>':''}${isCC(d)?'<span class="kind" style="background:#E0E7FF;color:#3730A3">👁 참조</span>':''}${(d.kind==='pay'&&d.status==='ok')?(d.execStatus==='done'?'<span class="exec-done">💸 집행완료</span>':'<span class="exec-wait">💸 집행대기</span>'):''}${stBadge(d)}</div>
     <div class="title">${esc(d.title)}</div>
     <div class="meta">기안 ${esc(d.drafter)} · ${esc(d.at)}${d.tpl?` · 📄${esc(d.tpl)}`:''}${k.amount&&d.amount?` · <span class="amt">${won(d.amount)}원</span>`:''}${d.kind==='leave'&&d.from?` · ${esc(d.from)}${d.to&&d.to!==d.from?'~'+esc(d.to):''} (${d.days||1}일)`:''}</div>
     ${lineHtml(d)}
@@ -333,7 +413,7 @@ function docCard(d){
 function render(){
   document.getElementById('tab-tpl').style.display = isAdmin()?'':'none';
   if(TAB==='tpl' && !isAdmin()){ switchTab('appr'); return; }
-  if(TAB==='appr') renderAppr(); else if(TAB==='leave') renderLeave(); else if(TAB==='tpl') renderTpl();
+  if(TAB==='appr') renderAppr(); else if(TAB==='leave') renderLeave(); else if(TAB==='sch') renderSch(); else if(TAB==='tpl') renderTpl();
   document.getElementById('meName').textContent = ME + (isAdmin()?' (관리자)':(ME==='최팀장'||ME==='한실장'?' (결재자)':' (직원)'));
 }
 /* ──── 양식 관리 렌더 ──── */
@@ -359,11 +439,13 @@ function renderAppr(){
   const done = docs.filter(d=>d.status!=='wait' && canView(d));            // 완료/반려 — 당사자만(관리자는 canView=true)
   const refd = docs.filter(d=>isCC(d));                                    // 나를 참조로 지정한 문서
   const all  = docs;                                                       // 관리자 전용 전체
-  const subs=[['received','받은 결재',received.length],['mine','올린 결재',mine.length],['ref','참조',refd.length],['done','완료/반려',done.length]];
+  const execDocs = docs.filter(d=>d.kind==='pay' && d.status==='ok' && canView(d));  // 지출 결재완료 — 자금집행 추적
+  const execPend = execDocs.filter(d=>d.execStatus!=='done').length;
+  const subs=[['received','받은 결재',received.length],['mine','올린 결재',mine.length],['ref','참조',refd.length],['exec','💸 자금집행',execDocs.length],['done','완료/반려',done.length]];
   if(isAdmin()) subs.push(['all','전체(관리자)',all.length]);
   if(!subs.some(s=>s[0]===SUB)) SUB='received';
-  document.getElementById('apprSub').innerHTML = subs.map(([k,l,n])=>`<div class="chip ${SUB===k?'on':''}" onclick="SUB='${k}';render()">${l}${k==='received'&&n?`<span class="n">${n}</span>`:` (${n})`}</div>`).join('');
-  let list = SUB==='received'?received : SUB==='mine'?mine : SUB==='ref'?refd : SUB==='all'?all : done;
+  document.getElementById('apprSub').innerHTML = subs.map(([k,l,n])=>`<div class="chip ${SUB===k?'on':''}" onclick="SUB='${k}';render()">${l}${(k==='received'&&n)||(k==='exec'&&execPend)?`<span class="n">${k==='exec'?execPend:n}</span>`:` (${n})`}</div>`).join('');
+  let list = SUB==='received'?received : SUB==='mine'?mine : SUB==='ref'?refd : SUB==='all'?all : SUB==='exec'?execDocs : done;
   document.getElementById('apprCount').textContent = `${list.length}건${SUB==='all'?' · 관리자 전체 열람':' · 당사자 한정'}`;
   document.getElementById('apprList').innerHTML = list.length? list.map(docCard).join('') : '<div class="empty">해당 결재가 없습니다</div>';
 }
@@ -397,6 +479,15 @@ function openDetail(id){
           // 양식이 삭제된 경우 — 저장된 필드로 라벨|값 표
           return `<div class="docform" style="margin-bottom:12px"><div class="docform-title">${esc(d.tpl||d.title)}</div><table class="docform-tbl"><colgroup><col style="width:33%"><col></colgroup>${d.fields.map(f=>`<tr><th>${esc(f.label)}</th><td class="val">${f.type==='money'&&f.value?('<b>'+won(f.value)+'원</b>'):esc(f.value||'-')}</td></tr>`).join('')}</table></div>`; })()
       : `<div style="background:var(--g50);border:1px solid var(--g200);border-radius:10px;padding:12px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;margin-bottom:12px">${esc(d.content||'')}</div>`}
+    ${attView(d.attachments)}
+    ${(d.kind==='pay'&&d.status==='ok')?(function(){
+      if(d.execStatus==='done') return `<div class="sech">자금집행</div><div style="display:flex;align-items:center;gap:8px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:11px 13px"><span class="exec-done">✅ 집행완료</span><span style="font-size:12px;color:var(--g600)">${esc(d.execBy||'')} · ${esc(d.execAt||'')}</span></div>`;
+      const canExec=isAdmin();
+      return `<div class="sech">자금집행</div><div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:11px 13px">`
+        +`<div style="display:flex;align-items:center;gap:8px;margin-bottom:${canExec?'9px':'0'}"><span class="exec-wait">⏳ 집행 대기</span><span style="font-size:12px;color:var(--g600)">결재 완료 — 자금집행자 처리 대기</span></div>`
+        +(canExec?`<button class="btn btn-ok" style="width:100%" onclick="execDone('${d.id}')">💸 자금 집행완료 처리</button>`:`<div style="font-size:11.5px;color:var(--g400)">집행완료는 자금집행자(관리자)가 처리합니다.</div>`)
+        +`</div>`;
+    })():''}
     <div class="sech" style="margin-top:0">결재선</div>${lineHtml(d)}
     ${(d.cc&&d.cc.length)?`<div class="sech">참조</div><div style="font-size:12px;color:var(--g600)">👁 ${d.cc.map(esc).join(', ')}</div>`:''}
     <div class="sech">결재 이력</div><div>${hist}</div>
@@ -458,11 +549,12 @@ function saveTpl(){
 }
 function delTpl(id){ if(!confirm('이 양식을 삭제할까요?')) return; setTpls(getTpls().filter(t=>t.id!==id)); render(); }
 
-let draftLine=[], draftCC=[];
+let draftLine=[], draftCC=[], draftAtt=[];
 function openDraft(prefill){
   const p = prefill||{};
   draftLine = ME==='정현우'?['최팀장']:['정현우'];
   draftCC = [];
+  draftAtt = [];
   const tpls=getTpls();
   const tplId = p.tplId || (tpls[0]&&tpls[0].id) || '';
   document.getElementById('draftBody').innerHTML = `
@@ -470,6 +562,11 @@ function openDraft(prefill){
     <div class="fld"><label>양식 <span style="color:var(--g400);font-weight:600">— 양식별 작성 항목이 자동 표시</span></label><select id="dTpl" onchange="renderDraftFields(this.value)">${tpls.map(t=>`<option value="${t.id}" ${t.id===tplId?'selected':''}>${esc(t.name)}</option>`).join('')}</select></div>
     <div class="fld"><label>제목</label><input id="dTitle" value="${esc(p.title||'')}" placeholder="결재 제목"></div>
     <div id="draftFields"></div>
+    <div class="fld"><label>📎 첨부파일 · 이미지 <span style="color:var(--g400);font-weight:600">— 영수증·사진·문서 첨부 (필드 내용 보강)</span></label>
+      <div class="att-zone" onclick="document.getElementById('draftFile').click()">＋ 사진·파일 추가 (클릭)</div>
+      <input type="file" id="draftFile" multiple style="display:none" onchange="addDraftAtt(this.files);this.value=''">
+      <div class="att-list" id="draftAttList"></div>
+    </div>
     <div class="fld"><label>결재선 (기안자 본인 → 선택 순서대로)</label>
       <div class="picker" id="linePicker">${STAFF.filter(n=>n!==ME).map(n=>`<span class="pk ${draftLine.includes(n)?'on':''}" onclick="toggleLine('${esc(n)}')">${esc(n)}</span>`).join('')}</div>
       <div id="linePreview" style="font-size:11.5px;color:var(--g500);margin-top:7px"></div>
@@ -549,6 +646,33 @@ function renderDraftFields(tplId){
   box.innerHTML = t? docFormHtml(t,'input',{}) : '';
 }
 function closeDraft(){ document.getElementById('ovDraft').classList.remove('show'); }
+/* ──── 첨부파일/이미지 (목업: 이미지 ≤400KB 는 dataURL 로 저장, 그 외 이름만) ──── */
+function addDraftAtt(files){
+  if(!files||!files.length) return;
+  let pend=files.length;
+  Array.from(files).forEach(f=>{
+    const isImg=/^image\//.test(f.type);
+    if(isImg && f.size<=400*1024){
+      const r=new FileReader();
+      r.onload=()=>{ draftAtt.push({name:f.name,type:f.type,size:f.size,dataUrl:r.result}); if(--pend===0) renderDraftAtt(); };
+      r.onerror=()=>{ draftAtt.push({name:f.name,type:f.type,size:f.size}); if(--pend===0) renderDraftAtt(); };
+      r.readAsDataURL(f);
+    } else {
+      draftAtt.push({name:f.name,type:f.type||'',size:f.size}); if(--pend===0) renderDraftAtt();
+    }
+  });
+}
+function _fsize(n){ n=Number(n)||0; return n<1024?n+'B':n<1048576?(n/1024).toFixed(0)+'KB':(n/1048576).toFixed(1)+'MB'; }
+function renderDraftAtt(){
+  const box=document.getElementById('draftAttList'); if(!box) return;
+  box.innerHTML = draftAtt.map((a,i)=>`<div class="att-item">${a.dataUrl?`<img src="${a.dataUrl}">`:'📄'}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px">${esc(a.name)}</span><span style="color:var(--g400);font-size:10px">${_fsize(a.size)}</span><span class="x" onclick="draftAtt.splice(${i},1);renderDraftAtt()">✕</span></div>`).join('');
+}
+function attView(atts){
+  if(!atts||!atts.length) return '';
+  return `<div class="sech">📎 첨부 (${atts.length})</div><div>`+atts.map(a=>a.dataUrl
+    ? `<a class="att-thumb" href="${a.dataUrl}" target="_blank"><img src="${a.dataUrl}"><span>${esc(a.name)}</span></a>`
+    : `<span class="att-thumb">📄 ${esc(a.name)} <span style="color:var(--g400)">${_fsize(a.size)}</span></span>`).join('')+'</div>';
+}
 function toggleLine(n){
   const i=draftLine.indexOf(n);
   if(i>=0) draftLine.splice(i,1); else draftLine.push(n);
@@ -576,9 +700,10 @@ function submitDraft(){
   });
   const moneyF = fields.find(f=>f.type==='money');
   const d={ id:'D'+Date.now().toString(36), kind:cat, tpl:tpl?tpl.name:'', tplId:tpl?tpl.id:'', title, drafter:ME, at:nowts(),
-    amount: moneyF?(Number(moneyF.value)||0):0, fields, cc:draftCC.slice(),
+    amount: moneyF?(Number(moneyF.value)||0):0, fields, cc:draftCC.slice(), attachments:draftAtt.slice(),
     line:[{n:ME,role:'기안'}].concat(draftLine.map((n,i)=>({n,role:i===draftLine.length-1?(cat==='leave'?'승인':'전결'):'결재'}))),
     step:1, status:'wait', history:[{n:ME,act:'기안',at:nowts()}] };
+  if(cat==='pay') d.execStatus='pending';   // 지출결의 — 자금집행 대기
   if(cat==='leave'){ const ds=fields.filter(f=>f.type==='date').map(f=>f.value).filter(Boolean); d.from=ds[0]||today(); d.to=ds[1]||d.from;
     const dayF=fields.find(f=>f.type==='number'); d.days = (dayF&&Number(dayF.value))? Number(dayF.value) : Math.max(1,Math.round((new Date(d.to)-new Date(d.from))/86400000)+1); }
   const docs=getDocs(); docs.unshift(d); setDocs(docs); closeDraft(); SUB='mine'; switchTab('appr'); render();
@@ -622,12 +747,64 @@ function genTest10(){
   pushToast('🧪 내 결재 대기 10건 생성 완료');
 }
 
+/* ════════ 일정 (생일·연차) ════════ */
+function _leaveEvents(){ return getDocs().filter(d=>d.kind==='leave'&&d.status==='ok').map(d=>({who:d.drafter,from:d.from||d.at.slice(0,10),to:d.to||d.from||d.at.slice(0,10),days:d.days||1})); }
+function _bdayEvents(){ const b=getBirths(); return Object.entries(b).map(([who,v])=>({who,date:birthThisYear(v),cal:v.cal,raw:v.date})); }
+function dcard(l,v,c){ return `<div class="dcard"><div class="dl">${l}</div><div class="dv" style="color:${c}">${v}</div></div>`; }
+function renderSch(){
+  const todayD=today(), ymonth=todayD.slice(0,7);
+  const leaves=_leaveEvents(), bdays=_bdayEvents();
+  const bMonth=bdays.filter(e=>e.date&&e.date.slice(0,7)===ymonth);
+  const lMonth=leaves.filter(e=>(e.from||'').slice(0,7)===ymonth||(e.to||'').slice(0,7)===ymonth);
+  const upBday=bdays.filter(e=>e.date&&e.date>=todayD).sort((a,b)=>a.date.localeCompare(b.date))[0];
+  document.getElementById('schDash').innerHTML =
+    dcard('🎂 이번 달 생일', bMonth.length+'명', '#EC4899')
+   +dcard('🌴 이번 달 연차', lMonth.length+'건', 'var(--ok)')
+   +dcard('📅 다음 생일', upBday?(esc(upBday.who)+' '+upBday.date.slice(5)):'-', '#DB2777')
+   +dcard('⏳ 내 결재 대기', getDocs().filter(isMyTurn).length+'건', 'var(--p)');
+  ['up','bday'].forEach(s=>document.getElementById('schchip-'+s).classList.toggle('on',SCHSUB===s));
+  const box=document.getElementById('schBody');
+  if(SCHSUB==='bday'){
+    const B=getBirths();
+    box.innerHTML = `<div style="font-size:12px;color:var(--g500);margin-bottom:8px">${isAdmin()?'관리자: 직원 생일을 <b>음/양력 구분</b>해 입력·수정합니다. 모든 사원이 일정에서 조회합니다.':'생일 정보 (수정은 관리자만)'}</div>`
+      +'<table><thead><tr><th>직원</th><th>생년월일</th><th>음/양력</th><th>올해 표기(양력)</th>'+(isAdmin()?'<th></th>':'')+'</tr></thead><tbody>'
+      +STAFF.map(n=>{ const b=B[n]||{}; const ty=b.date?birthThisYear(b):'';
+          return `<tr><td><b>${esc(n)}</b>${n===ME?' <span style="font-size:10px;color:var(--p)">(나)</span>':''}</td>`
+            +`<td>${b.date?esc(b.date):'<span style="color:#cbd5e1">미입력</span>'}</td>`
+            +`<td>${b.cal==='lunar'?'<span class="lunar-tag">🌙 음력</span>':b.cal==='solar'?'<span class="solar-tag">☀️ 양력</span>':'-'}</td>`
+            +`<td style="color:var(--g500)">${ty?esc(ty.slice(5)):'-'}</td>`
+            +(isAdmin()?`<td><button class="btn btn-o btn-sm" onclick="openBday('${esc(n)}')">✏️ 수정</button></td>`:'')+'</tr>'; }).join('')
+      +'</tbody></table>';
+    return;
+  }
+  const items=[];
+  bdays.forEach(e=>{ if(e.date) items.push({date:e.date,html:`<div class="sch-item sch-bday"><span class="d">${e.date.slice(5)}</span><span class="ic">🎂</span><div><b>${esc(e.who)}</b> 생일 ${e.cal==='lunar'?'<span class="lunar-tag">🌙음력</span>':'<span class="solar-tag">☀️양력</span>'}</div></div>`}); });
+  leaves.forEach(e=>{ const range=(e.from||'')+(e.to&&e.to!==e.from?(' ~ '+e.to):''); items.push({date:e.from,html:`<div class="sch-item sch-leave"><span class="d">${(e.from||'').slice(5)}</span><span class="ic">🌴</span><div><b>${esc(e.who)}</b> 연차 (${e.days}일) <span style="color:var(--g400);font-size:11px">${esc(range)}</span></div></div>`}); });
+  const fut=items.filter(x=>x.date&&x.date>=todayD).sort((a,b)=>a.date.localeCompare(b.date));
+  box.innerHTML = `<div style="font-size:12px;color:var(--g500);margin-bottom:8px">결재 완료된 연차 + 전 직원 생일 — <b>모든 사원이 조회</b>합니다</div>`
+    +(fut.length? fut.map(x=>x.html).join('') : '<div class="empty">다가오는 일정이 없습니다</div>');
+}
+function openBday(n){
+  const b=getBirths()[n]||{date:'',cal:'solar'}; window._bdCal=b.cal||'solar';
+  document.getElementById('bdayBody').innerHTML=`
+    <div style="display:flex;align-items:center;margin-bottom:10px"><h3>🎂 ${esc(n)} 생일</h3><button class="btn btn-o btn-sm" style="margin-left:auto" onclick="closeBday()">닫기</button></div>
+    <div class="fld"><label>생년월일</label><input type="date" id="bdDate" value="${esc(b.date||'')}"></div>
+    <div class="fld"><label>음/양력 <span style="color:var(--danger)">*</span></label>
+      <div class="picker"><span class="pk ${b.cal!=='lunar'?'on':''}" id="bdSolar" onclick="bdSetCal('solar')">☀️ 양력</span><span class="pk ${b.cal==='lunar'?'on':''}" id="bdLunar" onclick="bdSetCal('lunar')">🌙 음력</span></div>
+      <div style="font-size:11px;color:var(--g400);margin-top:6px">음력 선택 시 만세력 기준으로 매년 양력 생일이 자동 계산됩니다 (실서비스). 목업은 입력 월/일로 표기.</div></div>
+    <button class="btn btn-p" style="width:100%" onclick="saveBday('${esc(n)}')">💾 저장</button>`;
+  document.getElementById('ovBday').classList.add('show');
+}
+function bdSetCal(c){ window._bdCal=c; document.getElementById('bdSolar').classList.toggle('on',c==='solar'); document.getElementById('bdLunar').classList.toggle('on',c==='lunar'); }
+function closeBday(){ document.getElementById('ovBday').classList.remove('show'); }
+function saveBday(n){ const date=document.getElementById('bdDate').value; if(!date){alert('생년월일을 입력하세요');return;} const b=getBirths(); b[n]={date,cal:window._bdCal||'solar'}; setBirths(b); closeBday(); render(); }
+
 /* 사용자 전환 (목업 데모용) */
 document.getElementById('meName').onclick = function(){
   const i=STAFF.indexOf(ME); ME=STAFF[(i+1)%STAFF.length]; localStorage.setItem(ME_KEY,ME); render();
 };
 
-seed(); seedTpl(); render();
+seed(); seedTpl(); seedBirth(); render();
 </script>
 </body>
 </html>
