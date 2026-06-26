@@ -459,7 +459,7 @@ function render(){
 function renderTpl(){
   // 🧭 사용자별 결재 루트(기본 결재선) 관리 — 관리자
   const R=getRoutes();
-  const routeHtml = `<div class="sech" style="margin-top:0">🧭 사용자별 결재 루트 <span style="color:var(--g400);font-weight:600">— 기안 시 자동 적용(그 자리서 수정 가능)</span></div>`
+  const routeHtml = `<div class="sech" style="margin-top:0;display:flex;align-items:center;gap:8px">🧭 사용자별 결재 루트 <span style="color:var(--g400);font-weight:600">— 기안 시 자동 적용</span><button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openRouteBulk()">📋 일괄 설정</button></div>`
     + '<table style="margin-bottom:16px"><thead><tr><th>기안자</th><th>기본 결재선</th><th></th></tr></thead><tbody>'
     + STAFF.map(n=>{ const r=(R[n]||[]).filter(Boolean);
         return `<tr><td><b>${esc(n)}</b></td><td style="color:${r.length?'var(--g700)':'var(--g400)'}">${r.length?(esc(n)+'(기안) → '+r.map(esc).join(' → ')):'미지정'}</td><td><button class="btn btn-o btn-sm" onclick="openRoute('${esc(n)}')">✏️</button></td></tr>`; }).join('')
@@ -632,6 +632,32 @@ function renderRouteModal(){
 function toggleRouteStep(x){ const i=_routeLine.indexOf(x); if(i>=0) _routeLine.splice(i,1); else _routeLine.push(x); renderRouteModal(); }
 function closeRoute(){ document.getElementById('ovRoute').classList.remove('show'); }
 function saveRoute(){ const R=getRoutes(); R[_routeUser]=_routeLine.slice(); setRoutes(R); closeRoute(); render(); pushToast('🧭 '+_routeUser+' 결재 루트 저장'); }
+
+/* ──── 결재 루트 일괄 설정 (관리자: 여러 사원에 동일 결재선 적용) ──── */
+let _bulkTargets=[], _bulkLine=[];
+function openRouteBulk(){ _bulkTargets=STAFF.slice(); _bulkLine=[]; renderRouteBulk(); document.getElementById('ovRoute').classList.add('show'); }
+function renderRouteBulk(){
+  const allOn=STAFF.every(n=>_bulkTargets.includes(n));
+  document.getElementById('routeBody').innerHTML=`
+    <div style="display:flex;align-items:center;margin-bottom:10px"><h3>📋 결재 루트 일괄 설정</h3><button class="btn btn-o btn-sm" style="margin-left:auto" onclick="closeRoute()">닫기</button></div>
+    <div style="font-size:12px;color:var(--g500);margin-bottom:10px">선택한 직원들에게 <b>동일한 결재선</b>을 한 번에 적용합니다. 각 직원의 기안자(본인)는 자동으로 맨 앞, 라인에서 본인은 제외됩니다.</div>
+    <div class="fld"><label style="display:flex;align-items:center;gap:8px">① 적용 대상 직원 <span style="color:var(--g400);font-weight:600">${_bulkTargets.length}명</span><button type="button" class="fld-att-btn" style="margin-left:auto" onclick="bulkAllTargets()">${allOn?'전체 해제':'전체 선택'}</button></label>
+      <div class="picker">${STAFF.map(n=>`<span class="pk ${_bulkTargets.includes(n)?'on':''}" onclick="bulkToggleTarget('${esc(n)}')">${esc(n)}</span>`).join('')}</div></div>
+    <div class="fld"><label>② 적용할 결재선 (순서대로 클릭)</label>
+      <div class="picker">${STAFF.map(x=>{ const i=_bulkLine.indexOf(x); return `<span class="pk ${i>=0?'on':''}" onclick="bulkToggleLine('${esc(x)}')">${i>=0?('<b>'+(i+1)+'</b> '):''}${esc(x)}</span>`; }).join('')}</div>
+      <div style="font-size:12px;color:var(--g600);margin-top:8px">결재선:  (각 기안자)${_bulkLine.length?'  →  '+_bulkLine.map(esc).join('  →  '):'  <span style="color:var(--g400)">(없음 = 결재자 미지정)</span>'}</div></div>
+    <button class="btn btn-p" style="width:100%" onclick="saveRouteBulk()">💾 선택 ${_bulkTargets.length}명에 일괄 적용</button>`;
+}
+function bulkToggleTarget(n){ const i=_bulkTargets.indexOf(n); if(i>=0)_bulkTargets.splice(i,1); else _bulkTargets.push(n); renderRouteBulk(); }
+function bulkAllTargets(){ _bulkTargets = STAFF.every(n=>_bulkTargets.includes(n))?[]:STAFF.slice(); renderRouteBulk(); }
+function bulkToggleLine(x){ const i=_bulkLine.indexOf(x); if(i>=0)_bulkLine.splice(i,1); else _bulkLine.push(x); renderRouteBulk(); }
+function saveRouteBulk(){
+  if(!_bulkTargets.length){ alert('적용 대상 직원을 선택하세요'); return; }
+  const R=getRoutes();
+  _bulkTargets.forEach(n=>{ R[n]=_bulkLine.filter(x=>x!==n); });   // 각 직원 라인에서 본인 제외
+  setRoutes(R); closeRoute(); render();
+  pushToast('📋 '+_bulkTargets.length+'명에 결재선 일괄 적용: '+(_bulkLine.length?_bulkLine.join(' → '):'(미지정)'));
+}
 
 let draftLine=[], draftCC=[], draftAtt=[];
 function openDraft(prefill){
