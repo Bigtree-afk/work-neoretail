@@ -70,8 +70,10 @@
   ];
   function effHolidaySet() {
     const s = new Set(KR_HOLIDAYS_BUILTIN);
-    const cfgH = getCfg().holidays; if (Array.isArray(cfgH)) cfgH.forEach(d => d && s.add(d));
+    const cfg = getCfg();
+    if (Array.isArray(cfg.holidays)) cfg.holidays.forEach(d => d && s.add(d));
     try { JSON.parse(localStorage.getItem('ns_eap_holidays') || '[]').forEach(d => s.add(d)); } catch (_) {}
+    if (Array.isArray(cfg.holidayExcludes)) cfg.holidayExcludes.forEach(d => s.delete(d)); // 근무일로 처리(제외)
     return s;
   }
   function isoOf(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -968,14 +970,22 @@
           <span style="margin-left:auto;display:flex;gap:6px"><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.openTpl(${J(t.id)})">수정</button><button class="eap-btn eap-btn-rej eap-btn-sm" onclick="EAP.delTpl(${J(t.id)})">삭제</button></span></div>
         <div class="eap-meta">${(t.fields || []).slice(0, 8).map(f => esc(f.label)).join(' · ')}</div></div>`;
     }).join('');
-    const customH = (getCfg().holidays || []).slice().sort();
-    const holRows = customH.length
-      ? customH.map(d => `<span class="eap-pk" style="cursor:default">${esc(d)} <span style="cursor:pointer;color:#DC2626;font-weight:900" onclick="EAP.rmHoliday(${J(d)})">✕</span></span>`).join('')
-      : '<span class="eap-meta">추가된 공휴일 없음 (내장 2026 + 자동수집 적용 중)</span>';
+    const hY = new Date(Date.now() + 9 * 3600 * 1000).getFullYear();
+    const yMin = hY + '-01-01', yMax = (hY + 1) + '-12-31';
+    const effList = [...effHolidaySet()].filter(d => d >= yMin && d <= yMax).sort();
+    const customSet = new Set(getCfg().holidays || []);
+    const excl = (getCfg().holidayExcludes || []).slice().sort();
+    const effChips = effList.length
+      ? effList.map(d => `<span class="eap-pk" style="cursor:default">${esc(d)}${customSet.has(d) ? ' <span style="font-size:9px;color:#2563EB">직접</span>' : ''} <span style="cursor:pointer;color:#DC2626;font-weight:900" onclick="EAP.removeHoliday(${J(d)})" title="근무일로 처리(제외)">✕</span></span>`).join('')
+      : '<span class="eap-meta">표시할 공휴일 없음</span>';
+    const exclChips = excl.length
+      ? `<div class="eap-meta" style="margin-top:8px">근무일로 제외된 날 (클릭 시 복원):</div><div class="eap-picker">${excl.map(d => `<span class="eap-pk" style="cursor:pointer;opacity:.75" onclick="EAP.restoreHoliday(${J(d)})">↩ ${esc(d)}</span>`).join('')}</div>`
+      : '';
     const adminSections = admin ? `
-      <div class="eap-sech">📅 공휴일 관리 <span class="eap-meta">— 연차 일수 계산 시 토·일 + 공휴일 제외</span></div>
-      <div class="eap-meta" style="margin-bottom:6px">내장(2026 기본) + 자동수집(공공데이터포털, 서버 키 설정 시) + 아래 직접 추가(임시공휴일 등)를 합산해 적용합니다.</div>
-      <div class="eap-picker" id="eapHolList">${holRows}</div>
+      <div class="eap-sech">📅 공휴일 관리 <span class="eap-meta">— 연차 계산 시 토·일 + 아래 공휴일 제외 (✕ = 근무일로 처리)</span></div>
+      <div class="eap-meta" style="margin-bottom:6px">내장 + 자동수집(공공데이터포털) + 직접추가를 합산. 제헌절 등 평일로 둘 날은 ✕ 로 제외하세요. (${hY}~${hY + 1} 표시)</div>
+      <div class="eap-picker" id="eapHolList">${effChips}</div>
+      ${exclChips}
       <div style="display:flex;gap:6px;margin-top:8px"><input id="eapHolDate" type="date" class="eap-mini" style="max-width:170px"><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.addHoliday()">+ 추가</button></div>
       <div class="eap-sech">💬 직원 LINE userId (결재 알림용) <span class="eap-meta">— 직원이 LINE 봇/단톡방에서 발언하면 자동 수집됨</span></div>
       <table class="eap-table"><thead><tr><th>직원</th><th>LINE userId</th></tr></thead><tbody>${lineRows}</tbody></table>
@@ -1003,10 +1013,22 @@
     if (!h.includes(v)) h.push(v);
     saveCfgKey('holidays', h.sort()); renderTab(); toast('📅 공휴일 추가: ' + v);
   };
-  EAP.rmHoliday = function (d) {
+  // 공휴일에서 제거: 직접 추가분이면 목록에서 삭제, 아니면(내장/자동수집) 제외목록에 추가 → 근무일 처리
+  EAP.removeHoliday = function (d) {
     if (!isAdmin()) return;
-    const c = getCfg(); const h = (Array.isArray(c.holidays) ? c.holidays : []).filter(x => x !== d);
-    saveCfgKey('holidays', h); renderTab(); toast('🗑 공휴일 삭제: ' + d);
+    const c = getCfg();
+    if (Array.isArray(c.holidays) && c.holidays.includes(d)) {
+      c.holidays = c.holidays.filter(x => x !== d);
+    } else {
+      c.holidayExcludes = Array.isArray(c.holidayExcludes) ? c.holidayExcludes : [];
+      if (!c.holidayExcludes.includes(d)) c.holidayExcludes.push(d);
+    }
+    c.updatedAt = Date.now(); setCfg(c); renderTab(); toast('🗓 근무일로 처리: ' + d);
+  };
+  EAP.restoreHoliday = function (d) {
+    if (!isAdmin()) return;
+    const c = getCfg(); c.holidayExcludes = (c.holidayExcludes || []).filter(x => x !== d);
+    c.updatedAt = Date.now(); setCfg(c); renderTab(); toast('↩ 공휴일 복원: ' + d);
   };
   EAP.fillLineFromProfiles = async function () {
     const msg = document.getElementById('eapLineFillMsg');

@@ -139,7 +139,7 @@
 
   /* 공휴일 / 근무일 (PC app/eapproval.js 와 동일 — 쌍둥이) */
   const KR_HOLIDAYS_BUILTIN=['2026-01-01','2026-02-16','2026-02-17','2026-02-18','2026-03-01','2026-03-02','2026-05-05','2026-05-24','2026-05-25','2026-06-06','2026-08-15','2026-08-17','2026-09-24','2026-09-25','2026-09-26','2026-09-28','2026-10-03','2026-10-05','2026-10-09','2026-12-25'];
-  function effHolidaySet(){const s=new Set(KR_HOLIDAYS_BUILTIN);const c=getCfg().holidays;if(Array.isArray(c))c.forEach(d=>d&&s.add(d));try{JSON.parse(localStorage.getItem('ns_eap_holidays')||'[]').forEach(d=>s.add(d));}catch(_){}return s;}
+  function effHolidaySet(){const s=new Set(KR_HOLIDAYS_BUILTIN);const cfg=getCfg();if(Array.isArray(cfg.holidays))cfg.holidays.forEach(d=>d&&s.add(d));try{JSON.parse(localStorage.getItem('ns_eap_holidays')||'[]').forEach(d=>s.add(d));}catch(_){}if(Array.isArray(cfg.holidayExcludes))cfg.holidayExcludes.forEach(d=>s.delete(d));return s;}
   function isoOf(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   function workingDays(from,to){if(!from)return 0;const start=new Date(from+'T00:00:00'),end=new Date((to||from)+'T00:00:00');if(isNaN(start)||isNaN(end)||end<start)return 0;const hol=effHolidaySet();let n=0;for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){const dow=d.getDay();if(dow===0||dow===6)continue;if(hol.has(isoOf(d)))continue;n++;}return n;}
   async function pullHolidays(){try{const y=new Date(Date.now()+9*3600*1000).getFullYear();const all=new Set();for(const yr of [y,y+1]){const r=await fetch('/api/holidays?year='+yr);if(r.ok){const j=await r.json();(j.holidays||[]).forEach(d=>all.add(d));}}if(all.size)localStorage.setItem('ns_eap_holidays',JSON.stringify([...all]));}catch(_){}}

@@ -109,8 +109,8 @@ export async function onRequestPost({ request, env }) {
     if (body?.config && typeof body.config === 'object') {
       const cur = (await safeGetJson(env, CFG_KEY, {})) || {};
       const inc = body.config;
-      // tpl/routes/birth/leave/lineMap/holidays 만 허용 — incoming 값이 있으면 통째 교체
-      for (const k of ['tpl', 'routes', 'birth', 'leave', 'lineMap', 'holidays']) {
+      // tpl/routes/birth/leave/lineMap/holidays/holidayExcludes 만 허용 — incoming 값이 있으면 통째 교체
+      for (const k of ['tpl', 'routes', 'birth', 'leave', 'lineMap', 'holidays', 'holidayExcludes']) {
         if (inc[k] !== undefined && inc[k] !== null) cur[k] = inc[k];
       }
       cur.updatedAt = new Date().toISOString();
