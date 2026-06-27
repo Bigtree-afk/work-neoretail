@@ -137,6 +137,13 @@
   function STAFF(){const names=getUsers().map(u=>u&&u.name).filter(Boolean);const me=ME();if(me&&!names.includes(me))names.unshift(me);return [...new Set(names)];}
   function isAdmin(){const a=authState();if(a&&a.role==='admin')return true;if(a&&ADMIN_EMAILS.includes((a.id||a.email||'').toLowerCase()))return true;return false;}
 
+  /* 공휴일 / 근무일 (PC app/eapproval.js 와 동일 — 쌍둥이) */
+  const KR_HOLIDAYS_BUILTIN=['2026-01-01','2026-02-16','2026-02-17','2026-02-18','2026-03-01','2026-03-02','2026-05-05','2026-05-24','2026-05-25','2026-06-06','2026-08-15','2026-08-17','2026-09-24','2026-09-25','2026-09-26','2026-09-28','2026-10-03','2026-10-05','2026-10-09','2026-12-25'];
+  function effHolidaySet(){const s=new Set(KR_HOLIDAYS_BUILTIN);const c=getCfg().holidays;if(Array.isArray(c))c.forEach(d=>d&&s.add(d));try{JSON.parse(localStorage.getItem('ns_eap_holidays')||'[]').forEach(d=>s.add(d));}catch(_){}return s;}
+  function isoOf(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function workingDays(from,to){if(!from)return 0;const start=new Date(from+'T00:00:00'),end=new Date((to||from)+'T00:00:00');if(isNaN(start)||isNaN(end)||end<start)return 0;const hol=effHolidaySet();let n=0;for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){const dow=d.getDay();if(dow===0||dow===6)continue;if(hol.has(isoOf(d)))continue;n++;}return n;}
+  async function pullHolidays(){try{const y=new Date(Date.now()+9*3600*1000).getFullYear();const all=new Set();for(const yr of [y,y+1]){const r=await fetch('/api/holidays?year='+yr);if(r.ok){const j=await r.json();(j.holidays||[]).forEach(d=>all.add(d));}}if(all.size)localStorage.setItem('ns_eap_holidays',JSON.stringify([...all]));}catch(_){}}
+
   /* data layer */
   function getDocs(){try{return JSON.parse(localStorage.getItem(DOCS_LS)||'[]');}catch(_){return [];}}
   function writeDocs(a){setItem(DOCS_LS,JSON.stringify(a));}
@@ -364,8 +371,8 @@
     const dates=[...b.querySelectorAll('input[type=date]')].map(i=>i.value).filter(Boolean).sort();
     if(!dates.length)return;
     const from=dates[0],to=dates[dates.length-1];
-    let days=Math.max(1,Math.round((new Date(to)-new Date(from))/86400000)+1);
-    const sel=b.querySelector('[data-eapf="휴가 종류"]');if(sel&&/반차/.test(sel.value)&&from===to)days=0.5;
+    let days=workingDays(from,to);
+    const sel=b.querySelector('[data-eapf="휴가 종류"]');if(sel&&/반차/.test(sel.value)&&from===to&&days>=1)days=0.5;
     const di=b.querySelector('[data-eapf="일 수"]')||[...b.querySelectorAll('[data-eapf]')].find(el=>/일\s*수|일수/.test(el.getAttribute('data-eapf')));
     if(di)di.value=days;
   };
@@ -384,7 +391,7 @@
     const line=[{n:me,role:'기안'},...draftLine.map(n=>({n,role:'결재'}))];
     const d={id:genId('D'),kind:cat,title,drafter:me,at:kstNow(),tpl:draftTpl.name,tplId:draftTpl.id,fields,line,step:1,status:'wait',history:[{n:me,act:'기안',at:kstNow()}],cc:draftCC.slice(),attachments:[],createdAt:Date.now(),updatedAt:Date.now()};
     if(cat==='pay'||cat==='buy'){const a=fields.find(f=>f.type==='money');d.amount=a?Number(a.value)||0:0;if(cat==='pay')d.execStatus='pending';}
-    if(cat==='leave'){const ds=fields.filter(f=>f.type==='date'&&f.value).map(f=>f.value).sort();const df=fields.find(f=>f.label.includes('일')&&f.type==='number');d.from=ds[0]||kstDate();d.to=ds[ds.length-1]||d.from;d.days=df&&df.value?Number(df.value):Math.max(1,Math.round((new Date(d.to)-new Date(d.from))/86400000)+1);}
+    if(cat==='leave'){const ds=fields.filter(f=>f.type==='date'&&f.value).map(f=>f.value).sort();const df=fields.find(f=>f.label.includes('일')&&f.type==='number');d.from=ds[0]||kstDate();d.to=ds[ds.length-1]||d.from;d.days=df&&df.value?Number(df.value):workingDays(d.from,d.to);}
     const docs=getDocs();docs.push(d);setDocs(docs);
     if(d.line[1])notify(d.line[1].n,'request',d);
     draftTpl=null;toast('📤 상신 완료');location.hash='#detail/'+d.id;
@@ -393,6 +400,7 @@
   /* ── boot ── */
   (async function init(){
     try{await syncFromCloud();}catch(_){}
+    pullHolidays();
     // 딥링크 ?doc=ID
     try{const id=new URLSearchParams(location.search).get('doc');if(id&&getDocs().some(d=>d.id===id)){location.hash='#detail/'+id;}}catch(_){}
     render();

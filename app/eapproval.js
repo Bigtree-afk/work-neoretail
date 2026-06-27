@@ -53,6 +53,54 @@
   }
   function genId(p) { return (p || 'D') + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
 
+  /* ───────────── 공휴일 / 근무일 계산 ───────────── */
+  // 내장 공휴일(2026 대한민국 — 대체공휴일 포함, 검증 권장). 2027+ 는 /api/holidays(공공데이터포털)·관리자 편집으로 보강.
+  const KR_HOLIDAYS_BUILTIN = [
+    '2026-01-01', // 신정
+    '2026-02-16', '2026-02-17', '2026-02-18', // 설날
+    '2026-03-01', '2026-03-02', // 삼일절(일)+대체
+    '2026-05-05', // 어린이날
+    '2026-05-24', '2026-05-25', // 부처님오신날(일)+대체
+    '2026-06-06', // 현충일
+    '2026-08-15', '2026-08-17', // 광복절(토)+대체
+    '2026-09-24', '2026-09-25', '2026-09-26', '2026-09-28', // 추석+대체
+    '2026-10-03', '2026-10-05', // 개천절(토)+대체
+    '2026-10-09', // 한글날
+    '2026-12-25', // 성탄절
+  ];
+  function effHolidaySet() {
+    const s = new Set(KR_HOLIDAYS_BUILTIN);
+    const cfgH = getCfg().holidays; if (Array.isArray(cfgH)) cfgH.forEach(d => d && s.add(d));
+    try { JSON.parse(localStorage.getItem('ns_eap_holidays') || '[]').forEach(d => s.add(d)); } catch (_) {}
+    return s;
+  }
+  function isoOf(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  // 시작~종료 사이 근무일 수 (토·일 + 공휴일 제외)
+  function workingDays(from, to) {
+    if (!from) return 0;
+    const start = new Date(from + 'T00:00:00'), end = new Date((to || from) + 'T00:00:00');
+    if (isNaN(start) || isNaN(end) || end < start) return 0;
+    const hol = effHolidaySet(); let n = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dow = d.getDay(); if (dow === 0 || dow === 6) continue;
+      if (hol.has(isoOf(d))) continue;
+      n++;
+    }
+    return n;
+  }
+  // 공공데이터포털 등에서 수집된 공휴일을 로컬 캐시에 적재 (effHolidaySet 이 사용)
+  async function pullHolidays() {
+    try {
+      const y = new Date(Date.now() + 9 * 3600 * 1000).getFullYear();
+      const all = new Set();
+      for (const yr of [y, y + 1]) {
+        const r = await fetch('/api/holidays?year=' + yr);
+        if (r.ok) { const j = await r.json(); (j.holidays || []).forEach(d => all.add(d)); }
+      }
+      if (all.size) localStorage.setItem('ns_eap_holidays', JSON.stringify([...all]));
+    } catch (_) {}
+  }
+
   /* ───────────── 사용자/권한 ───────────── */
   function getUsers() {
     try { return JSON.parse(localStorage.getItem('ns_users') || '[]'); } catch (_) { return []; }
@@ -199,6 +247,17 @@
     try { localStorage.setItem(CFG_LS, JSON.stringify(cfg)); } catch (_) {}
     schedulePush(true);
   }
+  // 기존 cfg 양식 라벨 마이그레이션 (지출결의서 '작성 일자' → '지급 일자')
+  function migrateTpls() {
+    const cfg = getCfg(); if (!Array.isArray(cfg.tpl)) return;
+    let changed = false;
+    cfg.tpl.forEach(t => {
+      if (t && t.id === 't-pay' && Array.isArray(t.fields)) {
+        t.fields.forEach(f => { if (f && f.label === '작성 일자') { f.label = '지급 일자'; changed = true; } });
+      }
+    });
+    if (changed) { cfg.updatedAt = Date.now(); try { localStorage.setItem(CFG_LS, JSON.stringify(cfg)); } catch (_) {} schedulePush(true); }
+  }
   function SEED_TPLS() {
     return [
       { id: 't-basic', name: '일반 기안서', cat: 'gen', fields: [{ label: '제목', type: 'text' }, { label: '내용', type: 'textarea' }] },
@@ -206,7 +265,7 @@
         { label: '결제 방법', type: 'select', options: '현금,개인카드,법인카드,계좌입금' },
         { label: '수령 방법', type: 'select', options: '계좌입금,현금,기타' },
         { label: '사용 부서', type: 'text' }, { label: '은 행 명', type: 'text' },
-        { label: '작성 일자', type: 'date' }, { label: '예 금 주', type: 'text' },
+        { label: '지급 일자', type: 'date' }, { label: '예 금 주', type: 'text' },
         { label: '계좌 번호', type: 'text' }, { label: '금   액', type: 'money' },
         { label: '사용 내역', type: 'textarea' },
       ] },
@@ -261,10 +320,12 @@
       _built = true;
     }
     ensureSeed();
+    migrateTpls();
     bindTabs();
     renderTab();
-    // 클라우드 동기화
+    // 클라우드 동기화 + 공휴일 수집
     syncFromCloud();
+    pullHolidays();
     if (_pollTimer) clearInterval(_pollTimer);
     _pollTimer = setInterval(() => { if (isScreenActive()) syncFromCloud(); }, 30000);
     // 딥링크 ?doc=ID (PC 에서도 지원)
@@ -580,15 +641,15 @@
   // 제목란 양방향 동기화
   EAP.onTitleForm = function (el) { const t = document.getElementById('eapTitle'); if (t) t.value = el.value; };
   EAP.onTitleTop = function () { const f = document.querySelector('#eapDraftFields [data-eapf="제목"]'); const t = document.getElementById('eapTitle'); if (f && t) f.value = t.value; };
-  // 연차 일수 자동 계산 (시작일~종료일, 반차 0.5)
+  // 연차 일수 자동 계산 (시작일~종료일 근무일 수 — 토·일·공휴일 제외, 반차 0.5)
   EAP.recalcLeaveDays = function () {
     const box = document.getElementById('eapDraftFields'); if (!box) return;
     const dates = [...box.querySelectorAll('input[type=date]')].map(i => i.value).filter(Boolean).sort();
     if (!dates.length) return;
     const from = dates[0], to = dates[dates.length - 1];
-    let days = Math.max(1, Math.round((new Date(to) - new Date(from)) / 86400000) + 1);
+    let days = workingDays(from, to);
     const sel = box.querySelector('[data-eapf="휴가 종류"]');
-    if (sel && /반차/.test(sel.value) && from === to) days = 0.5;
+    if (sel && /반차/.test(sel.value) && from === to && days >= 1) days = 0.5;
     const dayInput = box.querySelector('[data-eapf="일 수"]') || [...box.querySelectorAll('[data-eapf]')].find(el => /일\s*수|일수/.test(el.getAttribute('data-eapf')));
     if (dayInput) dayInput.value = days;
   };
@@ -674,7 +735,7 @@
       const dates = fields.filter(f => f.type === 'date' && f.value).map(f => f.value).sort();
       const daysF = fields.find(f => f.label.includes('일') && f.type === 'number');
       d.from = dates[0] || kstDate(); d.to = dates[dates.length - 1] || d.from;
-      d.days = daysF && daysF.value ? Number(daysF.value) : Math.max(1, Math.round((new Date(d.to) - new Date(d.from)) / 86400000) + 1);
+      d.days = daysF && daysF.value ? Number(daysF.value) : workingDays(d.from, d.to);
     }
     if (line.length < 2) { /* 결재자 없으면 즉시 완료 처리하지 않고 진행 */ }
     const docs = getDocs(); docs.push(d); _save(docs);
@@ -731,7 +792,7 @@
       inner = `<colgroup><col style="width:18%"><col style="width:32%"><col style="width:18%"><col style="width:32%"></colgroup>
         <tr><th>결제 방법</th><td>${C('결제 방법')}</td><th>수령 방법</th><td>${C('수령 방법')}</td></tr>
         <tr><th>사용 부서</th><td>${C('사용 부서')}</td><th>은 행 명</th><td>${C('은 행 명')}</td></tr>
-        <tr><th>작성 일자</th><td>${C('작성 일자')}</td><th>예 금 주</th><td>${C('예 금 주')}</td></tr>
+        <tr><th>지급 일자</th><td>${C('지급 일자')}</td><th>예 금 주</th><td>${C('예 금 주')}</td></tr>
         <tr><th>계좌 번호</th><td colspan="3">${C('계좌 번호')}</td></tr>
         <tr><th>금   액</th><td colspan="3">${C('금   액')}</td></tr>
         <tr><th>사용 내역</th><td colspan="3">${C('사용 내역')}</td></tr>`;
@@ -907,7 +968,15 @@
           <span style="margin-left:auto;display:flex;gap:6px"><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.openTpl(${J(t.id)})">수정</button><button class="eap-btn eap-btn-rej eap-btn-sm" onclick="EAP.delTpl(${J(t.id)})">삭제</button></span></div>
         <div class="eap-meta">${(t.fields || []).slice(0, 8).map(f => esc(f.label)).join(' · ')}</div></div>`;
     }).join('');
+    const customH = (getCfg().holidays || []).slice().sort();
+    const holRows = customH.length
+      ? customH.map(d => `<span class="eap-pk" style="cursor:default">${esc(d)} <span style="cursor:pointer;color:#DC2626;font-weight:900" onclick="EAP.rmHoliday(${J(d)})">✕</span></span>`).join('')
+      : '<span class="eap-meta">추가된 공휴일 없음 (내장 2026 + 자동수집 적용 중)</span>';
     const adminSections = admin ? `
+      <div class="eap-sech">📅 공휴일 관리 <span class="eap-meta">— 연차 일수 계산 시 토·일 + 공휴일 제외</span></div>
+      <div class="eap-meta" style="margin-bottom:6px">내장(2026 기본) + 자동수집(공공데이터포털, 서버 키 설정 시) + 아래 직접 추가(임시공휴일 등)를 합산해 적용합니다.</div>
+      <div class="eap-picker" id="eapHolList">${holRows}</div>
+      <div style="display:flex;gap:6px;margin-top:8px"><input id="eapHolDate" type="date" class="eap-mini" style="max-width:170px"><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.addHoliday()">+ 추가</button></div>
       <div class="eap-sech">💬 직원 LINE userId (결재 알림용) <span class="eap-meta">— 직원이 LINE 봇/단톡방에서 발언하면 자동 수집됨</span></div>
       <table class="eap-table"><thead><tr><th>직원</th><th>LINE userId</th></tr></thead><tbody>${lineRows}</tbody></table>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
@@ -926,6 +995,18 @@
     const map = {};
     document.querySelectorAll('#eapContainer [data-eaplm]').forEach(el => { const v = el.value.trim(); if (v) map[el.getAttribute('data-eaplm')] = v; });
     saveCfgKey('lineMap', map); toast('💾 LINE userId 저장됨');
+  };
+  EAP.addHoliday = function () {
+    if (!isAdmin()) { toast('관리자만 가능'); return; }
+    const v = (document.getElementById('eapHolDate') || {}).value; if (!v) { toast('날짜를 선택하세요'); return; }
+    const c = getCfg(); const h = Array.isArray(c.holidays) ? c.holidays : [];
+    if (!h.includes(v)) h.push(v);
+    saveCfgKey('holidays', h.sort()); renderTab(); toast('📅 공휴일 추가: ' + v);
+  };
+  EAP.rmHoliday = function (d) {
+    if (!isAdmin()) return;
+    const c = getCfg(); const h = (Array.isArray(c.holidays) ? c.holidays : []).filter(x => x !== d);
+    saveCfgKey('holidays', h); renderTab(); toast('🗑 공휴일 삭제: ' + d);
   };
   EAP.fillLineFromProfiles = async function () {
     const msg = document.getElementById('eapLineFillMsg');
