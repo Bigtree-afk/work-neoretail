@@ -37,31 +37,46 @@ export async function onRequestGet({ request, env }) {
 
   let holidays = (BUILTIN[year] || []).slice();
   let source = 'builtin';
+  const dbg = { keyFound: false, keySource: '', apiTried: false, apiStatus: 0, apiError: '', fetchedCount: 0, httpsTried: false };
 
   // 공공데이터포털 특일정보 API
   let key = env && env.HOLIDAY_API_KEY ? env.HOLIDAY_API_KEY : '';
+  if (key) dbg.keySource = 'env';
   if (!key && env && env.STORES_KV) {
-    try { const cfg = await env.STORES_KV.get('line_config', 'json'); if (cfg && cfg.holidayApiKey) key = cfg.holidayApiKey; } catch (_) {}
+    try { const cfg = await env.STORES_KV.get('line_config', 'json'); if (cfg && cfg.holidayApiKey) { key = cfg.holidayApiKey; dbg.keySource = 'kv'; } } catch (_) {}
   }
+  dbg.keyFound = !!key;
   if (key) {
-    try {
-      const api = 'http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo'
-        + '?serviceKey=' + encodeURIComponent(key) + '&solYear=' + year + '&numOfRows=100&_type=json';
-      const r = await fetch(api);
-      if (r.ok) {
-        const j = await r.json();
+    // http → https 순으로 시도 (Cloudflare 에서 http 차단 가능성 대비)
+    for (const proto of ['https', 'http']) {
+      dbg.apiTried = true; dbg.httpsTried = dbg.httpsTried || proto === 'https';
+      try {
+        const api = proto + '://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo'
+          + '?serviceKey=' + encodeURIComponent(key) + '&solYear=' + year + '&numOfRows=100&_type=json';
+        const r = await fetch(api);
+        dbg.apiStatus = r.status;
+        const txt = await r.text();
+        let j = null; try { j = JSON.parse(txt); } catch (_) { dbg.apiError = txt.slice(0, 160); continue; }
+        // 에러 응답(서비스키 오류 등) 처리
+        const header = j && j.response && j.response.header;
+        if (header && header.resultCode && header.resultCode !== '00') { dbg.apiError = header.resultCode + ':' + (header.resultMsg || ''); continue; }
         const items = j && j.response && j.response.body && j.response.body.items && j.response.body.items.item;
         const arr = Array.isArray(items) ? items : (items ? [items] : []);
         const fetched = arr
           .filter(it => String(it.isHoliday || 'Y') === 'Y')
           .map(it => { const s = String(it.locdate); return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8); });
-        if (fetched.length) { holidays = [...new Set([...holidays, ...fetched])].sort(); source = 'api+builtin'; }
-      }
-    } catch (_) {}
+        dbg.fetchedCount = fetched.length;
+        if (fetched.length) { holidays = [...new Set([...holidays, ...fetched])].sort(); source = 'api+builtin'; break; }
+      } catch (e) { dbg.apiError = String(e).slice(0, 160); }
+    }
   }
 
   const out = { year, holidays: [...new Set(holidays)].sort(), source };
-  if (env.STORES_KV) { try { await env.STORES_KV.put(cacheKey, JSON.stringify(out), { expirationTtl: 60 * 60 * 24 * 7 }); } catch (_) {} }
+  if (url.searchParams.get('debug') === '1') out.debug = dbg;
+  // API 성공분만 장기 캐시(7일). builtin 폴백은 짧게(10분)만 캐시 → 키 설정 후 곧 자동 반영
+  if (env.STORES_KV) {
+    try { await env.STORES_KV.put(cacheKey, JSON.stringify({ year, holidays: out.holidays, source }), { expirationTtl: source === 'api+builtin' ? 60 * 60 * 24 * 7 : 600 }); } catch (_) {}
+  }
   return json(out);
 }
 
