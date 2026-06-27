@@ -30,7 +30,8 @@
     if (window.esc && window.esc !== esc) { try { return window.esc(s); } catch (_) {} }
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
-  const J = (v) => JSON.stringify(v);  // onclick 인자 안전 직렬화
+  // onclick 인자 안전 직렬화 — 큰따옴표를 &quot; 로 이스케이프해야 onclick="...${J(x)}..." 속성이 깨지지 않음
+  const J = (v) => JSON.stringify(v).replace(/"/g, '&quot;');
   function toast(m) { try { if (window.showToast) return window.showToast(m); } catch (_) {} console.log('[eap]', m); }
   function kstDate() { return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10); }
   function kstNow() {
