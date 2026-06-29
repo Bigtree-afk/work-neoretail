@@ -433,7 +433,7 @@
     else if (SUB === 'mine') list = docs.filter(d => d.drafter === me);
     else if (SUB === 'ref') list = docs.filter(isCC);
     else if (SUB === 'exec') list = docs.filter(d => d.kind === 'pay' && d.status === 'ok' && canView(d));
-    else if (SUB === 'done') list = docs.filter(d => d.status !== 'wait' && canView(d));
+    else if (SUB === 'done') list = docs.filter(d => (d.status === 'ok' || d.status === 'rej') && canView(d));  // 완료·반려만 (진행중/회수 제외 — 재상신 시 자동 제외)
     else list = docs.slice();
 
     list.sort((a, b) => (Number(b.updatedAt || b.createdAt) || 0) - (Number(a.updatedAt || a.createdAt) || 0));

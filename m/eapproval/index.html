@@ -257,7 +257,7 @@
     let list;
     if(SUB==='received')list=docs.filter(isMyTurn);
     else if(SUB==='mine')list=docs.filter(d=>d.drafter===me);
-    else if(SUB==='done')list=docs.filter(d=>d.status!=='wait'&&canView(d));
+    else if(SUB==='done')list=docs.filter(d=>(d.status==='ok'||d.status==='rej')&&canView(d));
     else list=docs.filter(canView);
     list.sort((a,b)=>(Number(b.updatedAt||b.createdAt)||0)-(Number(a.updatedAt||a.createdAt)||0));
     const chips=subs.map(([k,l,n])=>'<button class="chip '+(SUB===k?'on':'')+'" onclick="_eapSetSub(\''+k+'\')">'+l+(n?'<span class="n">'+n+'</span>':'')+'</button>').join('');
