@@ -22,6 +22,7 @@
 
   // ── UI 상태 ──
   let TAB = 'appr', SUB = 'received', SCHSUB = 'up';
+  let _execFrom = '', _execTo = '';
   let _built = false;
   let _pollTimer = null;
   let _listenersBound = false;
@@ -283,6 +284,9 @@
     cfg.tpl.forEach(t => {
       if (t && t.id === 't-pay' && Array.isArray(t.fields)) {
         t.fields.forEach(f => { if (f && f.label === '작성 일자') { f.label = '지급 일자'; changed = true; } });
+        const before = t.fields.length;
+        t.fields = t.fields.filter(f => !(f && f.label === '수령 방법'));  // 수령 방법 제거(불필요)
+        if (t.fields.length !== before) changed = true;
       }
     });
     if (changed) { cfg.updatedAt = Date.now(); try { localStorage.setItem(CFG_LS, JSON.stringify(cfg)); } catch (_) {} schedulePush(true); }
@@ -292,7 +296,6 @@
       { id: 't-basic', name: '일반 기안서', cat: 'gen', fields: [{ label: '제목', type: 'text' }, { label: '내용', type: 'textarea' }] },
       { id: 't-pay', name: '지출결의서', cat: 'pay', fields: [
         { label: '결제 방법', type: 'select', options: '현금,개인카드,법인카드,계좌입금' },
-        { label: '수령 방법', type: 'select', options: '계좌입금,현금,기타' },
         { label: '사용 부서', type: 'text' }, { label: '은 행 명', type: 'text' },
         { label: '지급 일자', type: 'date' }, { label: '예 금 주', type: 'text' },
         { label: '계좌 번호', type: 'text' }, { label: '금   액', type: 'money' },
@@ -442,14 +445,60 @@
       ? list.map(docCard).join('')
       : `<div class="eap-empty">📭 항목이 없습니다</div>`;
 
+    const execSum = (SUB === 'exec') ? `<div id="eapExecSummary">${execSummaryHtml()}</div>` : '';
+
     return `
       <div class="eap-bar">
         <div class="eap-chips">${chips}</div>
         <button class="eap-btn eap-btn-p" onclick="EAP.openDraft()">✏️ 새 기안</button>
       </div>
+      ${execSum}
       <div>${body}</div>`;
   }
   EAP.setSub = function (s) { SUB = s; renderTab(); };
+
+  // 자금집행 집계 — 지출결의(pay) 중 지급완료(execStatus done) 건만 기간(집행일) 집계
+  function _thisMonthRange() {
+    const d = new Date(Date.now() + 9 * 3600 * 1000);
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0');
+    const last = new Date(y, d.getMonth() + 1, 0).getDate();
+    return { from: `${y}-${m}-01`, to: `${y}-${m}-${String(last).padStart(2, '0')}` };
+  }
+  function execSummaryHtml() {
+    if (!_execFrom || !_execTo) { const r = _thisMonthRange(); _execFrom = r.from; _execTo = r.to; }
+    const all = getDocs().filter(d => d.kind === 'pay' && d.status === 'ok' && canView(d));
+    const done = all.filter(d => d.execStatus === 'done');
+    const inRange = done.filter(d => { const dt = String(d.execAt || d.at || '').slice(0, 10); return dt >= _execFrom && dt <= _execTo; });
+    const cnt = inRange.length, sum = inRange.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+    const pend = all.filter(d => d.execStatus !== 'done');
+    const pendCnt = pend.length, pendSum = pend.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+    return `
+      <div style="background:#fff;border:1px solid var(--gray-200,#E2E8F0);border-radius:12px;padding:12px 14px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-weight:800;font-size:13px">💸 자금집행 집계</span>
+          <span class="eap-meta">기간(집행일)</span>
+          <input type="date" class="eap-mini" style="max-width:140px" value="${_execFrom}" onchange="EAP.setExecPeriod('from',this.value)">
+          <span class="eap-meta">~</span>
+          <input type="date" class="eap-mini" style="max-width:140px" value="${_execTo}" onchange="EAP.setExecPeriod('to',this.value)">
+          <button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.execThisMonth()">당월</button>
+        </div>
+        <table class="eap-table" style="margin-bottom:0">
+          <thead><tr><th>구분</th><th style="text-align:right">건수</th><th style="text-align:right">금액 합계</th></tr></thead>
+          <tbody>
+            <tr><td><b>💸 지급완료</b></td><td style="text-align:right"><b>${cnt}</b>건</td><td style="text-align:right;font-weight:800;color:#166534">${won(sum)}</td></tr>
+            <tr><td class="eap-meta">⏳ 집행대기 (전체)</td><td style="text-align:right" class="eap-meta">${pendCnt}건</td><td style="text-align:right" class="eap-meta">${won(pendSum)}</td></tr>
+          </tbody>
+        </table>
+      </div>`;
+  }
+  EAP.setExecPeriod = function (which, val) {
+    if (which === 'from') _execFrom = val; else _execTo = val;
+    const el = document.getElementById('eapExecSummary'); if (el) el.innerHTML = execSummaryHtml();
+  };
+  EAP.execThisMonth = function () {
+    const r = _thisMonthRange(); _execFrom = r.from; _execTo = r.to;
+    const el = document.getElementById('eapExecSummary'); if (el) el.innerHTML = execSummaryHtml();
+  };
 
   function lineHtml(d) {
     const steps = (d.line || []).map((s, i) => {
@@ -878,10 +927,9 @@
 
     if (t.id === 't-pay' && has('결제 방법')) { cols4 = true;
       inner = `<colgroup><col style="width:18%"><col style="width:32%"><col style="width:18%"><col style="width:32%"></colgroup>
-        <tr><th>결제 방법</th><td>${C('결제 방법')}</td><th>수령 방법</th><td>${C('수령 방법')}</td></tr>
+        <tr><th>결제 방법</th><td>${C('결제 방법')}</td><th>지급 일자</th><td>${C('지급 일자')}</td></tr>
         <tr><th>사용 부서</th><td>${C('사용 부서')}</td><th>은 행 명</th><td>${C('은 행 명')}</td></tr>
-        <tr><th>지급 일자</th><td>${C('지급 일자')}</td><th>예 금 주</th><td>${C('예 금 주')}</td></tr>
-        <tr><th>계좌 번호</th><td colspan="3">${C('계좌 번호')}</td></tr>
+        <tr><th>예 금 주</th><td>${C('예 금 주')}</td><th>계좌 번호</th><td>${C('계좌 번호')}</td></tr>
         <tr><th>금   액</th><td colspan="3">${C('금   액')}</td></tr>
         <tr><th>사용 내역</th><td colspan="3">${C('사용 내역')}</td></tr>`;
     } else if (t.id === 't-trip-req' && has('소 속')) { cols4 = true;
