@@ -49,10 +49,11 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: false, error: 'no_channel_token' }, 200);
   }
 
-  // lineMap 조회 — eapproval_config 우선, 없으면 line_config
+  // lineMap 조회 — eapproval_config 우선, 없으면 line_config. toUserId 직접 지정 시 우선(테스트용)
   const eapCfg = (await getJson(env, 'eapproval_config', {})) || {};
   const lineMap = Object.assign({}, cfg.lineMap || {}, eapCfg.lineMap || {});
-  let to = (lineMap[toName] || '').trim();
+  const toUserId = String(body?.toUserId || '').trim();
+  let to = toUserId || (lineMap[toName] || '').trim();
   let viaGroup = false;
   if (!to) { to = String(cfg.alertRecipientId || '').trim(); viaGroup = true; }
   if (!to) return json({ ok: false, error: 'no_recipient', detail: `${toName} 의 LINE userId 미등록 + alertRecipientId 없음` }, 200);
@@ -81,7 +82,12 @@ export async function onRequestPost({ request, env }) {
     });
     if (!r.ok) {
       let detail = ''; try { detail = await r.text(); } catch (_) {}
-      return json({ ok: false, status: r.status, error: 'line_api_failed', detail: detail.slice(0, 300) }, 200);
+      // 흔한 원인 힌트: 친구추가 안 됨(개인 푸시 불가)
+      let hint = '';
+      if (r.status === 403 || r.status === 400) {
+        hint = '수신자가 공식계정을 "친구추가"하지 않았을 수 있습니다. 해당 직원이 봇을 1:1 친구추가해야 개인 알림이 전송됩니다.';
+      }
+      return json({ ok: false, status: r.status, error: 'line_api_failed', hint, detail: detail.slice(0, 300), viaGroup }, 200);
     }
     return json({ ok: true, sentTo: to.slice(0, 10) + '…', viaGroup }, 200);
   } catch (e) {

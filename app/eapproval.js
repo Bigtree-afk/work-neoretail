@@ -529,6 +529,10 @@
       fetch('/api/eapproval-notify', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ to, title: d.title, docId: d.id, kind: d.kind, event: ev, drafter: d.drafter }),
+      }).then(r => r.json()).then(res => {
+        if (res && res.ok === false) {
+          toast('⚠ LINE 발송 실패(' + to + '): ' + (res.hint || res.detail || res.error || ('status ' + res.status)));
+        }
       }).catch(() => {});
     } catch (_) {}
   }
@@ -962,7 +966,7 @@
       return `<tr><td><b>${esc(n)}</b></td><td>${r.length ? esc(n) + '(기안) → ' + r.map(esc).join(' → ') : '<span class="eap-dash">미지정</span>'}</td><td><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.openRoute(${J(n)})">✏️</button></td></tr>`;
     }).join('');
     const lineMap = getLineMap();
-    const lineRows = STAFF().map(n => `<tr><td><b>${esc(n)}</b></td><td><input class="eap-mini" data-eaplm="${esc(n)}" value="${esc(lineMap[n] || '')}" placeholder="LINE userId (Uxxxx)"></td></tr>`).join('');
+    const lineRows = STAFF().map(n => `<tr><td><b>${esc(n)}</b></td><td><input class="eap-mini" data-eaplm="${esc(n)}" value="${esc(lineMap[n] || '')}" placeholder="LINE userId (Uxxxx)"></td><td><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.testLine(${J(n)})">테스트</button></td></tr>`).join('');
     const tplCards = getTpls().map(t => {
       const k = KIND[t.cat] || KIND.gen;
       return `<div class="eap-card" style="cursor:default">
@@ -988,7 +992,7 @@
       ${exclChips}
       <div style="display:flex;gap:6px;margin-top:8px"><input id="eapHolDate" type="date" class="eap-mini" style="max-width:170px"><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.addHoliday()">+ 추가</button></div>
       <div class="eap-sech">💬 직원 LINE userId (결재 알림용) <span class="eap-meta">— 직원이 LINE 봇/단톡방에서 발언하면 자동 수집됨</span></div>
-      <table class="eap-table"><thead><tr><th>직원</th><th>LINE userId</th></tr></thead><tbody>${lineRows}</tbody></table>
+      <table class="eap-table"><thead><tr><th>직원</th><th>LINE userId</th><th></th></tr></thead><tbody>${lineRows}</tbody></table>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
         <button class="eap-btn eap-btn-p eap-btn-sm" onclick="EAP.fillLineFromProfiles()">📥 LINE에서 자동 채우기</button>
         <button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.saveLineMap()">💾 LINE userId 저장</button>
@@ -1005,6 +1009,21 @@
     const map = {};
     document.querySelectorAll('#eapContainer [data-eaplm]').forEach(el => { const v = el.value.trim(); if (v) map[el.getAttribute('data-eaplm')] = v; });
     saveCfgKey('lineMap', map); toast('💾 LINE userId 저장됨');
+  };
+  // 직원별 LINE 연결 테스트 — 현재 입력칸의 userId 로 직접 발송, 정확한 결과 표시
+  EAP.testLine = function (name) {
+    if (!isAdmin()) { toast('관리자만 가능'); return; }
+    const el = document.querySelector('#eapContainer [data-eaplm="' + cssEsc(name) + '"]');
+    const uid = el ? el.value.trim() : '';
+    if (!uid) { toast(name + ' 의 LINE userId 가 비어있습니다'); return; }
+    toast('💬 ' + name + ' 테스트 발송 중…');
+    fetch('/api/eapproval-notify', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ to: name, toUserId: uid, title: '[테스트] 전자결재 알림 연결 확인', event: 'request', drafter: '시스템' }),
+    }).then(r => r.json()).then(res => {
+      if (res && res.ok) toast('✅ ' + name + ' 발송 성공 — 본인 LINE 에서 수신 확인 부탁');
+      else toast('❌ ' + name + ' 실패 (status ' + (res && res.status || '?') + '): ' + (res && (res.hint || res.detail || res.error) || ''));
+    }).catch(e => toast('❌ 요청 실패: ' + e.message));
   };
   EAP.addHoliday = function () {
     if (!isAdmin()) { toast('관리자만 가능'); return; }
