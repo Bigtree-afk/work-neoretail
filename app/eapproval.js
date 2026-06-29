@@ -131,6 +131,9 @@
   const MANAGERS = ['이동호', '김혜연'];
   function canEditLeave() { return isAdmin() || MANAGERS.includes(ME()); }
   function canManageRoutes() { return isAdmin() || MANAGERS.includes(ME()); }
+  // 자금 집행완료 처리 권한 — 관리자 + 지정 담당자
+  const FUND_EXECUTORS = ['김혜연'];
+  function canExecFund() { return isAdmin() || FUND_EXECUTORS.includes(ME()); }
   function userTitle(name) {
     const u = getUsers().find(u => u && u.name === name);
     return (u && u.title) || '';
@@ -503,7 +506,7 @@
       if (d.execStatus === 'done') {
         execHtml = `<div class="eap-sech">자금집행</div><div class="eap-execbox done">✅ 집행완료 <span class="eap-meta">${esc(d.execBy || '')} · ${esc(d.execAt || '')}</span></div>`;
       } else {
-        execHtml = `<div class="eap-sech">자금집행</div><div class="eap-execbox wait">⏳ 집행 대기 — 결재완료, 자금집행자 처리 대기${isAdmin() ? `<button class="eap-btn eap-btn-ok" style="width:100%;margin-top:8px" onclick="EAP.execDone(${J(d.id)})">💸 자금 집행완료 처리</button>` : '<div class="eap-meta" style="margin-top:6px">집행완료는 자금집행자(관리자)가 처리합니다.</div>'}</div>`;
+        execHtml = `<div class="eap-sech">자금집행</div><div class="eap-execbox wait">⏳ 집행 대기 — 결재완료, 자금집행자 처리 대기${canExecFund() ? `<button class="eap-btn eap-btn-ok" style="width:100%;margin-top:8px" onclick="EAP.execDone(${J(d.id)})">💸 자금 집행완료 처리</button>` : '<div class="eap-meta" style="margin-top:6px">집행완료는 자금집행자가 처리합니다.</div>'}</div>`;
       }
     }
 
@@ -602,7 +605,7 @@
   };
   EAP.execDone = function (id) {
     const docs = getDocs(); const d = docs.find(x => x.id === id);
-    if (!d || d.kind !== 'pay' || d.status !== 'ok' || !isAdmin()) return;
+    if (!d || d.kind !== 'pay' || d.status !== 'ok' || !canExecFund()) return;
     d.execStatus = 'done'; d.execBy = ME(); d.execAt = kstNow(); d.updatedAt = Date.now();
     _save(docs); notify(d.drafter, 'exec', d); toast('💸 자금 집행완료'); EAP.closeModal(); renderTab();
   };

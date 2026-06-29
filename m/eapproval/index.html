@@ -136,6 +136,8 @@
   function ME(){const a=authState();if(!a)return '';const users=getUsers();const me=users.find(u=>(u.id||'').toLowerCase()===(a.id||a.email||'').toLowerCase());return (me&&me.name)||a.name||a.email||'';}
   function STAFF(){const names=getUsers().map(u=>u&&u.name).filter(Boolean);const me=ME();if(me&&!names.includes(me))names.unshift(me);return [...new Set(names)];}
   function isAdmin(){const a=authState();if(a&&a.role==='admin')return true;if(a&&ADMIN_EMAILS.includes((a.id||a.email||'').toLowerCase()))return true;return false;}
+  const FUND_EXECUTORS=['김혜연'];
+  function canExecFund(){return isAdmin()||FUND_EXECUTORS.includes(ME());}
 
   /* 공휴일 / 근무일 (PC app/eapproval.js 와 동일 — 쌍둥이) */
   const KR_HOLIDAYS_BUILTIN=['2026-01-01','2026-02-16','2026-02-17','2026-02-18','2026-03-01','2026-03-02','2026-05-05','2026-05-24','2026-05-25','2026-06-06','2026-08-15','2026-08-17','2026-09-24','2026-09-25','2026-09-26','2026-09-28','2026-10-03','2026-10-05','2026-10-09','2026-12-25'];
@@ -314,7 +316,7 @@
     if(d.kind==='pay'&&d.status==='ok'){
       execHtml=d.execStatus==='done'
         ?'<div class="sech">자금집행</div><div class="execbox done">✅ 집행완료 <span class="meta">'+esc(d.execBy||'')+' · '+esc(d.execAt||'')+'</span></div>'
-        :'<div class="sech">자금집행</div><div class="execbox wait">⏳ 집행 대기'+(isAdmin()?'<button class="btn btn-ok" style="width:100%;margin-top:8px" onclick="_eapExec(\''+esc(id)+'\')">💸 집행완료 처리</button>':'')+'</div>';
+        :'<div class="sech">자금집행</div><div class="execbox wait">⏳ 집행 대기'+(canExecFund()?'<button class="btn btn-ok" style="width:100%;margin-top:8px" onclick="_eapExec(\''+esc(id)+'\')">💸 집행완료 처리</button>':'')+'</div>';
     }
     box.innerHTML='<div class="ctop"><span class="kind '+k.cls+'">'+k.label+'</span>'+stBadge(d)+'</div>'
       +docFormHtml(t,'view',vals)+execHtml
@@ -332,7 +334,7 @@
   window._eapReject=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||!isMyTurn(d))return;const op=(document.getElementById('rejOp')||{}).value||'';d.history=d.history||[];d.history.push({n:ME(),act:'반려',at:kstNow(),op});d.status='rej';d.updatedAt=Date.now();setDocs(docs);notify(d.drafter,'rejected',d);toast('⛔ 반려');location.hash='';};
   window._eapRecall=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||d.drafter!==ME()||d.status!=='wait')return;d.status='recalled';d.updatedAt=Date.now();d.history=d.history||[];d.history.push({n:ME(),act:'회수',at:kstNow()});setDocs(docs);toast('↩ 회수');location.hash='';};
   window._eapResubmit=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||d.drafter!==ME()||d.status!=='recalled')return;d.status='wait';d.step=1;d.updatedAt=Date.now();d.history=d.history||[];d.history.push({n:ME(),act:'재상신',at:kstNow()});setDocs(docs);notify((d.line[1]||{}).n,'request',d);toast('📤 재상신');location.hash='';};
-  window._eapExec=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||d.kind!=='pay'||d.status!=='ok'||!isAdmin())return;d.execStatus='done';d.execBy=ME();d.execAt=kstNow();d.updatedAt=Date.now();setDocs(docs);notify(d.drafter,'exec',d);toast('💸 집행완료');render();};
+  window._eapExec=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||d.kind!=='pay'||d.status!=='ok'||!canExecFund())return;d.execStatus='done';d.execBy=ME();d.execAt=kstNow();d.updatedAt=Date.now();setDocs(docs);notify(d.drafter,'exec',d);toast('💸 집행완료');render();};
   async function pushCfg(){try{await fetch('/api/eapproval',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({config:getCfg()})});}catch(_){}}
 
   /* ── form (draft) ── */
