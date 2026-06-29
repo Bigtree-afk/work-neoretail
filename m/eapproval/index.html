@@ -312,6 +312,8 @@
       act='<button class="btn btn-o" style="width:100%;margin-top:12px" onclick="_eapRecall(\''+esc(id)+'\')">↩ 회수</button>';
     }else if(d.drafter===ME()&&d.status==='recalled'){
       act='<div class="actrow" style="margin-top:12px"><button class="btn btn-o" onclick="_eapEdit(\''+esc(id)+'\')">✏️ 수정 후 재상신</button><button class="btn btn-p" onclick="_eapResubmit(\''+esc(id)+'\')">📤 그대로</button></div>';
+    }else if(d.drafter===ME()&&d.status==='rej'){
+      act='<div class="meta" style="margin-top:12px;margin-bottom:6px">반려된 기안 — 수정 후 다시 상신할 수 있습니다.</div><div class="actrow"><button class="btn btn-o" onclick="_eapEdit(\''+esc(id)+'\')">✏️ 수정 후 재상신</button><button class="btn btn-p" onclick="_eapResubmit(\''+esc(id)+'\')">📤 그대로</button></div>';
     }
     let execHtml='';
     if(d.kind==='pay'&&d.status==='ok'){
@@ -334,7 +336,7 @@
     location.hash='';};
   window._eapReject=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||!isMyTurn(d))return;const op=(document.getElementById('rejOp')||{}).value||'';d.history=d.history||[];d.history.push({n:ME(),act:'반려',at:kstNow(),op});d.status='rej';d.updatedAt=Date.now();setDocs(docs);notify(d.drafter,'rejected',d);toast('⛔ 반려');location.hash='';};
   window._eapRecall=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||d.drafter!==ME()||d.status!=='wait')return;d.status='recalled';d.updatedAt=Date.now();d.history=d.history||[];d.history.push({n:ME(),act:'회수',at:kstNow()});setDocs(docs);toast('↩ 회수');location.hash='';};
-  window._eapResubmit=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||d.drafter!==ME()||d.status!=='recalled')return;d.status='wait';d.step=1;d.updatedAt=Date.now();d.history=d.history||[];d.history.push({n:ME(),act:'재상신',at:kstNow()});setDocs(docs);notify((d.line[1]||{}).n,'request',d);toast('📤 재상신');location.hash='';};
+  window._eapResubmit=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||d.drafter!==ME()||(d.status!=='recalled'&&d.status!=='rej'))return;d.status='wait';d.step=1;d.updatedAt=Date.now();d.history=d.history||[];d.history.push({n:ME(),act:'재상신',at:kstNow()});setDocs(docs);notify((d.line[1]||{}).n,'request',d);toast('📤 재상신');location.hash='';};
   window._eapExec=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||d.kind!=='pay'||d.status!=='ok'||!canExecFund())return;d.execStatus='done';d.execBy=ME();d.execAt=kstNow();d.updatedAt=Date.now();setDocs(docs);notify(d.drafter,'exec',d);toast('💸 집행완료');render();};
   async function pushCfg(){try{await fetch('/api/eapproval',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({config:getCfg()})});}catch(_){}}
 

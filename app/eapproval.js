@@ -515,6 +515,8 @@
       actions = `<button class="eap-btn eap-btn-o" onclick="EAP.recall(${J(d.id)})">↩ 회수</button>`;
     } else if (d.drafter === ME() && d.status === 'recalled') {
       actions = `<div class="eap-actrow"><button class="eap-btn eap-btn-o" onclick="EAP.openDraftEdit(${J(d.id)})">✏️ 수정 후 재상신</button><button class="eap-btn eap-btn-p" onclick="EAP.resubmit(${J(d.id)})">📤 그대로 재상신</button></div>`;
+    } else if (d.drafter === ME() && d.status === 'rej') {
+      actions = `<div class="eap-meta" style="margin-bottom:6px">반려된 기안입니다. 수정 후 다시 상신할 수 있습니다.</div><div class="eap-actrow"><button class="eap-btn eap-btn-o" onclick="EAP.openDraftEdit(${J(d.id)})">✏️ 수정 후 재상신</button><button class="eap-btn eap-btn-p" onclick="EAP.resubmit(${J(d.id)})">📤 그대로 재상신</button></div>`;
     }
 
     // 자금집행
@@ -614,7 +616,7 @@
   };
   EAP.resubmit = function (id) {
     const docs = getDocs(); const d = docs.find(x => x.id === id);
-    if (!d || d.drafter !== ME() || d.status !== 'recalled') return;
+    if (!d || d.drafter !== ME() || (d.status !== 'recalled' && d.status !== 'rej')) return;
     d.status = 'wait'; d.step = 1; d.updatedAt = Date.now();
     d.history = d.history || []; d.history.push({ n: ME(), act: '재상신', at: kstNow() });
     _save(docs); notify((d.line[1] || {}).n, 'request', d);
@@ -1065,7 +1067,7 @@
     const exclChips = excl.length
       ? `<div class="eap-meta" style="margin-top:8px">근무일로 제외된 날 (클릭 시 복원):</div><div class="eap-picker">${excl.map(d => `<span class="eap-pk" style="cursor:pointer;opacity:.75" onclick="EAP.restoreHoliday(${J(d)})">↩ ${esc(d)}</span>`).join('')}</div>`
       : '';
-    const adminSections = admin ? `
+    const adminSections = (admin || canManageRoutes()) ? `
       <div class="eap-sech">📅 공휴일 관리 <span class="eap-meta">— 연차 계산 시 토·일 + 아래 공휴일 제외 (✕ = 근무일로 처리)</span></div>
       <div class="eap-meta" style="margin-bottom:6px">내장 + 자동수집(공공데이터포털) + 직접추가를 합산. 제헌절 등 평일로 둘 날은 ✕ 로 제외하세요. (${hY}~${hY + 1} 표시)</div>
       <div class="eap-picker" id="eapHolList">${effChips}</div>
@@ -1092,7 +1094,7 @@
   };
   // 직원별 LINE 연결 테스트 — 현재 입력칸의 userId 로 직접 발송, 정확한 결과 표시
   EAP.testLine = function (name) {
-    if (!isAdmin()) { toast('관리자만 가능'); return; }
+    if (!canManageRoutes()) { toast('권한이 없습니다'); return; }
     const el = document.querySelector('#eapContainer [data-eaplm="' + cssEsc(name) + '"]');
     const uid = el ? el.value.trim() : '';
     if (!uid) { toast(name + ' 의 LINE userId 가 비어있습니다'); return; }
@@ -1106,7 +1108,7 @@
     }).catch(e => toast('❌ 요청 실패: ' + e.message));
   };
   EAP.addHoliday = function () {
-    if (!isAdmin()) { toast('관리자만 가능'); return; }
+    if (!canManageRoutes()) { toast('권한이 없습니다'); return; }
     const v = (document.getElementById('eapHolDate') || {}).value; if (!v) { toast('날짜를 선택하세요'); return; }
     const c = getCfg(); const h = Array.isArray(c.holidays) ? c.holidays : [];
     if (!h.includes(v)) h.push(v);
@@ -1114,7 +1116,7 @@
   };
   // 공휴일에서 제거: 직접 추가분이면 목록에서 삭제, 아니면(내장/자동수집) 제외목록에 추가 → 근무일 처리
   EAP.removeHoliday = function (d) {
-    if (!isAdmin()) return;
+    if (!canManageRoutes()) return;
     const c = getCfg();
     if (Array.isArray(c.holidays) && c.holidays.includes(d)) {
       c.holidays = c.holidays.filter(x => x !== d);
@@ -1125,7 +1127,7 @@
     c.updatedAt = Date.now(); setCfg(c); renderTab(); toast('🗓 근무일로 처리: ' + d);
   };
   EAP.restoreHoliday = function (d) {
-    if (!isAdmin()) return;
+    if (!canManageRoutes()) return;
     const c = getCfg(); c.holidayExcludes = (c.holidayExcludes || []).filter(x => x !== d);
     c.updatedAt = Date.now(); setCfg(c); renderTab(); toast('↩ 공휴일 복원: ' + d);
   };
