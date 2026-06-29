@@ -154,6 +154,26 @@
     try { localStorage.setItem(CFG_LS, JSON.stringify(c)); } catch (_) {}
     schedulePush(true);
   }
+  // config 키별 deep-merge — birth/routes/leave/lineMap 은 하위키 머지(cloud 우선),
+  // holidays/holidayExcludes 는 union, tpl 은 id 기준 머지. (PC·서버·모바일 동일 규칙)
+  function mergeEapCfg(local, cloud) {
+    local = local || {}; cloud = cloud || {};
+    const out = Object.assign({}, local);
+    for (const k of ['routes', 'birth', 'leave', 'lineMap']) {
+      if (cloud[k] && typeof cloud[k] === 'object') out[k] = Object.assign({}, local[k] || {}, cloud[k]);
+    }
+    for (const k of ['holidays', 'holidayExcludes']) {
+      const a = Array.isArray(local[k]) ? local[k] : [], b = Array.isArray(cloud[k]) ? cloud[k] : [];
+      if (a.length || b.length) out[k] = [...new Set([...a, ...b])];
+    }
+    if (Array.isArray(cloud.tpl) && cloud.tpl.length) {
+      const byId = new Map((Array.isArray(local.tpl) ? local.tpl : []).map(t => [t.id, t]));
+      cloud.tpl.forEach(t => { if (t && t.id) byId.set(t.id, t); });
+      out.tpl = [...byId.values()];
+    }
+    out.updatedAt = Date.now();
+    return out;
+  }
   function getDeleted() {
     try { return JSON.parse(localStorage.getItem(DEL_LS) || '[]'); } catch (_) { return []; }
   }
@@ -224,15 +244,9 @@
         if (!ex || mt(d) >= mt(ex)) byId.set(id, d);
       }
       _writeDocs([...byId.values()]);
-      // config — cloud 가 더 최신이면 채택
-      const cloudCfg = data.config || {};
-      const localCfg = getCfg();
-      if ((Number(cloudCfg.updatedAt) || 0) >= (Number(localCfg.updatedAt) || 0)) {
-        // 단, lineMap/leave 등은 cloud 채택. 비어있으면 로컬 seed 보존
-        if (cloudCfg && Object.keys(cloudCfg).length) {
-          try { localStorage.setItem(CFG_LS, JSON.stringify(cloudCfg)); } catch (_) {}
-        }
-      }
+      // config — 키별 deep-merge (cloud 값 채택). updatedAt 비교 폐기(서버 ISO ↔ 클라 숫자 불일치 버그).
+      const merged = mergeEapCfg(getCfg(), data.config || {});
+      try { localStorage.setItem(CFG_LS, JSON.stringify(merged)); } catch (_) {}
       ensureSeed();
       if (isScreenActive()) renderTab();
     } catch (e) { console.warn('[eap] sync 실패', e); }

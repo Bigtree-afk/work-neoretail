@@ -149,6 +149,7 @@
   function writeDocs(a){setItem(DOCS_LS,JSON.stringify(a));}
   function setDocs(a){writeDocs(a);schedulePush();}
   function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_LS)||'{}');}catch(_){return {};}}
+  function mergeEapCfg(local,cloud){local=local||{};cloud=cloud||{};const out=Object.assign({},local);for(const k of ['routes','birth','leave','lineMap'])if(cloud[k]&&typeof cloud[k]==='object')out[k]=Object.assign({},local[k]||{},cloud[k]);for(const k of ['holidays','holidayExcludes']){const a=Array.isArray(local[k])?local[k]:[],b=Array.isArray(cloud[k])?cloud[k]:[];if(a.length||b.length)out[k]=[...new Set([...a,...b])];}if(Array.isArray(cloud.tpl)&&cloud.tpl.length){const byId=new Map((Array.isArray(local.tpl)?local.tpl:[]).map(t=>[t.id,t]));cloud.tpl.forEach(t=>{if(t&&t.id)byId.set(t.id,t);});out.tpl=[...byId.values()];}out.updatedAt=Date.now();return out;}
   function getTpls(){const t=getCfg().tpl;return Array.isArray(t)?t:[];}
   function tplById(id){return getTpls().find(t=>t.id===id);}
   function getRoutes(){const r=getCfg().routes;return (r&&typeof r==='object')?r:{};}
@@ -181,8 +182,7 @@
       for(const d of local)if(d&&d.id&&!delSet.has(String(d.id)))byId.set(String(d.id),d);
       for(const d of cloudDocs){if(!d||!d.id||delSet.has(String(d.id)))continue;const id=String(d.id),ex=byId.get(id);if(!ex||mt(d)>=mt(ex))byId.set(id,d);}
       writeDocs([...byId.values()]);
-      const cc=data.config||{};const lc=getCfg();
-      if((Number(cc.updatedAt)||0)>=(Number(lc.updatedAt)||0) && Object.keys(cc).length){try{localStorage.setItem(CFG_LS,JSON.stringify(cc));}catch(_){}}
+      try{localStorage.setItem(CFG_LS,JSON.stringify(mergeEapCfg(getCfg(),data.config||{})));}catch(_){}
       if(parseHash().view==='list')renderList();
     }catch(e){}
     _syncing=false;

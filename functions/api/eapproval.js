@@ -105,13 +105,23 @@ export async function onRequestPost({ request, env }) {
       Object.assign(result, { docCount: merged.length, added, replaced, kept });
     }
 
-    // ── 3) config 머지 (키별 last-write-wins) ──
+    // ── 3) config 키별 deep-merge (다중 PC 동시편집 시 빈 값이 서로 덮어쓰지 않도록) ──
     if (body?.config && typeof body.config === 'object') {
       const cur = (await safeGetJson(env, CFG_KEY, {})) || {};
       const inc = body.config;
-      // tpl/routes/birth/leave/lineMap/holidays/holidayExcludes 만 허용 — incoming 값이 있으면 통째 교체
-      for (const k of ['tpl', 'routes', 'birth', 'leave', 'lineMap', 'holidays', 'holidayExcludes']) {
-        if (inc[k] !== undefined && inc[k] !== null) cur[k] = inc[k];
+      // birth/routes/leave/lineMap: 하위키 머지(incoming 우선)
+      for (const k of ['routes', 'birth', 'leave', 'lineMap']) {
+        if (inc[k] && typeof inc[k] === 'object') cur[k] = Object.assign({}, cur[k] || {}, inc[k]);
+      }
+      // holidays/holidayExcludes: union
+      for (const k of ['holidays', 'holidayExcludes']) {
+        if (Array.isArray(inc[k])) cur[k] = [...new Set([...(Array.isArray(cur[k]) ? cur[k] : []), ...inc[k]])];
+      }
+      // tpl: id 기준 머지(incoming 우선)
+      if (Array.isArray(inc.tpl)) {
+        const byId = new Map((Array.isArray(cur.tpl) ? cur.tpl : []).map(t => [t.id, t]));
+        inc.tpl.forEach(t => { if (t && t.id) byId.set(t.id, t); });
+        cur.tpl = [...byId.values()];
       }
       cur.updatedAt = new Date().toISOString();
       try { await env.STORES_KV.put(CFG_KEY, JSON.stringify(cur)); }
