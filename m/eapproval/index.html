@@ -227,7 +227,7 @@
   window.addEventListener('hashchange',render);
 
   /* ── list ── */
-  function setSub(s){SUB=s;renderList();}
+  function setSub(s){SUB=s;_doneTplFilter='all';renderList();}
   window._eapSetSub=setSub;
   function lineHtml(d){
     return '<div class="line">'+(d.line||[]).map((s,i)=>{
@@ -261,8 +261,17 @@
     else list=docs.filter(canView);
     list.sort((a,b)=>(Number(b.updatedAt||b.createdAt)||0)-(Number(a.updatedAt||a.createdAt)||0));
     const chips=subs.map(([k,l,n])=>'<button class="chip '+(SUB===k?'on':'')+'" onclick="_eapSetSub(\''+k+'\')">'+l+(n?'<span class="n">'+n+'</span>':'')+'</button>').join('');
-    document.getElementById('view-list').innerHTML='<div class="chips">'+chips+'</div>'+(list.length?list.map(card).join(''):'<div class="empty">📭 항목이 없습니다</div>');
+    let tickers='';
+    if(SUB==='done'){
+      const byTpl={};list.forEach(d=>{const key=d.tplId||d.tpl||d.kind||'etc';(byTpl[key]=byTpl[key]||{name:d.tpl||(KIND[d.kind]||{}).label||'기타',cnt:0}).cnt++;});
+      const tk=[['all','전체',list.length]].concat(Object.entries(byTpl).map(([k,v])=>[k,v.name,v.cnt]));
+      tickers='<div class="chips" style="margin-bottom:8px">'+tk.map(([k,l,n])=>'<button class="chip '+(_doneTplFilter===k?'on':'')+'" onclick="_eapDoneTpl(\''+esc(String(k))+'\')">'+esc(l)+' <span style="opacity:.55">'+n+'</span></button>').join('')+'</div>';
+      if(_doneTplFilter!=='all')list=list.filter(d=>(d.tplId||d.tpl||d.kind||'etc')===_doneTplFilter);
+    }
+    document.getElementById('view-list').innerHTML='<div class="chips">'+chips+'</div>'+tickers+(list.length?list.map(card).join(''):'<div class="empty">📭 항목이 없습니다</div>');
   }
+  let _doneTplFilter='all';
+  window._eapDoneTpl=function(k){_doneTplFilter=k;renderList();};
 
   /* ── docform ── */
   function ci(label,type,vals,mode,opts){

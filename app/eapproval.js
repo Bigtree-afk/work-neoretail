@@ -23,6 +23,7 @@
   // ── UI 상태 ──
   let TAB = 'appr', SUB = 'received', SCHSUB = 'up';
   let _execFrom = '', _execTo = '';
+  let _doneTplFilter = 'all';
   let _built = false;
   let _pollTimer = null;
   let _listenersBound = false;
@@ -441,6 +442,17 @@
       `<button class="eap-chip ${SUB === k ? 'on' : ''}" onclick="EAP.setSub(${J(k)})">${label}${n ? `<span class="n">${n}</span>` : ''}</button>`
     ).join('');
 
+    // 완료/반려 페이지: 양식별 필터 티커
+    let doneTickers = '';
+    if (SUB === 'done') {
+      const byTpl = {};
+      list.forEach(d => { const key = d.tplId || d.tpl || d.kind || 'etc'; (byTpl[key] = byTpl[key] || { name: d.tpl || (KIND[d.kind] || {}).label || '기타', cnt: 0 }).cnt++; });
+      const tk = [['all', '전체', list.length]].concat(Object.entries(byTpl).map(([k, v]) => [k, v.name, v.cnt]));
+      doneTickers = '<div class="eap-chips" style="margin-bottom:10px">' + tk.map(([k, label, n]) =>
+        `<button class="eap-chip ${_doneTplFilter === k ? 'on' : ''}" onclick="EAP.setDoneTpl(${J(k)})">${esc(label)} <span style="opacity:.55;font-weight:700">${n}</span></button>`).join('') + '</div>';
+      if (_doneTplFilter !== 'all') list = list.filter(d => (d.tplId || d.tpl || d.kind || 'etc') === _doneTplFilter);
+    }
+
     const body = list.length
       ? list.map(docCard).join('')
       : `<div class="eap-empty">📭 항목이 없습니다</div>`;
@@ -453,9 +465,11 @@
         <button class="eap-btn eap-btn-p" onclick="EAP.openDraft()">✏️ 새 기안</button>
       </div>
       ${execSum}
+      ${doneTickers}
       <div>${body}</div>`;
   }
-  EAP.setSub = function (s) { SUB = s; renderTab(); };
+  EAP.setSub = function (s) { SUB = s; _doneTplFilter = 'all'; renderTab(); };
+  EAP.setDoneTpl = function (k) { _doneTplFilter = k; renderTab(); };
 
   // 자금집행 집계 — 지출결의(pay) 중 지급완료(execStatus done) 건만 기간(집행일) 집계
   function _thisMonthRange() {
