@@ -1634,6 +1634,35 @@
       }
     }
 
+    // ── 전자결재 연차(승인) + 직원 생일 주입 ──
+    try {
+      const meName = (typeof window._currentAuthName === 'function') ? window._currentAuthName() : '';
+      const eapDocs = JSON.parse(localStorage.getItem('ns_eap_docs') || '[]');
+      const eapCfg = JSON.parse(localStorage.getItem('ns_eap_cfg') || '{}');
+      const onlyMine = (st.scope === 'mine');
+      const pad = n => String(n).padStart(2, '0');
+      // 연차 (최종 결재 완료 = status 'ok')
+      for (const d of (Array.isArray(eapDocs) ? eapDocs : [])) {
+        if (!d || d.kind !== 'leave' || d.status !== 'ok' || !d.from) continue;
+        if (onlyMine && d.drafter !== meName) continue;
+        const start = new Date(d.from + 'T00:00:00'), end = new Date((d.to || d.from) + 'T00:00:00');
+        if (isNaN(start) || isNaN(end) || end < start) continue;
+        for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+          const ymd = dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate());
+          dated.push({ eap: 'leave', who: d.drafter || '', ymd, label: (d.drafter || '') + ' 연차', color: '#16A34A', done: false });
+        }
+      }
+      // 직원 생일 (표시 연도 기준 — 매년 반복)
+      const births = (eapCfg && eapCfg.birth) || {};
+      for (const who in births) {
+        const b = births[who]; if (!b || !b.date) continue;
+        if (onlyMine && who !== meName) continue;
+        const mmdd = String(b.date).slice(5);
+        if (!/^\d{2}-\d{2}$/.test(mmdd)) continue;
+        dated.push({ eap: 'bday', who, ymd: st.year + '-' + mmdd, label: who + ' 생일' + (b.cal === 'lunar' ? '(음력)' : ''), color: '#EC4899', done: false });
+      }
+    } catch (_) {}
+
     // 날짜별 그룹
     const byDate = {};
     for (const it of dated) {
@@ -1681,6 +1710,14 @@
         const MAX_CHIPS = 3;
         let chipsHtml = '';
         for (const it of sorted.slice(0, MAX_CHIPS)) {
+          if (it.eap) {
+            const ic = it.eap === 'bday' ? '🎂' : '🌴';
+            chipsHtml += `<div title="${esc(it.label)}" style="display:flex;align-items:center;gap:3px;margin-top:2px;padding:1px 3px;border-radius:3px;background:${it.color}1A">
+              <span style="flex:0 0 auto;font-size:9px">${ic}</span>
+              <span style="flex:1;min-width:0;font-size:9.5px;line-height:1.35;color:var(--gray-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.label)}</span>
+            </div>`;
+            continue;
+          }
           const c = window._scheduleHubCatColor(it.cat);
           const nm = it.j.storeName || it.j.store || '(미지정)';
           const roleTxt = window._scheduleHubRoleLabel(it.role);
@@ -1762,6 +1799,17 @@
         <span>${esc(ymd)} (${dow})</span>${dBadge}
       </div>`;
       for (const it of grouped[ymd]) {
+        if (it.eap) {
+          const ic = it.eap === 'bday' ? '🎂' : '🌴';
+          const tag = it.eap === 'bday' ? '🎂 생일' : '🌴 연차';
+          html += `<div style="background:#fff;border:1px solid var(--gray-200);border-left:4px solid ${it.color};border-radius:8px;padding:9px 11px;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="background:${it.color};color:#fff;padding:1.5px 6px;border-radius:5px;font-size:10.5px;font-weight:700">${tag}</span>
+              <span style="font-weight:700;font-size:13px;color:var(--gray-900)">${esc(it.label)}</span>
+            </div>
+          </div>`;
+          continue;
+        }
         const j = it.j;
         const cat = it.cat;
         const color = window._scheduleHubCatColor(cat);
