@@ -1649,6 +1649,10 @@
         if (isNaN(start) || isNaN(end) || end < start) continue;
         for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
           const ymd = dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate());
+          // 토·일·공휴일·대체휴무는 연차로 표시 안 함 (연차 일수 산정과 동일하게 제외)
+          const dow = dt.getDay();
+          if (dow === 0 || dow === 6) continue;
+          if (window.EAP && typeof window.EAP.isHoliday === 'function' && window.EAP.isHoliday(ymd)) continue;
           dated.push({ eap: 'leave', who: d.drafter || '', ymd, label: (d.drafter || '') + ' 연차', color: '#16A34A', done: false });
         }
       }

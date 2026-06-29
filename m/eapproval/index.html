@@ -97,7 +97,7 @@
   <section class="view" id="view-form"></section>
 </div>
 
-<button class="fab" id="fab" onclick="location.hash='#form'">✏️ 새 기안</button>
+<button class="fab" id="fab" onclick="_eapNewDraft()">✏️ 새 기안</button>
 
 <nav class="bottom-nav" id="bottomNav">
   <a class="item" href="/m/"><span class="icn">🏠</span>홈</a>
@@ -185,7 +185,8 @@
       for(const d of cloudDocs){if(!d||!d.id||delSet.has(String(d.id)))continue;const id=String(d.id),ex=byId.get(id);if(!ex||mt(d)>=mt(ex))byId.set(id,d);}
       writeDocs([...byId.values()]);
       try{localStorage.setItem(CFG_LS,JSON.stringify(mergeEapCfg(getCfg(),data.config||{})));}catch(_){}
-      if(parseHash().view==='list')renderList();
+      // 최신 결재상태 반영 — 폼 작성 중이 아니면 현재 화면 재렌더(목록/상세)
+      const v=parseHash().view; if(v==='list')renderList(); else if(v==='detail')render();
     }catch(e){}
     _syncing=false;
   }
@@ -310,7 +311,7 @@
     }else if(d.drafter===ME()&&d.status==='wait'){
       act='<button class="btn btn-o" style="width:100%;margin-top:12px" onclick="_eapRecall(\''+esc(id)+'\')">↩ 회수</button>';
     }else if(d.drafter===ME()&&d.status==='recalled'){
-      act='<button class="btn btn-p" style="width:100%;margin-top:12px" onclick="_eapResubmit(\''+esc(id)+'\')">📤 재상신</button>';
+      act='<div class="actrow" style="margin-top:12px"><button class="btn btn-o" onclick="_eapEdit(\''+esc(id)+'\')">✏️ 수정 후 재상신</button><button class="btn btn-p" onclick="_eapResubmit(\''+esc(id)+'\')">📤 그대로</button></div>';
     }
     let execHtml='';
     if(d.kind==='pay'&&d.status==='ok'){
@@ -338,27 +339,42 @@
   async function pushCfg(){try{await fetch('/api/eapproval',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({config:getCfg()})});}catch(_){}}
 
   /* ── form (draft) ── */
-  let draftTpl=null,draftLine=[],draftCC=[];
+  let draftTpl=null,draftLine=[],draftCC=[],_editDocId=null,_editVals={};
+  window._eapEdit=function(id){const d=getDocs().find(x=>x.id===id);if(!d)return;if(d.drafter!==ME()){toast('본인 기안만 수정 가능');return;}_editDocId=id;location.hash='#form';if(parseHash().view==='form')render();};
+  window._eapNewDraft=function(){_editDocId=null;_editVals={};draftTpl=null;location.hash='#form';};
   function renderForm(){
     const tpls=getTpls();
     if(!tpls.length){document.getElementById('view-form').innerHTML='<div class="empty">등록된 양식이 없습니다.<br>PC에서 양식을 먼저 등록하세요.</div>';return;}
-    draftTpl=draftTpl&&tplById(draftTpl.id)?draftTpl:tpls[0];
-    draftLine=myRoute().filter(n=>n!==ME());draftCC=[];
+    let editDoc=null;
+    if(_editDocId){editDoc=getDocs().find(x=>x.id===_editDocId);if(!editDoc)_editDocId=null;}
+    if(_editDocId&&editDoc){
+      const t=tplById(editDoc.tplId);
+      const dfs=(editDoc.fields&&editDoc.fields.length)?editDoc.fields.map(f=>{const tf=(t&&t.fields||[]).find(x=>x.label===f.label);return {label:f.label,type:f.type,options:tf?tf.options:undefined};}):((t&&t.fields)||[]);
+      draftTpl={id:editDoc.tplId,name:(t&&t.name)||editDoc.tpl||'문서',cat:editDoc.kind||(t&&t.cat)||'gen',fields:dfs};
+      draftLine=(editDoc.line||[]).filter(s=>s.role!=='기안').map(s=>s.n);
+      draftCC=(editDoc.cc||[]).slice();
+      _editVals={};(editDoc.fields||[]).forEach(f=>_editVals[f.label]=f.value);
+    }else{
+      draftTpl=draftTpl&&tplById(draftTpl.id)?draftTpl:tpls[0];
+      draftLine=myRoute().filter(n=>n!==ME());draftCC=[];_editVals={};
+    }
+    const editing=!!_editDocId;
     const tplOpts=tpls.map(t=>'<option value="'+esc(t.id)+'" '+(draftTpl&&t.id===draftTpl.id?'selected':'')+'>'+esc(t.name)+'</option>').join('');
     const staff=STAFF().filter(n=>n!==ME());
     document.getElementById('view-form').innerHTML=
-      '<div class="fld"><label>문서 양식</label><select id="fTpl" onchange="_eapTplChange(this.value)">'+tplOpts+'</select></div>'
+      '<div class="fld"><label>문서 양식</label><select id="fTpl" onchange="_eapTplChange(this.value)" '+(editing?'disabled':'')+'>'+tplOpts+'</select></div>'
       +'<div class="fld"><label>제목</label><input id="fTitle" placeholder="제목 입력" oninput="_eapTitleTop()"></div>'
       +'<div id="fFields"></div>'
       +'<div class="fld"><label>결재선 (순서대로 선택)</label><div class="picker" id="fLine">'+staff.map(n=>'<span class="pk '+(draftLine.includes(n)?'on':'')+'" onclick="_eapTL(\''+esc(n)+'\')">'+lblIdx(draftLine,n)+esc(n)+'</span>').join('')+'</div><div class="meta" id="fLinePrev" style="margin-top:6px"></div></div>'
       +'<div class="fld"><label style="display:flex;align-items:center;gap:8px">참조<button type="button" class="att-btn" style="margin-left:auto" onclick="_eapCCAll()">전체 선택</button></label><div class="picker" id="fCC">'+staff.map(n=>'<span class="pk '+(draftCC.includes(n)?'on':'')+'" onclick="_eapCC(\''+esc(n)+'\')">'+esc(n)+'</span>').join('')+'</div></div>'
-      +'<button class="btn btn-p" style="width:100%;margin-top:6px" onclick="_eapSubmit()">📤 상신</button>';
+      +'<button class="btn btn-p" style="width:100%;margin-top:6px" onclick="_eapSubmit()">'+(editing?'📤 수정 후 재상신':'📤 상신')+'</button>';
+    const ti=document.getElementById('fTitle');if(ti)ti.value=editing?(editDoc.title||''):'';
     renderFormFields();updateLinePrev();
   }
   function lblIdx(arr,n){const i=arr.indexOf(n);return i>=0?'<b>'+(i+1)+'</b> ':'';}
   function renderFormFields(){
     const b=document.getElementById('fFields');if(!b)return;
-    b.innerHTML=draftTpl?docFormHtml(draftTpl,'input',{}):'';
+    b.innerHTML=draftTpl?docFormHtml(draftTpl,'input',_editVals||{}):'';
     if(!draftTpl)return;
     try{_eapTitleTop();}catch(_){}
     if(draftTpl.cat==='leave'){
@@ -378,7 +394,7 @@
     const di=b.querySelector('[data-eapf="일 수"]')||[...b.querySelectorAll('[data-eapf]')].find(el=>/일\s*수|일수/.test(el.getAttribute('data-eapf')));
     if(di)di.value=days;
   };
-  window._eapTplChange=function(id){draftTpl=tplById(id);renderFormFields();};
+  window._eapTplChange=function(id){draftTpl=tplById(id);_editVals={};renderFormFields();};
   window._eapTL=function(n){const i=draftLine.indexOf(n);if(i>=0)draftLine.splice(i,1);else draftLine.push(n);const staff=STAFF().filter(x=>x!==ME());document.getElementById('fLine').innerHTML=staff.map(x=>'<span class="pk '+(draftLine.includes(x)?'on':'')+'" onclick="_eapTL(\''+esc(x)+'\')">'+lblIdx(draftLine,x)+esc(x)+'</span>').join('');updateLinePrev();};
   window._eapCC=function(n){const i=draftCC.indexOf(n);if(i>=0)draftCC.splice(i,1);else draftCC.push(n);_renderCC();};
   window._eapCCAll=function(){const staff=STAFF().filter(x=>x!==ME());draftCC=staff.every(x=>draftCC.includes(x))?[]:staff.slice();_renderCC();};
@@ -391,10 +407,19 @@
     const title=(document.getElementById('fTitle')||{}).value.trim()||(tf&&tf.value.trim())||draftTpl.name;
     const cat=draftTpl.cat||'gen',me=ME();
     const line=[{n:me,role:'기안'},...draftLine.map(n=>({n,role:'결재'}))];
+    const applyCat=(d)=>{delete d.amount;delete d.from;delete d.to;delete d.days;if(cat==='pay'||cat==='buy'){const a=fields.find(f=>f.type==='money');d.amount=a?Number(a.value)||0:0;if(cat==='pay'&&d.execStatus!=='done')d.execStatus='pending';}if(cat==='leave'){const ds=fields.filter(f=>f.type==='date'&&f.value).map(f=>f.value).sort();const df=fields.find(f=>f.label.includes('일')&&f.type==='number');d.from=ds[0]||kstDate();d.to=ds[ds.length-1]||d.from;d.days=df&&df.value?Number(df.value):workingDays(d.from,d.to);}};
+    const docs=getDocs();
+    if(_editDocId){
+      const d=docs.find(x=>x.id===_editDocId);
+      if(!d){toast('문서를 찾을 수 없음');_editDocId=null;return;}
+      d.kind=cat;d.title=title;d.tpl=draftTpl.name;d.tplId=draftTpl.id;d.fields=fields;d.line=line;d.step=1;d.status='wait';d.cc=draftCC.slice();
+      applyCat(d);d.history=d.history||[];d.history.push({n:me,act:'재상신',at:kstNow()});d.updatedAt=Date.now();
+      setDocs(docs);if(d.line[1])notify(d.line[1].n,'request',d);
+      const sid=d.id;_editDocId=null;draftTpl=null;toast('📤 수정 후 재상신');location.hash='#detail/'+sid;return;
+    }
     const d={id:genId('D'),kind:cat,title,drafter:me,at:kstNow(),tpl:draftTpl.name,tplId:draftTpl.id,fields,line,step:1,status:'wait',history:[{n:me,act:'기안',at:kstNow()}],cc:draftCC.slice(),attachments:[],createdAt:Date.now(),updatedAt:Date.now()};
-    if(cat==='pay'||cat==='buy'){const a=fields.find(f=>f.type==='money');d.amount=a?Number(a.value)||0:0;if(cat==='pay')d.execStatus='pending';}
-    if(cat==='leave'){const ds=fields.filter(f=>f.type==='date'&&f.value).map(f=>f.value).sort();const df=fields.find(f=>f.label.includes('일')&&f.type==='number');d.from=ds[0]||kstDate();d.to=ds[ds.length-1]||d.from;d.days=df&&df.value?Number(df.value):workingDays(d.from,d.to);}
-    const docs=getDocs();docs.push(d);setDocs(docs);
+    applyCat(d);
+    docs.push(d);setDocs(docs);
     if(d.line[1])notify(d.line[1].n,'request',d);
     draftTpl=null;toast('📤 상신 완료');location.hash='#detail/'+d.id;
   };
@@ -406,7 +431,10 @@
     // 딥링크 ?doc=ID
     try{const id=new URLSearchParams(location.search).get('doc');if(id&&getDocs().some(d=>d.id===id)){location.hash='#detail/'+id;}}catch(_){}
     render();
-    setInterval(()=>{if(parseHash().view==='list')syncFromCloud();},30000);
+    // 자동 동기화: 15초 폴링 + 탭복귀/포커스 즉시 (폼 작성 중 제외)
+    setInterval(()=>{if(parseHash().view!=='form')syncFromCloud();},15000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&parseHash().view!=='form')syncFromCloud();});
+    window.addEventListener('focus',()=>{if(parseHash().view!=='form')syncFromCloud();});
   })();
 })();
 </script>

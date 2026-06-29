@@ -24,6 +24,7 @@
   let TAB = 'appr', SUB = 'received', SCHSUB = 'up';
   let _built = false;
   let _pollTimer = null;
+  let _listenersBound = false;
 
   /* ───────────── 공통 헬퍼 ───────────── */
   function esc(s) {
@@ -90,6 +91,15 @@
     }
     return n;
   }
+  // 외부(일정조회 캘린더 등)에서 쓰는 공휴일/비근무일 판정 — 'YYYY-MM-DD'
+  EAP.isHoliday = function (ymd) { try { return effHolidaySet().has(ymd); } catch (_) { return false; } };
+  EAP.isNonWorkingDay = function (ymd) {
+    try {
+      if (effHolidaySet().has(ymd)) return true;
+      const d = new Date(ymd + 'T00:00:00'); const dow = d.getDay();
+      return dow === 0 || dow === 6;
+    } catch (_) { return false; }
+  };
   // 공공데이터포털 등에서 수집된 공휴일을 로컬 캐시에 적재 (effHolidaySet 이 사용)
   async function pullHolidays() {
     try {
@@ -346,7 +356,14 @@
     syncFromCloud();
     pullHolidays();
     if (_pollTimer) clearInterval(_pollTimer);
-    _pollTimer = setInterval(() => { if (isScreenActive()) syncFromCloud(); }, 30000);
+    _pollTimer = setInterval(() => { if (isScreenActive()) syncFromCloud(); }, 15000);  // 15초 폴링
+    // 탭 복귀/포커스 시 즉시 동기화 (새로고침 없이 최신 결재상태 반영)
+    if (!_listenersBound) {
+      _listenersBound = true;
+      document.addEventListener('visibilitychange', () => { if (!document.hidden && isScreenActive()) syncFromCloud(); });
+      window.addEventListener('focus', () => { if (isScreenActive()) syncFromCloud(); });
+      try { window.addEventListener('storage', e => { if (e && e.key === DOCS_LS && isScreenActive()) renderTab(); }); } catch (_) {}
+    }
     // 딥링크 ?doc=ID (PC 에서도 지원)
     try {
       const id = new URLSearchParams(location.search).get('doc');
@@ -497,7 +514,7 @@
     } else if (d.drafter === ME() && d.status === 'wait') {
       actions = `<button class="eap-btn eap-btn-o" onclick="EAP.recall(${J(d.id)})">↩ 회수</button>`;
     } else if (d.drafter === ME() && d.status === 'recalled') {
-      actions = `<button class="eap-btn eap-btn-p" onclick="EAP.resubmit(${J(d.id)})">📤 재상신</button>`;
+      actions = `<div class="eap-actrow"><button class="eap-btn eap-btn-o" onclick="EAP.openDraftEdit(${J(d.id)})">✏️ 수정 후 재상신</button><button class="eap-btn eap-btn-p" onclick="EAP.resubmit(${J(d.id)})">📤 그대로 재상신</button></div>`;
     }
 
     // 자금집행
@@ -615,20 +632,43 @@
   };
 
   /* ════════════════ 기안 작성 모달 ════════════════ */
-  let draftTpl = null, draftLine = [], draftCC = [], draftAtts = [];
+  let draftTpl = null, draftLine = [], draftCC = [], draftAtts = [], _editDocId = null, _draftVals = {}, _editTpl = null;
+  // 회수/작성 문서 수정 후 재상신 — 기존 doc 프리필 (문서의 필드 기준으로 렌더 — 템플릿 변경에도 안전)
+  EAP.openDraftEdit = function (id) {
+    const d = getDocs().find(x => x.id === id);
+    if (!d) { toast('문서를 찾을 수 없습니다'); return; }
+    if (d.drafter !== ME()) { toast('본인 기안만 수정할 수 있습니다'); return; }
+    _editDocId = id;
+    _draftVals = {}; (d.fields || []).forEach(f => { _draftVals[f.label] = f.value; });
+    draftLine = (d.line || []).filter(s => s.role !== '기안').map(s => s.n);
+    draftCC = (d.cc || []).slice();
+    draftAtts = (d.attachments || []).slice();
+    // 문서의 필드로 템플릿 구성(select 옵션은 원 템플릿에서 보강), 필드 없으면 원 템플릿 사용
+    const t = tplById(d.tplId);
+    const docFields = (d.fields && d.fields.length)
+      ? d.fields.map(f => { const tf = (t && t.fields || []).find(x => x.label === f.label); return { label: f.label, type: f.type, options: tf ? tf.options : undefined }; })
+      : ((t && t.fields) || []);
+    _editTpl = { id: d.tplId, name: (t && t.name) || d.tpl || '문서', cat: d.kind || (t && t.cat) || 'gen', fields: docFields };
+    _renderDraftModal(d.tplId, d.title || '');
+  };
   EAP.openDraft = function (tplId) {
-    const tpls = getTpls();
-    draftTpl = tplId ? tplById(tplId) : (tpls[0] || null);
+    _editDocId = null; _draftVals = {}; _editTpl = null;
     draftLine = myRoute().filter(n => n !== ME());
     draftCC = [];
     draftAtts = [];
+    _renderDraftModal(tplId, '');
+  };
+  function _renderDraftModal(tplId, titleVal) {
+    const tpls = getTpls();
+    draftTpl = (_editDocId && _editTpl) ? _editTpl : (tplId ? tplById(tplId) : (tpls[0] || null));
     const tplOpts = tpls.map(t => `<option value="${esc(t.id)}" ${draftTpl && t.id === draftTpl.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
     const staff = STAFF().filter(n => n !== ME());
+    const editing = !!_editDocId;
     const html = `
       <div class="eap-modal wide">
-        <div class="eap-mhead"><h3>✏️ 새 기안</h3><button class="eap-x" onclick="EAP.closeModal()">✕</button></div>
+        <div class="eap-mhead"><h3>${editing ? '✏️ 수정 후 재상신' : '✏️ 새 기안'}</h3><button class="eap-x" onclick="EAP.closeModal()">✕</button></div>
         <div class="eap-fld"><label>문서 양식</label>
-          <select id="eapTplSel" onchange="EAP.onTplChange(this.value)">${tplOpts}</select></div>
+          <select id="eapTplSel" onchange="EAP.onTplChange(this.value)" ${editing ? 'disabled' : ''}>${tplOpts}</select></div>
         <div class="eap-fld"><label>제목</label><input id="eapTitle" type="text" placeholder="제목 입력" oninput="EAP.onTitleTop()"></div>
         <div id="eapDraftFields"></div>
         <div class="eap-fld"><label>📎 첨부 (이미지/파일)</label>
@@ -642,18 +682,20 @@
         <div class="eap-fld"><label style="display:flex;align-items:center;gap:8px">참조
           <button type="button" class="eap-att-btn" style="margin-left:auto" onclick="EAP.toggleCCAll()">전체 선택</button></label>
           <div class="eap-picker" id="eapCCPick">${staff.map(n => `<span class="eap-pk ${draftCC.includes(n) ? 'on' : ''}" onclick="EAP.toggleCC(${J(n)})">${esc(n)}</span>`).join('')}</div></div>
-        <div class="eap-mactions"><button class="eap-btn eap-btn-p" style="width:100%" onclick="EAP.submitDraft()">📤 상신</button></div>
+        <div class="eap-mactions"><button class="eap-btn eap-btn-p" style="width:100%" onclick="EAP.submitDraft()">${editing ? '📤 수정 후 재상신' : '📤 상신'}</button></div>
       </div>`;
     openModal(html);
+    const ti = document.getElementById('eapTitle'); if (ti) ti.value = titleVal || '';
     renderDraftFields();
     updateLinePreview();
+    renderAttList();
   };
   function pkLabel(arr, n) { const i = arr.indexOf(n); return i >= 0 ? `<b>${i + 1}</b> ` : ''; }
-  EAP.onTplChange = function (id) { draftTpl = tplById(id); renderDraftFields(); };
+  EAP.onTplChange = function (id) { draftTpl = tplById(id); _draftVals = {}; renderDraftFields(); };
   function renderDraftFields() {
     const box = document.getElementById('eapDraftFields');
     if (!box) return;
-    box.innerHTML = draftTpl ? docFormHtml(draftTpl, 'input', {}) : '';
+    box.innerHTML = draftTpl ? docFormHtml(draftTpl, 'input', _draftVals || {}) : '';
     if (!draftTpl) return;
     try { EAP.onTitleTop(); } catch (_) {}  // 상단 제목 → 내용부분 제목란 동기화
     if (draftTpl.cat === 'leave') {  // 연차: 시작/종료일·휴가종류 변경 시 일수 자동 계산
@@ -741,6 +783,39 @@
     const cat = draftTpl.cat || 'gen';
     const me = ME();
     const line = [{ n: me, role: '기안' }, ...draftLine.map(n => ({ n, role: '결재' }))];
+    const applyCatFields = (d) => {
+      delete d.amount; delete d.from; delete d.to; delete d.days;
+      if (cat === 'pay' || cat === 'buy') {
+        const amtF = fields.find(f => f.type === 'money'); d.amount = amtF ? Number(amtF.value) || 0 : 0;
+        if (cat === 'pay' && d.execStatus !== 'done') d.execStatus = 'pending';
+      }
+      if (cat === 'leave') {
+        const dates = fields.filter(f => f.type === 'date' && f.value).map(f => f.value).sort();
+        const daysF = fields.find(f => f.label.includes('일') && f.type === 'number');
+        d.from = dates[0] || kstDate(); d.to = dates[dates.length - 1] || d.from;
+        d.days = daysF && daysF.value ? Number(daysF.value) : workingDays(d.from, d.to);
+      }
+    };
+
+    const docs = getDocs();
+    if (_editDocId) {
+      // ── 수정 후 재상신 ── 기존 doc 갱신
+      const d = docs.find(x => x.id === _editDocId);
+      if (!d) { toast('문서를 찾을 수 없습니다'); _editDocId = null; return; }
+      d.kind = cat; d.title = title; d.tpl = draftTpl.name; d.tplId = draftTpl.id;
+      d.fields = fields; d.line = line; d.step = 1; d.status = 'wait';
+      d.cc = draftCC.slice(); d.attachments = draftAtts.slice();
+      applyCatFields(d);
+      d.history = d.history || []; d.history.push({ n: me, act: '재상신', at: kstNow() });
+      d.updatedAt = Date.now();
+      _save(docs);
+      if (d.line[1]) notify(d.line[1].n, 'request', d);
+      const savedId = d.id; _editDocId = null;
+      toast('📤 수정 후 재상신 완료'); EAP.closeModal(); SUB = 'mine'; renderTab();
+      setTimeout(() => EAP.openDetail(savedId), 100);
+      return;
+    }
+
     const d = {
       id: genId('D'), kind: cat, title, drafter: me, at: kstNow(),
       tpl: draftTpl.name, tplId: draftTpl.id, fields,
@@ -748,20 +823,8 @@
       cc: draftCC.slice(), attachments: draftAtts.slice(),
       createdAt: Date.now(), updatedAt: Date.now(),
     };
-    // 금액
-    if (cat === 'pay' || cat === 'buy') {
-      const amtF = fields.find(f => f.type === 'money'); d.amount = amtF ? Number(amtF.value) || 0 : 0;
-      if (cat === 'pay') d.execStatus = 'pending';
-    }
-    // 연차 일자/일수
-    if (cat === 'leave') {
-      const dates = fields.filter(f => f.type === 'date' && f.value).map(f => f.value).sort();
-      const daysF = fields.find(f => f.label.includes('일') && f.type === 'number');
-      d.from = dates[0] || kstDate(); d.to = dates[dates.length - 1] || d.from;
-      d.days = daysF && daysF.value ? Number(daysF.value) : workingDays(d.from, d.to);
-    }
-    if (line.length < 2) { /* 결재자 없으면 즉시 완료 처리하지 않고 진행 */ }
-    const docs = getDocs(); docs.push(d); _save(docs);
+    applyCatFields(d);
+    docs.push(d); _save(docs);
     if (d.line[1]) notify(d.line[1].n, 'request', d);
     toast('📤 상신 완료'); EAP.closeModal(); SUB = 'mine'; renderTab();
     setTimeout(() => EAP.openDetail(d.id), 100);
