@@ -290,6 +290,15 @@
         if (t.fields.length !== before) changed = true;
       }
     });
+    // 출장결과보고서 복원 (이식 누락분) — id 없으면 추가
+    if (!cfg.tpl.some(t => t && t.id === 't-trip-rep')) {
+      const seed = SEED_TPLS().find(t => t.id === 't-trip-rep');
+      if (seed) {
+        const idx = cfg.tpl.findIndex(t => t && t.id === 't-trip-req');
+        if (idx >= 0) cfg.tpl.splice(idx + 1, 0, seed); else cfg.tpl.push(seed);
+        changed = true;
+      }
+    }
     if (changed) { cfg.updatedAt = Date.now(); try { localStorage.setItem(CFG_LS, JSON.stringify(cfg)); } catch (_) {} schedulePush(true); }
   }
   function SEED_TPLS() {
@@ -316,6 +325,11 @@
         { label: '소 속', type: 'text' }, { label: '직 위', type: 'text' }, { label: '성 명', type: 'text' },
         { label: '출장 시작', type: 'date' }, { label: '출장 종료', type: 'date' },
         { label: '출장 장소', type: 'text' }, { label: '출장 목적', type: 'textarea' }, { label: '비 고', type: 'textarea' },
+      ] },
+      { id: 't-trip-rep', name: '출장결과보고서', cat: 'gen', fields: [
+        { label: '소 속', type: 'text' }, { label: '직 위', type: 'text' }, { label: '성 명', type: 'text' },
+        { label: '출장 시작', type: 'date' }, { label: '출장 종료', type: 'date' },
+        { label: '출장 장소', type: 'text' }, { label: '출장 업무내역', type: 'textarea' }, { label: '참고 사항', type: 'textarea' },
       ] },
       { id: 't-holiday', name: '휴일근무일지', cat: 'gen', fields: [
         { label: '근무자', type: 'text' }, { label: '근무일', type: 'date' }, { label: '매 장', type: 'text' },
@@ -953,6 +967,13 @@
         <tr><th>출장 시작</th><td>${C('출장 시작')}</td><th>출장 종료</th><td>${C('출장 종료')}</td></tr>
         <tr><th>출장 목적</th><td colspan="3">${C('출장 목적')}</td></tr>
         <tr><th>비 고</th><td colspan="3">${C('비 고')}</td></tr>`;
+    } else if (t.id === 't-trip-rep' && has('출장 업무내역')) { cols4 = true;
+      inner = `<colgroup><col style="width:18%"><col style="width:32%"><col style="width:18%"><col style="width:32%"></colgroup>
+        <tr><th>소 속</th><td>${C('소 속')}</td><th>직 위</th><td>${C('직 위')}</td></tr>
+        <tr><th>성 명</th><td>${C('성 명')}</td><th>출장 장소</th><td>${C('출장 장소')}</td></tr>
+        <tr><th>출장 시작</th><td>${C('출장 시작')}</td><th>출장 종료</th><td>${C('출장 종료')}</td></tr>
+        <tr><th>출장 업무내역</th><td colspan="3">${C('출장 업무내역')}</td></tr>
+        <tr><th>참고 사항</th><td colspan="3">${C('참고 사항')}</td></tr>`;
     } else {
       // 자동 2-col
       inner = `<colgroup><col style="width:30%"><col></colgroup>` + (t.fields || []).map(f =>
