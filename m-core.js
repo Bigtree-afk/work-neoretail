@@ -711,9 +711,16 @@
       }
       _saveJobsSnap(newSnap);
     } catch(_){}
-    _safeSetItem('ns_jobs', JSON.stringify(safe));
+    const _ok = _safeSetItem('ns_jobs', JSON.stringify(safe));
     scheduleAutoBackup();
-    schedulePushJobsToCloud();
+    if (_ok) {
+      schedulePushJobsToCloud();
+    } else {
+      // 🛟 로컬 저장 실패(용량초과) — 메모리 배열을 즉시 클라우드로 직접 전송해 소실 방지
+      //   (push 는 평소 localStorage 를 읽으므로, 저장 실패 시 그대로 두면 새 작업이 영영 안 올라감)
+      try { pushJobsToCloud({ force: true, jobsOverride: safe }); } catch(_){}
+      try { if (typeof showToast === 'function') showToast('⚠ 기기 저장공간 부족 — 클라우드에는 전송했습니다. 앱 새로고침 후 확인하세요.', 6000); } catch(_){}
+    }
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -1003,7 +1010,10 @@
     setTimeout(() => { try { pushJobsToCloud(); } catch(_){} }, delay);
   }
   async function pushJobsToCloud(opts) {
-    const jobs = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
+    // jobsOverride — 로컬 저장(quota) 실패 시 메모리 배열을 직접 전송해 소실 방지
+    const jobs = (opts && Array.isArray(opts.jobsOverride))
+      ? opts.jobsOverride
+      : (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
     // 🪦 threadTombstones — 로컬 ns_tombstones 의 thread / thread-children 자동 동봉
     //   서버가 deleted_threads / deleted_thread_children KV 에 union 등록 → 다른 PC 자동 차단
     const _allTombs = (function(){ try { return JSON.parse(localStorage.getItem('ns_tombstones') || '[]'); } catch { return []; } })();
