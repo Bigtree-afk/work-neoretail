@@ -298,9 +298,10 @@
     if (!it) return;
     const prev = it.status;
     it.status = status;
+    it.manualStatus = true;   // 사용자가 직접 상태 선택 — 완료 시 자동 강등하지 않고 존중
     it.statusChangedBy = _currentUserName();
     it.statusChangedAt = new Date().toISOString();
-    _flushPending(id, { status, statusChangedBy: it.statusChangedBy, statusChangedAt: it.statusChangedAt });
+    _flushPending(id, { status, manualStatus: true, statusChangedBy: it.statusChangedBy, statusChangedAt: it.statusChangedAt });
     renderLinePendingList();
     if (status === '완료' && prev !== '완료') {
       showToast(`✅ 처리 완료 — ${it.statusChangedBy} 기록`);
@@ -320,30 +321,34 @@
   }
   window.deletePending = deletePending;
 
-  async function approvePending(id) {
-    // 🛡 중복 승인 방지 — 같은 pending id 가 처리 중이면 무시
-    //   원인: 사용자 더블클릭 → /api/line-pending DELETE 가 응답 오기 전 두 번째 클릭이
-    //         아직 _linePending 에 남은 p 를 다시 찾아 동일 lineTs(==msgAt) 로 또 등록 → 중복.
+  async function approvePending(id, btnEl) {
+    // 🛡 중복 승인 방지 (더블클릭·재렌더 무관) + 버튼 처리중 표시 + try/finally 로 항상 복구
     window._lineApprovingSet = window._lineApprovingSet || new Set();
     if (window._lineApprovingSet.has(id)) {
       try { showToast('⏳ 이미 승인 중입니다…'); } catch(_){}
       return;
     }
     window._lineApprovingSet.add(id);
-    const _releaseLineLock = () => { try { window._lineApprovingSet.delete(id); } catch(_){} };
-    setTimeout(_releaseLineLock, 5000);
+    const _origBtnHtml = btnEl ? btnEl.innerHTML : '';
+    if (btnEl) { try { btnEl.disabled = true; btnEl.style.opacity = '0.6'; btnEl.innerHTML = '⏳ 등록 중…'; } catch(_){} }
+    const _cleanup = () => {
+      try { window._lineApprovingSet.delete(id); } catch(_){}
+      if (btnEl && btnEl.isConnected) { try { btnEl.disabled = false; btnEl.style.opacity = ''; btnEl.innerHTML = _origBtnHtml; } catch(_){} }
+    };
+    try {
     const p = _linePending.find(x => x.id === id);
-    if (!p) { _releaseLineLock(); return; }
-    // 🛡 매장 미특정 차단 (2026-05-28) — storeId 없고 매장명도 없으면 빈 껍데기 작업이 됨.
-    //   LINE 시스템 알림(NICE 인증번호 등)·일반 대화가 파싱된 경우 매장 추출 실패 → 등록 차단.
-    //   (이전엔 confirm 으로 통과 가능 → 매장명 없는 ghost VAN 업무 3건 생성 사고)
+    if (!p) return;
+    // 🛡 매장 미특정 차단 — storeId 없고 매장명도 없으면 빈 껍데기 작업 (LINE 인증번호·잡담 등)
     if (!p.storeId && !(p.store && String(p.store).trim())) {
       alert('⚠ 매장이 특정되지 않아 등록할 수 없습니다.\n\n매장을 연결하거나 매장명을 입력한 뒤 등록하세요.\n(LINE 인증번호 알림·일반 대화 등 매장 없는 메시지는 업무 등록 대상이 아닙니다 — 등록 대기에서 삭제하세요.)');
-      _releaseLineLock();
       return;
     }
-    if (p.status === '추가처리' && !p.memo) {
-      if (!confirm('추가처리 상태인데 메모가 비어있습니다. 그대로 등록할까요?')) { _releaseLineLock(); return; }
+    // 📥 요청 접수 내용 — 카드 입력(reqContent) 우선, 없으면 파서 결과 fallback (요청접수 ROOT 로 사용)
+    const reqText = (p.reqContent != null && String(p.reqContent).trim())
+      ? String(p.reqContent).trim()
+      : (p.lineParsed || p.lineRequest || p.lineRaw || '');
+    if (!reqText) {
+      if (!confirm('요청 접수 내용이 비어있습니다. 그대로 등록할까요?')) return;
     }
 
     const jobs = getJobs();
@@ -362,7 +367,7 @@
       '추가처리': isAsCat ? '재방문필요' : '진행중',
       '완료':    isAsCat ? '처리완료' : '완료',
     };
-    const jobStatus = statusMap[p.status] || '진행중';
+    let jobStatus = statusMap[p.status] || '진행중';  // 🐛 const→let: 아래 강등 라인 재할당(예외로 등록 무반응이던 근본원인)
 
     // ── UPDATE 경로 ──────────────────────────────────────
     if (p.action === 'update' && p.targetJobId) {
@@ -371,8 +376,7 @@
         if (!Array.isArray(job.memos)) job.memos = [];
         const memoLines = [
           `[${meta.label}] ${p.status}`,
-          p.lineParsed || p.lineRequest || p.lineRaw || '',
-          p.memo ? `📝 ${p.memo}` : '',
+          reqText || '',
         ].filter(Boolean);
         // 담당(assignee=engineer)과 기록자(현재 사용자) 분리 기록
         const assignee = p.assignee || job.engineer || '';
@@ -408,7 +412,8 @@
       //   파서가 '복구 불가/못살림' 같은 미해결 보고를 status='완료'로 분류 → 새 AS 가 처리완료로 등록돼
       //   AS 진행중(기본=미처리)에서 안 보임. 새 AS 는 항상 활성(접수)로 등록 → 완료는 검토 후 thread 에서 명시적.
       //   (UPDATE 경로/비AS 카테고리는 영향 없음)
-      if (isAs && (jobStatus === '처리완료' || jobStatus === '완료')) jobStatus = '접수';
+      // 파서가 자동으로 완료 분류한 경우만 접수로 강등(오분류 방지). 사용자가 직접 완료를 선택(manualStatus)했으면 존중.
+      if (isAs && (jobStatus === '처리완료' || jobStatus === '완료') && !p.manualStatus) jobStatus = '접수';
       const recordedBy = _currentUserName();
       const assignee = p.assignee || '';
       const memoHeader = (assignee && assignee !== recordedBy)
@@ -456,7 +461,7 @@
       }
       if (isAs) {
         job.asReceivedAt = (p.lineMsgAt || '').replace('T',' ').slice(0,16);
-        job.asRequest = p.lineRequest || p.lineParsed || '';
+        job.asRequest = reqText;
         job.asTargets = p.lineCategory === 'device_mgmt' ? ['이동단말기']
           : (/키오스크|키오/.test(p.lineRaw||p.lineParsed||'') ? ['키오스크']
              : /VAN|단말|카드/i.test(p.lineRaw||p.lineParsed||'') ? ['VAN']
@@ -552,7 +557,7 @@
             job.thread = [{
               ts: _rt, author: p.lineSender || recordedBy || '담당자',
               status: '요청접수',
-              text: job.asRequest || p.lineRequest || p.lineParsed || p.lineRaw || '(요청 내용)',
+              text: reqText || '(요청 내용)',
               threadId: _rid, parentId: null,
               _lineSource: { msgAt: p.lineMsgAt || '', sender: p.lineSender || '', raw: p.lineRaw || '' },
             }];
@@ -625,6 +630,12 @@
     try { hydrateAsMgmt(); } catch(e){}
     try { rebuildJobsGrid(); } catch(e){}
     showToast('✅ 업무 등록 완료');
+    } catch (e) {
+      console.warn('[approvePending] 처리 실패:', e);
+      try { showToast('❌ 등록 실패: ' + (e && e.message ? e.message : e)); } catch(_){}
+    } finally {
+      _cleanup();
+    }
   }
   window.approvePending = approvePending;
 

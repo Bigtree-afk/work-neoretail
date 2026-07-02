@@ -2986,19 +2986,19 @@ ${text.slice(0, 4000)}`;
           </div>
         </div>
 
-        <!-- 추가 메모 (추가처리 일 때 필수 안내) -->
+        <!-- 요청 접수 내용 (요청접수 ROOT 로 등록) — LINE 원문 요약 자동 채움, 수정 가능 -->
         <div style="margin-bottom:8px">
-          <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">📝 추가 메모 ${p.status==='추가처리'?'<span style="color:#9D174D">(추가처리 시 필수 권장)</span>':''}</label>
-          <textarea oninput="updatePending('${p.id}', {memo:this.value}, true)"
-                    onblur="updatePending('${p.id}', {memo:this.value})"
-                    placeholder="검토자 메모 — 추가 정보, 처리 방향, 특이사항"
-                    style="width:100%;min-height:36px;padding:6px 8px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px;resize:vertical;font-family:inherit">${esc(p.memo||'')}</textarea>
+          <label style="font-size:10px;color:var(--gray-500);font-weight:700;display:block;margin-bottom:2px">📥 요청 접수 내용 <span style="color:var(--gray-400)">(등록 시 요청접수 기록으로 저장)</span></label>
+          <textarea oninput="updatePending('${p.id}', {reqContent:this.value}, true)"
+                    onblur="updatePending('${p.id}', {reqContent:this.value})"
+                    placeholder="요청·처리 내용 — 등록 시 작업의 '요청접수' ROOT 로 저장됩니다"
+                    style="width:100%;min-height:44px;padding:6px 8px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px;resize:vertical;font-family:inherit">${esc(p.reqContent != null ? p.reqContent : (p.lineParsed || p.lineRequest || p.lineRaw || ''))}</textarea>
         </div>
 
         <!-- 액션 버튼 -->
         <div style="display:flex;gap:6px;justify-content:flex-end">
           <button onclick="deletePending('${p.id}')" style="font-size:12px;padding:6px 12px;background:#fff;color:var(--danger);border:1px solid var(--danger);border-radius:5px;font-weight:700;cursor:pointer">🗑 삭제</button>
-          <button onclick="approvePending('${p.id}')" style="font-size:12px;padding:6px 14px;background:#06C755;color:#fff;border:none;border-radius:5px;font-weight:700;cursor:pointer">✅ 등록</button>
+          <button onclick="approvePending('${p.id}', this)" style="font-size:12px;padding:6px 14px;background:#06C755;color:#fff;border:none;border-radius:5px;font-weight:700;cursor:pointer">✅ 등록</button>
         </div>
       </div>`;
     }).join('');
