@@ -501,15 +501,23 @@
           const ts = (p.lineMsgAt || '').replace('T',' ').slice(0,16)
                   || ((typeof _kstDateTimeStr === 'function') ? _kstDateTimeStr() : new Date().toISOString().slice(0,16).replace('T',' '));
           const author = p.lineSender || recordedBy || 'Line';
+          const _newRootId = 'TR-line-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7);
           const newRoot = {
             ts, author, status: '요청접수',
-            text: job.asRequest || p.lineParsed || p.lineRequest || '(요청 내용 없음)',
-            threadId: 'TR-line-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+            text: reqText || '(요청 내용 없음)',
+            threadId: _newRootId,
             parentId: null,
             _lineSource: { msgAt: p.lineMsgAt || '', sender: p.lineSender || '', raw: p.lineRaw || '' },
           };
+          const _mergeAdd = [newRoot];
+          // 🐛 통합(merge) 경로도 완료 선택 반영 — 완료면 새 ROOT 에 완료 child 동반 (기존엔 요청접수만 추가돼 접수로 남던 문제)
+          if (jobStatus === '처리완료' || jobStatus === '완료') {
+            _mergeAdd.push({ ts, author, status: '완료', text: '(LINE 등록 시 완료 상태)',
+              threadId: 'TR-line-done-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+              parentId: _newRootId });
+          }
           const existingThread = Array.isArray(existing.thread) ? existing.thread.slice() : [];
-          const mergedT = existingThread.concat([newRoot]);
+          const mergedT = existingThread.concat(_mergeAdd);
           existing.thread = (typeof window._threadMigrate === 'function')
                           ? window._threadMigrate(mergedT) : mergedT;
           // AS 메타 갱신
