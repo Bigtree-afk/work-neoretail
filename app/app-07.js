@@ -335,9 +335,13 @@
       const catFooter = (typeof window.classifyJobCategory === 'function') ? window.classifyJobCategory(j) : '';
       if (catFooter === 'as') {
         const _asDone = _isAsDone(j);
+        const _pr = (typeof window._jobRootProgress === 'function') ? window._jobRootProgress(j) : { total:0, done:0 };
+        const _prBadge = (_pr.total >= 2)
+          ? `<span style="display:inline-block;background:#FEF3C7;color:#92400E;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:8px">진행중 (${_pr.done}/${_pr.total} 완료)</span>`
+          : '';
         footerLeft.innerHTML = _asDone
           ? `<span style="font-size:12px;color:#065F46;font-weight:700">✅ 처리완료<span style="font-weight:400;color:var(--gray-500);font-size:11px;margin-left:6px">${esc((j.completedAt||'').slice(0,16).replace('T',' '))}</span></span>`
-          : `<span style="font-size:11.5px;color:var(--gray-500);line-height:1.5">✅ 완료는 아래 <b style="color:#1E40AF">📋 요청사항·처리 기록</b>에서 각 요청접수에 <b style="color:#065F46">✅ 완료</b> 처리를 추가하세요 — 모든 요청이 완료되면 자동으로 <b>처리완료</b>됩니다.</span>`;
+          : `${_prBadge}<span style="font-size:11.5px;color:var(--gray-500);line-height:1.5">✅ 완료는 아래 <b style="color:#1E40AF">📋 요청사항·처리 기록</b>에서 각 요청접수에 <b style="color:#065F46">✅ 완료</b> 처리를 추가하세요 — 모든 요청이 완료되면 자동으로 <b>처리완료</b>됩니다.</span>`;
       } else {
         const isJobDone = _isJobDone(j);
         footerLeft.innerHTML = isJobDone

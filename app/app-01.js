@@ -1254,6 +1254,11 @@
   }
   function _jobIncompleteRoots(j) { return _jobRoots(j).filter(r => !_rootIsDone(j, r)); }
   function _jobCompletedRoots(j) { return _jobRoots(j).filter(r =>  _rootIsDone(j, r)); }
+  // 요청접수(ROOT) 진행 집계 — 헤더 배지 "(완료/전체 완료)" 용
+  window._jobRootProgress = function(j) {
+    try { const roots = _jobRoots(j) || []; return { total: roots.length, done: roots.filter(r => _rootIsDone(j, r)).length }; }
+    catch(_) { return { total: 0, done: 0 }; }
+  };
   // 매장 그룹의 ROOT 총합/미완료/완료
   function _groupRoots(g)         { return g.jobs.flatMap(j => _jobRoots(j)); }
   function _groupIncomplete(g)    { return g.jobs.flatMap(j => _jobIncompleteRoots(j)); }
