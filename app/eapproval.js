@@ -1910,6 +1910,15 @@
   /* 표 헤더 톤 (흰 배경 조화) */
   #screen-eapproval .eap-table th{background:#F8FAFC}
   #screen-eapproval .eap-table td{padding:6px 9px}
+  /* ── 자금관리 배경 모두 흰색 (2026-07-06) ── */
+  #screen-eapproval{background:#fff;min-height:calc(100vh - 56px)}
+  #screen-eapproval .eap-table th{background:#fff}
+  #screen-eapproval .fund-grid tbody th{background:#fff}
+  #screen-eapproval .fund-grid tr.fund-cur th,#screen-eapproval .fund-grid tr.fund-cur td{background:#fff}
+  #screen-eapproval .fund-grid .fund-tot{background:#fff}
+  #screen-eapproval .fund-sheet th{background:#fff}
+  #screen-eapproval .fund-sheet tfoot td{background:#fff}
+  #screen-eapproval .eap-fund-note{background:#fff}
   `;
 
 })();
