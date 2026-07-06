@@ -145,6 +145,9 @@
   const MANAGERS = ['이동호', '김혜연'];
   function canEditLeave() { return isAdmin() || MANAGERS.includes(ME()); }
   function canManageRoutes() { return isAdmin() || MANAGERS.includes(ME()); }
+  // 생일/기념일 등록 권한 — 관리자 + 지정 사용자
+  const BIRTH_EDITORS = ['김혜연'];
+  function canEditBirth() { return isAdmin() || BIRTH_EDITORS.includes(ME()); }
   // 자금 집행완료 처리 권한 — 관리자 + 지정 담당자
   const FUND_EXECUTORS = ['김혜연'];
   function canExecFund() { return isAdmin() || FUND_EXECUTORS.includes(ME()); }
@@ -1127,7 +1130,7 @@
     const upHtml = items.length ? items.map(it => `<div class="eap-sch-item eap-sch-${it.type}">${it.html}</div>`).join('') : '<div class="eap-empty">예정된 일정 없음</div>';
 
     const bdayMgmt = (SCHSUB === 'bday')
-      ? `<table class="eap-table"><thead><tr><th>직원</th><th>생일</th><th>구분</th>${isAdmin() ? '<th></th>' : ''}</tr></thead><tbody>${STAFF().map(n => { const b = getBirths()[n]; return `<tr><td>${esc(n)}</td><td>${b ? esc(b.date) : '<span class="eap-dash">미등록</span>'}</td><td>${b ? (b.cal === 'lunar' ? '음력' : '양력') : '-'}</td>${isAdmin() ? `<td><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.openBday(${J(n)})">✏️</button></td>` : ''}</tr>`; }).join('')}</tbody></table>`
+      ? `<table class="eap-table"><thead><tr><th>직원</th><th>생일</th><th>구분</th>${canEditBirth() ? '<th></th>' : ''}</tr></thead><tbody>${STAFF().map(n => { const b = getBirths()[n]; return `<tr><td>${esc(n)}</td><td>${b ? esc(b.date) : '<span class="eap-dash">미등록</span>'}</td><td>${b ? (b.cal === 'lunar' ? '음력' : '양력') : '-'}</td>${canEditBirth() ? `<td><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.openBday(${J(n)})">✏️</button></td>` : ''}</tr>`; }).join('')}</tbody></table>`
       : upHtml;
 
     return `
@@ -1145,6 +1148,7 @@
   }
   EAP.setSchSub = function (s) { SCHSUB = s; renderTab(); };
   EAP.openBday = function (n) {
+    if (!canEditBirth()) { toast('생일 등록 권한이 없습니다'); return; }
     const b = getBirths()[n] || { date: '', cal: 'solar' };
     const html = `<div class="eap-modal">
       <div class="eap-mhead"><h3>🎂 ${esc(n)} 생일</h3><button class="eap-x" onclick="EAP.closeModal()">✕</button></div>
@@ -1161,6 +1165,7 @@
     document.getElementById('eapCalLunar').classList.toggle('on', c === 'lunar');
   };
   EAP.saveBday = function (n) {
+    if (!canEditBirth()) { toast('생일 등록 권한이 없습니다'); return; }
     const date = (document.getElementById('eapBdDate') || {}).value;
     if (!date) { toast('생일을 입력하세요'); return; }
     const b = getBirths(); b[n] = { date, cal: EAP._calSel || 'solar' }; saveCfgKey('birth', b);
