@@ -1869,6 +1869,47 @@
   #screen-eapproval .fund-addrow input:focus{outline:none;background:#F8FAFC}
   #screen-eapproval .fund-balin{width:100%;max-width:220px;border:1px solid #CBD5E1;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;box-sizing:border-box}
   #screen-eapproval .fund-balin:focus{outline:none;background:#FFFBEB;box-shadow:inset 0 0 0 2px #FCD34D}
+  /* ── 흰 배경 + 촘촘 업무형 레이아웃 (2026-07-06) ── */
+  #screen-eapproval{background:#fff;padding:14px 18px 44px;min-height:calc(100vh - 56px)}
+  #screen-eapproval .eap-root{max-width:1040px}
+  /* 탭: 언더라인형 컴팩트 (박스 → 밑줄) */
+  #screen-eapproval .eap-tabbar{gap:2px;margin-bottom:12px;border-bottom:1px solid #E5E7EB}
+  #screen-eapproval .eap-tab{flex:0 0 auto;padding:8px 15px;border:none;background:none;border-radius:0;border-bottom:2px solid transparent;font-size:13px;color:#64748B;margin-bottom:-1px}
+  #screen-eapproval .eap-tab.on{background:none;color:#2563EB;border-bottom-color:#2563EB}
+  #screen-eapproval .eap-tab:not(.on):hover{color:#0F172A}
+  /* 칩·섹션 촘촘 */
+  #screen-eapproval .eap-chips{gap:6px}
+  #screen-eapproval .eap-chip{padding:5px 11px;font-size:12px}
+  #screen-eapproval .eap-bar{margin-bottom:10px}
+  #screen-eapproval .eap-sech{margin:13px 0 6px}
+  /* 카드 촘촘 */
+  #screen-eapproval .eap-card{padding:9px 12px;margin-bottom:7px;border-radius:9px}
+  #screen-eapproval .eap-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  #screen-eapproval .eap-ctop{gap:6px;margin-bottom:5px}
+  #screen-eapproval .eap-title{font-size:13.5px;margin-bottom:2px}
+  #screen-eapproval .eap-line{margin-top:6px;gap:3px}
+  #screen-eapproval .eap-step{padding:2px 8px;font-size:10.5px}
+  /* 버튼 촘촘 */
+  #screen-eapproval .eap-btn{padding:8px 13px;font-size:12.5px;border-radius:8px}
+  #screen-eapproval .eap-btn-sm{padding:5px 10px;font-size:11.5px}
+  /* 대시보드/연차 카드 촘촘 */
+  #screen-eapproval .eap-dash{gap:8px;margin-bottom:10px}
+  #screen-eapproval .eap-dcard{padding:10px 12px}
+  #screen-eapproval .eap-dcard .dv{font-size:19px}
+  #screen-eapproval .eap-lvcards{gap:8px;margin-bottom:4px}
+  #screen-eapproval .eap-lv{padding:11px}
+  #screen-eapproval .eap-lv .v{font-size:22px}
+  #screen-eapproval .eap-sch-item{padding:7px 11px;margin-bottom:6px}
+  /* 자금 툴바/입력 촘촘 + 날짜폭 고정 */
+  #screen-eapproval .fund-toolbar{gap:6px;margin-bottom:10px}
+  #screen-eapproval .fund-toolbar input[type=date]{width:140px;padding:5px 8px}
+  #screen-eapproval .fund-nav{width:28px;height:30px;font-size:14px}
+  #screen-eapproval .fund-ctxbar{gap:7px;margin-bottom:7px}
+  #screen-eapproval .eap-fund-note{padding:7px 11px;margin-bottom:10px}
+  #screen-eapproval .fund-savebar{margin:7px 0 4px}
+  /* 표 헤더 톤 (흰 배경 조화) */
+  #screen-eapproval .eap-table th{background:#F8FAFC}
+  #screen-eapproval .eap-table td{padding:6px 9px}
   `;
 
 })();
