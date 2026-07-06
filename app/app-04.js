@@ -2539,6 +2539,21 @@
     } else if (k === 'Escape') { panel.style.display = 'none'; window._jobStoreActiveIdx = -1; }
   };
 
+  // 선택된 매장 한 줄 표기 — 상호 : 사업자번호 : 주소 (VAN·AS·신규·소모품 공통)
+  window._storePickLineHtml = function (o) {
+    o = o || {};
+    const _e = window.esc || (s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])));
+    const name = o.name || o.storeName || '';
+    const biz = o.biz || o.bizNo || o.bizno || '';
+    const addr = o.addr || o.address || '';
+    const sep = '<span style="color:#9CA3AF;font-weight:400;margin:0 1px">:</span>';
+    const parts = ['<b style="color:#065F46">' + _e(name || '-') + '</b>'];
+    if (biz) parts.push('<code style="background:#fff;padding:1px 6px;border-radius:3px;font-family:monospace;font-size:10.5px;color:#065F46">' + _e(biz) + '</code>');
+    if (addr) parts.push('<span style="color:#047857">' + _e(addr) + '</span>');
+    return '<span style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:11.5px;line-height:1.5">'
+      + '<span style="font-weight:800;color:#065F46">✓ 선택됨</span>' + parts.join(sep) + '</span>';
+  };
+
   function pickJobStore(name, address, biz, ceo) {
     const inp = document.getElementById('jobStoreName');
     if (inp) inp.value = name;
@@ -2546,14 +2561,11 @@
     if (addrEl && address) addrEl.value = address;
     const panel = document.getElementById('jobStoreResults');
     if (panel) panel.style.display = 'none';
-    // 사업자 정보 표시 — 혼선 방지
+    // 선택 매장 한 줄 표기 (상호 : 사업자번호 : 주소)
     const info = document.getElementById('jobStorePickedInfo');
-    const bizEl = document.getElementById('jobStorePickedBiz');
-    const ceoEl = document.getElementById('jobStorePickedCeo');
     if (info) {
-      if (biz || ceo) {
-        if (bizEl) bizEl.textContent = biz || '-';
-        if (ceoEl) ceoEl.textContent = ceo ? ('대표 ' + ceo) : '';
+      if (name || biz || address) {
+        info.innerHTML = window._storePickLineHtml({ name, biz, addr: address, ceo });
         info.style.display = 'block';
       } else {
         info.style.display = 'none';

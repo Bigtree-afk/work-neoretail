@@ -86,8 +86,8 @@
   function _renderStoreResult() {
     const el = $('supplyRegStoreResult'); if (!el) return;
     if (!_store) { el.innerHTML = '<span style="font-size:11.5px;color:var(--gray-400)">매장을 검색·선택하세요</span>'; return; }
-    el.innerHTML = `<span style="display:inline-flex;align-items:center;gap:3px;background:#F0FDF4;color:#15803d;padding:3px 8px;border-radius:7px;font-size:12px;font-weight:700">✓ 선택됨</span>`
-      + ` <span style="font-size:11.5px;color:var(--gray-500)">📍 ${E((_store.addr || '').slice(0, 40))}${_store.biz ? ' · ' + E(_store.biz) : ''}</span>`;
+    el.innerHTML = window._storePickLineHtml ? window._storePickLineHtml(_store)
+      : `<span style="font-weight:700;color:#15803d">✓ 선택됨</span> <span style="font-size:11.5px;color:var(--gray-500)">📍 ${E((_store.addr || '').slice(0, 40))}${_store.biz ? ' · ' + E(_store.biz) : ''}</span>`;
   }
 
   function _updateHeader() {

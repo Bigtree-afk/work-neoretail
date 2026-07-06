@@ -2367,11 +2367,10 @@
     const input = document.getElementById('vanStoreName');
     if (input) input.value = s.name || '';
     const info = document.getElementById('vanStorePickedInfo');
-    const biz = document.getElementById('vanStorePickedBiz');
-    const ceo = document.getElementById('vanStorePickedCeo');
-    if (info) info.style.display = '';
-    if (biz) biz.textContent = s.biz || '-';
-    if (ceo) ceo.textContent = s.ceo ? `대표: ${s.ceo}` : '';
+    if (info) {
+      info.innerHTML = window._storePickLineHtml ? window._storePickLineHtml(s) : ('✓ 선택됨 ' + (s.name || ''));
+      info.style.display = '';
+    }
     const results = document.getElementById('vanStoreResults');
     if (results) results.style.display = 'none';
     // 기존에 등록된 VAN/간편결제 프로필 prefill
