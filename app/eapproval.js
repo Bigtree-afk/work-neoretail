@@ -1869,8 +1869,8 @@
   #screen-eapproval .fund-addrow input:focus{outline:none;background:#F8FAFC}
   #screen-eapproval .fund-balin{width:100%;max-width:220px;border:1px solid #CBD5E1;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;box-sizing:border-box}
   #screen-eapproval .fund-balin:focus{outline:none;background:#FFFBEB;box-shadow:inset 0 0 0 2px #FCD34D}
-  /* ── 흰 배경 + 촘촘 업무형 레이아웃 (2026-07-06) ── */
-  #screen-eapproval{background:#fff;padding:14px 18px 44px;min-height:calc(100vh - 56px)}
+  /* ── 배경 제거(투명) + 촘촘 업무형 레이아웃 (2026-07-06) ── */
+  #screen-eapproval{background:transparent;padding:14px 18px 44px}
   #screen-eapproval .eap-root{max-width:1040px}
   /* 탭: 언더라인형 컴팩트 (박스 → 밑줄) */
   #screen-eapproval .eap-tabbar{gap:2px;margin-bottom:12px;border-bottom:1px solid #E5E7EB}
