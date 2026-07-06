@@ -1104,10 +1104,18 @@
   };
 
   /* ════════════════ 일정 (sch) ════════════════ */
-  function birthThisYear(b) {
+  // 지정 양력연도(y)에 해당하는 생일의 양력일. 음력이면 매년 정확히 변환.
+  function birthSolarForYear(b, y) {
     if (!b || !b.date) return null;
-    const parts = b.date.split('-'); const y = new Date(Date.now() + 9 * 3600 * 1000).getFullYear();
+    const parts = String(b.date).split('-');
+    if (b.cal === 'lunar' && window.LunarKR) {
+      const s = window.LunarKR.lunarBirthdayStr(Number(parts[1]), Number(parts[2]), y);
+      if (s) return s;  // 변환 실패 시 아래 fallback
+    }
     return `${y}-${parts[1]}-${parts[2]}`;
+  }
+  function birthThisYear(b) {
+    return birthSolarForYear(b, new Date(Date.now() + 9 * 3600 * 1000).getFullYear());
   }
   function bdayEvents() { const b = getBirths(); return Object.entries(b).map(([who, v]) => ({ who, date: birthThisYear(v), cal: v.cal, raw: v.date })).filter(e => e.date); }
   function leaveEvents() { return getDocs().filter(d => d.kind === 'leave' && d.status === 'ok').map(d => ({ who: d.drafter, from: d.from, to: d.to || d.from, days: d.days || 1 })); }
@@ -1130,7 +1138,7 @@
     const upHtml = items.length ? items.map(it => `<div class="eap-sch-item eap-sch-${it.type}">${it.html}</div>`).join('') : '<div class="eap-empty">예정된 일정 없음</div>';
 
     const bdayMgmt = (SCHSUB === 'bday')
-      ? `<table class="eap-table"><thead><tr><th>직원</th><th>생일</th><th>구분</th>${canEditBirth() ? '<th></th>' : ''}</tr></thead><tbody>${STAFF().map(n => { const b = getBirths()[n]; return `<tr><td>${esc(n)}</td><td>${b ? esc(b.date) : '<span class="eap-dash">미등록</span>'}</td><td>${b ? (b.cal === 'lunar' ? '음력' : '양력') : '-'}</td>${canEditBirth() ? `<td><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.openBday(${J(n)})">✏️</button></td>` : ''}</tr>`; }).join('')}</tbody></table>`
+      ? `<table class="eap-table"><thead><tr><th>직원</th><th>생일</th><th>구분</th>${canEditBirth() ? '<th></th>' : ''}</tr></thead><tbody>${STAFF().map(n => { const b = getBirths()[n]; return `<tr><td>${esc(n)}</td><td>${b ? esc(b.date) + (b.cal === 'lunar' ? ` <span class="eap-meta">→ 양력 ${esc((birthThisYear(b) || '').slice(5))}</span>` : '') : '<span class="eap-dash">미등록</span>'}</td><td>${b ? (b.cal === 'lunar' ? '🌙 음력' : '☀️ 양력') : '-'}</td>${canEditBirth() ? `<td><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.openBday(${J(n)})">✏️</button></td>` : ''}</tr>`; }).join('')}</tbody></table>`
       : upHtml;
 
     return `

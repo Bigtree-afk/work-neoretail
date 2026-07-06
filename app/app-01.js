@@ -1661,14 +1661,22 @@
           dated.push({ eap: 'leave', who: d.drafter || '', ymd, label: (d.drafter || '') + ' 연차', color: '#16A34A', done: false });
         }
       }
-      // 직원 생일 (표시 연도 기준 — 매년 반복)
+      // 직원 생일 (표시 연도 기준 — 매년 반복). 음력이면 해당 연도 양력으로 정확히 변환.
       const births = (eapCfg && eapCfg.birth) || {};
       for (const who in births) {
         const b = births[who]; if (!b || !b.date) continue;
         if (onlyMine && who !== meName) continue;
-        const mmdd = String(b.date).slice(5);
-        if (!/^\d{2}-\d{2}$/.test(mmdd)) continue;
-        dated.push({ eap: 'bday', who, ymd: st.year + '-' + mmdd, label: who + ' 생일' + (b.cal === 'lunar' ? '(음력)' : ''), color: '#EC4899', done: false });
+        let ymd;
+        if (b.cal === 'lunar' && window.LunarKR) {
+          const s = window.LunarKR.lunarBirthdayStr(Number(String(b.date).slice(5, 7)), Number(String(b.date).slice(8, 10)), st.year);
+          ymd = s || null;
+        } else {
+          const mmdd = String(b.date).slice(5);
+          if (!/^\d{2}-\d{2}$/.test(mmdd)) continue;
+          ymd = st.year + '-' + mmdd;
+        }
+        if (!ymd) continue;
+        dated.push({ eap: 'bday', who, ymd, label: who + ' 생일' + (b.cal === 'lunar' ? '(음력)' : ''), color: '#EC4899', done: false });
       }
     } catch (_) {}
 
