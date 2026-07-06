@@ -151,8 +151,8 @@
   // 자금 집행완료 처리 권한 — 관리자 + 지정 담당자
   const FUND_EXECUTORS = ['김혜연'];
   function canExecFund() { return isAdmin() || FUND_EXECUTORS.includes(ME()); }
-  // 자금관리(일일자금현황) 조회·관리 권한 — 관리자 + 지정 임직원 (추후 사용자별 세분화)
-  const FUND_MEMBERS = ['이동호', '김혜연'];
+  // 자금관리(일일자금현황) 조회·관리 권한 — 지정 4명(+관리자). 그 외 직원은 탭 자체가 안 보임.
+  const FUND_MEMBERS = ['정필성', '이동호', '김혜연', '오근례'];
   function canViewFund() { return isAdmin() || FUND_MEMBERS.includes(ME()); }
   function canManageFund() { return canViewFund(); }
   function userTitle(name) {
