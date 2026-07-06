@@ -24,6 +24,8 @@
   let TAB = 'appr', SUB = 'received', SCHSUB = 'up';
   let _execFrom = '', _execTo = '';
   let _doneTplFilter = 'all';
+  // 자금관리 상태
+  let FUNDSUB = 'daily', FUNDDATE = '', FUNDCTX = { co: '인토개인', dir: 'in' };
   let _built = false;
   let _pollTimer = null;
   let _listenersBound = false;
@@ -146,6 +148,10 @@
   // 자금 집행완료 처리 권한 — 관리자 + 지정 담당자
   const FUND_EXECUTORS = ['김혜연'];
   function canExecFund() { return isAdmin() || FUND_EXECUTORS.includes(ME()); }
+  // 자금관리(일일자금현황) 조회·관리 권한 — 관리자 + 지정 임직원 (추후 사용자별 세분화)
+  const FUND_MEMBERS = ['이동호', '김혜연'];
+  function canViewFund() { return isAdmin() || FUND_MEMBERS.includes(ME()); }
+  function canManageFund() { return canViewFund(); }
   function userTitle(name) {
     const u = getUsers().find(u => u && u.name === name);
     return (u && u.title) || '';
@@ -162,6 +168,11 @@
     } catch (_) {}
   }
   function setDocs(arr) { _writeDocs(arr); schedulePush(); }
+  // 자금 거래(tx) — docs 와 동일한 per-id 머지 파이프라인
+  const FUND_LS = 'ns_eap_fund';
+  function getFundTx() { try { return JSON.parse(localStorage.getItem(FUND_LS) || '[]'); } catch (_) { return []; } }
+  function _writeFundTx(arr) { try { if (window._safeSetItem) window._safeSetItem(FUND_LS, JSON.stringify(arr)); else localStorage.setItem(FUND_LS, JSON.stringify(arr)); } catch (_) {} }
+  function setFundTx(arr) { _writeFundTx(arr); schedulePush(); }
   function getCfg() {
     try { return JSON.parse(localStorage.getItem(CFG_LS) || '{}'); } catch (_) { return {}; }
   }
@@ -185,6 +196,15 @@
       const byId = new Map((Array.isArray(local.tpl) ? local.tpl : []).map(t => [t.id, t]));
       cloud.tpl.forEach(t => { if (t && t.id) byId.set(t.id, t); });
       out.tpl = [...byId.values()];
+    }
+    // fund 메타 — cats(전체 교체, 편집 드묾) / opening·closings(키별 머지) / openingDate(최신)
+    if (cloud.fund && typeof cloud.fund === 'object') {
+      const lf = local.fund || {}, cf = cloud.fund, nf = Object.assign({}, lf);
+      if (cf.cats) nf.cats = cf.cats;
+      if (cf.opening) nf.opening = Object.assign({}, lf.opening || {}, cf.opening);
+      if (cf.openingDate) nf.openingDate = cf.openingDate;
+      if (cf.closings) nf.closings = Object.assign({}, lf.closings || {}, cf.closings);
+      out.fund = nf;
     }
     out.updatedAt = Date.now();
     return out;
@@ -219,7 +239,7 @@
   }
   async function doPush(cfgToo) {
     try {
-      const payload = { docs: getDocs() };
+      const payload = { docs: getDocs(), fund: getFundTx() };
       if (cfgToo) payload.config = getCfg();
       if (_pendingTombs.length) { payload.tombstones = _pendingTombs.slice(); _pendingTombs = []; }
       const res = await fetch('/api/eapproval', {
@@ -259,11 +279,21 @@
         if (!ex || mt(d) >= mt(ex)) byId.set(id, d);
       }
       _writeDocs([...byId.values()]);
+      // fund tx per-id merge by updatedAt (docs 미러, 삭제 레지스트리 존중)
+      const cloudFund = Array.isArray(data.fund) ? data.fund : [];
+      const fById = new Map();
+      for (const t of getFundTx()) if (t && t.id && !delSet.has(String(t.id))) fById.set(String(t.id), t);
+      for (const t of cloudFund) {
+        if (!t || !t.id || delSet.has(String(t.id))) continue;
+        const id = String(t.id); const ex = fById.get(id);
+        if (!ex || mt(t) >= mt(ex)) fById.set(id, t);
+      }
+      _writeFundTx([...fById.values()]);
       // config — 키별 deep-merge (cloud 값 채택). updatedAt 비교 폐기(서버 ISO ↔ 클라 숫자 불일치 버그).
       const merged = mergeEapCfg(getCfg(), data.config || {});
       try { localStorage.setItem(CFG_LS, JSON.stringify(merged)); } catch (_) {}
       ensureSeed();
-      if (isScreenActive()) renderTab();
+      if (isScreenActive()) renderTab(true);
     } catch (e) { console.warn('[eap] sync 실패', e); }
     _syncing = false;
   }
@@ -380,7 +410,7 @@
       _listenersBound = true;
       document.addEventListener('visibilitychange', () => { if (!document.hidden && isScreenActive()) syncFromCloud(); });
       window.addEventListener('focus', () => { if (isScreenActive()) syncFromCloud(); });
-      try { window.addEventListener('storage', e => { if (e && e.key === DOCS_LS && isScreenActive()) renderTab(); }); } catch (_) {}
+      try { window.addEventListener('storage', e => { if (e && e.key === DOCS_LS && isScreenActive()) renderTab(true); }); } catch (_) {}
     }
     // 딥링크 ?doc=ID (PC 에서도 지원)
     try {
@@ -395,6 +425,7 @@
       <div class="eap-tabbar">
         <button class="eap-tab on" data-tab="appr" onclick="EAP.switchTab('appr')">📋 결재함</button>
         <button class="eap-tab" data-tab="leave" onclick="EAP.switchTab('leave')">🌴 연차관리</button>
+        <button class="eap-tab eap-fund-only" data-tab="fund" onclick="EAP.switchTab('fund')">💰 자금관리</button>
         <button class="eap-tab" data-tab="sch" onclick="EAP.switchTab('sch')">📅 일정</button>
         <button class="eap-tab eap-mgr-only" data-tab="tpl" onclick="EAP.switchTab('tpl')">⚙️ 양식·루트</button>
       </div>
@@ -406,7 +437,10 @@
   function bindTabs() {
     const showMgr = isAdmin() || canManageRoutes();
     document.querySelectorAll('#eapContainer .eap-mgr-only').forEach(el => { el.style.display = showMgr ? '' : 'none'; });
+    const showFund = canViewFund();
+    document.querySelectorAll('#eapContainer .eap-fund-only').forEach(el => { el.style.display = showFund ? '' : 'none'; });
     if (!showMgr && TAB === 'tpl') TAB = 'appr';
+    if (!showFund && TAB === 'fund') TAB = 'appr';
     document.querySelectorAll('#eapContainer .eap-tab').forEach(b => b.classList.toggle('on', b.getAttribute('data-tab') === TAB));
   }
 
@@ -416,10 +450,22 @@
     renderTab();
   };
 
-  function renderTab() {
+  function renderTab(fromSync) {
     bindTabs();
     const v = document.getElementById('eap-view');
     if (!v) return;
+    if (TAB === 'fund') {
+      // 백그라운드(sync) 재렌더는 입력중 draft 를 지우지 않도록 가드
+      if (fromSync) {
+        if (fundDraftDirty()) return;
+        const sig = fundSig();
+        if (v.getAttribute('data-fundsig') === sig && v.childElementCount) return;
+      }
+      v.innerHTML = renderFund();
+      v.setAttribute('data-fundsig', fundSig());
+      if (FUNDSUB === 'daily') { const tb = document.getElementById('fundSheetBody'); if (tb) { fundRenumber(); EAP.fundSubtotal(); } }
+      return;
+    }
     if (TAB === 'appr') v.innerHTML = renderAppr();
     else if (TAB === 'leave') v.innerHTML = renderLeave();
     else if (TAB === 'sch') v.innerHTML = renderSch();
@@ -1337,6 +1383,282 @@
     saveCfgKey('tpl', getTpls().filter(t => t.id !== id)); renderTab(); toast('삭제됨');
   };
 
+  /* ════════════════ 자금관리 (fund) ════════════════ */
+  const FUND_COS = ['인토개인', '인토법인', '네오솔루션', '세이브넷'];
+  const FUND_CO_COLOR = { '인토개인': '#1D4ED8', '인토법인': '#7C3AED', '네오솔루션': '#047857', '세이브넷': '#B45309' };
+  const SEED_FUND_IN = ['장비대금', '밴수익', '수리비', '재고조사', '라벨지', '프로그램사용료', '이자수익', '환입', '잡이익', '차입'];
+  const SEED_FUND_OUT = ['인건비', '4대사회보험료', '장비대금', '상품(라벨지)', '수리비', '복리후생비', '임차료', '밴지원금', '세금과공과(부가세·원천세·지방세 등)', '인출금', '보험료', '기타', '차입상환'];
+
+  function getFundMeta() {
+    const c = getCfg(); const f = (c.fund && typeof c.fund === 'object') ? c.fund : {};
+    return {
+      cats: (f.cats && Array.isArray(f.cats.in) && Array.isArray(f.cats.out)) ? f.cats
+        : { in: SEED_FUND_IN.map(n => ({ name: n, active: true })), out: SEED_FUND_OUT.map(n => ({ name: n, active: true })) },
+      opening: (f.opening && typeof f.opening === 'object') ? f.opening : {},
+      openingDate: f.openingDate || kstDate(),
+      closings: (f.closings && typeof f.closings === 'object') ? f.closings : {},
+    };
+  }
+  function saveFundMeta(patch) {
+    const c = getCfg(); c.fund = Object.assign({}, c.fund || {}, patch); c.updatedAt = Date.now(); setCfg(c);
+  }
+  function ensureFundSeed() {
+    const c = getCfg();
+    if (c.fund && c.fund.cats && Array.isArray(c.fund.cats.in) && Array.isArray(c.fund.cats.out)) return;
+    const f = Object.assign({}, c.fund || {});
+    f.cats = { in: SEED_FUND_IN.map(n => ({ name: n, active: true })), out: SEED_FUND_OUT.map(n => ({ name: n, active: true })) };
+    if (!f.opening) f.opening = {};
+    if (!f.openingDate) f.openingDate = kstDate();
+    if (!f.closings) f.closings = {};
+    c.fund = f; c.updatedAt = Date.now();
+    try { localStorage.setItem(CFG_LS, JSON.stringify(c)); } catch (_) {}
+    schedulePush(true);
+  }
+  // 타임존 안전 날짜 가감 (UTC 기준 산술 — KST 브라우저에서도 어긋나지 않음)
+  function fundAddDays(s, n) {
+    const p = String(s || kstDate()).split('-').map(Number);
+    const dt = new Date(Date.UTC(p[0], (p[1] || 1) - 1, p[2] || 1) + n * 86400000);
+    return dt.getUTCFullYear() + '-' + String(dt.getUTCMonth() + 1).padStart(2, '0') + '-' + String(dt.getUTCDate()).padStart(2, '0');
+  }
+  function fundBalAsOf(co, date) {
+    const m = getFundMeta(); let b = Number(m.opening[co] || 0);
+    getFundTx().forEach(t => { if (t && t.co === co && t.date >= m.openingDate && t.date <= date) b += (t.dir === 'in' ? (Number(t.amount) || 0) : -(Number(t.amount) || 0)); });
+    return b;
+  }
+  function fundDayFlow(co, date, dir) { let s = 0; getFundTx().forEach(t => { if (t && t.co === co && t.date === date && t.dir === dir) s += (Number(t.amount) || 0); }); return s; }
+  function fundTxOf(date) { return getFundTx().filter(t => t && t.date === date).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0)); }
+  function fundIsClosed(date) { return !!getFundMeta().closings[date]; }
+  function fundCatUsed(dir, name) { return getFundTx().filter(t => t && t.dir === dir && t.cat === name).length; }
+
+  // 렌더 시그니처 (백그라운드 sync 재렌더 스킵용)
+  function fundSig() {
+    const tx = getFundTx(); const m = getFundMeta();
+    let mt = 0; tx.forEach(t => { mt += (Number(t && t.updatedAt) || 0); });
+    return [FUNDSUB, FUNDDATE, tx.length, mt, JSON.stringify(m.closings || {}).length,
+      JSON.stringify(m.opening || {}), m.openingDate, JSON.stringify(m.cats || {}).length].join('|');
+  }
+  function fundDraftDirty() {
+    const tb = document.getElementById('fundSheetBody'); if (!tb) return false;
+    return [...tb.querySelectorAll('.fund-drow')].some(tr => ['rCat', 'rAmt', 'rMemo', 'rNote'].some(c => { const el = tr.querySelector('.' + c); return el && el.value; }));
+  }
+  function fundRenumber() { document.querySelectorAll('#fundSheetBody .fund-drow').forEach((tr, i) => { const n = tr.querySelector('.rNo'); if (n) n.textContent = i + 1; }); }
+  function fundRowEmpty(tr) { return ['rCat', 'rAmt', 'rMemo', 'rNote'].every(c => { const el = tr.querySelector('.' + c); return !el || !el.value; }); }
+
+  // 엑셀형 입력행 빌더
+  function fundCatOpts(dir, sel) { const m = getFundMeta(); return '<option value="">항목 선택</option>' + (m.cats[dir] || []).filter(c => c.active).map(c => `<option ${c.name === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join(''); }
+  function fundCoOpts(sel) { return FUND_COS.map(c => `<option ${c === sel ? 'selected' : ''}>${esc(c)}</option>`).join(''); }
+  function fundDirOpts(dir) { return `<option value="in" ${dir === 'in' ? 'selected' : ''}>입금</option><option value="out" ${dir === 'out' ? 'selected' : ''}>출금</option>`; }
+  function fundDraftRow(co, dir) {
+    const k = ' onkeydown="EAP.fundCellKey(this,event)"';
+    return `<tr class="fund-drow"><td class="rNo"></td>`
+      + `<td><select class="rCo"${k}>${fundCoOpts(co)}</select></td>`
+      + `<td><select class="rDir" onchange="EAP.fundRowDir(this)"${k}>${fundDirOpts(dir)}</select></td>`
+      + `<td><select class="rCat" oninput="EAP.fundTouch(this)"${k}>${fundCatOpts(dir, '')}</select></td>`
+      + `<td><input class="rAmt" inputmode="numeric" placeholder="0" oninput="EAP.fundAmt(this);EAP.fundTouch(this)"${k}></td>`
+      + `<td><input class="rMemo" placeholder="통장 기록 내용" oninput="EAP.fundTouch(this)"${k}></td>`
+      + `<td><input class="rNote" placeholder="비고"${k}></td>`
+      + `<td style="text-align:center"><button class="eap-fund-x" onclick="EAP.fundDelRow(this)">×</button></td></tr>`;
+  }
+
+  function renderFund() {
+    if (!canViewFund()) return '<div class="eap-empty">자금관리 권한이 없습니다</div>';
+    if (!FUNDDATE) FUNDDATE = kstDate();
+    ensureFundSeed();
+    const subs = [['daily', '일일자금현황'], ['class', '분류 관리'], ['bal', '잔액 관리']];
+    const chips = subs.map(([k, l]) => `<button class="eap-chip ${FUNDSUB === k ? 'on' : ''}" onclick="EAP.fundSub(${J(k)})">${l}</button>`).join('');
+    const body = FUNDSUB === 'daily' ? renderFundDaily() : FUNDSUB === 'class' ? renderFundClass() : renderFundBal();
+    return `<div class="eap-chips" style="margin-bottom:14px">${chips}</div>${body}`;
+  }
+
+  function renderFundDaily() {
+    const date = FUNDDATE, closed = fundIsClosed(date), prev = fundAddDays(date, -1), m = getFundMeta();
+    const P = {}, I = {}, O = {}, C = {}; let tP = 0, tI = 0, tO = 0, tC = 0;
+    FUND_COS.forEach(co => { P[co] = fundBalAsOf(co, prev); I[co] = fundDayFlow(co, date, 'in'); O[co] = fundDayFlow(co, date, 'out'); C[co] = fundBalAsOf(co, date); tP += P[co]; tI += I[co]; tO += O[co]; tC += C[co]; });
+    const head = FUND_COS.map(c => `<th style="text-align:right"><span class="fund-dot" style="background:${FUND_CO_COLOR[c]}"></span>${esc(c)}</th>`).join('') + `<th style="text-align:right" class="fund-tot">합계</th>`;
+    const rl = (label, cls, src, tot, pre) => `<tr class="${cls}"><th>${label}</th>` + FUND_COS.map(c => `<td style="text-align:right">${pre || ''}${commaFmt(src[c])}</td>`).join('') + `<td style="text-align:right" class="fund-tot">${pre || ''}${commaFmt(tot)}</td></tr>`;
+    const grid = `<div class="eap-tblscroll"><table class="eap-table fund-grid"><thead><tr><th>구분</th>${head}</tr></thead><tbody>`
+      + rl('전일잔액', '', P, tP) + rl('입금 (+)', 'fund-in', I, tI, '+') + rl('출금 (-)', 'fund-out', O, tO, '-') + rl('당일잔액', 'fund-cur', C, tC) + `</tbody></table></div>`;
+
+    let entry;
+    if (closed) {
+      entry = `<div class="eap-fund-note">🔒 ${date} 은 마감되었습니다 — 입력·삭제 잠금 (마감 해제 시 수정 가능)</div>`;
+    } else if (canManageFund()) {
+      const initRows = [0, 1, 2, 3].map(() => fundDraftRow(FUNDCTX.co, FUNDCTX.dir)).join('');
+      entry = `<div class="fund-ctxbar"><span class="fund-lbl">회사</span><select onchange="EAP.fundCtxCo(this.value)">${fundCoOpts(FUNDCTX.co)}</select>`
+        + `<span class="fund-lbl">입출금</span><div class="fund-dirtog"><button class="fund-dseg fund-in ${FUNDCTX.dir === 'in' ? 'on' : ''}" onclick="EAP.fundCtxDir('in')">입금</button><button class="fund-dseg fund-out ${FUNDCTX.dir === 'out' ? 'on' : ''}" onclick="EAP.fundCtxDir('out')">출금</button></div>`
+        + `<span class="eap-meta">↓ 여러 줄 입력 (회사·구분 행별 변경 가능 · ↑↓ 이동 · 마지막 줄 입력 시 새 줄 자동추가)</span></div>`
+        + `<div class="eap-tblscroll"><table class="fund-sheet"><colgroup><col style="width:30px"><col style="width:110px"><col style="width:74px"><col style="width:160px"><col style="width:110px"><col><col style="width:110px"><col style="width:34px"></colgroup>`
+        + `<thead><tr><th>#</th><th>회사</th><th>구분</th><th>항목(소분류)</th><th style="text-align:right">금액</th><th>내용(통장 기록)</th><th>비고</th><th></th></tr></thead>`
+        + `<tbody id="fundSheetBody">${initRows}</tbody><tfoot><tr id="fundSheetFoot"></tr></tfoot></table></div>`
+        + `<div class="fund-savebar"><button class="eap-btn eap-btn-p" onclick="EAP.fundSaveDraft()">저장 (내역 반영)</button><span class="eap-meta">항목+금액이 채워진 줄만 일괄 등록됩니다</span></div>`;
+    } else {
+      entry = `<div class="eap-fund-note">조회 전용 — 자금 입력 권한이 없습니다</div>`;
+    }
+
+    const rows = fundTxOf(date); let rIn = 0, rOut = 0;
+    const list = rows.length ? rows.map(t => {
+      if (t.dir === 'in') rIn += Number(t.amount) || 0; else rOut += Number(t.amount) || 0;
+      return `<tr><td><span class="fund-dot" style="background:${FUND_CO_COLOR[t.co] || '#94A3B8'}"></span>${esc(t.co)}</td><td><span class="fund-tag ${t.dir}">${t.dir === 'in' ? '입금' : '출금'}</span></td><td>${esc(t.cat)}</td>`
+        + `<td style="text-align:right;font-weight:800" class="${t.dir === 'in' ? 'fund-inc' : 'fund-outc'}">${t.dir === 'in' ? '+' : '-'}${commaFmt(t.amount)}</td><td>${esc(t.memo || '')}</td><td class="eap-meta">${esc(t.note || '')}</td>`
+        + `<td style="text-align:center">${(closed || !canManageFund()) ? '' : `<button class="eap-fund-x" onclick="EAP.fundDel(${J(t.id)})">×</button>`}</td></tr>`;
+    }).join('') : `<tr><td colspan="7" style="text-align:center;color:#94A3B8;padding:22px">이 날짜의 자금 내역이 없습니다</td></tr>`;
+
+    const cl = m.closings[date] || {};
+    const nav = `<div class="fund-toolbar"><button class="fund-nav" onclick="EAP.fundGoto(-1)">‹</button><input type="date" value="${date}" onchange="EAP.fundSetDate(this.value)"><button class="fund-nav" onclick="EAP.fundGoto(1)">›</button><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.fundToday()">오늘</button><span style="margin-left:auto"></span>`
+      + (closed ? `<span class="fund-stat closed">🔒 마감 · ${esc(cl.closedAt || '')} ${esc(cl.by || '')}</span>${canManageFund() ? `<button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.fundReopen()">마감 해제</button>` : ''}`
+        : `<span class="fund-stat">진행중</span>${canManageFund() ? `<button class="eap-btn eap-btn-p eap-btn-sm" onclick="EAP.fundClose()">이 날짜 마감</button>` : ''}`)
+      + `</div>`;
+
+    return nav
+      + `<div class="eap-sech">회사별 잔액 · 합계</div>` + grid
+      + `<div class="eap-sech">자금 내역 입력 · 엑셀형</div>` + entry
+      + `<div class="eap-sech" style="display:flex;justify-content:space-between;align-items:baseline">${date} 확정 내역 <span class="eap-meta" style="font-weight:400">입금 ${commaFmt(rIn)} · 출금 ${commaFmt(rOut)} · 순증감 ${(rIn - rOut) >= 0 ? '+' : ''}${commaFmt(rIn - rOut)}</span></div>`
+      + `<div class="eap-tblscroll"><table class="eap-table fund-tx"><thead><tr><th>회사</th><th>구분</th><th>항목</th><th style="text-align:right">금액</th><th>내용</th><th>비고</th><th></th></tr></thead><tbody>${list}</tbody></table></div>`;
+  }
+
+  function renderFundClass() {
+    const m = getFundMeta(), manage = canManageFund();
+    const coPills = FUND_COS.map(c => `<span class="fund-pill" style="border-color:${FUND_CO_COLOR[c]}55;color:${FUND_CO_COLOR[c]}"><span class="fund-dot" style="background:${FUND_CO_COLOR[c]}"></span>${esc(c)}</span>`).join('');
+    const table = (dir) => {
+      const arr = m.cats[dir] || [];
+      return `<div class="eap-tblscroll"><table class="eap-table"><thead><tr><th style="width:74px;text-align:center">순서</th><th>항목</th><th style="width:64px">사용</th><th style="width:86px;text-align:center">상태</th></tr></thead><tbody>`
+        + arr.map((c, i) => `<tr${c.active ? '' : ' style="color:#94A3B8;background:#FAFAFA"'}>`
+          + `<td style="text-align:center;white-space:nowrap">${manage ? `<button class="fund-ord" ${i === 0 ? 'disabled' : ''} onclick="EAP.fundMoveCat(${J(dir)},${J(c.name)},-1)">↑</button><button class="fund-ord" ${i === arr.length - 1 ? 'disabled' : ''} onclick="EAP.fundMoveCat(${J(dir)},${J(c.name)},1)">↓</button>` : '-'}</td>`
+          + `<td>${esc(c.name)}${c.active ? '' : ' · <span style="color:#DC2626;font-weight:700">사용중지</span>'}</td>`
+          + `<td class="eap-meta">${(() => { const u = fundCatUsed(dir, c.name); return u ? u + '건' : '미사용'; })()}</td>`
+          + `<td style="text-align:center">${manage ? `<button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.fundToggleCat(${J(dir)},${J(c.name)})">${c.active ? '무효화' : '재사용'}</button>` : '-'}</td></tr>`).join('')
+        + `</tbody></table></div>`;
+    };
+    const addRow = (dir) => manage ? `<div class="fund-addrow"><input id="fundNewCat-${dir}" placeholder="새 ${dir === 'in' ? '입금' : '출금'} 항목"><button class="eap-btn eap-btn-p eap-btn-sm" onclick="EAP.fundAddCat(${J(dir)})">추가</button></div>` : '';
+    return `<div class="eap-fund-note">사용된 소분류는 <b>삭제하지 않고 “무효화”</b>만 합니다 — 새 입력 목록에선 빠지지만 기존 자금 데이터는 그대로 유지됩니다. ↑↓ 로 순서 변경.</div>`
+      + `<div class="eap-sech">회사 (대분류) · 고정 4개사</div><div class="fund-pills">${coPills}</div>`
+      + `<div class="fund-classgrid"><div><div class="eap-sech" style="color:#047857">입금 항목 (소분류)</div>${table('in')}${addRow('in')}</div>`
+      + `<div><div class="eap-sech" style="color:#B91C1C">출금 항목 (소분류)</div>${table('out')}${addRow('out')}</div></div>`;
+  }
+
+  function renderFundBal() {
+    const m = getFundMeta(), manage = canManageFund(), today = kstDate();
+    const rows = FUND_COS.map((c, i) => {
+      const cur = fundBalAsOf(c, today);
+      return `<tr><td><span class="fund-dot" style="background:${FUND_CO_COLOR[c]}"></span>${esc(c)}</td>`
+        + `<td style="text-align:right">${manage ? `<input id="fundOpenBal-${i}" class="fund-balin" inputmode="numeric" value="${commaFmt(m.opening[c] || 0)}" oninput="EAP.fundAmt(this)">` : commaFmt(m.opening[c] || 0)}</td>`
+        + `<td style="text-align:right;font-weight:800">${commaFmt(cur)}</td></tr>`;
+    }).join('');
+    const totOpen = FUND_COS.reduce((a, c) => a + (Number(m.opening[c]) || 0), 0);
+    const totCur = FUND_COS.reduce((a, c) => a + fundBalAsOf(c, today), 0);
+    return `<div class="eap-fund-note">🏦 <b>기초 잔액</b>은 자금 계산의 출발점 — <b>기준일의 통장 잔액</b>입니다. 평소엔 손대지 않지만 통장 실제 잔액과 어긋나면 여기서 <b>보정</b>하세요. 기준일 이후 증감은 일일 자금 내역으로 자동 반영됩니다.</div>`
+      + `<div class="fund-toolbar"><span class="fund-lbl">기준일</span><input type="date" value="${m.openingDate}" ${manage ? `onchange="EAP.fundSetOpeningDate(this.value)"` : 'disabled'}><span class="eap-meta">이 날짜의 통장 잔액을 기초로 잡습니다</span></div>`
+      + `<div class="eap-tblscroll"><table class="eap-table" style="max-width:660px"><thead><tr><th style="width:40%">회사</th><th style="text-align:right">기초 잔액 (통장잔액 보정)</th><th style="text-align:right">현재 잔액 (계산)</th></tr></thead><tbody>${rows}</tbody>`
+      + `<tfoot><tr><th>합계</th><th style="text-align:right">${commaFmt(totOpen)}</th><th style="text-align:right;color:#2563EB">${commaFmt(totCur)}</th></tr></tfoot></table></div>`
+      + (manage ? `<div class="fund-savebar"><button class="eap-btn eap-btn-p" onclick="EAP.fundSaveOpening()">기초 잔액 저장</button><span class="eap-meta">저장 시 현재 잔액이 재계산됩니다</span></div>` : '');
+  }
+
+  // ── 자금 핸들러 ──
+  function fundNavGuard() { return !fundDraftDirty() || confirm('입력 중인 내역이 있습니다. 이동하면 지워집니다. 계속할까요?'); }
+  EAP.fundSub = function (k) { if (!fundNavGuard()) return; FUNDSUB = k; renderTab(); };
+  EAP.fundGoto = function (n) { if (!fundNavGuard()) return; FUNDDATE = fundAddDays(FUNDDATE, n); renderTab(); };
+  EAP.fundSetDate = function (v) { if (!v) return; if (!fundNavGuard()) return; FUNDDATE = v; renderTab(); };
+  EAP.fundToday = function () { if (!fundNavGuard()) return; FUNDDATE = kstDate(); renderTab(); };
+  EAP.fundAmt = function (el) { const v = String(el.value || '').replace(/[^0-9]/g, ''); el.value = v ? Number(v).toLocaleString('ko-KR') : ''; };
+  EAP.fundTouch = function (el) {
+    const tb = document.getElementById('fundSheetBody'); if (!tb) return;
+    const rows = [...tb.querySelectorAll('.fund-drow')]; const tr = el.closest('tr');
+    if (tr === rows[rows.length - 1] && !fundRowEmpty(tr)) { tb.insertAdjacentHTML('beforeend', fundDraftRow(FUNDCTX.co, FUNDCTX.dir)); fundRenumber(); }
+    EAP.fundSubtotal();
+  };
+  EAP.fundRowDir = function (sel) { const tr = sel.closest('tr'); tr.querySelector('.rCat').innerHTML = fundCatOpts(sel.value, ''); EAP.fundSubtotal(); };
+  EAP.fundDelRow = function (btn) {
+    const tr = btn.closest('tr'), tb = document.getElementById('fundSheetBody');
+    if (tb.querySelectorAll('.fund-drow').length <= 1) { ['rCat', 'rAmt', 'rMemo', 'rNote'].forEach(c => { const el = tr.querySelector('.' + c); if (el) el.value = ''; }); }
+    else tr.remove();
+    fundRenumber(); EAP.fundSubtotal();
+  };
+  EAP.fundCtxCo = function (v) { FUNDCTX.co = v; document.querySelectorAll('#fundSheetBody .fund-drow').forEach(tr => { if (fundRowEmpty(tr)) tr.querySelector('.rCo').value = v; }); };
+  EAP.fundCtxDir = function (d) {
+    FUNDCTX.dir = d;
+    document.querySelectorAll('#eap-view .fund-dirtog .fund-dseg').forEach(b => b.classList.remove('on'));
+    const on = document.querySelector('#eap-view .fund-dirtog .fund-' + d); if (on) on.classList.add('on');
+    document.querySelectorAll('#fundSheetBody .fund-drow').forEach(tr => { if (fundRowEmpty(tr)) { tr.querySelector('.rDir').value = d; tr.querySelector('.rCat').innerHTML = fundCatOpts(d, ''); } });
+  };
+  EAP.fundSubtotal = function () {
+    let i = 0, o = 0, n = 0;
+    document.querySelectorAll('#fundSheetBody .fund-drow').forEach(tr => {
+      const cat = tr.querySelector('.rCat').value, amt = Number((tr.querySelector('.rAmt').value || '').replace(/[^0-9]/g, '')) || 0;
+      if (cat && amt) { n++; if (tr.querySelector('.rDir').value === 'in') i += amt; else o += amt; }
+    });
+    const f = document.getElementById('fundSheetFoot');
+    if (f) f.innerHTML = `<td></td><td colspan="2" style="text-align:right">합계</td><td></td><td class="rAmt">입 ${commaFmt(i)} / 출 ${commaFmt(o)}</td><td colspan="2" class="eap-meta">저장 대상 ${n}건 · 순증감 ${(i - o) >= 0 ? '+' : ''}${commaFmt(i - o)}</td>`;
+  };
+  EAP.fundCellKey = function (el, ev) {
+    if (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown') return;
+    ev.preventDefault();
+    const tr = el.closest('tr'); const mm = el.className.match(/r(Co|Dir|Cat|Amt|Memo|Note)/); if (!mm) return;
+    const col = '.r' + mm[1];
+    let target = ev.key === 'ArrowUp' ? tr.previousElementSibling : tr.nextElementSibling;
+    if (ev.key === 'ArrowDown' && (!target || !target.classList.contains('fund-drow'))) {
+      const tb = document.getElementById('fundSheetBody'); tb.insertAdjacentHTML('beforeend', fundDraftRow(FUNDCTX.co, FUNDCTX.dir)); fundRenumber(); target = tb.lastElementChild;
+    }
+    if (target && target.classList.contains('fund-drow')) { const cell = target.querySelector(col); if (cell) { cell.focus(); if (cell.select) { try { cell.select(); } catch (_) {} } } }
+  };
+  EAP.fundSaveDraft = function () {
+    if (!canManageFund()) { toast('자금 입력 권한이 없습니다'); return; }
+    if (fundIsClosed(FUNDDATE)) { toast('마감된 날짜입니다'); return; }
+    const tx = getFundTx(); let n = 0; const now = Date.now(), me = ME();
+    document.querySelectorAll('#fundSheetBody .fund-drow').forEach(tr => {
+      const co = tr.querySelector('.rCo').value, dir = tr.querySelector('.rDir').value, cat = tr.querySelector('.rCat').value;
+      const amount = Number((tr.querySelector('.rAmt').value || '').replace(/[^0-9]/g, '')) || 0;
+      const memo = (tr.querySelector('.rMemo').value || '').trim(), note = (tr.querySelector('.rNote').value || '').trim();
+      if (cat && amount) { tx.push({ id: genId('F'), date: FUNDDATE, co, dir, cat, amount, memo, note, by: me, createdAt: now, updatedAt: now }); n++; }
+    });
+    if (!n) { toast('입력된 내역이 없습니다 — 항목과 금액을 채워주세요'); return; }
+    setFundTx(tx); toast(`💾 ${n}건 저장`); renderTab();
+  };
+  EAP.fundDel = function (id) {
+    if (!canManageFund()) return;
+    const tx = getFundTx(); const t = tx.find(x => x.id === id); if (!t) return;
+    if (fundIsClosed(t.date)) { toast('마감된 날짜는 삭제할 수 없습니다'); return; }
+    addDeleted(id); _pendingTombs.push({ id, deletedAt: new Date().toISOString(), reason: 'fund-del' });
+    setFundTx(tx.filter(x => x.id !== id)); toast('삭제됨'); renderTab();
+  };
+  EAP.fundClose = function () {
+    if (!canManageFund() || fundIsClosed(FUNDDATE)) return;
+    const bal = {}; FUND_COS.forEach(c => bal[c] = fundBalAsOf(c, FUNDDATE));
+    const closings = Object.assign({}, getFundMeta().closings); closings[FUNDDATE] = { balances: bal, closedAt: kstNow(), by: ME() };
+    saveFundMeta({ closings }); toast('🔒 마감 완료'); renderTab();
+  };
+  EAP.fundReopen = function () {
+    if (!canManageFund() || !fundIsClosed(FUNDDATE)) return;
+    if (!confirm(FUNDDATE + ' 마감을 해제할까요?')) return;
+    const closings = Object.assign({}, getFundMeta().closings); delete closings[FUNDDATE];
+    saveFundMeta({ closings }); toast('마감 해제'); renderTab();
+  };
+  EAP.fundAddCat = function (dir) {
+    if (!canManageFund()) return;
+    const el = document.getElementById('fundNewCat-' + dir); const nm = (el && el.value || '').trim(); if (!nm) return;
+    const m = getFundMeta(); const cats = { in: (m.cats.in || []).slice(), out: (m.cats.out || []).slice() };
+    if (cats[dir].some(c => c.name === nm)) { toast('이미 있는 항목입니다'); return; }
+    cats[dir].push({ name: nm, active: true }); saveFundMeta({ cats }); renderTab(); toast('항목 추가');
+  };
+  EAP.fundToggleCat = function (dir, name) {
+    if (!canManageFund()) return;
+    const m = getFundMeta(); const cats = { in: (m.cats.in || []).map(c => Object.assign({}, c)), out: (m.cats.out || []).map(c => Object.assign({}, c)) };
+    const c = cats[dir].find(x => x.name === name); if (c) { c.active = !c.active; saveFundMeta({ cats }); renderTab(); }
+  };
+  EAP.fundMoveCat = function (dir, name, delta) {
+    if (!canManageFund()) return;
+    const m = getFundMeta(); const cats = { in: (m.cats.in || []).map(c => Object.assign({}, c)), out: (m.cats.out || []).map(c => Object.assign({}, c)) };
+    const arr = cats[dir]; const i = arr.findIndex(c => c.name === name); const j = i + delta;
+    if (i < 0 || j < 0 || j >= arr.length) return;
+    const t = arr[i]; arr[i] = arr[j]; arr[j] = t; saveFundMeta({ cats }); renderTab();
+  };
+  EAP.fundSetOpeningDate = function (v) { if (!canManageFund() || !v) return; saveFundMeta({ openingDate: v }); renderTab(); };
+  EAP.fundSaveOpening = function () {
+    if (!canManageFund()) return;
+    const opening = Object.assign({}, getFundMeta().opening);
+    FUND_COS.forEach((c, i) => { const el = document.getElementById('fundOpenBal-' + i); if (el) opening[c] = Number((el.value || '').replace(/[^0-9-]/g, '')) || 0; });
+    saveFundMeta({ opening }); toast('🏦 기초 잔액 저장'); renderTab();
+  };
+
   /* ════════════════ 모달 호스트 ════════════════ */
   function openModal(html) {
     const host = document.getElementById('eapModalHost');
@@ -1499,6 +1821,54 @@
   .eap-lb-x{position:fixed;top:16px;right:18px;background:rgba(255,255,255,.16);color:#fff;border:1.5px solid rgba(255,255,255,.5);border-radius:24px;padding:8px 16px;font-size:13px;font-weight:800;cursor:pointer}
   #screen-eapproval .eap-dash *{}
   #screen-eapproval span.eap-dash, .eap-ov span.eap-dash{color:#CBD5E1;font-size:inherit}
+  /* 자금관리 */
+  #screen-eapproval .eap-tblscroll{overflow-x:auto}
+  #screen-eapproval .fund-dot{width:8px;height:8px;border-radius:2px;display:inline-block;vertical-align:middle;margin-right:5px}
+  #screen-eapproval .fund-grid td,#screen-eapproval .fund-grid th{white-space:nowrap;font-variant-numeric:tabular-nums}
+  #screen-eapproval .fund-grid tbody th{background:#F8FAFC;color:#475569}
+  #screen-eapproval .fund-grid tr.fund-in td,#screen-eapproval .fund-grid tr.fund-in th{color:#047857}
+  #screen-eapproval .fund-grid tr.fund-out td,#screen-eapproval .fund-grid tr.fund-out th{color:#B91C1C}
+  #screen-eapproval .fund-grid tr.fund-cur th,#screen-eapproval .fund-grid tr.fund-cur td{font-weight:900;color:#0F172A;background:#F1F5F9}
+  #screen-eapproval .fund-grid .fund-tot{background:#EEF2FF;font-weight:800}
+  #screen-eapproval .fund-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  #screen-eapproval .fund-toolbar input[type=date]{padding:6px 9px;border:1px solid #CBD5E1;border-radius:7px;font-size:13px;font-family:inherit}
+  #screen-eapproval .fund-nav{border:1px solid #CBD5E1;background:#fff;border-radius:7px;width:30px;height:32px;font-size:15px;cursor:pointer}
+  #screen-eapproval .fund-lbl{font-size:11.5px;font-weight:800;color:#64748B}
+  #screen-eapproval .fund-stat{font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:6px;border:1px solid #CBD5E1;color:#64748B}
+  #screen-eapproval .fund-stat.closed{color:#B91C1C;border-color:#FCA5A5;background:#FEF2F2}
+  #screen-eapproval .fund-ctxbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:8px}
+  #screen-eapproval .fund-ctxbar select{padding:6px 9px;border:1px solid #CBD5E1;border-radius:7px;font-size:13px;font-family:inherit}
+  #screen-eapproval .fund-dirtog{display:flex;border:1px solid #CBD5E1;border-radius:7px;overflow:hidden}
+  #screen-eapproval .fund-dseg{border:none;background:#fff;padding:6px 15px;font-size:12.5px;font-weight:800;color:#94A3B8;cursor:pointer}
+  #screen-eapproval .fund-dseg.fund-in.on{background:#047857;color:#fff}
+  #screen-eapproval .fund-dseg.fund-out.on{background:#B91C1C;color:#fff}
+  #screen-eapproval .fund-sheet{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed;margin-bottom:8px;min-width:720px}
+  #screen-eapproval .fund-sheet th{background:#F1F5F9;border:1px solid #E2E8F0;padding:7px 8px;text-align:left;font-weight:800;color:#475569}
+  #screen-eapproval .fund-sheet td{border:1px solid #E2E8F0;padding:0}
+  #screen-eapproval .fund-sheet select,#screen-eapproval .fund-sheet input{border:none;width:100%;padding:7px 8px;font-size:12.5px;font-family:inherit;background:#fff;color:#0F172A;box-sizing:border-box}
+  #screen-eapproval .fund-sheet select:focus,#screen-eapproval .fund-sheet input:focus{outline:none;background:#FFFBEB;box-shadow:inset 0 0 0 2px #FCD34D}
+  #screen-eapproval .fund-sheet .rAmt{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+  #screen-eapproval .fund-sheet .rNo{text-align:center;color:#94A3B8;font-size:11px}
+  #screen-eapproval .fund-sheet tfoot td{background:#F1F5F9;font-weight:800;padding:7px 8px;font-variant-numeric:tabular-nums}
+  #screen-eapproval .eap-fund-x{border:none;background:none;color:#DC2626;font-weight:900;font-size:15px;cursor:pointer;line-height:1}
+  #screen-eapproval .fund-savebar{display:flex;align-items:center;gap:10px;margin:8px 0 4px;flex-wrap:wrap}
+  #screen-eapproval .fund-tx td{font-size:12px}
+  #screen-eapproval .fund-tx .fund-inc{color:#047857}
+  #screen-eapproval .fund-tx .fund-outc{color:#B91C1C}
+  #screen-eapproval .fund-tag{font-size:10px;font-weight:800;padding:1px 7px;border:1px solid;border-radius:4px}
+  #screen-eapproval .fund-tag.in{color:#047857;border-color:#A7F3D0}
+  #screen-eapproval .fund-tag.out{color:#B91C1C;border-color:#FCA5A5}
+  #screen-eapproval .eap-fund-note{border:1px solid #CBD5E1;border-left:3px solid #2563EB;background:#F8FAFC;padding:9px 12px;font-size:12px;color:#475569;margin-bottom:12px;border-radius:0 7px 7px 0}
+  #screen-eapproval .fund-classgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:680px){#screen-eapproval .fund-classgrid{grid-template-columns:1fr}}
+  #screen-eapproval .fund-pills .fund-pill{font-size:12px;font-weight:700;padding:4px 10px;border:1px solid #CBD5E1;border-radius:6px;margin-right:6px;display:inline-block}
+  #screen-eapproval .fund-ord{border:1px solid #CBD5E1;background:#fff;border-radius:4px;width:22px;height:22px;font-size:11px;cursor:pointer;margin:0 1px;padding:0;color:#334155}
+  #screen-eapproval .fund-ord:disabled{opacity:.3;cursor:default}
+  #screen-eapproval .fund-addrow{display:flex;margin-top:8px;border:1px solid #CBD5E1;border-radius:7px;overflow:hidden;max-width:360px}
+  #screen-eapproval .fund-addrow input{flex:1;border:none;padding:8px 10px;font-size:13px;font-family:inherit}
+  #screen-eapproval .fund-addrow input:focus{outline:none;background:#F8FAFC}
+  #screen-eapproval .fund-balin{width:100%;max-width:220px;border:1px solid #CBD5E1;border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;box-sizing:border-box}
+  #screen-eapproval .fund-balin:focus{outline:none;background:#FFFBEB;box-shadow:inset 0 0 0 2px #FCD34D}
   `;
 
 })();

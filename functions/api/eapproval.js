@@ -22,17 +22,20 @@
 const DOCS_KEY = 'eapproval_docs';
 const CFG_KEY = 'eapproval_config';
 const DEL_KEY = 'eapproval_deleted';
+const FUND_KEY = 'eapproval_fund';
 
 export async function onRequestGet({ request, env }) {
   if (!env.STORES_KV) return json({ docs: [], config: {}, error: 'KV not bound' }, 200);
   const docsRaw = await safeGetJson(env, DOCS_KEY, { docs: [] });
   const docs = Array.isArray(docsRaw) ? docsRaw : (Array.isArray(docsRaw?.docs) ? docsRaw.docs : []);
   const config = (await safeGetJson(env, CFG_KEY, {})) || {};
+  const fundRaw = await safeGetJson(env, FUND_KEY, { fund: [] });
+  const fund = Array.isArray(fundRaw) ? fundRaw : (Array.isArray(fundRaw?.fund) ? fundRaw.fund : []);
   const delReg = await safeGetJson(env, DEL_KEY, []);
   const deleted = Array.isArray(delReg) ? delReg.map(e => (e && e.id) ? String(e.id) : '').filter(Boolean) : [];
   const resyncToken = (await env.STORES_KV.get('resync_token')) || '';
 
-  const out = { docs, config, deleted, resyncToken };
+  const out = { docs, config, fund, deleted, resyncToken };
   const bodyStr = JSON.stringify(out);
   const etag = '"' + etagHash(bodyStr) + '"';
   if (request && request.headers.get('If-None-Match') === etag) {
@@ -105,6 +108,30 @@ export async function onRequestPost({ request, env }) {
       Object.assign(result, { docCount: merged.length, added, replaced, kept });
     }
 
+    // ── 2b) fund tx per-id merge (docs 미러) ──
+    if (Array.isArray(body?.fund)) {
+      const incoming = body.fund.filter(t => t && typeof t === 'object' && t.id && !deletedIds.has(String(t.id)));
+      const existingRaw = await safeGetJson(env, FUND_KEY, { fund: [] });
+      const existingArr = Array.isArray(existingRaw) ? existingRaw : (Array.isArray(existingRaw?.fund) ? existingRaw.fund : []);
+      const byId = new Map();
+      for (const t of existingArr) { if (t && t.id && !deletedIds.has(String(t.id))) byId.set(String(t.id), t); }
+      let fAdded = 0, fReplaced = 0, fKept = 0;
+      for (const inc of incoming) {
+        const id = String(inc.id); const ex = byId.get(id);
+        if (!ex) { byId.set(id, inc); fAdded++; continue; }
+        const exMt = mtimeMs(ex), inMt = mtimeMs(inc);
+        if (!exMt || inMt > exMt) { byId.set(id, inc); fReplaced++; }
+        else if (inMt === exMt && JSON.stringify(ex) !== JSON.stringify(inc)) { byId.set(id, inc); fReplaced++; }
+        else fKept++;
+      }
+      const mergedF = [...byId.values()];
+      const serF = JSON.stringify({ fund: mergedF, updatedAt: new Date().toISOString() });
+      if (serF.length > 25_000_000) return json({ error: 'fund payload too large', size: serF.length }, 413);
+      try { await env.STORES_KV.put(FUND_KEY, serF); }
+      catch (e) { return json({ error: 'kv_put_failed_fund', detail: String(e) }, 500); }
+      Object.assign(result, { fundCount: mergedF.length, fAdded, fReplaced, fKept });
+    }
+
     // ── 3) config 키별 deep-merge (다중 PC 동시편집 시 빈 값이 서로 덮어쓰지 않도록) ──
     if (body?.config && typeof body.config === 'object') {
       const cur = (await safeGetJson(env, CFG_KEY, {})) || {};
@@ -122,6 +149,15 @@ export async function onRequestPost({ request, env }) {
         const byId = new Map((Array.isArray(cur.tpl) ? cur.tpl : []).map(t => [t.id, t]));
         inc.tpl.forEach(t => { if (t && t.id) byId.set(t.id, t); });
         cur.tpl = [...byId.values()];
+      }
+      // fund 메타: cats(전체 교체) / opening·closings(키별 머지) / openingDate(최신)
+      if (inc.fund && typeof inc.fund === 'object') {
+        const cf = (cur.fund && typeof cur.fund === 'object') ? cur.fund : {};
+        if (inc.fund.cats) cf.cats = inc.fund.cats;
+        if (inc.fund.opening) cf.opening = Object.assign({}, cf.opening || {}, inc.fund.opening);
+        if (inc.fund.openingDate) cf.openingDate = inc.fund.openingDate;
+        if (inc.fund.closings) cf.closings = Object.assign({}, cf.closings || {}, inc.fund.closings);
+        cur.fund = cf;
       }
       cur.updatedAt = new Date().toISOString();
       try { await env.STORES_KV.put(CFG_KEY, JSON.stringify(cur)); }
