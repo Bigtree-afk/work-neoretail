@@ -1502,7 +1502,9 @@
     job.storeId = '';
     job.unregistered = true;
     job.unlinkedAt = Date.now();
+    job.updatedAt = Date.now();               // 리버트 방지 — mtime 명시 갱신
     saveJobs(jobs);
+    try { if (window.pushJobsToCloud) window.pushJobsToCloud(); } catch(e){}  // 즉시 push (리버트 창 최소화)
     showToast && showToast('🔓 연결 해제됨 — 미등록 상태로 되돌림');
     try { hydrateNewopen('all'); } catch(e){}
     try { hydrateDashboardJobs(); } catch(e){}
@@ -1644,7 +1646,9 @@
     job.address = job.address || picked.addr || picked.address || '';
     job.unregistered = false;
     job.linkedAt = Date.now();
+    job.updatedAt = Date.now();               // 리버트 방지 — mtime 명시 갱신
     saveJobs(jobs);
+    try { if (window.pushJobsToCloud) window.pushJobsToCloud(); } catch(e){}  // 즉시 push (리버트 창 최소화)
     document.getElementById('linkStoreModal').classList.remove('show');
     _linkContextJobId = null;
     showToast && showToast(`✅ ${picked.name} 으로 연결됨`);

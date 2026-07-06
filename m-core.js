@@ -892,6 +892,23 @@
     } else {
       merged.completed = !!(localJob.completed || cloudJob.completed);
     }
+    // ── 매장 연결 sticky (2026-07-06): storeId/storeName 은 일반 mtime 이 아니라
+    //   가장 최근의 명시적 연결/해제(linkedAt/unlinkedAt)를 따른다. (PC app-03 쌍둥이 — 리버트 차단)
+    {
+      const _act = (j) => Math.max(Number(j && j.linkedAt) || 0, Number(j && j.unlinkedAt) || 0);
+      const la = _act(localJob), ca = _act(cloudJob);
+      if (la || ca) {
+        const win = (la >= ca) ? localJob : cloudJob;
+        merged.storeId = win.storeId;
+        merged.storeName = win.storeName;
+        merged.store = win.store;
+        if ('unregistered' in win) merged.unregistered = win.unregistered;
+        if ('linkedAt' in win) merged.linkedAt = win.linkedAt;
+        if ('unlinkedAt' in win) merged.unlinkedAt = win.unlinkedAt;
+        if ('originalStoreName' in win) merged.originalStoreName = win.originalStoreName;
+        if (win.address) merged.address = win.address;
+      }
+    }
     return merged;
   }
 
