@@ -516,7 +516,7 @@
     let list;
     if (SUB === 'received') list = docs.filter(isMyTurn);
     else if (SUB === 'mine') list = docs.filter(d => d.drafter === me);
-    else if (SUB === 'ref') list = docs.filter(d => (d.cc || []).includes(me) && d.drafter !== me);  // 참조에 포함된 모든 건(결재선 포함 여부 무관)
+    else if (SUB === 'ref') list = docs.filter(d => (d.cc || []).includes(me) && d.drafter !== me && d.status === 'ok');  // 참조자는 결재 '완료' 후에만 열람(진행중 상신건은 숨김)
     else if (SUB === 'exec') list = docs.filter(d => d.kind === 'pay' && d.status === 'ok' && canView(d));
     else if (SUB === 'done') list = docs.filter(d => (d.status === 'ok' || d.status === 'rej') && canView(d));  // 완료·반려만 (진행중/회수 제외 — 재상신 시 자동 제외)
     else list = docs.slice();
