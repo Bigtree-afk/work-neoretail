@@ -655,7 +655,7 @@
       }
     }
 
-    const linkUrl = location.origin + '/m/eapproval/?doc=' + d.id;
+    const linkUrl = location.origin + '/m/eapproval/?doc=' + d.id + '&openExternalBrowser=1';
     const lineCard = (d.status === 'wait' && d.line[d.step]) ? `
       <div class="eap-linecard">
         <div class="eap-lh">💬 LINE 알림 — 받는사람: ${esc((d.line[d.step] || {}).n)}</div>
@@ -755,7 +755,7 @@
     _save(docs); notify(d.drafter, 'exec', d); toast('💸 자금 집행완료'); EAP.closeModal(); renderTab();
   };
   EAP.copyLink = function (id) {
-    const url = location.origin + '/m/eapproval/?doc=' + id;
+    const url = location.origin + '/m/eapproval/?doc=' + id + '&openExternalBrowser=1';
     try { navigator.clipboard.writeText(url); toast('🔗 링크 복사됨'); } catch (_) { toast(url); }
   };
 
@@ -1642,8 +1642,12 @@
   EAP.fundReopen = function () {
     if (!canManageFund() || !fundIsClosed(FUNDDATE)) return;
     if (!confirm(FUNDDATE + ' 마감을 해제할까요?')) return;
-    const closings = Object.assign({}, getFundMeta().closings); delete closings[FUNDDATE];
-    saveFundMeta({ closings }); toast('마감 해제'); renderTab();
+    // 🔴 delete 금지 — config 머지가 additive(Object.assign, client+server)라 키 삭제가 전파 안 돼
+    //   다음 sync 에 마감이 되살아나 재잠금됨. null tombstone 으로 두면 값 자체가 전파되어 해제 유지.
+    const closings = Object.assign({}, getFundMeta().closings); closings[FUNDDATE] = null;
+    saveFundMeta({ closings });
+    try { if (EAP._pushNow) EAP._pushNow(true); } catch (_) {}  // 즉시 config push (재잠금 창 최소화)
+    toast('마감 해제'); renderTab();
   };
   EAP.fundAddCat = function (dir) {
     if (!canManageFund()) return;

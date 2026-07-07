@@ -439,8 +439,8 @@
   (async function init(){
     try{await syncFromCloud();}catch(_){}
     pullHolidays();
-    // 딥링크 ?doc=ID
-    try{const id=new URLSearchParams(location.search).get('doc');if(id&&getDocs().some(d=>d.id===id)){location.hash='#detail/'+id;}}catch(_){}
+    // 딥링크 ?doc=ID — 동기화가 늦어도 무조건 상세로 진입(미발견 시 renderDetail 안내 + 이후 sync 로 자동 표시)
+    try{const id=new URLSearchParams(location.search).get('doc');if(id){location.hash='#detail/'+id;}}catch(_){}
     render();
     // 자동 동기화: 15초 폴링 + 탭복귀/포커스 즉시 (폼 작성 중 제외)
     setInterval(()=>{if(parseHash().view!=='form')syncFromCloud();},15000);

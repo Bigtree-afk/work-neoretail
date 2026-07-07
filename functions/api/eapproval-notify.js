@@ -59,7 +59,11 @@ export async function onRequestPost({ request, env }) {
   if (!to) return json({ ok: false, error: 'no_recipient', detail: `${toName} 의 LINE userId 미등록 + alertRecipientId 없음` }, 200);
 
   const label = EVENT_LABEL[event] || EVENT_LABEL.request;
-  const link = docId ? `${BASE_URL}/m/eapproval/?doc=${encodeURIComponent(docId)}` : `${BASE_URL}/m/eapproval/`;
+  // openExternalBrowser=1 — LINE 인앱 브라우저 대신 외부 기본 브라우저로 열기(로그인 세션·Google OAuth 정상).
+  //   LINE 웹뷰에선 로그인 게이트+Google OAuth 차단으로 빈 화면이 되던 문제 해결.
+  const link = docId
+    ? `${BASE_URL}/m/eapproval/?doc=${encodeURIComponent(docId)}&openExternalBrowser=1`
+    : `${BASE_URL}/m/eapproval/?openExternalBrowser=1`;
 
   let line1;
   if (event === 'approved' || event === 'done' || event === 'exec' || event === 'rejected') {
