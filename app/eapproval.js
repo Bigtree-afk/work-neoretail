@@ -1524,7 +1524,9 @@
       entry = `<div class="eap-fund-note">🔒 ${date} 은 마감되었습니다 — 입력·삭제 잠금 (마감 해제 시 수정 가능)</div>`;
     } else if (canManageFund()) {
       const initRows = [0, 1, 2, 3].map(() => fundDraftRow(FUNDCTX.co, FUNDCTX.dir)).join('');
-      entry = `<div class="fund-ctxbar"><span class="fund-lbl">회사</span><select onchange="EAP.fundCtxCo(this.value)">${fundCoOpts(FUNDCTX.co)}</select>`
+      entry = `<div class="fund-ctxbar"><span class="fund-lbl">회사</span><div class="fund-coradio">`
+        + FUND_COS.map(c => `<label class="fund-coitem ${FUNDCTX.co === c ? 'on' : ''}"><input type="radio" name="fundCtxCo" value="${esc(c)}" ${FUNDCTX.co === c ? 'checked' : ''} onchange="EAP.fundCtxCo(this.value)"><span class="fund-dot" style="background:${FUND_CO_COLOR[c]}"></span>${esc(c)}</label>`).join('')
+        + `</div>`
         + `<span class="fund-lbl">입출금</span><div class="fund-dirtog"><button class="fund-dseg fund-in ${FUNDCTX.dir === 'in' ? 'on' : ''}" onclick="EAP.fundCtxDir('in')">입금</button><button class="fund-dseg fund-out ${FUNDCTX.dir === 'out' ? 'on' : ''}" onclick="EAP.fundCtxDir('out')">출금</button></div>`
         + `<span class="eap-meta">↓ 여러 줄 입력 (회사·구분 행별 변경 가능 · ↑↓ 이동 · 마지막 줄 입력 시 새 줄 자동추가)</span></div>`
         + `<div class="eap-tblscroll"><table class="fund-sheet"><colgroup><col style="width:30px"><col style="width:110px"><col style="width:74px"><col style="width:160px"><col style="width:110px"><col><col style="width:110px"><col style="width:34px"></colgroup>`
@@ -1613,7 +1615,11 @@
     else tr.remove();
     fundRenumber(); EAP.fundSubtotal();
   };
-  EAP.fundCtxCo = function (v) { FUNDCTX.co = v; document.querySelectorAll('#fundSheetBody .fund-drow').forEach(tr => { if (fundRowEmpty(tr)) tr.querySelector('.rCo').value = v; }); };
+  EAP.fundCtxCo = function (v) {
+    FUNDCTX.co = v;
+    document.querySelectorAll('#eap-view .fund-coradio .fund-coitem').forEach(l => { const i = l.querySelector('input'); l.classList.toggle('on', i && i.value === v); });
+    document.querySelectorAll('#fundSheetBody .fund-drow').forEach(tr => { if (fundRowEmpty(tr)) tr.querySelector('.rCo').value = v; });
+  };
   EAP.fundCtxDir = function (d) {
     FUNDCTX.dir = d;
     document.querySelectorAll('#eap-view .fund-dirtog .fund-dseg').forEach(b => b.classList.remove('on'));
@@ -1886,6 +1892,10 @@
   #screen-eapproval .fund-stat.closed{color:#B91C1C;border-color:#FCA5A5;background:#FEF2F2}
   #screen-eapproval .fund-ctxbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:8px}
   #screen-eapproval .fund-ctxbar select{padding:6px 9px;border:1px solid #CBD5E1;border-radius:7px;font-size:13px;font-family:inherit}
+  #screen-eapproval .fund-coradio{display:inline-flex;flex-wrap:wrap;gap:6px}
+  #screen-eapproval .fund-coitem{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border:1px solid #CBD5E1;border-radius:7px;font-size:12.5px;font-weight:700;color:#475569;cursor:pointer;background:#fff;user-select:none}
+  #screen-eapproval .fund-coitem input{margin:0;cursor:pointer;accent-color:#2563EB}
+  #screen-eapproval .fund-coitem.on{border-color:#2563EB;background:#EFF6FF;color:#1D4ED8}
   #screen-eapproval .fund-dirtog{display:flex;border:1px solid #CBD5E1;border-radius:7px;overflow:hidden}
   #screen-eapproval .fund-dseg{border:none;background:#fff;padding:6px 15px;font-size:12.5px;font-weight:800;color:#94A3B8;cursor:pointer}
   #screen-eapproval .fund-dseg.fund-in.on{background:#047857;color:#fff}
