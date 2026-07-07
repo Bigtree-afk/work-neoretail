@@ -156,7 +156,7 @@ export async function onRequestPost({ request, env }) {
         if (inc.fund.cats) cf.cats = inc.fund.cats;
         if (inc.fund.opening) cf.opening = Object.assign({}, cf.opening || {}, inc.fund.opening);
         if (inc.fund.openingDate) cf.openingDate = inc.fund.openingDate;
-        if (inc.fund.closings) cf.closings = Object.assign({}, cf.closings || {}, inc.fund.closings);
+        if (inc.fund.closings) cf.closings = mergeFundClosings(cf.closings, inc.fund.closings);
         cur.fund = cf;
       }
       cur.updatedAt = new Date().toISOString();
@@ -199,6 +199,29 @@ function etagHash(s) {
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
   return h.toString(36) + s.length.toString(36);
+}
+
+// 자금 마감/해제 — 날짜별 "최근 액션(at) 우선" 머지 (client eapproval.js 쌍둥이).
+//   신규 {closed,at,...} / 해제 {closed:false,at} / legacy {balances,closedAt}(=마감).
+function fundClosingAt(c) {
+  if (c == null) return -1;
+  if (typeof c === 'object') {
+    if ('at' in c && c.at != null) return Number(c.at) || 0;
+    if (c.closedAt) { const p = Date.parse(String(c.closedAt).replace(' ', 'T')); return Number.isFinite(p) ? p : 0; }
+    return 0;
+  }
+  return 0;
+}
+function mergeFundClosings(localC, cloudC) {
+  localC = (localC && typeof localC === 'object') ? localC : {};
+  cloudC = (cloudC && typeof cloudC === 'object') ? cloudC : {};
+  const out = {}; const keys = new Set([...Object.keys(localC), ...Object.keys(cloudC)]);
+  for (const k of keys) {
+    const inL = (k in localC), inR = (k in cloudC);
+    if (inL && inR) out[k] = (fundClosingAt(cloudC[k]) >= fundClosingAt(localC[k])) ? cloudC[k] : localC[k];
+    else out[k] = inR ? cloudC[k] : localC[k];
+  }
+  return out;
 }
 
 function json(obj, status = 200) {

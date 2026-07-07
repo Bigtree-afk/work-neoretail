@@ -185,6 +185,28 @@
   }
   // config 키별 deep-merge — birth/routes/leave/lineMap 은 하위키 머지(cloud 우선),
   // holidays/holidayExcludes 는 union, tpl 은 id 기준 머지. (PC·서버·모바일 동일 규칙)
+  // 자금 마감/해제 — 날짜별 "최근 액션(at) 우선" 머지 (KV stale·다기기·재푸시에도 해제 유지).
+  //   신규: {closed,at,by,...} / 해제: {closed:false,at,by} / legacy: {balances,closedAt,by}(=마감).
+  function _fundClosingAt(c) {
+    if (c == null) return -1;
+    if (typeof c === 'object') {
+      if ('at' in c && c.at != null) return Number(c.at) || 0;
+      if (c.closedAt) { const p = Date.parse(String(c.closedAt).replace(' ', 'T')); return Number.isFinite(p) ? p : 0; }
+      return 0;
+    }
+    return 0;
+  }
+  function _mergeFundClosings(localC, cloudC) {
+    localC = (localC && typeof localC === 'object') ? localC : {};
+    cloudC = (cloudC && typeof cloudC === 'object') ? cloudC : {};
+    const out = {}; const keys = new Set([...Object.keys(localC), ...Object.keys(cloudC)]);
+    keys.forEach(k => {
+      const inL = (k in localC), inR = (k in cloudC);
+      if (inL && inR) out[k] = (_fundClosingAt(cloudC[k]) >= _fundClosingAt(localC[k])) ? cloudC[k] : localC[k];
+      else out[k] = inR ? cloudC[k] : localC[k];
+    });
+    return out;
+  }
   function mergeEapCfg(local, cloud) {
     local = local || {}; cloud = cloud || {};
     const out = Object.assign({}, local);
@@ -206,7 +228,7 @@
       if (cf.cats) nf.cats = cf.cats;
       if (cf.opening) nf.opening = Object.assign({}, lf.opening || {}, cf.opening);
       if (cf.openingDate) nf.openingDate = cf.openingDate;
-      if (cf.closings) nf.closings = Object.assign({}, lf.closings || {}, cf.closings);
+      if (cf.closings) nf.closings = _mergeFundClosings(lf.closings, cf.closings);
       out.fund = nf;
     }
     out.updatedAt = Date.now();
@@ -1440,7 +1462,12 @@
   }
   function fundDayFlow(co, date, dir) { let s = 0; getFundTx().forEach(t => { if (t && t.co === co && t.date === date && t.dir === dir) s += (Number(t.amount) || 0); }); return s; }
   function fundTxOf(date) { return getFundTx().filter(t => t && t.date === date).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0)); }
-  function fundIsClosed(date) { return !!getFundMeta().closings[date]; }
+  function fundIsClosed(date) {
+    const c = getFundMeta().closings[date];
+    if (c == null) return false;
+    if (typeof c === 'object') return ('closed' in c) ? !!c.closed : true;  // 신규:closed 플래그 / legacy object:마감
+    return !!c;
+  }
   function fundCatUsed(dir, name) { return getFundTx().filter(t => t && t.dir === dir && t.cat === name).length; }
 
   // 렌더 시그니처 (백그라운드 sync 재렌더 스킵용)
@@ -1636,17 +1663,21 @@
   EAP.fundClose = function () {
     if (!canManageFund() || fundIsClosed(FUNDDATE)) return;
     const bal = {}; FUND_COS.forEach(c => bal[c] = fundBalAsOf(c, FUNDDATE));
-    const closings = Object.assign({}, getFundMeta().closings); closings[FUNDDATE] = { balances: bal, closedAt: kstNow(), by: ME() };
-    saveFundMeta({ closings }); toast('🔒 마감 완료'); renderTab();
+    const closings = Object.assign({}, getFundMeta().closings);
+    closings[FUNDDATE] = { closed: true, at: Date.now(), by: ME(), closedAt: kstNow(), balances: bal };
+    saveFundMeta({ closings });
+    try { if (EAP._pushNow) EAP._pushNow(true); } catch (_) {}   // 즉시 push
+    toast('🔒 마감 완료'); renderTab();
   };
   EAP.fundReopen = function () {
     if (!canManageFund() || !fundIsClosed(FUNDDATE)) return;
     if (!confirm(FUNDDATE + ' 마감을 해제할까요?')) return;
-    // 🔴 delete 금지 — config 머지가 additive(Object.assign, client+server)라 키 삭제가 전파 안 돼
-    //   다음 sync 에 마감이 되살아나 재잠금됨. null tombstone 으로 두면 값 자체가 전파되어 해제 유지.
-    const closings = Object.assign({}, getFundMeta().closings); closings[FUNDDATE] = null;
+    // 해제도 타임스탬프(at) 기록 → _mergeFundClosings 가 최근 액션(해제)을 우선 → KV stale·다기기·
+    //   재푸시에도 마감으로 안 돌아감. (delete/null 은 additive 머지로 전파 안 돼 재잠금되던 문제 해결)
+    const closings = Object.assign({}, getFundMeta().closings);
+    closings[FUNDDATE] = { closed: false, at: Date.now(), by: ME(), reopenedAt: kstNow() };
     saveFundMeta({ closings });
-    try { if (EAP._pushNow) EAP._pushNow(true); } catch (_) {}  // 즉시 config push (재잠금 창 최소화)
+    try { if (EAP._pushNow) EAP._pushNow(true); } catch (_) {}  // 즉시 config push
     toast('마감 해제'); renderTab();
   };
   EAP.fundAddCat = function (dir) {
