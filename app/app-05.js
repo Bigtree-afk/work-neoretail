@@ -2870,7 +2870,7 @@
           detail += `<div style="background:#fff;border:1px solid ${rootMeta.border};border-left:4px solid ${rootMeta.color};border-radius:8px;padding:9px 11px;margin-top:6px">
             <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${escFn(r.text||'')}</div>
             ${(Array.isArray(r.attachments)&&r.attachments.length&&typeof window._renderAttStrip==='function')?window._renderAttStrip(r.attachments,{limit:8,size:40}):''}
-            ${editable ? `<div style="margin-top:6px;text-align:right"><button type="button" onclick="window._removeThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',true)" style="background:transparent;border:none;color:var(--gray-400);font-size:11px;cursor:pointer">요청 삭제</button></div>` : ''}
+            ${editable ? `<div style="margin-top:6px;text-align:right;display:flex;gap:12px;justify-content:flex-end"><button type="button" onclick="window._editThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}')" style="background:transparent;border:none;color:#2563EB;font-size:11px;font-weight:700;cursor:pointer">✏️ 수정</button><button type="button" onclick="window._removeThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(r.threadId)}',true)" style="background:transparent;border:none;color:var(--gray-400);font-size:11px;cursor:pointer">요청 삭제</button></div>` : ''}
           </div>`;
 
           // children
@@ -2889,7 +2889,7 @@
                   <span style="font-size:11px;color:var(--gray-600);font-weight:700">${escFn(c.author||'담당자')}</span>
                   <span style="font-size:10.5px;color:var(--gray-400)">${escFn(c.ts||'')}</span>
                 </div>
-                ${editable ? `<button type="button" onclick="if(confirm('이 기록을 삭제할까요?'))window._removeThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(c.threadId)}',false)" title="삭제" style="background:transparent;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 4px">✕</button>` : ''}
+                ${editable ? `<span style="display:flex;gap:2px;flex-shrink:0"><button type="button" onclick="window._editThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(c.threadId)}')" title="수정" style="background:transparent;border:none;color:#2563EB;font-size:12px;cursor:pointer;padding:0 4px">✏️</button><button type="button" onclick="if(confirm('이 기록을 삭제할까요?'))window._removeThreadNode('${escFn(containerId)}','${escFn(jobId||'')}',${draftMode},'${escFn(c.threadId)}',false)" title="삭제" style="background:transparent;border:none;color:var(--gray-400);font-size:13px;cursor:pointer;padding:0 4px">✕</button></span>` : ''}
               </div>
               <div style="font-size:12.5px;color:var(--gray-800);line-height:1.55;white-space:pre-wrap">${escFn(c.text||'')}</div>
               ${(Array.isArray(c.attachments)&&c.attachments.length&&typeof window._renderAttStrip==='function')?window._renderAttStrip(c.attachments,{limit:8,size:40}):''}

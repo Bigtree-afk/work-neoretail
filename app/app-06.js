@@ -77,6 +77,42 @@
     window._renderThreadGroups(containerId, thread, { editable:true, jobId: jobId||null, draftMode: !!draftMode, maxRoots });
   }
 
+  // ── thread entry(요청접수/진행/완료) 본문 수정 — text 만 변경(status/threadId/parentId 불변).
+  //   editedAt 스탬프 → _mergeJobRecord 가 최신 편집을 채택(동기화로 안 되돌려짐).
+  window._editThreadNode = function (containerId, jobId, draftMode, threadId) {
+    const esc = window.esc || (s => String(s == null ? '' : s));
+    const arr = _getThreadFor(jobId, draftMode, containerId) || [];
+    const entry = arr.find(e => e && e.threadId === threadId);
+    if (!entry) { try { if (window.showToast) window.showToast('항목을 찾을 수 없습니다'); } catch(_){} return; }
+    const cur = entry.text || '';
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML =
+      '<div style="background:#fff;border-radius:12px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.2);overflow:hidden" onclick="event.stopPropagation()">' +
+        '<div style="padding:12px 16px;border-bottom:1px solid #E5E7EB;font-weight:800;font-size:14px">✏️ 내용 수정 <span style="font-size:11px;color:#94A3B8;font-weight:600">' + esc(entry.status || '') + '</span></div>' +
+        '<div style="padding:14px 16px"><textarea id="_editThreadTa" style="width:100%;min-height:130px;border:1px solid #CBD5E1;border-radius:8px;padding:10px;font-size:13.5px;font-family:inherit;line-height:1.5;box-sizing:border-box;resize:vertical"></textarea></div>' +
+        '<div style="padding:0 16px 14px;display:flex;gap:8px;justify-content:flex-end">' +
+          '<button type="button" id="_editThreadCancel" style="padding:8px 14px;border:1px solid #CBD5E1;background:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:#334155">취소</button>' +
+          '<button type="button" id="_editThreadSave" style="padding:8px 16px;border:none;background:#2563EB;color:#fff;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">저장</button>' +
+        '</div></div>';
+    ov.addEventListener('click', () => ov.remove());
+    document.body.appendChild(ov);
+    const ta = ov.querySelector('#_editThreadTa'); ta.value = cur; ta.focus();
+    ov.querySelector('#_editThreadCancel').onclick = () => ov.remove();
+    ov.querySelector('#_editThreadSave').onclick = function () {
+      const nv = ta.value;
+      if (!nv.trim()) { alert('내용을 입력하세요'); return; }
+      if (nv === cur) { ov.remove(); return; }
+      entry.text = nv;
+      entry.editedAt = Date.now();
+      entry.lastEditedBy = (typeof window._currentUserName === 'function') ? window._currentUserName() : '';
+      _setThreadFor(jobId, draftMode, arr, containerId);
+      ov.remove();
+      _rerenderThread(containerId, jobId, draftMode);
+      try { if (window.showToast) window.showToast('✏️ 수정됨'); } catch(_){}
+    };
+  };
+
   // thread 저장(요청접수/진행/완료) 후 — 모달 뒤의 hub 리스트가 새 상태를 반영하도록 일괄 재렌더
   // 모든 카테고리 hub 가 변경됐는지 알기 어렵고 cheap 한 호출이므로 모두 호출 (각 함수는 본인 컨테이너 없으면 no-op)
   function _refreshAllHubsAfterThread() {

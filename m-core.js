@@ -829,8 +829,15 @@
         const existing = seen.get(e.threadId);
         if (!existing) seen.set(e.threadId, e);
         else {
+          // 본문은 편집시각(editedAt) 최신 우선 — thread 수정이 동기화로 되돌려지던 문제 해결 (PC app-03 쌍둥이)
           const newAtts = mergeAttList(existing.attachments, e.attachments);
-          if (newAtts.length) existing.attachments = newAtts;
+          const eStamp = Number(e.editedAt) || 0, exStamp = Number(existing.editedAt) || 0;
+          if (eStamp > exStamp) {
+            if (newAtts.length) e.attachments = newAtts;
+            seen.set(e.threadId, e);
+          } else if (newAtts.length) {
+            existing.attachments = newAtts;
+          }
         }
       } else {
         const k = (e.ts||'') + '|' + (e.text||'');

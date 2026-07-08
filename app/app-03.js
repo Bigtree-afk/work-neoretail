@@ -3107,9 +3107,17 @@
         const existing = seen.get(e.threadId);
         if (!existing) seen.set(e.threadId, e);
         else {
-          // 같은 ROOT/child — attachments 만 union, 본문은 첫 진입(cloud) 유지
+          // 같은 ROOT/child — attachments 는 union. 본문(text/dueDate 등)은 편집시각(editedAt) 이
+          //   더 최신인 쪽 채택 → thread 내용 수정이 동기화로 되돌려지던 문제 해결.
+          //   editedAt 없는(옛) entry 는 0 → 편집 안 한 건은 기존 동작(첫 진입 유지) 그대로.
           const newAtts = mergeAttList(existing.attachments, e.attachments);
-          if (newAtts.length) existing.attachments = newAtts;
+          const eStamp = Number(e.editedAt) || 0, exStamp = Number(existing.editedAt) || 0;
+          if (eStamp > exStamp) {                      // 이 entry 편집이 더 최신 → 교체(첨부 union 유지)
+            if (newAtts.length) e.attachments = newAtts;
+            seen.set(e.threadId, e);
+          } else if (newAtts.length) {
+            existing.attachments = newAtts;
+          }
         }
       } else {
         const k = (e.ts||'') + '|' + (e.text||'');
