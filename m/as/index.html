@@ -509,7 +509,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-07-06-store-link-sticky"></script>
+<script src="/m-core.js?v=2026-07-08-thread-edit"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1533,7 +1533,8 @@ function renderThreadGroups(j){
       return `
         <div class="tg-child ${cc}">
           <div class="hdr">${cIcon} <b>${esc(c.status||'')}</b> · ${esc((window._normalizeDisplayName?window._normalizeDisplayName(c.author):c.author)||'담당자')} · ${esc(c.ts||'')}
-            <button class="del" style="margin-left:auto;font-size:13px;background:transparent;border:none;color:var(--gray-400);cursor:pointer" title="삭제" onclick="onDelChild('${esc(c.threadId)}')">✕</button>
+            <button style="margin-left:auto;font-size:13px;background:transparent;border:none;color:#2563EB;cursor:pointer" title="수정" onclick="onEditNode('${esc(c.threadId)}')">✏️</button>
+            <button class="del" style="font-size:13px;background:transparent;border:none;color:var(--gray-400);cursor:pointer" title="삭제" onclick="onDelChild('${esc(c.threadId)}')">✕</button>
           </div>
           <div class="txt">${esc(c.text||'')}</div>
           ${_renderEntryAttachments(c)}
@@ -1545,6 +1546,7 @@ function renderThreadGroups(j){
         <div class="tg-h">
           <span class="stt ${cls}">${stIcon} ${esc(gs)}</span>
           <span class="when">${esc(r.ts||'')}</span>
+          <button style="background:transparent;border:none;color:#2563EB;font-size:14px;cursor:pointer;padding:4px" title="요청 내용 수정" onclick="onEditNode('${esc(r.threadId)}')">✏️</button>
           <button class="del" title="이 그룹 전체 삭제" onclick="onDelRoot('${esc(r.threadId)}')">✕</button>
         </div>
         <div style="display:flex;align-items:center;gap:6px 10px;margin:2px 0 7px;flex-wrap:wrap;font-size:11px;color:var(--gray-500)">
@@ -1726,6 +1728,43 @@ window.onDelRoot = function(rootId){
   saveJobs(jobs);
   try { window.pushJobsToCloud(); } catch(_){}
   renderThread(_currentJobId);
+};
+
+// 요청접수/진행/완료 본문 수정 — text 만 변경(status/threadId 불변), editedAt 스탬프로 동기화 보존
+window.onEditNode = function(threadId){
+  const jobs = (typeof getJobs === 'function') ? (getJobs() || []) : [];
+  const j = jobs.find(x => x.id === _currentJobId);
+  if (!j) return;
+  const entry = (j.thread || []).find(e => e && e.threadId === threadId);
+  if (!entry) return;
+  const cur = entry.text || '';
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML =
+    '<div style="background:#fff;border-radius:12px;max-width:520px;width:100%;overflow:hidden" onclick="event.stopPropagation()">' +
+      '<div style="padding:12px 15px;border-bottom:1px solid var(--gray-200);font-weight:800;font-size:14px">✏️ 내용 수정 <span style="font-size:11px;color:var(--gray-400)">' + esc(entry.status || '') + '</span></div>' +
+      '<div style="padding:13px 15px"><textarea id="_edTa" style="width:100%;min-height:140px;border:1px solid var(--gray-300);border-radius:8px;padding:10px;font-size:14px;font-family:inherit;line-height:1.5;box-sizing:border-box;resize:vertical"></textarea></div>' +
+      '<div style="padding:0 15px 14px;display:flex;gap:8px;justify-content:flex-end">' +
+        '<button type="button" id="_edCancel" style="padding:9px 15px;border:1.5px solid var(--gray-300);background:#fff;border-radius:9px;font-size:14px;font-weight:800;color:var(--gray-700);cursor:pointer">취소</button>' +
+        '<button type="button" id="_edSave" style="padding:9px 17px;border:none;background:var(--primary,#2563EB);color:#fff;border-radius:9px;font-size:14px;font-weight:800;cursor:pointer">저장</button>' +
+      '</div></div>';
+  ov.addEventListener('click', () => ov.remove());
+  document.body.appendChild(ov);
+  const ta = ov.querySelector('#_edTa'); ta.value = cur; ta.focus();
+  ov.querySelector('#_edCancel').onclick = () => ov.remove();
+  ov.querySelector('#_edSave').onclick = function(){
+    const nv = ta.value;
+    if (!nv.trim()) { alert('내용을 입력하세요'); return; }
+    if (nv === cur) { ov.remove(); return; }
+    entry.text = nv;
+    entry.editedAt = Date.now();
+    j.updatedAt = Date.now();
+    saveJobs(jobs);
+    try { window.pushJobsToCloud(); } catch(_){}
+    ov.remove();
+    renderThread(_currentJobId);
+    try { if (window.showToast) window.showToast('✏️ 수정됨'); } catch(_){}
+  };
 };
 
 window.onDirectComplete = function(){
