@@ -3468,7 +3468,13 @@
         if (c !== 'new' && c !== 'as' && c !== 'van') return;   // 재고조사는 별도 저장소(아래)
         let date = '', time = '', label = '';
         if (c === 'new') { date = String(j.openDate || j.softOpenDate || j.installDate || '').slice(0, 10); label = j.openDate ? '🎉 오픈' : j.softOpenDate ? '🌅 가오픈' : '🔧 설치'; }
-        else if (c === 'as') { const dd = String(j.asDueDate || ''); date = dd.slice(0, 10); time = dd.slice(11, 16); label = '🛠 AS'; }
+        else if (c === 'as') {
+          // AS 예정일은 요청접수(thread ROOT)의 dueDate 에 저장됨(요청별). fallback: j.asDueDate.
+          const dues = (Array.isArray(j.thread) ? j.thread : []).filter(e => e && e.parentId === null).map(e => String(e.dueDate || '').slice(0, 10)).filter(Boolean);
+          if (j.asDueDate) dues.push(String(j.asDueDate).slice(0, 10));
+          const inr = dues.filter(d => d >= today && d <= end).sort();
+          date = inr[0] || ''; label = '🛠 AS';
+        }
         else if (c === 'van') { date = String(j.workDate || '').slice(0, 10); label = '💳 VAN'; }
         if (!inRange(date)) return;
         const eng = j.engineer || j.assignee || '';
