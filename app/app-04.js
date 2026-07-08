@@ -3535,12 +3535,12 @@
       const dcolor = it.date ? (past ? 'var(--gray-400)' : 'var(--primary)') : '#16A34A';
       const clickable = !it.event && it.id;
       const attrs = clickable ? `onclick="window.editNewopen && window.editNewopen('${it.id}')" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''" style="cursor:pointer"` : '';
-      return `<div class="sched-row" style="padding:11px 18px;border-bottom:1px solid var(--gray-100);display:flex;gap:12px;align-items:flex-start" ${attrs}>
-        <div style="font-size:12px;font-weight:800;color:${dcolor};width:96px;flex-shrink:0;padding-top:1px">${esc(dl)}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13.5px;font-weight:700;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.label)} ${esc(it.store)}</div>
-          <div style="font-size:11.5px;color:var(--gray-400);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.sub || '')}</div>
-        </div>
+      // 한 줄 표기: [일자] [구분(AS/POS 등)] [매장명 · 상세] — 줄간격 40% 축소
+      const detail = it.sub ? ` <span style="color:var(--gray-400);font-weight:500;font-size:11px">· ${esc(it.sub)}</span>` : '';
+      return `<div class="sched-row" style="padding:6px 18px;border-bottom:1px solid var(--gray-100);display:flex;gap:9px;align-items:center" ${attrs}>
+        <span style="font-size:11px;font-weight:800;color:${dcolor};width:84px;flex-shrink:0">${esc(dl)}</span>
+        <span style="font-size:11.5px;font-weight:700;color:var(--gray-500);flex-shrink:0">${esc(it.label)}</span>
+        <span style="font-size:12.5px;font-weight:700;color:var(--gray-800);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.store)}${detail}</span>
       </div>`;
     }).join('');
   }
