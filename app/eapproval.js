@@ -1316,6 +1316,12 @@
           const u = users.find(u => u && u.name === name);
           if (u && Array.isArray(u.nicknames)) for (const nk of u.nicknames) { if (nameToId[norm(nk)]) { uid = nameToId[norm(nk)]; break; } }
         }
+        if (!uid && norm(name).length >= 3) {
+          // 부분 포함 매칭 — 표시명에 회사·직책이 붙은 경우(예: "티지테크 김용연차장" ⊃ "김용연").
+          //   오매칭 방지: 직원명 3자 이상 + 그 이름을 포함하는 프로필이 정확히 1개일 때만.
+          const hits = Object.entries(profiles).filter(([u, dn]) => norm(dn).includes(norm(name)));
+          if (hits.length === 1) uid = hits[0][0];
+        }
         if (uid) { el.value = uid; filled++; } else unmatched.push(name);
       });
       if (msg) msg.innerHTML = `✅ ${filled}명 자동 입력 (수집 ${data.count || 0}건)${unmatched.length ? ` · 미매칭: ${unmatched.map(esc).join(', ')}` : ''}<br><span style="color:#94A3B8">확인 후 <b>💾 저장</b> 을 눌러주세요. 미매칭 직원은 LINE 봇/단톡방에서 한 번 발언하면 수집됩니다.</span>`;
