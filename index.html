@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
-<link rel="stylesheet" href="/app.css?v=2026-06-26-topnav-logo-right">
+<link rel="stylesheet" href="/app.css?v=2026-07-06-dash-sched">
 <!-- Google Identity Services (Sign in with Google) -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <!-- heic2any (iPhone HEIC → JPEG 변환) — 필요 시 로드 -->
@@ -388,40 +388,15 @@
       </div>
 
       <div class="grid-2" style="margin-bottom:20px">
-        <!-- 오늘 일정 -->
+        <!-- 일정 (다가올 일정 / EVENT) -->
         <div class="card">
-          <div style="padding:16px 18px; border-bottom:1px solid var(--gray-100)">
-            <div class="section-title" id="dashTodayTitle">📅 오늘 일정</div>
-          </div>
-          <div style="padding:8px 0" id="dashTodayBody">
-            <div class="sched-row" data-title="K-1마트 안중점 신규" data-icon="🏪" data-type="신규" data-store="K-1마트 안중점" data-date="4월 20일 09:00" data-engineer="김현장" data-note="POS 5대 + 저울 + 계산대 설치 | 설치 진행중 (4/6단계)"
-              style="padding:12px 18px; border-bottom:1px solid var(--gray-100); display:flex; gap:14px; align-items:flex-start">
-              <div style="font-size:12px; font-weight:700; color:var(--primary); width:45px; flex-shrink:0; padding-top:2px">09:00</div>
-              <div style="flex:1">
-                <div style="font-size:14px; font-weight:700; margin-bottom:3px">K-1마트 안중점 — 신규</div>
-                <div style="font-size:12px; color:var(--gray-400)">POS 5대 + 저울 + 계산대 설치 / 담당: 김현장</div>
-              </div>
-              <span class="badge badge-blue">설치중</span>
-            </div>
-            <div class="sched-row" data-title="웰빙마트 신림 VAN 교체" data-icon="💳" data-type="VAN 교체" data-store="웰빙마트 신림점" data-date="4월 20일 14:00" data-engineer="이기사" data-note="KIS → KCP 단말 교체 3대"
-              style="padding:12px 18px; border-bottom:1px solid var(--gray-100); display:flex; gap:14px; align-items:flex-start">
-              <div style="font-size:12px; font-weight:700; color:var(--purple); width:45px; flex-shrink:0; padding-top:2px">14:00</div>
-              <div style="flex:1">
-                <div style="font-size:14px; font-weight:700; margin-bottom:3px">웰빙마트 신림 — VAN 교체</div>
-                <div style="font-size:12px; color:var(--gray-400)">KIS → KCP 단말 교체 3대 / 담당: 이기사</div>
-              </div>
-              <span class="badge badge-purple">예정</span>
-            </div>
-            <div class="sched-row" data-title="ECJ마트 AS 처리" data-icon="🔧" data-type="AS 처리" data-store="ECJ마트" data-date="4월 20일 16:30" data-engineer="박기사" data-note="영수프린터 용지 걸림 반복 문제"
-              style="padding:12px 18px; display:flex; gap:14px; align-items:flex-start">
-              <div style="font-size:12px; font-weight:700; color:var(--warning); width:45px; flex-shrink:0; padding-top:2px">16:30</div>
-              <div style="flex:1">
-                <div style="font-size:14px; font-weight:700; margin-bottom:3px">ECJ마트 — AS 처리</div>
-                <div style="font-size:12px; color:var(--gray-400)">영수프린터 용지 걸림 반복 문제 / 담당: 박기사</div>
-              </div>
-              <span class="badge badge-amber">AS</span>
+          <div style="padding:12px 18px 0; border-bottom:1px solid var(--gray-100)">
+            <div style="display:flex; gap:4px">
+              <button class="dash-sch-tab on" id="dashSchTabUpcoming" onclick="window._setDashSchTab && window._setDashSchTab('upcoming')">📅 다가올 일정</button>
+              <button class="dash-sch-tab" id="dashSchTabEvent" onclick="window._setDashSchTab && window._setDashSchTab('event')">🎉 EVENT</button>
             </div>
           </div>
+          <div style="padding:8px 0" id="dashTodayBody"></div>
         </div>
 
         <!-- 최근 완료 작업 -->
@@ -3947,7 +3922,7 @@
 <script src="/app/app-01.js?v=2026-07-06-lunar" defer></script>
 <script src="/app/app-02.js?v=2026-07-02-root-progress" defer></script>
 <script src="/app/app-03.js?v=2026-07-06-store-sticky" defer></script>
-<script src="/app/app-04.js?v=2026-07-06-storepick" defer></script>
+<script src="/app/app-04.js?v=2026-07-06-dash-sched2" defer></script>
 <script src="/app/app-05.js?v=2026-07-06-storepick" defer></script>
 <script src="/app/app-06.js?v=2026-07-02-root-progress" defer></script>
 <script src="/app/app-07.js?v=2026-07-06-store-sticky" defer></script>

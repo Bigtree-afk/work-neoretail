@@ -3433,6 +3433,102 @@
   window.hydrateSavedStores = hydrateSavedStores;
   window.renderStores = hydrateSavedStores;
 
+  // ── 대시보드 일정 카드 — 두 탭(다가올 일정 / EVENT), 1개월 이내 리스트 ──
+  window._dashSchTab = window._dashSchTab || 'upcoming';
+  window._setDashSchTab = function (t) {
+    window._dashSchTab = t;
+    const a = document.getElementById('dashSchTabUpcoming'), b = document.getElementById('dashSchTabEvent');
+    if (a) a.classList.toggle('on', t === 'upcoming');
+    if (b) b.classList.toggle('on', t === 'event');
+    try { _renderDashSchedule(); } catch (e) {}
+  };
+  function _dashDateLabel(ymd, time, today) {
+    if (!ymd) return '';
+    const dOf = s => new Date(s + 'T00:00:00');
+    const days = Math.round((dOf(ymd) - dOf(today)) / 86400000);
+    const wd = ['일', '월', '화', '수', '목', '금', '토'][dOf(ymd).getDay()];
+    const lbl = days === 0 ? '오늘' : days === 1 ? '내일' : (ymd.slice(5).replace('-', '.') + ' (' + wd + ')');
+    return lbl + (time ? (' ' + time) : '');
+  }
+  function _renderDashSchedule() {
+    const body = document.getElementById('dashTodayBody');
+    if (!body) return;
+    const tab = window._dashSchTab || 'upcoming';
+    const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    const end = new Date(Date.now() + 9 * 3600 * 1000 + 30 * 86400000).toISOString().slice(0, 10);
+    const inRange = d => d && d >= today && d <= end;
+    const isDone = window._isJobEffectivelyDone || _isJobDone;
+    const cat = window.classifyJobCategory;
+    let items = [];
+    if (tab === 'upcoming') {
+      let jobs = []; try { jobs = getJobs() || []; } catch (e) {}
+      jobs.forEach(j => {
+        if (isDone(j)) return;
+        const c = cat ? cat(j) : '';
+        if (c !== 'new' && c !== 'as' && c !== 'van') return;   // 재고조사는 별도 저장소(아래)
+        let date = '', time = '', label = '';
+        if (c === 'new') { date = String(j.openDate || j.softOpenDate || j.installDate || '').slice(0, 10); label = j.openDate ? '🎉 오픈' : j.softOpenDate ? '🌅 가오픈' : '🔧 설치'; }
+        else if (c === 'as') { const dd = String(j.asDueDate || ''); date = dd.slice(0, 10); time = dd.slice(11, 16); label = '🛠 AS'; }
+        else if (c === 'van') { date = String(j.workDate || '').slice(0, 10); label = '💳 VAN'; }
+        if (!inRange(date)) return;
+        const eng = j.engineer || j.assignee || '';
+        items.push({ date, time, label, store: j.store || j.storeName || '-', sub: (j.type || '') + (eng ? ' · 담당 ' + eng : ''), id: j.id });
+      });
+      // 재고조사 — 별도 저장소(ns_stocktake), scheduleDate 기준. 조사완료/정산/마감은 제외(다가올만).
+      try {
+        const recs = window.getStocktakes ? (window.getStocktakes() || []) : [];
+        recs.forEach(r => {
+          const st = String(r.status || '');
+          if (st === '조사완료' || st === '정산' || st === '마감') return;
+          const date = String(r.scheduleDate || '').slice(0, 10);
+          if (!inRange(date)) return;
+          items.push({ date, time: '', label: '📦 재고조사', store: r.storeName || '-', sub: st || '조사 예정' });
+        });
+      } catch (e) {}
+      items.sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+    } else {
+      // EVENT — 생일(config.birth, 음력은 LunarKR) + 승인 연차(eap docs)
+      let eapCfg = {}; try { eapCfg = JSON.parse(localStorage.getItem('ns_eap_cfg') || '{}'); } catch (e) {}
+      const births = (eapCfg && eapCfg.birth) || {};
+      const yNow = new Date(Date.now() + 9 * 3600 * 1000).getFullYear();
+      const bdaySolar = (b, y) => {
+        if (!b || !b.date) return '';
+        if (b.cal === 'lunar' && window.LunarKR) return window.LunarKR.lunarBirthdayStr(Number(String(b.date).slice(5, 7)), Number(String(b.date).slice(8, 10)), y) || '';
+        return y + '-' + String(b.date).slice(5);
+      };
+      Object.keys(births).forEach(who => {
+        const b = births[who];
+        let ymd = bdaySolar(b, yNow);
+        if (ymd && ymd < today) ymd = bdaySolar(b, yNow + 1);   // 올해 지났으면 내년 생일
+        if (inRange(ymd)) items.push({ date: ymd, label: '🎂 생일', store: who, sub: (b.cal === 'lunar' ? '🌙 음력' : '☀️ 양력'), event: true });
+      });
+      let docs = []; try { docs = JSON.parse(localStorage.getItem('ns_eap_docs') || '[]'); } catch (e) {}
+      docs.filter(d => d && d.kind === 'leave' && d.status === 'ok' && d.from).forEach(d => {
+        const from = String(d.from).slice(0, 10);
+        if (inRange(from)) items.push({ date: from, label: '🌴 연차', store: d.drafter || '', sub: d.from + '~' + (d.to || d.from) + ' (' + (d.days || 1) + '일)', event: true });
+      });
+      items.sort((a, b) => a.date.localeCompare(b.date));
+    }
+    const sig = tab + '|' + JSON.stringify(items.map(i => [i.date, i.time || '', i.label, i.store, i.sub]));
+    if (window._sigSkip && window._sigSkip(body, sig)) return;
+    if (!items.length) {
+      body.innerHTML = `<div style="padding:30px 20px;text-align:center;color:var(--gray-400);font-size:12px"><div style="font-size:28px;margin-bottom:8px">📭</div><div>${tab === 'upcoming' ? '한 달 내 예정된 작업이 없습니다.' : '한 달 내 생일·연차가 없습니다.'}</div></div>`;
+      return;
+    }
+    body.innerHTML = items.map(it => {
+      const dl = _dashDateLabel(it.date, it.time, today);
+      const clickable = !it.event && it.id;
+      const attrs = clickable ? `onclick="window.editNewopen && window.editNewopen('${it.id}')" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''" style="cursor:pointer"` : '';
+      return `<div class="sched-row" style="padding:11px 18px;border-bottom:1px solid var(--gray-100);display:flex;gap:12px;align-items:flex-start" ${attrs}>
+        <div style="font-size:12px;font-weight:800;color:var(--primary);width:96px;flex-shrink:0;padding-top:1px">${esc(dl)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13.5px;font-weight:700;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.label)} ${esc(it.store)}</div>
+          <div style="font-size:11.5px;color:var(--gray-400);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.sub || '')}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
   /* 대시보드: 오늘 일정 / 최근 완료 / AS 미처리를 ns_jobs로 동적 렌더 */
   function hydrateDashboardJobs() {
     let jobs = [];
@@ -3490,48 +3586,8 @@
     // 신규/상담 현황 요약 (AI 분석 패널 자리)
     try { renderNeoSummary(); } catch(e){}
 
-    // 오늘 일정 — 설치예정일/가오픈일/오픈일 중 오늘인 작업
-    const todayBody = document.getElementById('dashTodayBody');
-    if (todayBody) {
-      const todayLabels = { installDate:'🔧 설치 예정', softOpenDate:'🌅 가오픈', openDate:'🎉 오픈' };
-      const todays = [];
-      jobs.forEach(j => {
-        if (_isJobDone(j)) return;
-        ['installDate','softOpenDate','openDate'].forEach(field => {
-          if ((j[field] || '').slice(0,10) === todayStr) {
-            todays.push({ ...j, _kind: field });
-          }
-        });
-      });
-      const _todaySig = 'today|' + JSON.stringify(todays.map(j=>[j.id,j._kind,j.status||'',j.store||j.storeName||'',j.engineer||j.assignee||'']));
-      if (window._sigSkip && window._sigSkip(todayBody, _todaySig)) { /* 내용 동일 → 재구축 skip (어른거림 방지) */ }
-      else if (todays.length > 0) {
-        todayBody.innerHTML = todays.map(j => {
-          const store = j.store || j.storeName || '-';
-          const type = j.type || '작업';
-          const eng = j.engineer || j.assignee || '미배정';
-          const kindLbl = todayLabels[j._kind] || '';
-          return `<div class="sched-row" style="padding:12px 18px;border-bottom:1px solid var(--gray-100);display:flex;gap:14px;align-items:flex-start;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''" onclick="window.editNewopen && window.editNewopen('${j.id}')" title="클릭 — 매장 상세 보기">
-            <div style="font-size:12px;font-weight:700;color:var(--primary);width:75px;flex-shrink:0;padding-top:2px">${kindLbl}</div>
-            <div style="flex:1">
-              <div style="font-size:14px;font-weight:700;margin-bottom:3px">${esc(store)} — ${esc(type)}</div>
-              <div style="font-size:12px;color:var(--gray-400)">담당: ${esc(eng)}</div>
-            </div>
-            <span class="badge badge-blue">${esc(j.status||'예정')}</span>
-          </div>`;
-        }).join('');
-      } else {
-        // 항상 빈 상태로 교체 (데모 잔존 방지)
-        const msg = jobs.length === 0
-          ? '등록된 일정이 없습니다.'
-          : '오늘 예정된 일정이 없습니다.';
-        todayBody.innerHTML = `<div style="padding:30px 20px;text-align:center;color:var(--gray-400);font-size:12px">
-          <div style="font-size:28px;margin-bottom:8px">📭</div>
-          <div>${msg}</div>
-          <div style="margin-top:4px;font-size:11px">"+ 작업 등록"으로 추가하세요.</div>
-        </div>`;
-      }
-    }
+    // 일정 카드 — 두 탭(다가올 일정 / EVENT). 1개월 이내 리스트.
+    try { _renderDashSchedule(); } catch(e) { console.warn('[dashSched]', e); }
 
     // 최근 완료 작업 (jobs에서 status=완료, 최신 5건)
     const recentBody = document.getElementById('dashRecentBody');

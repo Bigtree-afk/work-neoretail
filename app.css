@@ -206,6 +206,10 @@
   /* ── SECTION ── */
   .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
   .section-title { font-size: 15px; font-weight: 700; color: var(--gray-900); }
+  /* 대시보드 일정 카드 탭 (다가올 일정 / EVENT) */
+  .dash-sch-tab { border:none; background:none; padding:8px 12px 10px; font-size:13px; font-weight:700; color:var(--gray-400); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .dash-sch-tab.on { color:var(--primary); border-bottom-color:var(--primary); }
+  .dash-sch-tab:not(.on):hover { color:var(--gray-700); }
 
   /* ── TABLE ── */
   .card { background: #fff; border-radius: 12px; border: 1px solid var(--gray-200); overflow: hidden; }
