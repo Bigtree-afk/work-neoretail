@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
-<link rel="stylesheet" href="/app.css?v=2026-07-06-white-bg">
+<link rel="stylesheet" href="/app.css?v=2026-07-06-dash-dense">
 <!-- Google Identity Services (Sign in with Google) -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <!-- heic2any (iPhone HEIC → JPEG 변환) — 필요 시 로드 -->
@@ -240,15 +240,15 @@
       </div>
 
       <!-- 📢 공지사항 위젯 (상단 2건 미리보기) -->
-      <div class="card" id="dashNoticesCard" style="margin-bottom:16px;border-left:4px solid #7C3AED">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <div class="card" id="dashNoticesCard" style="margin-bottom:12px;border-left:3px solid #7C3AED">
+        <div style="padding:8px 16px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
           <div class="section-title" style="color:#5B21B6">📢 공지사항</div>
           <div style="display:flex;gap:6px">
-            <button class="btn btn-outline btn-sm" onclick="openNoticeWrite()" style="font-size:11px;padding:5px 10px;color:#5B21B6;border-color:#7C3AED">✏️ 작성</button>
-            <button class="btn btn-outline btn-sm" onclick="openNoticeList()" style="font-size:11px;padding:5px 10px">전체 보기 →</button>
+            <button class="btn btn-outline btn-sm" onclick="openNoticeWrite()" style="font-size:11px;padding:4px 9px;color:#5B21B6;border-color:#7C3AED">✏️ 작성</button>
+            <button class="btn btn-outline btn-sm" onclick="openNoticeList()" style="font-size:11px;padding:4px 9px">전체 보기 →</button>
           </div>
         </div>
-        <div id="dashNoticesBody" style="padding:8px 0"></div>
+        <div id="dashNoticesBody" style="padding:3px 0"></div>
       </div>
 
       <!-- STAT CARDS -->
@@ -401,7 +401,7 @@
 
         <!-- 최근 완료 작업 -->
         <div class="card">
-          <div style="padding:16px 18px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; justify-content:space-between">
+          <div style="padding:9px 16px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; justify-content:space-between">
             <div class="section-title">✅ 최근 완료 작업</div>
             <button class="btn btn-outline btn-sm" onclick="openDoneJobsModal('all')" style="font-size:11px;padding:5px 10px">전체 보기</button>
           </div>
@@ -467,7 +467,7 @@
 
         <!-- AS 현황 (풀폭 카드, 내부는 2단 그리드) -->
         <div class="card">
-          <div style="padding:16px 18px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; justify-content:space-between">
+          <div style="padding:9px 16px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; justify-content:space-between">
             <div class="section-title">🔧 AS 미처리 현황</div>
             <button class="btn btn-outline btn-sm" onclick="showScreen('asmgmt')">전체보기</button>
           </div>
@@ -3923,7 +3923,7 @@
 <script src="/app/app-02.js?v=2026-07-02-root-progress" defer></script>
 <script src="/app/app-03.js?v=2026-07-06-store-sticky" defer></script>
 <script src="/app/app-04.js?v=2026-07-06-dash-1line" defer></script>
-<script src="/app/app-05.js?v=2026-07-06-storepick" defer></script>
+<script src="/app/app-05.js?v=2026-07-06-dash-dense" defer></script>
 <script src="/app/app-06.js?v=2026-07-02-root-progress" defer></script>
 <script src="/app/app-07.js?v=2026-07-06-store-sticky" defer></script>
 <script src="/app/app-08.js?v=2026-07-02-root-progress" defer></script>

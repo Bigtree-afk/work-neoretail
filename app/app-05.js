@@ -38,10 +38,10 @@
       const mediaTag = n.hasVideo ? '🎬' : (n.hasImage ? '🖼' : '');
       const fileTag = n.fileCount > 0 ? `📎 ${n.fileCount}` : '';
       return `<div onclick="openNoticeDetail('${esc(n.id)}')"
-                   style="padding:12px 18px;border-bottom:1px solid var(--gray-100);cursor:pointer;transition:background 0.15s"
+                   style="padding:7px 16px;border-bottom:1px solid var(--gray-100);cursor:pointer;transition:background 0.15s"
                    onmouseover="this.style.background='#FAF5FF'"
                    onmouseout="this.style.background=''">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
           <span style="font-size:13px;font-weight:700;color:var(--gray-900);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n.title||'(제목 없음)')}</span>
           ${mediaTag ? `<span style="font-size:13px">${mediaTag}</span>` : ''}
           ${fileTag ? `<span style="font-size:10px;color:var(--gray-500);font-weight:600">${fileTag}</span>` : ''}
