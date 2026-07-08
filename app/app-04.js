@@ -3462,36 +3462,44 @@
     let items = [];
     if (tab === 'upcoming') {
       let jobs = []; try { jobs = getJobs() || []; } catch (e) {}
+      // 진행중(미완료) 신규/AS/VAN/재고조사 — 관련 예정일 기준. 미래 예정일이 있으면 그걸,
+      //   없으면 가장 가까운 날짜(과거)로, 아예 없으면 '진행중'. 정렬은 다가올(미래) 우선.
       jobs.forEach(j => {
         if (isDone(j)) return;
         const c = cat ? cat(j) : '';
         if (c !== 'new' && c !== 'as' && c !== 'van') return;   // 재고조사는 별도 저장소(아래)
-        let date = '', time = '', label = '';
-        if (c === 'new') { date = String(j.openDate || j.softOpenDate || j.installDate || '').slice(0, 10); label = j.openDate ? '🎉 오픈' : j.softOpenDate ? '🌅 가오픈' : '🔧 설치'; }
+        let date = '', label = '';
+        if (c === 'new') { date = String(j.openDate || j.softOpenDate || j.installDate || '').slice(0, 10); label = j.openDate ? '🎉 오픈' : j.softOpenDate ? '🌅 가오픈' : j.installDate ? '🔧 설치' : '🏪 신규'; }
         else if (c === 'as') {
-          // AS 예정일은 요청접수(thread ROOT)의 dueDate 에 저장됨(요청별). fallback: j.asDueDate.
+          // AS 예정일은 요청접수(thread ROOT)의 dueDate 에 저장됨(요청별). fallback: asDueDate → 접수일.
           const dues = (Array.isArray(j.thread) ? j.thread : []).filter(e => e && e.parentId === null).map(e => String(e.dueDate || '').slice(0, 10)).filter(Boolean);
           if (j.asDueDate) dues.push(String(j.asDueDate).slice(0, 10));
-          const inr = dues.filter(d => d >= today && d <= end).sort();
-          date = inr[0] || ''; label = '🛠 AS';
+          const fut = dues.filter(d => d >= today).sort();
+          date = fut[0] || dues.sort().pop() || String(j.asReceivedAt || '').slice(0, 10);
+          label = '🛠 AS';
         }
         else if (c === 'van') { date = String(j.workDate || '').slice(0, 10); label = '💳 VAN'; }
-        if (!inRange(date)) return;
         const eng = j.engineer || j.assignee || '';
-        items.push({ date, time, label, store: j.store || j.storeName || '-', sub: (j.type || '') + (eng ? ' · 담당 ' + eng : ''), id: j.id });
+        items.push({ date, label, store: j.store || j.storeName || '-', sub: (j.type || '') + (eng ? ' · 담당 ' + eng : ''), id: j.id });
       });
-      // 재고조사 — 별도 저장소(ns_stocktake), scheduleDate 기준. 조사완료/정산/마감은 제외(다가올만).
+      // 재고조사 — 진행중(조사완료/정산/마감 제외)
       try {
-        const recs = window.getStocktakes ? (window.getStocktakes() || []) : [];
-        recs.forEach(r => {
+        (window.getStocktakes ? (window.getStocktakes() || []) : []).forEach(r => {
           const st = String(r.status || '');
           if (st === '조사완료' || st === '정산' || st === '마감') return;
-          const date = String(r.scheduleDate || '').slice(0, 10);
-          if (!inRange(date)) return;
-          items.push({ date, time: '', label: '📦 재고조사', store: r.storeName || '-', sub: st || '조사 예정' });
+          items.push({ date: String(r.scheduleDate || r.consultDate || '').slice(0, 10), label: '📦 재고조사', store: r.storeName || '-', sub: st || '조사 예정' });
         });
       } catch (e) {}
-      items.sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+      // 정렬: 다가올(오늘~) 오름차순 먼저 → 과거는 최근순 → 날짜없음 맨뒤. 상위 25건.
+      items.sort((a, b) => {
+        const af = !!a.date && a.date >= today, bf = !!b.date && b.date >= today;
+        if (af && bf) return a.date.localeCompare(b.date);
+        if (af !== bf) return af ? -1 : 1;
+        if (a.date && b.date) return b.date.localeCompare(a.date);
+        if (!!a.date !== !!b.date) return a.date ? -1 : 1;
+        return 0;
+      });
+      items = items.slice(0, 25);
     } else {
       // EVENT — 생일(config.birth, 음력은 LunarKR) + 승인 연차(eap docs)
       let eapCfg = {}; try { eapCfg = JSON.parse(localStorage.getItem('ns_eap_cfg') || '{}'); } catch (e) {}
@@ -3518,15 +3526,17 @@
     const sig = tab + '|' + JSON.stringify(items.map(i => [i.date, i.time || '', i.label, i.store, i.sub]));
     if (window._sigSkip && window._sigSkip(body, sig)) return;
     if (!items.length) {
-      body.innerHTML = `<div style="padding:30px 20px;text-align:center;color:var(--gray-400);font-size:12px"><div style="font-size:28px;margin-bottom:8px">📭</div><div>${tab === 'upcoming' ? '한 달 내 예정된 작업이 없습니다.' : '한 달 내 생일·연차가 없습니다.'}</div></div>`;
+      body.innerHTML = `<div style="padding:30px 20px;text-align:center;color:var(--gray-400);font-size:12px"><div style="font-size:28px;margin-bottom:8px">📭</div><div>${tab === 'upcoming' ? '진행 중인 신규·AS·VAN·재고조사 작업이 없습니다.' : '한 달 내 생일·연차가 없습니다.'}</div></div>`;
       return;
     }
     body.innerHTML = items.map(it => {
-      const dl = _dashDateLabel(it.date, it.time, today);
+      const past = it.date && it.date < today;
+      const dl = it.date ? _dashDateLabel(it.date, it.time, today) : '진행중';
+      const dcolor = it.date ? (past ? 'var(--gray-400)' : 'var(--primary)') : '#16A34A';
       const clickable = !it.event && it.id;
       const attrs = clickable ? `onclick="window.editNewopen && window.editNewopen('${it.id}')" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''" style="cursor:pointer"` : '';
       return `<div class="sched-row" style="padding:11px 18px;border-bottom:1px solid var(--gray-100);display:flex;gap:12px;align-items:flex-start" ${attrs}>
-        <div style="font-size:12px;font-weight:800;color:var(--primary);width:96px;flex-shrink:0;padding-top:1px">${esc(dl)}</div>
+        <div style="font-size:12px;font-weight:800;color:${dcolor};width:96px;flex-shrink:0;padding-top:1px">${esc(dl)}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13.5px;font-weight:700;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.label)} ${esc(it.store)}</div>
           <div style="font-size:11.5px;color:var(--gray-400);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.sub || '')}</div>
