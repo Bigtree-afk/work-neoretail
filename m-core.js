@@ -334,7 +334,10 @@
   //   특히 contacts(~3.5MB) 누적으로 ns_stores 가 5MB 초과 → QuotaExceededError(저장 자체 불가).
   //   모바일은 contacts/equipment/changeLog/storeMemos/memos 를 안 읽음(코드 전수 확인). 클라우드/PC 는
   //   전체 보존 — 모바일 saveStores 는 cloud push 안 하고, 머지는 additive-by-id 라 안전. 해당 UI 도입 시 재검토.
-  var _LEAN_STORE_DROP = ['contacts', 'equipment', 'changeLog', 'storeMemos', 'memos'];
+  // 모바일 화면/검색에서 쓰지 않는 대용량 필드 — localStorage 캐시에서 제외(quota 보호).
+  //   모바일은 stores 를 cloud 로 push 안 하므로(머지 additive/kv-wins) 다음 sync 에 클라우드가 재공급 → 안전.
+  //   fieldUpdatedAt(머지 메타,~150KB) · ecountRegDate/storeRegDate(KV관리 등록일, 모바일 미표시) 추가.
+  var _LEAN_STORE_DROP = ['contacts', 'equipment', 'changeLog', 'storeMemos', 'memos', 'fieldUpdatedAt', 'ecountRegDate', 'storeRegDate', 'history'];
   function _leanStores(arr) {
     if (!Array.isArray(arr)) return arr;
     return arr.map(s => {

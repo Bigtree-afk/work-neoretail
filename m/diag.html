@@ -22,15 +22,59 @@
 <h1>📱 모바일 동기화 진단</h1>
 <div id="out">로딩 중…</div>
 
+<button class="btn-reload" style="background:#059669" onclick="slimCache()">🗜 캐시 정리 (저장공간 확보 — 데이터 유실 없음)</button>
 <button class="btn-fix" onclick="hardReset()">🧹 강제 초기화 (localStorage 비우고 서버에서 새로 받기)</button>
 <button class="btn-reload" onclick="location.reload()">🔄 새로고침</button>
 
 <script>
 const TEST_STORE = '테스트매장';
 function esc(s){return String(s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));}
+function fmtKB(n){return (n/1024).toFixed(0)+'KB';}
+
+// localStorage 사용량 분석 (문자수 기준 — 실제 바이트는 UTF-16 이라 ×2)
+function storageBreakdown(){
+  let items=[], total=0;
+  for (let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i); const v=localStorage.getItem(k)||'';
+    const chars=k.length+v.length; total+=chars; items.push([k,chars]);
+  }
+  items.sort((a,b)=>b[1]-a[1]);
+  return {items,total};
+}
+
+// 모바일 캐시 정리 — 재생성 가능한 캐시/PC전용 백업 제거 + ns_stores 재압축. (작업/매장 실데이터 유실 없음)
+function slimCache(){
+  const before = storageBreakdown().total;
+  // 1) 모바일에서 불필요/재생성 가능 — ns_backups(PC 자동백업), etag/snap 캐시
+  ['ns_backups','ns_jobs_snap','ns_jobs_etag','ns_stores_etag'].forEach(k=>{ try{localStorage.removeItem(k);}catch(_){} });
+  // 2) ns_stores 재압축 — 모바일 미사용 대용량 필드 제거 (다음 sync 시 클라우드가 재공급)
+  const DROP=['contacts','equipment','changeLog','storeMemos','memos','fieldUpdatedAt','ecountRegDate','storeRegDate','history'];
+  try {
+    const raw=localStorage.getItem('ns_stores');
+    if (raw) {
+      const arr=JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        const lean=arr.map(s=>{ if(!s||typeof s!=='object')return s; const o={}; for(const k in s){ if(DROP.indexOf(k)>=0)continue; o[k]=s[k]; } return o; });
+        const lj=JSON.stringify(lean);
+        if (lj.length < raw.length) { try{localStorage.setItem('ns_stores', lj);}catch(_){ try{localStorage.removeItem('ns_stores');}catch(__){} } }
+      }
+    }
+  } catch(_){}
+  const after = storageBreakdown().total;
+  alert('🗜 정리 완료\n'+fmtKB(before)+' → '+fmtKB(after)+' (문자수)\n확보: '+fmtKB(before-after)+'\n\n작업/매장 데이터는 그대로입니다. 새로고침하면 클라우드에서 최신 매장정보를 다시 받습니다.');
+  run();
+}
 
 async function run() {
   const out = document.getElementById('out');
+  // 0. localStorage 사용량
+  const sb = storageBreakdown();
+  const estBytes = sb.total*2;                 // UTF-16
+  const overWarn = estBytes > 4_500_000;
+  const rowsHtml = sb.items.slice(0,12).map(([k,c])=>{
+    const big = c > 300_000;
+    return `<div style="display:flex;justify-content:space-between;padding:2px 0;${big?'color:#F87171;font-weight:700':''}"><span style="word-break:break-all">${esc(k)}</span><span style="margin-left:10px;white-space:nowrap">${fmtKB(c)}</span></div>`;
+  }).join('');
   // 1. 로컬 상태
   let localJobs = [];
   try { localJobs = JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch(e){}
@@ -54,6 +98,12 @@ async function run() {
   const tokenMatch = (localResync === serverResync);
 
   out.innerHTML = `
+    <div class="card" style="${overWarn?'border-color:#DC2626':''}">
+      <div class="k">📦 localStorage 사용량 (문자수 / UTF-16 추정)</div>
+      <div class="v ${overWarn?'bad':'ok'}">${fmtKB(sb.total)} / ~${(estBytes/1024/1024).toFixed(2)}MB ${overWarn?'🔴 한도(5MB) 임박 — 아래 [캐시 정리]':'✓ 여유'}</div>
+      <div style="margin-top:8px;font-size:12px">${rowsHtml}</div>
+      <div class="k" style="margin-top:6px;color:#64748B">300KB 초과 키는 빨강. ns_backups·ns_stores 가 크면 [🗜 캐시 정리] 누르면 확보됩니다.</div>
+    </div>
     <div class="card">
       <div class="k">m-core.js 버전</div>
       <div class="v">${esc(mcoreVer)}</div>
