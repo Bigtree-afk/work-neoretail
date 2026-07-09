@@ -1351,28 +1351,37 @@
        - 관리자 페이지에서 JSON 내보내기 / 복원 / 시점 복구
   ══════════════════════════════════════════════ */
   const BACKUP_KEY = 'ns_backups';
-  const BACKUP_MAX = 14;
+  const BACKUP_MAX = 8;
+  const BACKUP_BUDGET = 1_200_000;   // ns_backups JSON 문자수 상한 — localStorage quota 보호
   let _backupTimer = null;
 
   function getBackups() {
     try { return JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]'); } catch { return []; }
   }
+  // 스냅샷에서 stores 제거 — 매장은 대용량(2.8k건, ~1.2MB)+클라우드 보관이라 로컬 롤링백업에 넣으면
+  //   라이브 데이터와 거의 중복돼 quota 초과 유발. 복원부는 snap.stores 없으면 매장을 건드리지 않음(안전).
+  function _slimSnap(s) { if (s && s.stores !== undefined) { const c = Object.assign({}, s); delete c.stores; return c; } return s; }
+  function _trimBackups(arr) {
+    let a = (Array.isArray(arr) ? arr : []).map(_slimSnap);
+    while (a.length > BACKUP_MAX) a.shift();
+    while (a.length > 1 && JSON.stringify(a).length > BACKUP_BUDGET) a.shift();
+    return a;
+  }
   function saveBackups(arr) {
-    try { localStorage.setItem(BACKUP_KEY, JSON.stringify(arr)); } catch (e) {
-      // quota 초과 시 가장 오래된 것부터 삭제하며 재시도
-      while (arr.length > 1) {
-        arr.shift();
-        try { localStorage.setItem(BACKUP_KEY, JSON.stringify(arr)); return; } catch(_){}
-      }
-      console.warn('백업 저장 실패: quota 초과');
+    let a = _trimBackups(arr);
+    try { localStorage.setItem(BACKUP_KEY, JSON.stringify(a)); } catch (e) {
+      // quota 초과 시 가장 오래된 것부터 삭제하며 재시도(다 안되면 비움 — 다른 키 저장 우선)
+      while (a.length > 0) { a.shift(); try { localStorage.setItem(BACKUP_KEY, JSON.stringify(a)); return; } catch(_){} }
+      try { localStorage.removeItem(BACKUP_KEY); } catch(_){}
+      console.warn('백업 저장 실패: quota — 백업 비움');
     }
   }
 
   function createSnapshot() {
+    // stores 는 대용량+클라우드 보관 → 로컬 롤링백업에서 제외(quota 보호). 매장 백업은 클라우드/JSON 내보내기로.
     return {
       ts: Date.now(),
-      version: 1,
-      stores:        JSON.parse(localStorage.getItem('ns_stores')         || '[]'),
+      version: 2,
       jobs:          JSON.parse(localStorage.getItem('ns_jobs')           || '[]'),
       users:         JSON.parse(localStorage.getItem('ns_users')          || '[]'),
       allowedEmails: JSON.parse(localStorage.getItem('ns_allowed_emails') || '[]'),
@@ -1401,6 +1410,8 @@
   }
 
   function ensureDailyBackup() {
+    // 🧹 기존 백업 즉시 슬림 — 옛 스냅샷(stores 포함, ~2MB)을 로드 시 1회 정리해 quota 회복
+    try { const _b = getBackups(); if (_b.length) { const _s = _trimBackups(_b); if (JSON.stringify(_s).length !== JSON.stringify(_b).length) saveBackups(_s); } } catch (_) {}
     const arr = getBackups();
     const last = arr[arr.length - 1];
     const day = 24 * 60 * 60 * 1000;

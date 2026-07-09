@@ -359,6 +359,20 @@
       if (_leanS.length < _rawS.length) _safeSetItem('ns_stores', _leanS);
     }
   } catch(_){}
+  // 🧹 ns_backups(PC 자동백업) 도 슬림 — 옛 스냅샷의 stores(대용량, 스냅샷당 ~1.2MB)가 같은 origin
+  //   localStorage 를 먹어 모바일에서도 '저장공간 부족' 유발. 로드 시 stores 제거 + 최근 6개로 제한.
+  try {
+    const _rawB = localStorage.getItem('ns_backups');
+    if (_rawB && _rawB.length > 200000) {
+      let _bk = JSON.parse(_rawB);
+      if (Array.isArray(_bk)) {
+        _bk = _bk.map(s => { if (s && s.stores !== undefined) { const c = Object.assign({}, s); delete c.stores; return c; } return s; });
+        while (_bk.length > 6) _bk.shift();
+        const _bj = JSON.stringify(_bk);
+        if (_bj.length < _rawB.length) _safeSetItem('ns_backups', _bj);
+      }
+    }
+  } catch(_){}
 
   // 매장 클라우드 풀 (모바일 첫 진입 시 PC 데이터 받기 위함) — index.html L4895 syncFromCloud
   function _isStoreTombstoned(storeId) { return _isTombstoned('store', storeId); }
