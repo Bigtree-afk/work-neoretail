@@ -191,14 +191,14 @@
       '<div style="font-size:12.5px;color:#94A3B8;line-height:1.6;max-width:300px;margin-bottom:22px">회사 Google 계정으로 로그인해야<br>업무 조회·작성이 가능합니다.</div>' +
       '<div id="nsGateBtn" style="display:flex;justify-content:center;min-height:44px"></div>' +
       '<div id="nsGateErr" style="display:none;margin-top:14px;font-size:12px;color:#FCA5A5;background:rgba(220,38,38,.15);border:1px solid rgba(248,113,113,.4);border-radius:8px;padding:9px 12px;line-height:1.5;max-width:300px"></div>' +
-      '<div id="nsGateFallback" style="display:none;margin-top:14px"><button id="nsGateDevBtn" style="background:transparent;color:#CBD5E1;border:1px solid #475569;border-radius:8px;padding:10px 16px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 개발자 모드 로그인 (이메일 입력)</button></div>';
+      '<div id="nsGateFallback" style="display:none;margin-top:14px"><button id="nsGateDevBtn" style="background:rgba(59,130,246,.18);color:#fff;border:1px solid #3B82F6;border-radius:8px;padding:11px 18px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">✉️ 이메일로 로그인</button><div style="font-size:11px;color:#94A3B8;margin-top:7px;line-height:1.5">구글 로그인(위)이 안 되면(LINE 인앱브라우저 등)<br>등록된 회사 이메일로 로그인하세요</div></div>';
     document.body.appendChild(ov);
     try { document.body.style.overflow = 'hidden'; } catch (_) {}
 
     const showErr = (m) => { const e = document.getElementById('nsGateErr'); if (e) { e.innerHTML = m; e.style.display = ''; } };
 
     document.getElementById('nsGateDevBtn').onclick = function () {
-      const email = prompt('구글 계정 이메일을 입력하세요 (개발자 모드):', '');
+      const email = prompt('회사 구글 계정 이메일을 입력하세요:', '');
       if (!email || !email.includes('@')) return;
       const name = prompt('표시 이름:', email.split('@')[0]) || email.split('@')[0];
       const r = _loginWithGoogleProfile({ email: email.trim().toLowerCase(), name: name.trim(), picture: '' });
@@ -231,10 +231,9 @@
           box.innerHTML = '';
           google.accounts.id.renderButton(box, { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill', locale: 'ko_KR' });
           _gBtnRendered = true;
-          // 🔎 프리뷰 도메인(*.pages.dev)은 Google OAuth 승인 원본이 아니라 로그인 불가 →
-          //    개발자(이메일) 로그인 fallback 도 함께 노출 (프로덕션엔 영향 없음)
-          const _isPreviewHost = (location.hostname || '').endsWith('.pages.dev');
-          if (fb) fb.style.display = _isPreviewHost ? '' : 'none';
+          // 이메일 로그인 fallback 항상 노출 — LINE 인앱브라우저/사파리 등에서 구글 OAuth(gis_transform 400)
+          //   가 막혀도 등록된 회사 이메일로 로그인 가능하게. (허용 이메일 목록으로 차단)
+          if (fb) fb.style.display = '';
           return;
         } catch (e) { /* 아래 fallback 로 */ }
       }
