@@ -82,6 +82,32 @@
   .bottom-nav .item{flex:1;text-align:center;text-decoration:none;color:var(--g500);font-size:10.5px;font-weight:700;padding:3px 0}
   .bottom-nav .item .icn{display:block;font-size:18px;margin-bottom:1px}
   .linkcard{background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:11px;margin-top:10px;font-size:12px;color:#166534}
+  /* 상단 메뉴 탭바 */
+  .tabbar{display:flex;gap:5px;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .tb{flex:0 0 auto;padding:8px 12px;border:1.5px solid var(--g200);background:#fff;border-radius:10px;font-weight:800;font-size:12.5px;color:var(--g600);cursor:pointer;white-space:nowrap}
+  .tb.on{background:#1E3A8A;border-color:#1E3A8A;color:#fff}
+  /* 연차관리 */
+  .lvcard{background:#fff;border:1px solid var(--g200);border-radius:12px;padding:14px;margin-bottom:6px}
+  .lv-n{font-size:12px;font-weight:800;color:var(--g500);margin-bottom:8px}
+  .lv-row{display:flex;gap:14px;align-items:baseline;font-size:13px;color:var(--g600)}
+  .lv-row b{font-size:16px;color:var(--g900)}
+  .lv-rem{margin-left:auto}.lv-rem b{color:var(--ok)}
+  .mtbl{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border:1px solid var(--g200);border-radius:8px;overflow:hidden}
+  .mtbl th{background:var(--g50);padding:7px 6px;font-size:11px;color:var(--g500);font-weight:800;text-align:center}
+  .mtbl td{padding:7px 8px;border-top:1px solid var(--g100)}
+  /* 자금관리 */
+  .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
+  .fco{background:#fff;border:1px solid var(--g200);border-radius:10px;padding:11px 12px}
+  .fco-n{font-size:11.5px;color:var(--g500);font-weight:700;margin-bottom:4px}
+  .fco-b{font-size:15px;font-weight:800;color:var(--g900)}
+  .txr{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--g200);border-radius:9px;padding:8px 11px;margin-bottom:6px;font-size:12px}
+  .txd{color:var(--g500);flex:0 0 auto;font-size:11px}
+  .txc{color:var(--g500);flex:0 0 auto}
+  .txt{flex:1;min-width:0;color:var(--g700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .txa{flex:0 0 auto;font-weight:800}.txa.in{color:#166534}.txa.out{color:#B91C1C}
+  /* 일정 */
+  .schrow{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid var(--g200);border-radius:9px;padding:9px 12px;margin-bottom:6px;font-size:13px}
+  .schd{color:var(--p);font-weight:800;flex:0 0 auto}
 </style>
 </head>
 <body>
@@ -117,7 +143,7 @@
   'use strict';
   const DOCS_LS='ns_eap_docs', DOCS_ETAG='ns_eap_docs_etag', CFG_LS='ns_eap_cfg', DEL_LS='ns_eap_deleted';
   const ADMIN_EMAILS=['zoolex@gmail.com'];
-  let SUB='received';
+  let SUB='received', TAB='appr';
 
   /* helpers */
   const esc = window.esc || (s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
@@ -138,6 +164,12 @@
   function isAdmin(){const a=authState();if(a&&a.role==='admin')return true;if(a&&ADMIN_EMAILS.includes((a.id||a.email||'').toLowerCase()))return true;return false;}
   const FUND_EXECUTORS=['김혜연'];
   function canExecFund(){return isAdmin()||FUND_EXECUTORS.includes(ME());}
+  // 권한 (PC app/eapproval.js 와 동일 — 쌍둥이. 한쪽 수정 시 양쪽)
+  const MANAGERS=['이동호','김혜연'];
+  function canEditLeave(){return isAdmin()||MANAGERS.includes(ME());}
+  function canManageRoutes(){return isAdmin()||MANAGERS.includes(ME());}
+  const FUND_MEMBERS=['정필성','이동호','김혜연','오근례'];
+  function canViewFund(){return isAdmin()||FUND_MEMBERS.includes(ME());}
 
   /* 공휴일 / 근무일 (PC app/eapproval.js 와 동일 — 쌍둥이) */
   const KR_HOLIDAYS_BUILTIN=['2026-01-01','2026-02-16','2026-02-17','2026-02-18','2026-03-01','2026-03-02','2026-05-05','2026-05-24','2026-05-25','2026-06-06','2026-08-15','2026-08-17','2026-09-24','2026-09-25','2026-09-26','2026-09-28','2026-10-03','2026-10-05','2026-10-09','2026-12-25'];
@@ -151,12 +183,20 @@
   function writeDocs(a){setItem(DOCS_LS,JSON.stringify(a));}
   function setDocs(a){writeDocs(a);schedulePush();}
   function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_LS)||'{}');}catch(_){return {};}}
-  function mergeEapCfg(local,cloud){local=local||{};cloud=cloud||{};const out=Object.assign({},local);for(const k of ['routes','birth','leave','lineMap'])if(cloud[k]&&typeof cloud[k]==='object')out[k]=Object.assign({},local[k]||{},cloud[k]);for(const k of ['holidays','holidayExcludes']){const a=Array.isArray(local[k])?local[k]:[],b=Array.isArray(cloud[k])?cloud[k]:[];if(a.length||b.length)out[k]=[...new Set([...a,...b])];}if(Array.isArray(cloud.tpl)&&cloud.tpl.length){const byId=new Map((Array.isArray(local.tpl)?local.tpl:[]).map(t=>[t.id,t]));cloud.tpl.forEach(t=>{if(t&&t.id)byId.set(t.id,t);});out.tpl=[...byId.values()];}out.updatedAt=Date.now();return out;}
+  function mergeEapCfg(local,cloud){local=local||{};cloud=cloud||{};const out=Object.assign({},local);for(const k of ['routes','birth','leave','lineMap','fund'])if(cloud[k]&&typeof cloud[k]==='object')out[k]=Object.assign({},local[k]||{},cloud[k]);for(const k of ['holidays','holidayExcludes']){const a=Array.isArray(local[k])?local[k]:[],b=Array.isArray(cloud[k])?cloud[k]:[];if(a.length||b.length)out[k]=[...new Set([...a,...b])];}if(Array.isArray(cloud.tpl)&&cloud.tpl.length){const byId=new Map((Array.isArray(local.tpl)?local.tpl:[]).map(t=>[t.id,t]));cloud.tpl.forEach(t=>{if(t&&t.id)byId.set(t.id,t);});out.tpl=[...byId.values()];}out.updatedAt=Date.now();return out;}
   function getTpls(){const t=getCfg().tpl;return Array.isArray(t)?t:[];}
   function tplById(id){return getTpls().find(t=>t.id===id);}
   function getRoutes(){const r=getCfg().routes;return (r&&typeof r==='object')?r:{};}
   function myRoute(n){const r=getRoutes()[n||ME()];return Array.isArray(r)?r.slice():[];}
   function getDeleted(){try{return JSON.parse(localStorage.getItem(DEL_LS)||'[]');}catch(_){return [];}}
+
+  /* 연차/자금 데이터 (PC app/eapproval.js 쌍둥이) — 모바일은 조회 중심(자금 입력/마감은 PC) */
+  function getLeaveAll(){const l=getCfg().leave;return (l&&typeof l==='object')?l:{};}
+  function getLeave(n){return getLeaveAll()[n]||{total:15,used:0};}
+  const FUND_LS='ns_eap_fund', FUND_COS=['인토개인','인토법인','네오솔루션','세이브넷'];
+  function getFundTx(){try{return JSON.parse(localStorage.getItem(FUND_LS)||'[]');}catch(_){return [];}}
+  function getFundMeta(){const f=getCfg().fund||{};return {opening:f.opening||{},openingDate:f.openingDate||kstDate(),closings:(f.closings&&typeof f.closings==='object')?f.closings:{},cats:(f.cats&&typeof f.cats==='object')?f.cats:{}};}
+  function fundBalAsOf(co,date){const m=getFundMeta();let b=Number(m.opening[co]||0);getFundTx().forEach(t=>{if(t&&t.co===co&&t.date>=m.openingDate&&t.date<=date)b+=(t.dir==='in'?(Number(t.amount)||0):-(Number(t.amount)||0));});return b;}
 
   let _pushT=null;
   function schedulePush(){clearTimeout(_pushT);_pushT=setTimeout(doPush,1200);}
@@ -185,6 +225,8 @@
       for(const d of cloudDocs){if(!d||!d.id||delSet.has(String(d.id)))continue;const id=String(d.id),ex=byId.get(id);if(!ex||mt(d)>=mt(ex))byId.set(id,d);}
       writeDocs([...byId.values()]);
       try{localStorage.setItem(CFG_LS,JSON.stringify(mergeEapCfg(getCfg(),data.config||{})));}catch(_){}
+      // 자금 거래(view 전용) — 클라우드 값 반영 (모바일은 fund 를 push 안 함)
+      try{if(Array.isArray(data.fund))setItem(FUND_LS,JSON.stringify(data.fund));}catch(_){}
       // 최신 결재상태 반영 — 폼 작성 중이 아니면 현재 화면 재렌더(목록/상세)
       const v=parseHash().view; if(v==='list')renderList(); else if(v==='detail')render();
     }catch(e){}
@@ -227,7 +269,7 @@
   window.addEventListener('hashchange',render);
 
   /* ── list ── */
-  function setSub(s){SUB=s;_doneTplFilter='all';renderList();}
+  function setSub(s){SUB=s;_doneTplFilter='all';renderSection();}
   window._eapSetSub=setSub;
   function lineHtml(d){
     return '<div class="line">'+(d.line||[]).map((s,i)=>{
@@ -249,14 +291,41 @@
       +'<div class="meta">기안 '+esc(d.drafter)+' · '+esc((d.at||'').slice(0,16))+amt+lv+'</div>'
       +lineHtml(d)+'</div>';
   }
+  // ── 상단 메뉴 탭바 (결재함/연차관리/자금관리/일정/양식·루트) — 권한별 노출 ──
+  function tabBarHtml(){
+    if(TAB==='fund'&&!canViewFund())TAB='appr';
+    if(TAB==='tpl'&&!canManageRoutes())TAB='appr';
+    const tabs=[['appr','📋 결재함',true],['leave','🌴 연차관리',true],['fund','💰 자금관리',canViewFund()],['sch','📅 일정',true],['tpl','⚙️ 양식·루트',canManageRoutes()]];
+    return '<div class="tabbar">'+tabs.filter(t=>t[2]).map(function(t){return '<button class="tb '+(TAB===t[0]?'on':'')+'" onclick="_eapTab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
+  }
+  window._eapTab=function(t){TAB=t;renderList();};
   function renderList(){
+    const host=document.getElementById('view-list');if(!host)return;
+    host.innerHTML=tabBarHtml()+'<div id="eapSection"></div>';
+    const fab=document.getElementById('fab');if(fab)fab.style.display=(TAB==='appr')?'block':'none';
+    renderSection();
+  }
+  function renderSection(){
+    const s=document.getElementById('eapSection');if(!s)return;
+    if(TAB==='appr')s.innerHTML=inboxHtml();
+    else if(TAB==='leave')s.innerHTML=leaveHtml();
+    else if(TAB==='fund')s.innerHTML=fundHtml();
+    else if(TAB==='sch')s.innerHTML=schHtml();
+    else if(TAB==='tpl')s.innerHTML=tplHtml();
+  }
+
+  /* ── 결재함 (appr) — 서브탭: 받은 결재/상신함/참조/자금집행/완료·반려/전체 ── */
+  function inboxHtml(){
     const docs=getDocs(),me=ME();
     const cntR=docs.filter(isMyTurn).length;
-    const subs=[['received','받은 결재',cntR],['mine','상신함',null],['done','완료/반려',null]];
+    const execPend=docs.filter(d=>d.kind==='pay'&&d.status==='ok'&&d.execStatus!=='done'&&canView(d)).length;
+    const subs=[['received','받은 결재',cntR],['mine','상신함',null],['ref','참조',null],['exec','자금집행',execPend],['done','완료/반려',null]];
     if(isAdmin())subs.push(['all','전체',null]);
     let list;
     if(SUB==='received')list=docs.filter(isMyTurn);
     else if(SUB==='mine')list=docs.filter(d=>d.drafter===me);
+    else if(SUB==='ref')list=docs.filter(d=>(d.cc||[]).includes(me)&&d.drafter!==me&&d.status==='ok');   // 참조자는 결재 '완료' 후에만 열람
+    else if(SUB==='exec')list=docs.filter(d=>d.kind==='pay'&&d.status==='ok'&&canView(d));
     else if(SUB==='done')list=docs.filter(d=>(d.status==='ok'||d.status==='rej')&&canView(d));
     else list=docs.filter(canView);
     list.sort((a,b)=>(Number(b.updatedAt||b.createdAt)||0)-(Number(a.updatedAt||a.createdAt)||0));
@@ -268,10 +337,68 @@
       tickers='<div class="chips" style="margin-bottom:8px">'+tk.map(([k,l,n])=>'<button class="chip '+(_doneTplFilter===k?'on':'')+'" onclick="_eapDoneTpl(\''+esc(String(k))+'\')">'+esc(l)+' <span style="opacity:.55">'+n+'</span></button>').join('')+'</div>';
       if(_doneTplFilter!=='all')list=list.filter(d=>(d.tplId||d.tpl||d.kind||'etc')===_doneTplFilter);
     }
-    document.getElementById('view-list').innerHTML='<div class="chips">'+chips+'</div>'+tickers+(list.length?list.map(card).join(''):'<div class="empty">📭 항목이 없습니다</div>');
+    return '<div class="chips">'+chips+'</div>'+tickers+(list.length?list.map(card).join(''):'<div class="empty">📭 항목이 없습니다</div>');
   }
   let _doneTplFilter='all';
-  window._eapDoneTpl=function(k){_doneTplFilter=k;renderList();};
+  window._eapDoneTpl=function(k){_doneTplFilter=k;renderSection();};
+
+  /* ── 연차관리 (leave) ── */
+  function leaveHtml(){
+    const me=ME(),lv=getLeave(me);
+    const tot=Number(lv.total)||0,used=Number(lv.used)||0,rem=tot-used;
+    let team='';
+    if(canEditLeave()){
+      const rows=STAFF().map(function(n){const l=getLeave(n);const r=(Number(l.total)||0)-(Number(l.used)||0);return '<tr><td>'+esc(n)+'</td><td style="text-align:center">'+(Number(l.total)||0)+'</td><td style="text-align:center">'+(Number(l.used)||0)+'</td><td style="text-align:center;font-weight:800">'+r+'</td></tr>';}).join('');
+      team='<div class="sech">팀 연차 현황</div><table class="mtbl"><thead><tr><th style="text-align:left">직원</th><th>부여</th><th>사용</th><th>잔여</th></tr></thead><tbody>'+rows+'</tbody></table><div class="meta" style="margin-top:6px">부여/사용 일수 편집은 💻 PC 에서.</div>';
+    }
+    return '<div class="lvcard"><div class="lv-n">'+esc(me)+' 님 연차</div><div class="lv-row"><span>부여 <b>'+tot+'</b></span><span>사용 <b>'+used+'</b></span><span class="lv-rem">잔여 <b>'+rem+'</b>일</span></div></div>'
+      +'<button class="btn btn-p" style="width:100%;margin:4px 0 14px" onclick="_eapNewLeave()">🌴 연차 신청</button>'+team;
+  }
+  window._eapNewLeave=function(){const t=getTpls().find(x=>x.cat==='leave');if(!t){toast('연차 양식이 없습니다 — PC에서 등록하세요');return;}_editDocId=null;_editVals={};draftTpl=t;location.hash='#form';};
+
+  /* ── 자금관리 (fund) — 조회 전용(입력·마감은 PC) ── */
+  function fundHtml(){
+    if(!canViewFund())return '<div class="empty">자금관리 권한이 없습니다</div>';
+    const today=kstDate();
+    const cards=FUND_COS.map(function(co){const b=fundBalAsOf(co,today);return '<div class="fco"><div class="fco-n">'+esc(co)+'</div><div class="fco-b">'+won(b)+'</div></div>';}).join('');
+    const tx=getFundTx().slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||((Number(b.createdAt)||0)-(Number(a.createdAt)||0))).slice(0,20);
+    const rows=tx.length?tx.map(function(t){return '<div class="txr"><span class="txd">'+esc(t.date||'')+'</span><span class="txc">'+esc(t.co||'')+'</span><span class="txt">'+esc(t.cat||t.memo||'')+'</span><span class="txa '+(t.dir==='in'?'in':'out')+'">'+(t.dir==='in'?'+':'−')+won(t.amount)+'</span></div>';}).join(''):'<div class="empty">거래 내역이 없습니다</div>';
+    return '<div class="sech">회사별 현재 잔액</div><div class="fgrid">'+cards+'</div>'
+      +'<div class="sech">최근 거래 (20건)</div>'+rows
+      +'<div class="linkcard">일일자금 입력·항목·마감 등 상세 관리는 <a href="/?desktop=1" style="font-weight:800;color:#166534">💻 PC 자금관리</a>에서 처리하세요.</div>';
+  }
+
+  /* ── 일정 (sch) — 이번 달 승인 연차 + 생일 ── */
+  function schHtml(){
+    const now=new Date(Date.now()+9*3600*1000),y=now.getFullYear(),mo=now.getMonth(),pad=n=>String(n).padStart(2,'0');
+    const items=[];
+    for(const d of getDocs()){
+      if(!d||d.kind!=='leave'||d.status!=='ok'||!d.from)continue;
+      const s=new Date(d.from+'T00:00:00'),e=new Date((d.to||d.from)+'T00:00:00');
+      if(isNaN(s)||isNaN(e)||e<s)continue;
+      for(let dt=new Date(s);dt<=e;dt.setDate(dt.getDate()+1)){
+        if(dt.getFullYear()!==y||dt.getMonth()!==mo)continue;
+        const dow=dt.getDay();if(dow===0||dow===6)continue;
+        items.push({ymd:dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate()),ic:'🌴',label:(d.drafter||'')+' 연차'});
+      }
+    }
+    const births=(getCfg().birth)||{};
+    for(const who in births){const b=births[who];if(!b||!b.date)continue;let ymd;if(b.cal==='lunar'&&window.LunarKR){ymd=window.LunarKR.lunarBirthdayStr(Number(String(b.date).slice(5,7)),Number(String(b.date).slice(8,10)),y)||null;}else{const md=String(b.date).slice(5);if(!/^\d{2}-\d{2}$/.test(md))continue;ymd=y+'-'+md;}if(!ymd||Number(ymd.slice(5,7))!==mo+1)continue;items.push({ymd:ymd,ic:'🎂',label:who+' 생일'+(b.cal==='lunar'?'(음력)':'')});}
+    items.sort((a,b)=>a.ymd.localeCompare(b.ymd));
+    const list=items.length?items.map(function(it){return '<div class="schrow"><span class="schd">'+esc(it.ymd.slice(5))+'</span><span>'+it.ic+' '+esc(it.label)+'</span></div>';}).join(''):'<div class="empty">이번 달 연차·생일이 없습니다</div>';
+    return '<div class="sech">'+y+'년 '+(mo+1)+'월 일정</div>'+list+'<div class="linkcard"><a href="/m/schedule/" style="font-weight:800;color:#166534">📅 전체 일정 달력 열기</a></div>';
+  }
+
+  /* ── 양식·루트 (tpl) — 관리자/매니저 조회, 편집은 PC ── */
+  function tplHtml(){
+    if(!canManageRoutes())return '<div class="empty">관리자 전용 화면입니다</div>';
+    const tpls=getTpls(),catL={pay:'💰지출',buy:'🛒구매',leave:'🌴휴가',gen:'📄일반'};
+    const tl=tpls.length?tpls.map(function(t){return '<div class="txr"><span class="txt">'+esc(t.name)+'</span><span class="txc">'+(catL[t.cat]||t.cat||'')+'</span></div>';}).join(''):'<div class="empty">등록된 양식 없음</div>';
+    const routes=getRoutes(),rk=Object.keys(routes);
+    const rl=rk.length?rk.map(function(n){return '<div class="txr"><span class="txt">'+esc(n)+'</span><span class="txc" style="font-size:11px">'+esc((routes[n]||[]).join(' → ')||'-')+'</span></div>';}).join(''):'<div class="empty">설정된 결재선 없음</div>';
+    return '<div class="sech">문서 양식 ('+tpls.length+')</div>'+tl+'<div class="sech">결재 루트</div>'+rl
+      +'<div class="linkcard">양식·결재루트 추가/편집은 <a href="/?desktop=1" style="font-weight:800;color:#166534">💻 PC</a>에서 하세요.</div>';
+  }
 
   /* ── docform ── */
   function ci(label,type,vals,mode,opts){
