@@ -1015,9 +1015,11 @@
           const key = (ru.email || '').toLowerCase();
           if (!key) return;
           const existing = byEmail.get(key);
+          const prefix = key.split('@')[0];   // 이메일 앞부분(임시 표시이름 sentinel)
           if (existing) {
-            // 비어있는 필드만 보강 (로컬 변경사항 우선)
-            if (!existing.name)  existing.name  = ru.name;
+            // 비어있는 필드만 보강 (로컬 변경사항 우선). 단 이름이 '이메일 앞부분'으로
+            //   임시 저장돼 있으면 클라우드 정본으로 교정(zoolex→이동호 고착 버그 fix).
+            if (ru.name && (!existing.name || existing.name === prefix)) existing.name = ru.name;
             if (!existing.title) existing.title = ru.title;
             if (!existing.phone) existing.phone = ru.phone;
             existing.email = key;
@@ -1035,6 +1037,15 @@
           }
         });
         saveUsers(Array.from(byEmail.values()));
+        // ns_auth 표시이름도 교정 — 이메일 앞부분으로 저장돼 있으면 정본 이름으로
+        try {
+          const a = JSON.parse(localStorage.getItem('ns_auth') || 'null');
+          if (a && a.email) {
+            const k = String(a.email).toLowerCase(), pfx = k.split('@')[0];
+            const rec = byEmail.get(k);
+            if (rec && rec.name && (!a.name || a.name === pfx)) { a.name = rec.name; localStorage.setItem('ns_auth', JSON.stringify(a)); }
+          }
+        } catch (_) {}
       }
       return data;
     } catch (e) {

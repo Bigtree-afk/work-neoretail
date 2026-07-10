@@ -130,15 +130,27 @@
         remoteUsers.forEach(ru => {
           const key = String(ru.email || '').toLowerCase();
           if (!key) return;
+          const prefix = key.split('@')[0];   // 이메일 앞부분(임시 표시이름 sentinel)
           const ex = byEmail.get(key);
           if (ex) {
-            if (!ex.name)  ex.name  = ru.name;
+            // 클라우드 이름이 정본 — 비었거나 '이메일 앞부분'으로 저장된 임시 이름이면 교정
+            //   (zoolex@gmail.com 이 이름 없는 로그인/이메일폴백으로 'zoolex' 로 굳던 버그 fix)
+            if (ru.name && (!ex.name || ex.name === prefix)) ex.name = ru.name;
             if (!ex.title) ex.title = ru.title;
           } else {
             users.push({ id: ru.email, email: ru.email, name: ru.name, title: ru.title, role: ru.role || 'staff', provider: 'google' });
           }
         });
         try { localStorage.setItem('ns_users', JSON.stringify(users)); } catch (_) {}
+        // ns_auth 표시이름도 교정 — 이메일 앞부분으로 저장돼 있으면 정본 이름으로
+        try {
+          const a = JSON.parse(localStorage.getItem('ns_auth') || 'null');
+          if (a && a.email) {
+            const k = String(a.email).toLowerCase(), pfx = k.split('@')[0];
+            const rec = users.find(u => String(u.email || u.id || '').toLowerCase() === k);
+            if (rec && rec.name && (!a.name || a.name === pfx)) { a.name = rec.name; localStorage.setItem('ns_auth', JSON.stringify(a)); }
+          }
+        } catch (_) {}
       }
       return data;
     } catch (e) { console.warn('[_pullAuthConfig]', e); return null; }
