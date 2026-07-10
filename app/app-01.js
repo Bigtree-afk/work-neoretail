@@ -1574,7 +1574,11 @@
     if (cat === 'as') {
       const out = [];
       const rec = norm(j.asReceivedAt);
-      const due = norm(j.asDueDate);
+      // 처리예정일: asDueDate 우선 → 없으면 thread ROOT(요청접수)의 dueDate
+      let due = norm(j.asDueDate);
+      if (!due && Array.isArray(j.thread)) {
+        for (const e of j.thread) { if (e && e.parentId === null && e.dueDate) { due = norm(e.dueDate); if (due) break; } }
+      }
       if (rec) out.push({ ymd: rec, role: 'received' });
       if (due && due !== rec) out.push({ ymd: due, role: 'due' });
       if (out.length) return out;

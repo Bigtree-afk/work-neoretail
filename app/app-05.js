@@ -1008,7 +1008,15 @@
     // 🛡 어른거림 방지 — 해당 월 일정 데이터가 직전과 동일하면 그리드 재구축 skip
     {
       const _jall = (typeof getJobs === 'function') ? (getJobs() || []) : [];
-      const _calSig = year + '-' + month + '|' + JSON.stringify(_jall.map(j=>[j.id,j.installDate||'',j.softOpenDate||'',j.openDate||'',j.asReceivedAt||'',j.shipDate||'',j.status||'',j.completed?1:0]));
+      // 전자결재 직원 일정(연차/생일) 변경도 재렌더 트리거에 포함
+      let _eapSig = '';
+      try {
+        const _ed = JSON.parse(localStorage.getItem('ns_eap_docs') || '[]');
+        const _ec = JSON.parse(localStorage.getItem('ns_eap_cfg') || '{}');
+        _eapSig = JSON.stringify((Array.isArray(_ed) ? _ed : []).filter(d => d && d.kind === 'leave' && d.status === 'ok').map(d => [d.id, d.from, d.to, d.drafter]))
+                + '|' + JSON.stringify((_ec && _ec.birth) || {});
+      } catch (_) {}
+      const _calSig = year + '-' + month + '|' + JSON.stringify(_jall.map(j=>[j.id,j.installDate||'',j.softOpenDate||'',j.openDate||'',j.asReceivedAt||'',j.shipDate||'',j.status||'',j.completed?1:0,(Array.isArray(j.thread)?j.thread.length:0),j.updatedAt||0])) + '|E:' + _eapSig;
       if (window._sigSkip && window._sigSkip(grid, _calSig)) return;
     }
 
@@ -1032,21 +1040,63 @@
     jobs.forEach(j => {
       const isAs = /AS/i.test(j.type || '');
       if (isAs) {
-        // AS 일정 — 처리예정일이 있으면, 없으면 접수일
-        const asDate = (j.asDueDate || '').slice(0,10) ||
+        // AS 일정 — 처리예정일 기준. thread ROOT(요청접수)의 dueDate 우선 → asDueDate → 접수일
+        let asDue = '';
+        if (Array.isArray(j.thread)) {
+          for (const e of j.thread) { if (e && e.parentId === null && e.dueDate) { asDue = String(e.dueDate).slice(0,10); break; } }
+        }
+        const asDate = asDue || (j.asDueDate || '').slice(0,10) ||
                        (j.asReceivedAt ? j.asReceivedAt.slice(0,10) : '');
         if (asDate) pushEvent(asDate, j, 'as');
       } else {
-        // 매장 주요 일정 3종
+        // 매장 주요 일정 3종 (신규 처리예정일 = 설치·가오픈·오픈 예정일)
         pushEvent(j.installDate,  j, 'install');
         pushEvent(j.softOpenDate, j, 'soft');
         pushEvent(j.openDate,     j, 'open');
       }
     });
 
+    // ── 전자결재 직원 일정 주입: 연차(최종 승인) + 생일 ── (renderScheduleHub 와 동일 규칙)
+    try {
+      const pad = n => String(n).padStart(2, '0');
+      const eapDocs = JSON.parse(localStorage.getItem('ns_eap_docs') || '[]');
+      const eapCfg  = JSON.parse(localStorage.getItem('ns_eap_cfg') || '{}');
+      // 연차 — 최종 결재 완료(status 'ok') 만. 기간 전개, 토·일·공휴일 제외
+      for (const d of (Array.isArray(eapDocs) ? eapDocs : [])) {
+        if (!d || d.kind !== 'leave' || d.status !== 'ok' || !d.from) continue;
+        const start = new Date(d.from + 'T00:00:00'), end = new Date((d.to || d.from) + 'T00:00:00');
+        if (isNaN(start) || isNaN(end) || end < start) continue;
+        for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+          const dow = dt.getDay();
+          if (dow === 0 || dow === 6) continue;
+          const ymd = dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate());
+          if (window.EAP && typeof window.EAP.isHoliday === 'function' && window.EAP.isHoliday(ymd)) continue;
+          (byDate[ymd] = byDate[ymd] || []).push({ _kind: 'leave', _eapLabel: (d.drafter || '') + ' 연차', id: '' });
+        }
+      }
+      // 생일 — 표시 연도 기준(매년 반복). 음력이면 해당 연도 양력으로 변환
+      const births = (eapCfg && eapCfg.birth) || {};
+      for (const who in births) {
+        const b = births[who]; if (!b || !b.date) continue;
+        let ymd;
+        if (b.cal === 'lunar' && window.LunarKR) {
+          ymd = window.LunarKR.lunarBirthdayStr(Number(String(b.date).slice(5,7)), Number(String(b.date).slice(8,10)), year) || null;
+        } else {
+          const mmdd = String(b.date).slice(5);
+          if (!/^\d{2}-\d{2}$/.test(mmdd)) continue;
+          ymd = year + '-' + mmdd;
+        }
+        if (!ymd) continue;
+        (byDate[ymd] = byDate[ymd] || []).push({ _kind: 'bday', _eapLabel: who + ' 생일' + (b.cal === 'lunar' ? '(음력)' : ''), id: '' });
+      }
+    } catch (_) {}
+
     const today = new Date().toISOString().slice(0, 10);
 
     const eventStyle = (kind, type) => {
+      // 전자결재 직원 일정
+      if (kind === 'leave')   return 'background:#DCFCE7;color:#166534;font-weight:600'; // 연한 초록 — 연차
+      if (kind === 'bday')    return 'background:#FCE7F3;color:#9D174F;font-weight:600'; // 분홍 — 생일
       // 매장 주요 일정 우선
       if (kind === 'install') return 'background:#FED7AA;color:#9A3412'; // 주황
       if (kind === 'soft')    return 'background:#FECACA;color:#991B1B'; // 분홍/빨강
@@ -1060,8 +1110,8 @@
       if (/신규|개업|가맹|SW/.test(t))  return 'background:#DBEAFE;color:#1D4ED8';
       return 'background:#F3F4F6;color:#374151';
     };
-    const kindIcon = (kind) => ({ install:'🔧', soft:'🌅', open:'🎉', as:'🛠' })[kind] || '';
-    const kindLabel = (kind) => ({ install:'설치예정', soft:'가오픈', open:'오픈', as:'AS' })[kind] || '';
+    const kindIcon = (kind) => ({ install:'🔧', soft:'🌅', open:'🎉', as:'🛠', leave:'🌴', bday:'🎂' })[kind] || '';
+    const kindLabel = (kind) => ({ install:'설치예정', soft:'가오픈', open:'오픈', as:'AS', leave:'연차', bday:'생일' })[kind] || '';
 
     // 이전 달 끝 날짜 (회색)
     for (let i = firstDayWeekday - 1; i >= 0; i--) {
@@ -1080,6 +1130,11 @@
       const events = dayJobs.slice(0, 4).map(j => {
         const kind = j._kind || 'work';
         const icon = kindIcon(kind);
+        // 전자결재 직원 일정(연차/생일) — 작업 아님. 클릭 편집 없음, 라벨만 표시
+        if (kind === 'leave' || kind === 'bday') {
+          const lbl = j._eapLabel || '';
+          return `<div class="cal-event" style="${eventStyle(kind)};cursor:default" title="${esc(lbl)}">${icon} ${esc(lbl)}</div>`;
+        }
         const klabel = kindLabel(kind);
         const storeName = (j.store || j.storeName || '-').slice(0, 8);
         const label = kind === 'work'
