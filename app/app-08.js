@@ -1325,13 +1325,29 @@
      saveJobs 가 변경된 job 만 updatedAt bump + push → 다른 기기도 동기화로 실명 반영. */
   window.migrateJobAuthorNicknames = function(opts) {
     opts = opts || {};
-    const FLAG = 'ns_author_nick_migrated_v1';
+    const FLAG = 'ns_author_nick_migrated_v2';   // v1→v2: 이메일 앞부분(예 'zoolex')→실명 교정 + workflow.steps.updatedBy 커버 (1회 재실행)
     if (!opts.force && localStorage.getItem(FLAG) === '1') return { skipped:true };
     const norm = window._normalizeDisplayName;
-    if (typeof norm !== 'function') return { skipped:true, reason:'no _normalizeDisplayName' };
+    // 이메일 앞부분 → 실명 맵 — 이름 없는 로그인이 'zoolex'(=zoolex@gmail.com 앞부분) 등으로
+    //   저장된 작성자를 실명으로 교정. ns_users 에서 자동 생성(특정인 하드코딩 없음).
+    const prefixMap = {};
+    try {
+      const users = JSON.parse(localStorage.getItem('ns_users') || '[]');
+      users.forEach(u => {
+        const em = String((u && (u.email || u.id)) || '').toLowerCase();
+        const pfx = em.includes('@') ? em.split('@')[0] : '';
+        if (pfx && u.name && u.name !== pfx) prefixMap[pfx] = u.name;
+      });
+    } catch(_){}
+    if (typeof norm !== 'function' && !Object.keys(prefixMap).length) return { skipped:true, reason:'no mapping' };
     let jobs = []; try { jobs = (typeof getJobs === 'function') ? (getJobs() || []) : []; } catch(e){ return { skipped:true }; }
-    const FIELDS = ['author','createdBy','recordedBy','assignee','engineer','owner','_whoCreated','completedBy','lastEditedBy'];
-    const fix = (v) => { if (!v || typeof v !== 'string') return v; const n = norm(v); return (n && n !== v) ? n : v; };
+    const FIELDS = ['author','createdBy','recordedBy','assignee','engineer','owner','_whoCreated','completedBy','lastEditedBy','updatedBy'];
+    const fix = (v) => {
+      if (!v || typeof v !== 'string') return v;
+      if (prefixMap[v]) return prefixMap[v];                       // 이메일 앞부분 → 실명 (우선)
+      if (typeof norm === 'function') { const n = norm(v); if (n && n !== v) return n; }   // 닉네임 → 실명
+      return v;
+    };
     let changed = 0;
     jobs.forEach(j => {
       if (!j || typeof j !== 'object') return;
@@ -1340,6 +1356,8 @@
       if (Array.isArray(j.assignees)) j.assignees = j.assignees.map(a => { const nv = fix(a); if (nv !== a) jc = true; return nv; });
       if (Array.isArray(j.thread))  j.thread.forEach(e => { if (e) { const nv = fix(e.author); if (nv !== e.author) { e.author = nv; jc = true; } } });
       if (Array.isArray(j.memos))   j.memos.forEach(m => { if (m) { ['author','recordedBy'].forEach(f => { const nv = fix(m[f]); if (nv !== m[f]) { m[f] = nv; jc = true; } }); } });
+      // 워크플로 단계 처리자 (workflow.steps[].updatedBy)
+      if (j.workflow && Array.isArray(j.workflow.steps)) j.workflow.steps.forEach(s => { if (s) { const nv = fix(s.updatedBy); if (nv !== s.updatedBy) { s.updatedBy = nv; jc = true; } } });
       if (jc) changed++;
     });
     if (changed > 0 && typeof saveJobs === 'function') {
