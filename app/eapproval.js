@@ -697,12 +697,35 @@
         ${lineHtml(d)}
         ${(d.cc && d.cc.length) ? `<div class="eap-meta" style="margin-top:6px">참조: ${d.cc.map(esc).join(', ')}</div>` : ''}
         ${attView(d.attachments)}
+        ${(d.drafter === ME() || isAdmin()) ? `<div style="margin-top:8px"><input id="eapReAttInput" type="file" multiple style="display:none" onchange="EAP.addAttToDoc(${J(d.id)}, this.files)"><button class="eap-att-btn" onclick="document.getElementById('eapReAttInput').click()">📎 파일 추가 / 재첨부</button> <span class="eap-meta">기존 첨부에 파일을 더합니다 (재상신 없이)</span></div>` : ''}
         ${lineCard}
         <div class="eap-sech">처리 이력</div>
         ${histHtml}
         <div class="eap-mactions">${actions}</div>
       </div>`;
     openModal(html);
+  };
+
+  // 기존(상신된) 문서에 파일 추가 — 재상신 없이 첨부만 보강 (기안자/관리자). 수정 이전 첨부 재첨부용.
+  EAP.addAttToDoc = function (id, files) {
+    const docs = getDocs(); const d = docs.find(x => x.id === id);
+    if (!d) return;
+    if (!(d.drafter === ME() || isAdmin())) { toast('본인 기안 또는 관리자만 첨부 추가 가능'); return; }
+    d.attachments = d.attachments || [];
+    let pending = 0, added = 0;
+    const done = () => { d.updatedAt = Date.now(); _save(docs); EAP.openDetail(id); toast(added ? ('📎 첨부 ' + added + '건 추가') : '추가된 첨부 없음'); };
+    [...files].forEach(f => {
+      const item = { name: f.name, type: f.type, size: f.size };
+      if (f.size <= ATT_CAP) {
+        pending++;
+        const r = new FileReader();
+        r.onload = e => { item.dataUrl = e.target.result; added++; if (--pending === 0) done(); };
+        r.onerror = () => { if (--pending === 0) done(); };
+        r.readAsDataURL(f);
+      } else { toast('⚠ ' + f.name + ' (' + fsize(f.size) + ') — 2MB 초과, 저장 안 됨'); }
+      d.attachments.push(item);
+    });
+    if (pending === 0) done();
   };
 
   /* ════════════════ 결재 액션 ════════════════ */
