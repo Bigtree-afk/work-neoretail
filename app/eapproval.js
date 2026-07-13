@@ -642,6 +642,8 @@
   EAP.openDetail = function (id) {
     const d = getDocs().find(x => x.id === id);
     if (!d) { toast('문서를 찾을 수 없습니다'); return; }
+    _detailDocId = d.id;
+    _detailCanEditAtt = (d.drafter === ME() || isAdmin());   // 기안자/관리자만 첨부 추가·삭제
     const k = KIND[d.kind] || KIND.gen;
     const t = tplById(d.tplId) || { id: d.tplId, name: d.tpl || k.label.replace(/^\S+\s/, ''), fields: (d.fields || []).map(f => ({ label: f.label, type: f.type })) };
     const vals = {}; (d.fields || []).forEach(f => { vals[f.label] = f.value; });
@@ -715,6 +717,10 @@
     let pending = 0, added = 0;
     const done = () => { d.updatedAt = Date.now(); _save(docs); EAP.openDetail(id); toast(added ? ('📎 첨부 ' + added + '건 추가') : '추가된 첨부 없음'); };
     [...files].forEach(f => {
+      // 중복 방지 — 같은 이름+크기의 '내용 있는' 첨부가 이미 있으면 skip
+      if (d.attachments.some(a => a && a.name === f.name && a.size === f.size && a.dataUrl)) {
+        toast('이미 첨부됨: ' + f.name); return;
+      }
       const item = { name: f.name, type: f.type, size: f.size };
       if (f.size <= ATT_CAP) {
         pending++;
@@ -1093,24 +1099,42 @@
   /* ════════════════ 첨부 보기 + 라이트박스 ════════════════ */
   let _lbImgs = [];
   let _detailAtts = [];
+  let _detailDocId = null, _detailCanEditAtt = false;
   function attView(atts) {
     atts = atts || [];
     if (!atts.length) return '';
     _detailAtts = atts;
     const isImg = a => /^image\//.test(a.type || '') && a.dataUrl;
-    const imgs = atts.filter(isImg);
-    _lbImgs = imgs.map(a => a.dataUrl);
-    let filesHtml = '';
-    atts.forEach((a, i) => {
-      if (isImg(a)) return;
-      filesHtml += a.dataUrl
-        ? `<div class="eap-att-thumb"><a href="#" onclick="EAP.openAtt(${i});return false" style="color:#2563EB;font-weight:700;cursor:pointer">📄 ${esc(a.name)}</a> <span class="eap-meta">${fsize(a.size)}</span></div>`
-        : `<div class="eap-att-thumb">📄 ${esc(a.name)} <span class="eap-meta">${fsize(a.size)} · 내용 미저장(구 첨부 — 다시 첨부 필요)</span></div>`;
+    // 삭제 ✕ (기안자/관리자만). oi = 원본 atts 인덱스
+    const rm = oi => _detailCanEditAtt ? ` <span style="cursor:pointer;color:#DC2626;font-weight:900" onclick="EAP.rmAttFromDoc(${J(_detailDocId)},${oi})" title="첨부 삭제">✕</span>` : '';
+    let imgsHtml = '', filesHtml = '', li = 0;
+    _lbImgs = [];
+    atts.forEach((a, oi) => {
+      if (isImg(a)) {
+        const idx = li++; _lbImgs.push(a.dataUrl);
+        imgsHtml += `<span style="position:relative;display:inline-flex;align-items:flex-start;gap:2px"><img class="eap-att-pv" src="${a.dataUrl}" onclick="EAP.openImg(${idx})">${rm(oi)}</span>`;
+      } else {
+        filesHtml += a.dataUrl
+          ? `<div class="eap-att-thumb"><a href="#" onclick="EAP.openAtt(${oi});return false" style="color:#2563EB;font-weight:700;cursor:pointer">📄 ${esc(a.name)}</a> <span class="eap-meta">${fsize(a.size)}</span>${rm(oi)}</div>`
+          : `<div class="eap-att-thumb">📄 ${esc(a.name)} <span class="eap-meta">${fsize(a.size)} · 내용 미저장(구 첨부 — 다시 첨부 필요)</span>${rm(oi)}</div>`;
+      }
     });
     return `<div class="eap-sech">📎 첨부 (${atts.length})</div>
-      <div class="eap-att-imgs">${imgs.map((a, i) => `<img class="eap-att-pv" src="${a.dataUrl}" onclick="EAP.openImg(${i})">`).join('')}</div>
+      <div class="eap-att-imgs">${imgsHtml}</div>
       ${filesHtml}`;
   }
+  // 상신된 문서의 첨부 삭제 (기안자/관리자) — 중복 정리용
+  EAP.rmAttFromDoc = function (id, i) {
+    const docs = getDocs(); const d = docs.find(x => x.id === id);
+    if (!d || !Array.isArray(d.attachments)) return;
+    if (!(d.drafter === ME() || isAdmin())) { toast('본인 기안 또는 관리자만 삭제 가능'); return; }
+    if (i < 0 || i >= d.attachments.length) return;
+    const nm = (d.attachments[i] && d.attachments[i].name) || '';
+    if (!confirm('첨부 삭제: ' + nm + '\n삭제하시겠습니까?')) return;
+    d.attachments.splice(i, 1);
+    d.updatedAt = Date.now();
+    _save(docs); EAP.openDetail(id); toast('🗑 첨부 삭제');
+  };
   // 첨부 열기 — dataUrl → Blob → 새 탭(뷰). 팝업 차단 시 다운로드 fallback. (data: 직접이동은 Chrome 차단되므로 blob 사용)
   EAP.openAtt = function (i) {
     const a = (_detailAtts || [])[i];
