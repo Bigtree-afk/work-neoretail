@@ -425,12 +425,34 @@
   /* ── detail ── */
   function attView(atts){
     atts=atts||[];if(!atts.length)return '';
-    const imgs=atts.filter(a=>a.dataUrl);window._eapLb=imgs.map(a=>a.dataUrl);
-    const others=atts.filter(a=>!a.dataUrl);
-    return '<div class="sech">📎 첨부 ('+atts.length+')</div><div class="att-imgs">'+imgs.map((a,i)=>'<img class="att-pv" src="'+a.dataUrl+'" onclick="_eapImg('+i+')">').join('')+'</div>'+others.map(a=>'<div class="att-item">📄 '+esc(a.name)+' '+fsize(a.size)+'</div>').join('');
+    window._eapAtts=atts;
+    const isImg=a=>/^image\//.test(a.type||'')&&a.dataUrl;
+    const imgs=atts.filter(isImg);window._eapLb=imgs.map(a=>a.dataUrl);
+    let filesHtml='';
+    atts.forEach((a,i)=>{
+      if(isImg(a))return;
+      filesHtml+=a.dataUrl
+        ? '<div class="att-item" style="cursor:pointer;color:#2563EB" onclick="_eapOpenAtt('+i+')">📄 '+esc(a.name)+' '+fsize(a.size)+'</div>'
+        : '<div class="att-item">📄 '+esc(a.name)+' '+fsize(a.size)+' · <span style="color:#94A3B8">내용 미저장(구 첨부)</span></div>';
+    });
+    return '<div class="sech">📎 첨부 ('+atts.length+')</div><div class="att-imgs">'+imgs.map((a,i)=>'<img class="att-pv" src="'+a.dataUrl+'" onclick="_eapImg('+i+')">').join('')+'</div>'+filesHtml;
   }
   window._eapImg=function(i){const u=(window._eapLb||[])[i];if(!u)return;const lb=document.createElement('div');lb.className='lb';lb.id='eapLb';lb.innerHTML='<button class="x" onclick="_eapImgClose()">✕ 닫기</button><img src="'+u+'">';lb.onclick=e=>{if(e.target===lb)_eapImgClose();};document.body.appendChild(lb);};
   window._eapImgClose=function(){const el=document.getElementById('eapLb');if(el)el.remove();};
+  // 첨부(비이미지) 열기 — dataUrl → Blob → 새 탭. (data: 직접이동은 브라우저 차단 → blob 사용)
+  window._eapOpenAtt=function(i){
+    const a=(window._eapAtts||[])[i];
+    if(!a||!a.dataUrl){toast('첨부 내용이 없습니다');return;}
+    try{
+      const c=a.dataUrl.indexOf(','),meta=a.dataUrl.slice(0,c),b64=a.dataUrl.slice(c+1);
+      const mime=(meta.match(/data:([^;]+)/)||[])[1]||a.type||'application/octet-stream';
+      const bin=atob(b64),arr=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)arr[k]=bin.charCodeAt(k);
+      const url=URL.createObjectURL(new Blob([arr],{type:mime}));
+      const w=window.open(url,'_blank');
+      if(!w){const el=document.createElement('a');el.href=url;el.download=a.name||'attachment';document.body.appendChild(el);el.click();el.remove();}
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+    }catch(e){toast('첨부 열기 실패');}
+  };
 
   function renderDetail(id){
     const d=getDocs().find(x=>x.id===id);

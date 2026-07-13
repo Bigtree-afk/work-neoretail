@@ -899,13 +899,17 @@
   EAP.saveMyRoute = function () {
     const r = getRoutes(); r[ME()] = draftLine.slice(); saveCfgKey('routes', r); toast('💾 내 기본 결재선 저장');
   };
+  const ATT_CAP = 2 * 1024 * 1024;   // 2MB — 이 이하 파일은 내용(dataUrl) 저장해 나중에 열람 가능
   EAP.addAtt = function (files) {
     [...files].forEach(f => {
       const item = { name: f.name, type: f.type, size: f.size };
-      if (/^image\//.test(f.type) && f.size <= 600 * 1024) {
+      // 모든 파일 유형(PDF·문서·이미지 등) 내용 저장 — 2MB 초과만 메타만(열람 불가 안내)
+      if (f.size <= ATT_CAP) {
         const r = new FileReader();
         r.onload = e => { item.dataUrl = e.target.result; renderAttList(); };
         r.readAsDataURL(f);
+      } else {
+        toast('⚠ ' + f.name + ' (' + fsize(f.size) + ') — 2MB 초과로 내용은 저장되지 않습니다');
       }
       draftAtts.push(item);
     });
@@ -914,9 +918,12 @@
   EAP.rmAtt = function (i) { draftAtts.splice(i, 1); renderAttList(); };
   function renderAttList() {
     const box = document.getElementById('eapAttList'); if (!box) return;
-    box.innerHTML = draftAtts.map((a, i) =>
-      `<div class="eap-att-item">${a.dataUrl ? `<img src="${a.dataUrl}">` : '📄'} <span>${esc(a.name)} ${fsize(a.size)}</span> <span class="x" onclick="EAP.rmAtt(${i})">✕</span></div>`
-    ).join('');
+    box.innerHTML = draftAtts.map((a, i) => {
+      const isImg = /^image\//.test(a.type || '') && a.dataUrl;
+      const icon = isImg ? `<img src="${a.dataUrl}">` : '📄';
+      const noContent = !a.dataUrl ? ' <span class="eap-meta">(내용 미저장)</span>' : '';
+      return `<div class="eap-att-item">${icon} <span>${esc(a.name)} ${fsize(a.size)}${noContent}</span> <span class="x" onclick="EAP.rmAtt(${i})">✕</span></div>`;
+    }).join('');
   }
   EAP.submitDraft = function () {
     if (!draftTpl) { toast('양식을 선택하세요'); return; }
@@ -1062,16 +1069,43 @@
 
   /* ════════════════ 첨부 보기 + 라이트박스 ════════════════ */
   let _lbImgs = [];
+  let _detailAtts = [];
   function attView(atts) {
     atts = atts || [];
     if (!atts.length) return '';
-    const imgs = atts.filter(a => a.dataUrl);
+    _detailAtts = atts;
+    const isImg = a => /^image\//.test(a.type || '') && a.dataUrl;
+    const imgs = atts.filter(isImg);
     _lbImgs = imgs.map(a => a.dataUrl);
-    const others = atts.filter(a => !a.dataUrl);
+    let filesHtml = '';
+    atts.forEach((a, i) => {
+      if (isImg(a)) return;
+      filesHtml += a.dataUrl
+        ? `<div class="eap-att-thumb"><a href="#" onclick="EAP.openAtt(${i});return false" style="color:#2563EB;font-weight:700;cursor:pointer">📄 ${esc(a.name)}</a> <span class="eap-meta">${fsize(a.size)}</span></div>`
+        : `<div class="eap-att-thumb">📄 ${esc(a.name)} <span class="eap-meta">${fsize(a.size)} · 내용 미저장(구 첨부 — 다시 첨부 필요)</span></div>`;
+    });
     return `<div class="eap-sech">📎 첨부 (${atts.length})</div>
       <div class="eap-att-imgs">${imgs.map((a, i) => `<img class="eap-att-pv" src="${a.dataUrl}" onclick="EAP.openImg(${i})">`).join('')}</div>
-      ${others.map(a => `<div class="eap-att-thumb">📄 ${esc(a.name)} <span class="eap-meta">${fsize(a.size)}</span></div>`).join('')}`;
+      ${filesHtml}`;
   }
+  // 첨부 열기 — dataUrl → Blob → 새 탭(뷰). 팝업 차단 시 다운로드 fallback. (data: 직접이동은 Chrome 차단되므로 blob 사용)
+  EAP.openAtt = function (i) {
+    const a = (_detailAtts || [])[i];
+    if (!a || !a.dataUrl) { toast('첨부 내용이 없습니다'); return; }
+    try {
+      const comma = a.dataUrl.indexOf(',');
+      const meta = a.dataUrl.slice(0, comma);
+      const b64 = a.dataUrl.slice(comma + 1);
+      const mime = (meta.match(/data:([^;]+)/) || [])[1] || a.type || 'application/octet-stream';
+      const bin = atob(b64);
+      const arr = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
+      const url = URL.createObjectURL(new Blob([arr], { type: mime }));
+      const w = window.open(url, '_blank');
+      if (!w) { const el = document.createElement('a'); el.href = url; el.download = a.name || 'attachment'; document.body.appendChild(el); el.click(); el.remove(); }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) { toast('첨부 열기 실패'); }
+  };
   EAP.openImg = function (i) {
     const host = document.getElementById('eapModalHost');
     const lb = document.createElement('div');
