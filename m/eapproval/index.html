@@ -413,7 +413,7 @@
     const idoc=document.implementation.createHTMLDocument('x');idoc.body.innerHTML=src;
     const ALLOW={B:1,STRONG:1,I:1,EM:1,U:1,S:1,P:1,DIV:1,SPAN:1,TABLE:1,THEAD:1,TBODY:1,TR:1,TD:1,TH:1,UL:1,OL:1,LI:1};
     const walk=(node)=>{let out='';node.childNodes.forEach(ch=>{
-      if(ch.nodeType===3){out+=esc(ch.nodeValue);return;}
+      if(ch.nodeType===3){out+=esc(ch.nodeValue).replace(/\n/g,'<br>');return;}
       if(ch.nodeType!==1)return;
       const tag=ch.tagName;
       if(tag==='BR'){out+='<br>';return;}
@@ -431,8 +431,12 @@
     const v=(vals&&vals[label]!=null)?vals[label]:'';
     if(mode==='view'){if(v===''||v==null)return '<span class="dash">-</span>';if(type==='rich')return '<div class="richview">'+sanitizeRichM(v)+'</div>';if(type==='money')return '<b>'+commaFmt(v)+'원</b>';if(type==='number')return commaFmt(v);return esc(v);}
     const da='data-eapf="'+esc(label)+'"';
-    // rich 는 모바일에서 편집 불가 — hidden 으로 원본 보존(재상신 시 유실 방지) + 미리보기
-    if(type==='rich')return '<input type="hidden" '+da+' value="'+esc(v)+'"><div class="richview" style="opacity:.85;padding:8px 7px">'+(sanitizeRichM(v)||'<span class="dash">-</span>')+'</div><div class="meta" style="padding:0 7px 6px">✏️ 서식본문(표·이미지) 편집은 PC에서</div>';
+    // rich — 표·이미지(HTML) 포함이면 모바일 편집 불가: hidden 으로 원본 보존(재상신 유실 방지)+미리보기.
+    //         일반 텍스트뿐이면 textarea 로 계속 입력 가능(줄바꿈은 표시 시 <br> 변환).
+    if(type==='rich'){
+      if(v&&/<\w+[^>]*>/.test(v))return '<input type="hidden" '+da+' value="'+esc(v)+'"><div class="richview" style="opacity:.85;padding:8px 7px">'+sanitizeRichM(v)+'</div><div class="meta" style="padding:0 7px 6px">✏️ 표·이미지 포함 본문 편집은 PC에서 (내용은 보존됩니다)</div>';
+      return '<textarea '+da+' placeholder="내용 입력 (표·이미지 붙여넣기는 PC에서)">'+esc(v)+'</textarea>';
+    }
     if(type==='textarea')return '<textarea '+da+'>'+esc(v)+'</textarea>';
     if(type==='select'){const o=String(opts||'').split(',').map(s=>s.trim()).filter(Boolean);return '<select '+da+'><option value="">선택</option>'+o.map(x=>'<option '+(x===v?'selected':'')+'>'+esc(x)+'</option>').join('')+'</select>';}
     if(type==='date')return '<input '+da+' type="date" value="'+esc(v||'')+'">';

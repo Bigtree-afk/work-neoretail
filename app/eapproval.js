@@ -358,18 +358,18 @@
   }
   function SEED_TPLS() {
     return [
-      { id: 't-basic', name: '일반 기안서', cat: 'gen', fields: [{ label: '제목', type: 'text' }, { label: '내용', type: 'textarea' }] },
+      { id: 't-basic', name: '일반 기안서', cat: 'gen', fields: [{ label: '제목', type: 'text' }, { label: '내용', type: 'rich' }] },
       { id: 't-pay', name: '지출결의서', cat: 'pay', fields: [
         { label: '결제 방법', type: 'select', options: '현금,개인카드,법인카드,계좌입금' },
         { label: '사용 부서', type: 'text' }, { label: '은 행 명', type: 'text' },
         { label: '지급 일자', type: 'date' }, { label: '예 금 주', type: 'text' },
         { label: '계좌 번호', type: 'text' }, { label: '금   액', type: 'money' },
-        { label: '사용 내역', type: 'textarea' },
+        { label: '사용 내역', type: 'rich' },
       ] },
       { id: 't-buy', name: '구매요청서', cat: 'buy', fields: [
         { label: '품 명', type: 'text' }, { label: '수 량', type: 'number' },
         { label: '예상 금액', type: 'money' }, { label: '희망 납기', type: 'date' },
-        { label: '구매 사유', type: 'textarea' },
+        { label: '구매 사유', type: 'rich' },
       ] },
       { id: 't-leave', name: '연차신청서', cat: 'leave', fields: [
         { label: '휴가 종류', type: 'select', options: '연차,반차(오전),반차(오후),병가,경조' },
@@ -823,9 +823,10 @@
     draftCC = (d.cc || []).slice();
     draftAtts = (d.attachments || []).slice();
     // 문서의 필드로 템플릿 구성(select 옵션은 원 템플릿에서 보강), 필드 없으면 원 템플릿 사용
+    //   타입은 현재 템플릿 우선 — 옛 textarea 문서도 양식이 rich 로 바뀌었으면 rich 편집기로(붙여넣기 가능, 줄바꿈은 <br> 변환)
     const t = tplById(d.tplId);
     const docFields = (d.fields && d.fields.length)
-      ? d.fields.map(f => { const tf = (t && t.fields || []).find(x => x.label === f.label); return { label: f.label, type: f.type, options: tf ? tf.options : undefined }; })
+      ? d.fields.map(f => { const tf = (t && t.fields || []).find(x => x.label === f.label); return { label: f.label, type: (tf && tf.type) || f.type, options: tf ? tf.options : undefined }; })
       : ((t && t.fields) || []);
     _editTpl = { id: d.tplId, name: (t && t.name) || d.tpl || '문서', cat: d.kind || (t && t.cat) || 'gen', fields: docFields };
     _renderDraftModal(d.tplId, d.title || '');
@@ -1034,7 +1035,8 @@
     const walk = (node) => {
       let out = '';
       node.childNodes.forEach(ch => {
-        if (ch.nodeType === 3) { out += esc(ch.nodeValue); return; }
+        // 텍스트: \n → <br> (기존 textarea 줄글 문서를 rich 로 전환해도 줄바꿈 보존)
+        if (ch.nodeType === 3) { out += esc(ch.nodeValue).replace(/\n/g, '<br>'); return; }
         if (ch.nodeType !== 1) return;
         const tag = ch.tagName;
         if (tag === 'BR') { out += '<br>'; return; }
