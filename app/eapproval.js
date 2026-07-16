@@ -1126,21 +1126,6 @@
     const text = cd.getData('text/plain');
     if (text) document.execCommand('insertText', false, text);
   };
-  EAP.richInsertTable = function (btn) {
-    const wrap = btn.closest('td') || btn.parentElement.parentElement;
-    const ed = wrap ? wrap.querySelector('.eap-rich') : null;
-    if (!ed) return;
-    const spec = prompt('표 크기 (행x열)', '3x4'); if (!spec) return;
-    const m = spec.match(/(\d+)\s*[xX×*]\s*(\d+)/); if (!m) { toast('예: 3x4 형식으로 입력'); return; }
-    const R = Math.min(30, parseInt(m[1]) || 3), C = Math.min(12, parseInt(m[2]) || 4);
-    let t = '<table class="eap-rt">';
-    for (let r = 0; r < R; r++) { t += '<tr>'; for (let c = 0; c < C; c++) t += '<td><br></td>'; t += '</tr>'; }
-    t += '</table><br>';
-    ed.focus();
-    try { const sel = window.getSelection(); const rng = document.createRange(); rng.selectNodeContents(ed); rng.collapse(false); sel.removeAllRanges(); sel.addRange(rng); } catch (_) {}
-    document.execCommand('insertHTML', false, t);
-  };
-
   function ci(label, type, vals, mode, opts) {
     const v = (vals && vals[label] != null) ? vals[label] : '';
     if (mode === 'view') {
@@ -1154,8 +1139,7 @@
     if (type === 'rich') {
       // 서식본문 — contenteditable. 이미지/엑셀표 붙여넣기 재구성(richPaste), 표 삽입 버튼.
       return `<div ${da} class="eap-rich" contenteditable="true" onpaste="EAP.richPaste(event)">${sanitizeRich(v)}</div>`
-        + `<div class="eap-richbar"><button type="button" class="eap-att-btn" onclick="EAP.richInsertTable(this)">⊞ 표 삽입</button>`
-        + `<span class="eap-meta">이미지·엑셀 표를 붙여넣기(Ctrl+V)로 본문에 넣을 수 있습니다</span></div>`;
+        + `<div class="eap-richbar"><span class="eap-meta">이미지·엑셀 표를 붙여넣기(Ctrl+V)로 본문에 넣을 수 있습니다</span></div>`;
     }
     if (type === 'textarea') return `<textarea ${da}>${esc(v)}</textarea>`;
     if (type === 'select') {
