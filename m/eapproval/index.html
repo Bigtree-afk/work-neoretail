@@ -108,6 +108,12 @@
   /* 일정 */
   .schrow{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid var(--g200);border-radius:9px;padding:9px 12px;margin-bottom:6px;font-size:13px}
   .schd{color:var(--p);font-weight:800;flex:0 0 auto}
+  /* 서식본문(rich) 조회 */
+  .richview{font-size:13px;line-height:1.6;white-space:normal;word-break:break-word}
+  .richview img{max-width:100%;border-radius:4px;margin:4px 0;display:block}
+  .eap-rt{border-collapse:collapse;width:100%;margin:6px 0;font-size:12px}
+  .eap-rt td,.eap-rt th{border:1px solid #94A3B8;padding:4px 6px;word-break:break-all}
+  .eap-rt th{background:#EEF2F7;font-weight:700}
 </style>
 </head>
 <body>
@@ -401,10 +407,32 @@
   }
 
   /* ── docform ── */
+  // 서식본문(rich) 정제 렌더 — PC sanitizeRich 쌍둥이(화이트리스트 재구성). 모바일은 조회 전용.
+  function sanitizeRichM(html){
+    const src=String(html||'');if(!src)return '';
+    const idoc=document.implementation.createHTMLDocument('x');idoc.body.innerHTML=src;
+    const ALLOW={B:1,STRONG:1,I:1,EM:1,U:1,S:1,P:1,DIV:1,SPAN:1,TABLE:1,THEAD:1,TBODY:1,TR:1,TD:1,TH:1,UL:1,OL:1,LI:1};
+    const walk=(node)=>{let out='';node.childNodes.forEach(ch=>{
+      if(ch.nodeType===3){out+=esc(ch.nodeValue);return;}
+      if(ch.nodeType!==1)return;
+      const tag=ch.tagName;
+      if(tag==='BR'){out+='<br>';return;}
+      if(tag==='IMG'){const s=ch.getAttribute('src')||'';if(/^data:image\//i.test(s))out+='<img src="'+s+'" style="max-width:100%">';return;}
+      if(tag==='SCRIPT'||tag==='STYLE'||tag==='IFRAME'||tag==='OBJECT')return;
+      if(!ALLOW[tag]){out+=walk(ch);return;}
+      let attrs='';
+      if(tag==='TD'||tag==='TH'){const cs=parseInt(ch.getAttribute('colspan'))||0,rs=parseInt(ch.getAttribute('rowspan'))||0;if(cs>1)attrs+=' colspan="'+cs+'"';if(rs>1)attrs+=' rowspan="'+rs+'"';}
+      if(tag==='TABLE')attrs=' class="eap-rt"';
+      const t=tag.toLowerCase();out+='<'+t+attrs+'>'+walk(ch)+'</'+t+'>';
+    });return out;};
+    return walk(idoc.body);
+  }
   function ci(label,type,vals,mode,opts){
     const v=(vals&&vals[label]!=null)?vals[label]:'';
-    if(mode==='view'){if(v===''||v==null)return '<span class="dash">-</span>';if(type==='money')return '<b>'+commaFmt(v)+'원</b>';if(type==='number')return commaFmt(v);return esc(v);}
+    if(mode==='view'){if(v===''||v==null)return '<span class="dash">-</span>';if(type==='rich')return '<div class="richview">'+sanitizeRichM(v)+'</div>';if(type==='money')return '<b>'+commaFmt(v)+'원</b>';if(type==='number')return commaFmt(v);return esc(v);}
     const da='data-eapf="'+esc(label)+'"';
+    // rich 는 모바일에서 편집 불가 — hidden 으로 원본 보존(재상신 시 유실 방지) + 미리보기
+    if(type==='rich')return '<input type="hidden" '+da+' value="'+esc(v)+'"><div class="richview" style="opacity:.85;padding:8px 7px">'+(sanitizeRichM(v)||'<span class="dash">-</span>')+'</div><div class="meta" style="padding:0 7px 6px">✏️ 서식본문(표·이미지) 편집은 PC에서</div>';
     if(type==='textarea')return '<textarea '+da+'>'+esc(v)+'</textarea>';
     if(type==='select'){const o=String(opts||'').split(',').map(s=>s.trim()).filter(Boolean);return '<select '+da+'><option value="">선택</option>'+o.map(x=>'<option '+(x===v?'selected':'')+'>'+esc(x)+'</option>').join('')+'</select>';}
     if(type==='date')return '<input '+da+' type="date" value="'+esc(v||'')+'">';

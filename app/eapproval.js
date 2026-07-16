@@ -399,7 +399,7 @@
     leave: { label: '🌴 휴가', cls: 'k-leave' },
     gen: { label: '📄 일반', cls: 'k-gen' },
   };
-  const FIELD_TYPES = [['text', '한 줄'], ['textarea', '여러 줄'], ['date', '날짜'], ['number', '숫자'], ['money', '금액(원)'], ['select', '선택목록']];
+  const FIELD_TYPES = [['text', '한 줄'], ['textarea', '여러 줄'], ['date', '날짜'], ['number', '숫자'], ['money', '금액(원)'], ['select', '선택목록'], ['rich', '서식본문(표·이미지)']];
 
   /* ───────────── 권한 판정 ───────────── */
   function inParty(d) { const me = ME(); return d.drafter === me || (d.line || []).some(s => s.n === me) || (d.cc || []).includes(me); }
@@ -960,10 +960,13 @@
     const fields = [];
     effFields(draftTpl).forEach(f => {
       const el = document.querySelector(`#eapDraftFields [data-eapf="${cssEsc(f.label)}"]`);
-      let val = el ? el.value : '';
+      let val = el ? (f.type === 'rich' ? sanitizeRich(el.innerHTML) : el.value) : '';
       if (f.type === 'money' || f.type === 'number') val = String(val).replace(/,/g, '');
       fields.push({ label: f.label, type: f.type, value: val });
     });
+    // 서식본문 용량 가드 — 이미지 과다 시 localStorage/동기화 부담 경고
+    const richLen = fields.filter(f => f.type === 'rich').reduce((s, f) => s + String(f.value || '').length, 0);
+    if (richLen > 1_500_000 && !confirm('서식본문 용량이 큽니다 (' + Math.round(richLen / 1024) + 'KB).\n이미지가 많으면 저장·동기화가 느려질 수 있습니다. 계속할까요?')) return;
     const titleField = fields.find(f => f.label === '제목');
     const title = (document.getElementById('eapTitle') || {}).value.trim() || (titleField && titleField.value.trim()) || draftTpl.name;
     const cat = draftTpl.cat || 'gen';
@@ -1018,15 +1021,140 @@
   function cssEsc(s) { return String(s).replace(/["\\]/g, '\\$&'); }
 
   /* ════════════════ 폼 렌더 (docFormHtml / ci) ════════════════ */
+  /* ── 서식본문(rich) — 이미지·표 붙여넣기 (PC 전용 편집) ──
+     보안·용량 원칙: 클립보드 HTML 을 그대로 넣지 않고 '재구성'.
+     - sanitizeRich: 화이트리스트 태그만 재조립 (script/style/이벤트/외부URL 원천 차단, img 는 data:image 만)
+     - 이미지: canvas 압축(최대폭 1280, JPEG) 후 삽입
+     - 엑셀 표: 셀 텍스트만 추출해 깨끗한 <table class="eap-rt"> 로 재조립 */
+  function sanitizeRich(html) {
+    const src = String(html || ''); if (!src) return '';
+    const idoc = document.implementation.createHTMLDocument('x');   // inert — script 실행 안 됨
+    idoc.body.innerHTML = src;
+    const ALLOW = { B:1, STRONG:1, I:1, EM:1, U:1, S:1, P:1, DIV:1, SPAN:1, TABLE:1, THEAD:1, TBODY:1, TR:1, TD:1, TH:1, UL:1, OL:1, LI:1 };
+    const walk = (node) => {
+      let out = '';
+      node.childNodes.forEach(ch => {
+        if (ch.nodeType === 3) { out += esc(ch.nodeValue); return; }
+        if (ch.nodeType !== 1) return;
+        const tag = ch.tagName;
+        if (tag === 'BR') { out += '<br>'; return; }
+        if (tag === 'IMG') {
+          const s = ch.getAttribute('src') || '';
+          if (/^data:image\//i.test(s)) out += `<img src="${s}" style="max-width:100%">`;
+          return;
+        }
+        if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'IFRAME' || tag === 'OBJECT') return;   // 내용째 제거
+        if (!ALLOW[tag]) { out += walk(ch); return; }    // 미허용 태그: 벗기고 내용만
+        let attrs = '';
+        if (tag === 'TD' || tag === 'TH') {
+          const cs = parseInt(ch.getAttribute('colspan')) || 0, rs = parseInt(ch.getAttribute('rowspan')) || 0;
+          if (cs > 1) attrs += ` colspan="${cs}"`;
+          if (rs > 1) attrs += ` rowspan="${rs}"`;
+        }
+        if (tag === 'TABLE') attrs = ' class="eap-rt"';
+        const t = tag.toLowerCase();
+        out += `<${t}${attrs}>${walk(ch)}</${t}>`;
+      });
+      return out;
+    };
+    return walk(idoc.body);
+  }
+  // 이미지 압축 — 최대폭 1280px, JPEG 0.85 (스크린샷·영수증 3MB → 수백KB)
+  function _compressImage(file, cb) {
+    const fr = new FileReader();
+    fr.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const MAXW = 1280;
+          let w = img.width, h = img.height;
+          if (w > MAXW) { h = Math.round(h * MAXW / w); w = MAXW; }
+          const c = document.createElement('canvas'); c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          cb(c.toDataURL('image/jpeg', 0.85));
+        } catch (_) { cb(e.target.result); }
+      };
+      img.onerror = () => cb(null);
+      img.src = e.target.result;
+    };
+    fr.readAsDataURL(file);
+  }
+  // 클립보드 HTML 의 표 → 셀 텍스트만으로 재조립 (colspan/rowspan 숫자만 보존)
+  function _rebuildTable(html) {
+    const idoc = document.implementation.createHTMLDocument('x');
+    idoc.body.innerHTML = String(html || '');
+    const tbl = idoc.body.querySelector('table');
+    if (!tbl) return null;
+    let out = '<table class="eap-rt">';
+    tbl.querySelectorAll('tr').forEach(tr => {
+      out += '<tr>';
+      tr.querySelectorAll('td,th').forEach(cell => {
+        const t = cell.tagName === 'TH' ? 'th' : 'td';
+        const cs = parseInt(cell.getAttribute('colspan')) || 0, rs = parseInt(cell.getAttribute('rowspan')) || 0;
+        const txt = esc(String(cell.textContent || '').replace(/\s+/g, ' ').trim());
+        out += `<${t}${cs > 1 ? ` colspan="${cs}"` : ''}${rs > 1 ? ` rowspan="${rs}"` : ''}>${txt || '<br>'}</${t}>`;
+      });
+      out += '</tr>';
+    });
+    return out + '</table>';
+  }
+  EAP.richPaste = function (ev) {
+    const cd = ev.clipboardData; if (!cd) return;
+    // 1) 이미지 파일 (스크린샷·복사한 이미지)
+    const imgIt = [...(cd.items || [])].find(it => it.kind === 'file' && /^image\//.test(it.type));
+    if (imgIt) {
+      ev.preventDefault();
+      const f = imgIt.getAsFile(); if (!f) return;
+      _compressImage(f, du => {
+        if (!du) { toast('이미지 붙여넣기 실패'); return; }
+        document.execCommand('insertHTML', false, `<img src="${du}" style="max-width:100%"><br>`);
+      });
+      return;
+    }
+    // 2) 표 (엑셀/웹에서 복사) — 재조립해 삽입
+    const html = cd.getData('text/html');
+    if (html && /<table/i.test(html)) {
+      ev.preventDefault();
+      const t = _rebuildTable(html);
+      if (t) document.execCommand('insertHTML', false, t + '<br>');
+      return;
+    }
+    // 3) 그 외 — 서식 제거하고 텍스트만
+    ev.preventDefault();
+    const text = cd.getData('text/plain');
+    if (text) document.execCommand('insertText', false, text);
+  };
+  EAP.richInsertTable = function (btn) {
+    const wrap = btn.closest('td') || btn.parentElement.parentElement;
+    const ed = wrap ? wrap.querySelector('.eap-rich') : null;
+    if (!ed) return;
+    const spec = prompt('표 크기 (행x열)', '3x4'); if (!spec) return;
+    const m = spec.match(/(\d+)\s*[xX×*]\s*(\d+)/); if (!m) { toast('예: 3x4 형식으로 입력'); return; }
+    const R = Math.min(30, parseInt(m[1]) || 3), C = Math.min(12, parseInt(m[2]) || 4);
+    let t = '<table class="eap-rt">';
+    for (let r = 0; r < R; r++) { t += '<tr>'; for (let c = 0; c < C; c++) t += '<td><br></td>'; t += '</tr>'; }
+    t += '</table><br>';
+    ed.focus();
+    try { const sel = window.getSelection(); const rng = document.createRange(); rng.selectNodeContents(ed); rng.collapse(false); sel.removeAllRanges(); sel.addRange(rng); } catch (_) {}
+    document.execCommand('insertHTML', false, t);
+  };
+
   function ci(label, type, vals, mode, opts) {
     const v = (vals && vals[label] != null) ? vals[label] : '';
     if (mode === 'view') {
       if (v === '' || v == null) return '<span class="eap-dash">-</span>';
+      if (type === 'rich') return '<div class="eap-richview">' + sanitizeRich(v) + '</div>';
       if (type === 'money') return '<b>' + commaFmt(v) + '원</b>';
       if (type === 'number') return commaFmt(v);
       return esc(v);
     }
     const da = `data-eapf="${esc(label)}"`;
+    if (type === 'rich') {
+      // 서식본문 — contenteditable. 이미지/엑셀표 붙여넣기 재구성(richPaste), 표 삽입 버튼.
+      return `<div ${da} class="eap-rich" contenteditable="true" onpaste="EAP.richPaste(event)">${sanitizeRich(v)}</div>`
+        + `<div class="eap-richbar"><button type="button" class="eap-att-btn" onclick="EAP.richInsertTable(this)">⊞ 표 삽입</button>`
+        + `<span class="eap-meta">이미지·엑셀 표를 붙여넣기(Ctrl+V)로 본문에 넣을 수 있습니다</span></div>`;
+    }
     if (type === 'textarea') return `<textarea ${da}>${esc(v)}</textarea>`;
     if (type === 'select') {
       const o = String(opts || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -1932,6 +2060,15 @@
   .eap-ov .eap-att-imgs{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
   .eap-ov .eap-att-pv{max-width:160px;max-height:160px;border:1px solid #E2E8F0;border-radius:9px;cursor:zoom-in}
   .eap-ov .eap-att-thumb{font-size:12px;color:#475569;padding:4px 0}
+  /* 서식본문(rich) — 편집기 + 표/이미지 */
+  .eap-ov .eap-rich{min-height:110px;padding:8px;outline:none;font-size:13px;line-height:1.6;cursor:text}
+  .eap-ov .eap-rich:focus{background:#FFFBEB;box-shadow:inset 0 0 0 2px #FCD34D}
+  .eap-ov .eap-richbar{display:flex;align-items:center;gap:8px;padding:4px 7px;border-top:1px dashed #CBD5E1;background:#F8FAFC}
+  .eap-richview{font-size:13px;line-height:1.6;white-space:normal}
+  .eap-rich img,.eap-richview img{max-width:100%;border-radius:4px;margin:4px 0;display:block}
+  .eap-rt{border-collapse:collapse;width:100%;margin:6px 0;font-size:12.5px;table-layout:auto}
+  .eap-rt td,.eap-rt th{border:1px solid #94A3B8;padding:5px 8px;min-width:36px;word-break:break-all}
+  .eap-rt th{background:#EEF2F7;font-weight:700}
   .eap-ov .eap-sech{font-size:12px;font-weight:800;color:#64748B;margin:14px 0 8px}
   .eap-ov .eap-execbox{border-radius:10px;padding:11px 13px;font-size:12.5px;font-weight:700}
   .eap-ov .eap-execbox.done{background:#F0FDF4;border:1px solid #BBF7D0;color:#166534}
