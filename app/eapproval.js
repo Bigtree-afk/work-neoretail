@@ -533,12 +533,14 @@
     ).join('');
     return `
       <div class="eap-bar">
-        <div id="eapChips" class="eap-chips">${chips}</div>
+        <div id="eapChips" class="eap-chips">${chips}
+          <span class="eap-searchbox">
+            <span class="ic">🔍</span>
+            <input id="eapSearchInput" type="text" placeholder="결재 검색" value="${esc(SEARCH)}" oninput="EAP.setSearch(this.value)" onkeydown="if(event.key==='Escape')EAP.setSearch('')">
+            <button id="eapSearchClear" title="검색 해제" style="${SEARCH ? '' : 'display:none'}" onclick="EAP.setSearch('')">✕</button>
+          </span>
+        </div>
         <button class="eap-btn eap-btn-p" onclick="EAP.openDraft()">✏️ 새 기안</button>
-      </div>
-      <div class="eap-searchrow">
-        <input id="eapSearchInput" class="eap-search" type="text" placeholder="🔍 제목·기안자·내용·금액 검색" value="${esc(SEARCH)}" oninput="EAP.setSearch(this.value)" onkeydown="if(event.key==='Escape')EAP.setSearch('')">
-        <button id="eapSearchClear" class="eap-att-btn" style="${SEARCH ? '' : 'display:none'}" onclick="EAP.setSearch('')">✕ 해제</button>
       </div>
       <div id="eapApprResults">${_apprResultsHtml()}</div>`;
   }
@@ -2081,9 +2083,11 @@
   .eap-ov .eap-rich{min-height:110px;padding:8px;outline:none;font-size:13px;line-height:1.6;cursor:text}
   .eap-ov .eap-rich:focus{background:#FFFBEB;box-shadow:inset 0 0 0 2px #FCD34D}
   .eap-ov .eap-richbar{display:flex;align-items:center;gap:8px;padding:4px 7px;border-top:1px dashed #CBD5E1;background:#F8FAFC}
-  #screen-eapproval .eap-searchrow{display:flex;gap:6px;align-items:center;margin:0 0 8px}
-  #screen-eapproval .eap-search{flex:1;max-width:340px;padding:8px 11px;border:1.5px solid #E2E8F0;border-radius:9px;font-size:13px;outline:none}
-  #screen-eapproval .eap-search:focus{border-color:#2563EB;box-shadow:0 0 0 2px rgba(37,99,235,.12)}
+  #screen-eapproval .eap-searchbox{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid #E2E8F0;border-radius:20px;background:#fff;height:32px}
+  #screen-eapproval .eap-searchbox:focus-within{border-color:#2563EB;box-shadow:0 0 0 2px rgba(37,99,235,.12)}
+  #screen-eapproval .eap-searchbox .ic{font-size:12px;opacity:.6;line-height:1}
+  #screen-eapproval .eap-searchbox input{border:none;outline:none;font-size:13px;width:150px;background:transparent;padding:0}
+  #screen-eapproval .eap-searchbox button{border:none;background:#E2E8F0;color:#475569;width:17px;height:17px;border-radius:50%;font-size:10px;font-weight:900;cursor:pointer;padding:0;line-height:1}
   .eap-richview{font-size:13px;line-height:1.6;white-space:normal}
   .eap-rich img,.eap-richview img{max-width:100%;border-radius:4px;margin:4px 0;display:block}
   .eap-rt{border-collapse:collapse;width:100%;margin:6px 0;font-size:12.5px;table-layout:auto}
