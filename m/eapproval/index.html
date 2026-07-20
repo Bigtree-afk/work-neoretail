@@ -21,6 +21,9 @@
   .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
   .chip{padding:7px 13px;border-radius:20px;border:1.5px solid var(--g200);background:#fff;font-weight:700;cursor:pointer;font-size:12.5px;color:var(--g600)}
   .chip.on{background:#EFF6FF;border-color:var(--p);color:var(--p)}
+  .searchrow{margin:0 0 10px}
+  .searchrow input{width:100%;padding:10px 12px;border:1.5px solid var(--g200);border-radius:10px;font-size:14px;outline:none;font-family:inherit}
+  .searchrow input:focus{border-color:var(--p)}
   .chip .n{display:inline-block;background:var(--danger);color:#fff;font-size:10px;border-radius:10px;padding:0 5px;margin-left:4px}
   .card{background:#fff;border:1px solid var(--g200);border-radius:12px;padding:13px 14px;margin-bottom:10px;cursor:pointer}
   .card.done{background:#DFE2E6;border:1px solid #15803D}
@@ -149,7 +152,7 @@
   'use strict';
   const DOCS_LS='ns_eap_docs', DOCS_ETAG='ns_eap_docs_etag', CFG_LS='ns_eap_cfg', DEL_LS='ns_eap_deleted';
   const ADMIN_EMAILS=['zoolex@gmail.com'];
-  let SUB='received', TAB='appr';
+  let SUB='received', TAB='appr', SEARCH='';
 
   /* helpers */
   const esc = window.esc || (s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
@@ -247,6 +250,9 @@
   function canView(d){return isAdmin()||inParty(d);}
   function isMyTurn(d){return d.status==='wait'&&d.line[d.step]&&d.line[d.step].n===ME();}
   function isCC(d){const me=ME();return (d.cc||[]).includes(me)&&d.drafter!==me&&!(d.line||[]).some(s=>s.n===me);}
+  // 검색 노출 대상(권한): 기안/결재선은 진행중도, 참조는 완료 후만 (서브탭 규칙과 동일)
+  function searchVisible(d){if(!d)return false;if(isAdmin())return true;const me=ME();if(d.drafter===me)return true;if((d.line||[]).some(s=>s.n===me))return true;if((d.cc||[]).includes(me)&&d.status==='ok')return true;return false;}
+  function docSearchBlob(d){const p=[d.title,d.drafter,d.tpl,(KIND[d.kind]||{}).label];(d.fields||[]).forEach(f=>{p.push(f.label);p.push(f.type==='rich'?String(f.value||'').replace(/<[^>]+>/g,' '):f.value);});(d.line||[]).forEach(s=>p.push(s.n));(d.cc||[]).forEach(n=>p.push(n));if(d.amount)p.push(String(d.amount));return p.filter(Boolean).join(' ').toLowerCase();}
 
   /* router */
   function parseHash(){
@@ -275,7 +281,7 @@
   window.addEventListener('hashchange',render);
 
   /* ── list ── */
-  function setSub(s){SUB=s;_doneTplFilter='all';renderSection();}
+  function setSub(s){SUB=s;SEARCH='';_doneTplFilter='all';renderSection();}
   window._eapSetSub=setSub;
   function lineHtml(d){
     return '<div class="line">'+(d.line||[]).map((s,i)=>{
@@ -304,7 +310,7 @@
     const tabs=[['appr','📋 결재함',true],['leave','🌴 연차관리',true],['fund','💰 자금관리',canViewFund()],['sch','📅 일정',true],['tpl','⚙️ 양식·루트',canManageRoutes()]];
     return '<div class="tabbar">'+tabs.filter(t=>t[2]).map(function(t){return '<button class="tb '+(TAB===t[0]?'on':'')+'" onclick="_eapTab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
   }
-  window._eapTab=function(t){TAB=t;renderList();};
+  window._eapTab=function(t){TAB=t;SEARCH='';renderList();};
   function renderList(){
     const host=document.getElementById('view-list');if(!host)return;
     host.innerHTML=tabBarHtml()+'<div id="eapSection"></div>';
@@ -320,33 +326,45 @@
     else if(TAB==='tpl')s.innerHTML=tplHtml();
   }
 
-  /* ── 결재함 (appr) — 서브탭: 받은 결재/상신함/참조/자금집행/완료·반려/전체 ── */
+  /* ── 결재함 (appr) — 셸(칩·검색)은 고정, 결과만 #eapInboxResults 로 갱신(포커스 유지) ── */
   function inboxHtml(){
-    const docs=getDocs(),me=ME();
+    const docs=getDocs();
     const cntR=docs.filter(isMyTurn).length;
     const execPend=docs.filter(d=>d.kind==='pay'&&d.status==='ok'&&d.execStatus!=='done'&&canView(d)).length;
     const subs=[['received','받은 결재',cntR],['mine','상신함',null],['ref','참조',null],['exec','자금집행',execPend],['done','완료/반려',null]];
     if(isAdmin())subs.push(['all','전체',null]);
+    const chips=subs.map(([k,l,n])=>'<button class="chip '+(SUB===k?'on':'')+'" onclick="_eapSetSub(\''+k+'\')">'+l+(n?'<span class="n">'+n+'</span>':'')+'</button>').join('');
+    return '<div id="eapChips" class="chips">'+chips+'</div>'
+      +'<div class="searchrow"><input id="eapSearch" type="text" placeholder="🔍 제목·기안자·내용 검색" value="'+esc(SEARCH)+'" oninput="_eapSearch(this.value)"></div>'
+      +'<div id="eapInboxResults">'+inboxResultsHtml()+'</div>';
+  }
+  function inboxResultsHtml(){
+    const docs=getDocs(),me=ME();
+    const q=String(SEARCH||'').trim().toLowerCase();
     let list;
-    if(SUB==='received')list=docs.filter(isMyTurn);
+    if(q){const toks=q.split(/\s+/).filter(Boolean);list=docs.filter(searchVisible).filter(d=>{const b=docSearchBlob(d);return toks.every(t=>b.includes(t));});}
+    else if(SUB==='received')list=docs.filter(isMyTurn);
     else if(SUB==='mine')list=docs.filter(d=>d.drafter===me);
-    else if(SUB==='ref')list=docs.filter(d=>(d.cc||[]).includes(me)&&d.drafter!==me&&d.status==='ok');   // 참조자는 결재 '완료' 후에만 열람
+    else if(SUB==='ref')list=docs.filter(d=>(d.cc||[]).includes(me)&&d.drafter!==me&&d.status==='ok');
     else if(SUB==='exec')list=docs.filter(d=>d.kind==='pay'&&d.status==='ok'&&canView(d));
     else if(SUB==='done')list=docs.filter(d=>(d.status==='ok'||d.status==='rej')&&canView(d));
     else list=docs.filter(canView);
     list.sort((a,b)=>(Number(b.updatedAt||b.createdAt)||0)-(Number(a.updatedAt||a.createdAt)||0));
-    const chips=subs.map(([k,l,n])=>'<button class="chip '+(SUB===k?'on':'')+'" onclick="_eapSetSub(\''+k+'\')">'+l+(n?'<span class="n">'+n+'</span>':'')+'</button>').join('');
+    const note=q?'<div class="meta" style="margin:2px 0 8px">🔍 "'+esc(SEARCH)+'" 검색 '+list.length+'건 · 권한 있는 결재 전체</div>':'';
     let tickers='';
-    if(SUB==='done'){
+    if(SUB==='done'&&!q){
       const byTpl={};list.forEach(d=>{const key=d.tplId||d.tpl||d.kind||'etc';(byTpl[key]=byTpl[key]||{name:d.tpl||(KIND[d.kind]||{}).label||'기타',cnt:0}).cnt++;});
       const tk=[['all','전체',list.length]].concat(Object.entries(byTpl).map(([k,v])=>[k,v.name,v.cnt]));
       tickers='<div class="chips" style="margin-bottom:8px">'+tk.map(([k,l,n])=>'<button class="chip '+(_doneTplFilter===k?'on':'')+'" onclick="_eapDoneTpl(\''+esc(String(k))+'\')">'+esc(l)+' <span style="opacity:.55">'+n+'</span></button>').join('')+'</div>';
       if(_doneTplFilter!=='all')list=list.filter(d=>(d.tplId||d.tpl||d.kind||'etc')===_doneTplFilter);
     }
-    return '<div class="chips">'+chips+'</div>'+tickers+(list.length?list.map(card).join(''):'<div class="empty">📭 항목이 없습니다</div>');
+    return note+tickers+(list.length?list.map(card).join(''):'<div class="empty">'+(q?'🔍 검색 결과가 없습니다':'📭 항목이 없습니다')+'</div>');
   }
   let _doneTplFilter='all';
-  window._eapDoneTpl=function(k){_doneTplFilter=k;renderSection();};
+  function _refreshInbox(){var r=document.getElementById('eapInboxResults');if(r)r.innerHTML=inboxResultsHtml();else renderSection();}
+  window._eapDoneTpl=function(k){_doneTplFilter=k;_refreshInbox();};
+  // 검색 — 결과 컨테이너만 갱신(입력 DOM 유지 → 포커스/커서 보존)
+  window._eapSearch=function(v){SEARCH=v;var c=document.getElementById('eapChips');if(c)c.style.opacity=String(v).trim()?'.5':'';_refreshInbox();};
 
   /* ── 연차관리 (leave) ── */
   function leaveHtml(){

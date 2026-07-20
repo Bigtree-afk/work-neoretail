@@ -21,7 +21,7 @@
   const ADMIN_EMAILS = ['zoolex@gmail.com'];
 
   // ── UI 상태 ──
-  let TAB = 'appr', SUB = 'received', SCHSUB = 'up';
+  let TAB = 'appr', SUB = 'received', SCHSUB = 'up', SEARCH = '';
   let _execFrom = '', _execTo = '';
   let _doneTplFilter = 'all';
   // 자금관리 상태
@@ -406,6 +406,25 @@
   function canView(d) { return isAdmin() || inParty(d); }
   function isMyTurn(d) { return d.status === 'wait' && d.line[d.step] && d.line[d.step].n === ME(); }
   function isCC(d) { const me = ME(); return (d.cc || []).includes(me) && d.drafter !== me && !(d.line || []).some(s => s.n === me); }
+  // 검색 노출 대상 — 서브탭 규칙과 동일: 기안/결재선은 진행중도, 참조는 '완료(ok)' 후만. (권한 밖 결재 숨김)
+  function searchVisible(d) {
+    if (!d) return false;
+    if (isAdmin()) return true;
+    const me = ME();
+    if (d.drafter === me) return true;
+    if ((d.line || []).some(s => s.n === me)) return true;
+    if ((d.cc || []).includes(me) && d.status === 'ok') return true;
+    return false;
+  }
+  // 검색 대상 텍스트 blob — 제목·기안자·양식·필드(라벨+값, rich 는 태그 제거)·결재선·참조·금액
+  function _docSearchBlob(d) {
+    const p = [d.title, d.drafter, d.tpl, (KIND[d.kind] || {}).label];
+    (d.fields || []).forEach(f => { p.push(f.label); p.push(f.type === 'rich' ? String(f.value || '').replace(/<[^>]+>/g, ' ') : f.value); });
+    (d.line || []).forEach(s => p.push(s.n));
+    (d.cc || []).forEach(n => p.push(n));
+    if (d.amount) p.push(String(d.amount));
+    return p.filter(Boolean).join(' ').toLowerCase();
+  }
 
   /* ════════════════ 진입점 / 화면 셸 ════════════════ */
   function isScreenActive() {
@@ -499,37 +518,49 @@
   EAP.render = renderTab;
 
   /* ════════════════ 결재함 (appr) ════════════════ */
+  // 셸(칩·검색입력)은 고정, 결과 리스트만 별도 컨테이너(#eapApprResults)로 → 검색 중 입력 포커스 유지
   function renderAppr() {
     const docs = getDocs();
-    const me = ME();
     const cntReceived = docs.filter(isMyTurn).length;
     const execPend = docs.filter(d => d.kind === 'pay' && d.status === 'ok' && d.execStatus !== 'done' && canView(d)).length;
     const subs = [
-      ['received', '받은 결재', cntReceived],
-      ['mine', '상신함', null],
-      ['ref', '참조', null],
-      ['exec', '자금집행', execPend],
-      ['done', '완료/반려', null],
+      ['received', '받은 결재', cntReceived], ['mine', '상신함', null], ['ref', '참조', null],
+      ['exec', '자금집행', execPend], ['done', '완료/반려', null],
     ];
     if (isAdmin()) subs.push(['all', '전체', null]);
-
-    let list;
-    if (SUB === 'received') list = docs.filter(isMyTurn);
-    else if (SUB === 'mine') list = docs.filter(d => d.drafter === me);
-    else if (SUB === 'ref') list = docs.filter(d => (d.cc || []).includes(me) && d.drafter !== me && d.status === 'ok');  // 참조자는 결재 '완료' 후에만 열람(진행중 상신건은 숨김)
-    else if (SUB === 'exec') list = docs.filter(d => d.kind === 'pay' && d.status === 'ok' && canView(d));
-    else if (SUB === 'done') list = docs.filter(d => (d.status === 'ok' || d.status === 'rej') && canView(d));  // 완료·반려만 (진행중/회수 제외 — 재상신 시 자동 제외)
-    else list = docs.slice();
-
-    list.sort((a, b) => (Number(b.updatedAt || b.createdAt) || 0) - (Number(a.updatedAt || a.createdAt) || 0));
-
     const chips = subs.map(([k, label, n]) =>
       `<button class="eap-chip ${SUB === k ? 'on' : ''}" onclick="EAP.setSub(${J(k)})">${label}${n ? `<span class="n">${n}</span>` : ''}</button>`
     ).join('');
+    return `
+      <div class="eap-bar">
+        <div id="eapChips" class="eap-chips">${chips}</div>
+        <button class="eap-btn eap-btn-p" onclick="EAP.openDraft()">✏️ 새 기안</button>
+      </div>
+      <div class="eap-searchrow">
+        <input id="eapSearchInput" class="eap-search" type="text" placeholder="🔍 제목·기안자·내용·금액 검색" value="${esc(SEARCH)}" oninput="EAP.setSearch(this.value)" onkeydown="if(event.key==='Escape')EAP.setSearch('')">
+        <button id="eapSearchClear" class="eap-att-btn" style="${SEARCH ? '' : 'display:none'}" onclick="EAP.setSearch('')">✕ 해제</button>
+      </div>
+      <div id="eapApprResults">${_apprResultsHtml()}</div>`;
+  }
+  function _apprResultsHtml() {
+    const docs = getDocs();
+    const me = ME();
+    const q = String(SEARCH || '').trim().toLowerCase();
+    let list;
+    if (q) {
+      const toks = q.split(/\s+/).filter(Boolean);
+      list = docs.filter(searchVisible).filter(d => { const blob = _docSearchBlob(d); return toks.every(t => blob.includes(t)); });
+    }
+    else if (SUB === 'received') list = docs.filter(isMyTurn);
+    else if (SUB === 'mine') list = docs.filter(d => d.drafter === me);
+    else if (SUB === 'ref') list = docs.filter(d => (d.cc || []).includes(me) && d.drafter !== me && d.status === 'ok');
+    else if (SUB === 'exec') list = docs.filter(d => d.kind === 'pay' && d.status === 'ok' && canView(d));
+    else if (SUB === 'done') list = docs.filter(d => (d.status === 'ok' || d.status === 'rej') && canView(d));
+    else list = docs.slice();
+    list.sort((a, b) => (Number(b.updatedAt || b.createdAt) || 0) - (Number(a.updatedAt || a.createdAt) || 0));
 
-    // 완료/반려 페이지: 양식별 필터 티커
     let doneTickers = '';
-    if (SUB === 'done') {
+    if (SUB === 'done' && !q) {
       const byTpl = {};
       list.forEach(d => { const key = d.tplId || d.tpl || d.kind || 'etc'; (byTpl[key] = byTpl[key] || { name: d.tpl || (KIND[d.kind] || {}).label || '기타', cnt: 0 }).cnt++; });
       const tk = [['all', '전체', list.length]].concat(Object.entries(byTpl).map(([k, v]) => [k, v.name, v.cnt]));
@@ -537,23 +568,23 @@
         `<button class="eap-chip ${_doneTplFilter === k ? 'on' : ''}" onclick="EAP.setDoneTpl(${J(k)})">${esc(label)} <span style="opacity:.55;font-weight:700">${n}</span></button>`).join('') + '</div>';
       if (_doneTplFilter !== 'all') list = list.filter(d => (d.tplId || d.tpl || d.kind || 'etc') === _doneTplFilter);
     }
-
-    const body = list.length
-      ? list.map(docCard).join('')
-      : `<div class="eap-empty">📭 항목이 없습니다</div>`;
-
-    const execSum = (SUB === 'exec') ? `<div id="eapExecSummary">${execSummaryHtml()}</div>` : '';
-
-    return `
-      <div class="eap-bar">
-        <div class="eap-chips">${chips}</div>
-        <button class="eap-btn eap-btn-p" onclick="EAP.openDraft()">✏️ 새 기안</button>
-      </div>
-      ${execSum}
-      ${doneTickers}
-      <div>${body}</div>`;
+    const body = list.length ? list.map(docCard).join('') : `<div class="eap-empty">${q ? '🔍 검색 결과가 없습니다' : '📭 항목이 없습니다'}</div>`;
+    const execSum = (SUB === 'exec' && !q) ? `<div id="eapExecSummary">${execSummaryHtml()}</div>` : '';
+    const searchNote = q ? `<div class="eap-meta" style="margin:2px 0 8px">🔍 "<b>${esc(SEARCH)}</b>" 검색 결과 <b>${list.length}</b>건 <span style="opacity:.7">· 권한 있는 결재 전체에서 검색</span></div>` : '';
+    return `${searchNote}${execSum}${doneTickers}<div>${body}</div>`;
   }
-  EAP.setSub = function (s) { SUB = s; _doneTplFilter = 'all'; renderTab(); };
+  EAP.setSearch = function (v) {
+    SEARCH = v;
+    const inEl = document.getElementById('eapSearchInput');
+    // 입력값을 프로그램적으로 바꾼 경우(해제 등)만 동기화 — 타이핑 중엔 그대로 두어 커서 보존
+    if (inEl && inEl.value !== v) inEl.value = v;
+    const clr = document.getElementById('eapSearchClear'); if (clr) clr.style.display = v ? '' : 'none';
+    const chips = document.getElementById('eapChips'); if (chips) chips.style.opacity = String(v).trim() ? '.5' : '';
+    const res = document.getElementById('eapApprResults');
+    if (res) res.innerHTML = _apprResultsHtml();   // 리스트만 갱신 — 입력 DOM 유지 → 포커스/커서 보존
+    else renderTab();
+  };
+  EAP.setSub = function (s) { SUB = s; SEARCH = ''; _doneTplFilter = 'all'; renderTab(); };
   EAP.setDoneTpl = function (k) { _doneTplFilter = k; renderTab(); };
 
   // 자금집행 집계 — 지출결의(pay) 중 지급완료(execStatus done) 건만 기간(집행일) 집계
@@ -2050,6 +2081,9 @@
   .eap-ov .eap-rich{min-height:110px;padding:8px;outline:none;font-size:13px;line-height:1.6;cursor:text}
   .eap-ov .eap-rich:focus{background:#FFFBEB;box-shadow:inset 0 0 0 2px #FCD34D}
   .eap-ov .eap-richbar{display:flex;align-items:center;gap:8px;padding:4px 7px;border-top:1px dashed #CBD5E1;background:#F8FAFC}
+  #screen-eapproval .eap-searchrow{display:flex;gap:6px;align-items:center;margin:0 0 8px}
+  #screen-eapproval .eap-search{flex:1;max-width:340px;padding:8px 11px;border:1.5px solid #E2E8F0;border-radius:9px;font-size:13px;outline:none}
+  #screen-eapproval .eap-search:focus{border-color:#2563EB;box-shadow:0 0 0 2px rgba(37,99,235,.12)}
   .eap-richview{font-size:13px;line-height:1.6;white-space:normal}
   .eap-rich img,.eap-richview img{max-width:100%;border-radius:4px;margin:4px 0;display:block}
   .eap-rt{border-collapse:collapse;width:100%;margin:6px 0;font-size:12.5px;table-layout:auto}
