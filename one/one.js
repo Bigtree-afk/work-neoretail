@@ -174,6 +174,7 @@
     titleEl.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); bodyEl.focus(); } };
     bodyEl.oninput = () => { body.html = bodyEl.innerHTML; page.updated = today(); savePage(page.id); scheduleTouchTree(); };
     bodyEl.onpaste = onPaste;
+    bodyEl.onkeydown = onBodyKeydown;
     renderAtts();
   }
   let _touchT = null; function scheduleTouchTree() { clearTimeout(_touchT); _touchT = setTimeout(() => saveTree(), 1500); }
@@ -253,6 +254,68 @@
   function delCol() { if (!_curCell) return; const tbl = tableOf(_curCell); if (tbl.querySelector('tr').children.length <= 1) return delTable(true); const idx = cellIndex(_curCell); rowsOf(tbl).forEach(tr => { if (tr.children[idx]) tr.children[idx].remove(); }); _curCell = null; $('ttools').style.display = 'none'; afterEdit(); }
   function toggleHeadRow() { if (!_curCell) return; const firstRow = tableOf(_curCell).querySelector('tr'); [...firstRow.children].forEach(c => { const nn = document.createElement(c.tagName === 'TH' ? 'td' : 'th'); nn.innerHTML = c.innerHTML; [...c.attributes].forEach(a => nn.setAttribute(a.name, a.value)); c.replaceWith(nn); }); afterEdit(); }
   function delTable(skipConfirm) { if (!_curCell) return; if (!skipConfirm && !confirm('표를 삭제할까요?')) return; tableOf(_curCell).remove(); _curCell = null; $('ttools').style.display = 'none'; afterEdit(); }
+
+  /* ── 셀 병합/분할 (grid 모델 기반) ── */
+  function readGrid(tbl) {
+    const rows = [...tbl.querySelectorAll('tr')]; const occ = []; const cells = [];
+    rows.forEach((tr, r) => { occ[r] = occ[r] || []; let c = 0;
+      [...tr.children].forEach(cell => { while (occ[r][c]) c++; const cs = cell.colSpan || 1, rs = cell.rowSpan || 1;
+        const rec = { r0: r, c0: c, rs, cs, html: cell.innerHTML, tag: cell.tagName.toLowerCase(), _el: cell }; cells.push(rec);
+        for (let dr = 0; dr < rs; dr++) { occ[r + dr] = occ[r + dr] || []; for (let dc = 0; dc < cs; dc++) occ[r + dr][c + dc] = rec; }
+        c += cs;
+      });
+    });
+    const grid = { cells }; rebuildOcc(grid); return grid;
+  }
+  function rebuildOcc(grid) {
+    const occ = []; let ncols = 0;
+    grid.cells.forEach(rec => { for (let dr = 0; dr < rec.rs; dr++) { const r = rec.r0 + dr; occ[r] = occ[r] || []; for (let dc = 0; dc < rec.cs; dc++) occ[r][rec.c0 + dc] = rec; } ncols = Math.max(ncols, rec.c0 + rec.cs); });
+    grid.occ = occ; grid.nrows = occ.length; grid.ncols = ncols;
+  }
+  function writeGrid(tbl, grid) {
+    let html = '';
+    for (let r = 0; r < grid.nrows; r++) { html += '<tr>';
+      for (let c = 0; c < grid.ncols; c++) { const rec = (grid.occ[r] || [])[c]; if (rec && rec.r0 === r && rec.c0 === c) { const sp = (rec.cs > 1 ? ` colspan="${rec.cs}"` : '') + (rec.rs > 1 ? ` rowspan="${rec.rs}"` : ''); html += `<${rec.tag}${sp}>${rec.html || '<br>'}</${rec.tag}>`; } }
+      html += '</tr>';
+    }
+    tbl.innerHTML = html;
+  }
+  function restoreCaret(tbl, r, c) {
+    const grid = readGrid(tbl); const rec = (grid.occ[r] || [])[c]; const el = rec && rec._el;
+    if (el) { _curCell = el; try { const rng = document.createRange(); rng.selectNodeContents(el); rng.collapse(true); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rng); } catch (_) {} }
+    updateTableTools();
+  }
+  function mergeDir(dir) {
+    if (!_curCell) return; const tbl = tableOf(_curCell);
+    const grid = readGrid(tbl); const A = grid.cells.find(rec => rec._el === _curCell); if (!A) return;
+    let B = null;
+    if (dir === 'right') { const n = (grid.occ[A.r0] || [])[A.c0 + A.cs]; if (n && n.r0 === A.r0 && n.rs === A.rs) B = n; }
+    else if (dir === 'left') { const n = (grid.occ[A.r0] || [])[A.c0 - 1]; if (n && n.r0 === A.r0 && n.rs === A.rs) B = n; }
+    else if (dir === 'down') { const n = (grid.occ[A.r0 + A.rs] || [])[A.c0]; if (n && n.c0 === A.c0 && n.cs === A.cs) B = n; }
+    else if (dir === 'up') { const n = (grid.occ[A.r0 - 1] || [])[A.c0]; if (n && n.c0 === A.c0 && n.cs === A.cs) B = n; }
+    if (!B) { alert('병합할 수 없습니다 — 인접 셀의 크기(행·열 정렬)가 맞아야 합니다.'); return; }
+    const keep = (dir === 'right' || dir === 'down') ? A : B;
+    const drop = keep === A ? B : A;
+    const dt = (drop.html || '').trim(); if (dt && dt !== '<br>') { const kt = (keep.html || '').trim(); keep.html = (kt && kt !== '<br>' ? kt + '<br>' : '') + drop.html; }
+    if (dir === 'right' || dir === 'left') keep.cs = A.cs + B.cs; else keep.rs = A.rs + B.rs;
+    grid.cells = grid.cells.filter(x => x !== drop); rebuildOcc(grid); writeGrid(tbl, grid);
+    restoreCaret(tbl, keep.r0, keep.c0); afterEdit();
+  }
+  function splitCell() {
+    if (!_curCell) return; const tbl = tableOf(_curCell);
+    const grid = readGrid(tbl); const A = grid.cells.find(rec => rec._el === _curCell); if (!A) return;
+    if (A.rs <= 1 && A.cs <= 1) { alert('병합된 셀이 아닙니다.'); return; }
+    const { r0, c0, rs, cs, tag } = A; A.rs = 1; A.cs = 1;
+    for (let dr = 0; dr < rs; dr++) for (let dc = 0; dc < cs; dc++) { if (dr === 0 && dc === 0) continue; grid.cells.push({ r0: r0 + dr, c0: c0 + dc, rs: 1, cs: 1, html: '<br>', tag }); }
+    rebuildOcc(grid); writeGrid(tbl, grid); restoreCaret(tbl, r0, c0); afterEdit();
+  }
+  /* 표 셀 키보드: Ctrl+Enter=아래 행 추가, Shift+Enter=오른쪽 열 추가 */
+  function onBodyKeydown(e) {
+    if (e.key !== 'Enter') return;
+    const cell = currentCell(); if (!cell) return;   // 표 셀 안에서만
+    if (e.ctrlKey || e.metaKey) { e.preventDefault(); _curCell = cell; addRow(true); }
+    else if (e.shiftKey) { e.preventDefault(); _curCell = cell; addCol(true); }
+  }
 
   function attachFile() {
     const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true;
@@ -379,6 +442,7 @@
     $('tbRowAbove').onclick = () => addRow(false); $('tbRowBelow').onclick = () => addRow(true);
     $('tbColLeft').onclick = () => addCol(false); $('tbColRight').onclick = () => addCol(true);
     $('tbDelRow').onclick = delRow; $('tbDelCol').onclick = delCol; $('tbHeadRow').onclick = toggleHeadRow; $('tbDelTable').onclick = () => delTable(false);
+    $('tbML').onclick = () => mergeDir('left'); $('tbMR').onclick = () => mergeDir('right'); $('tbMU').onclick = () => mergeDir('up'); $('tbMD').onclick = () => mergeDir('down'); $('tbSplit').onclick = splitCell;
     document.addEventListener('selectionchange', updateTableTools);
     bindNav();
     const t = (function () { try { return localStorage.getItem('one_theme'); } catch (_) { return null; } })(); if (t) document.documentElement.setAttribute('data-theme', t);
