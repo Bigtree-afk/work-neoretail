@@ -3211,8 +3211,11 @@
           if (date.startsWith(month)) salesThisMonth += paidAmt;
         } else {
           const out = Math.max(0, amt - paidAmt);   // 부분 수금 후 잔액
-          arAmount += out;
-          arRows.push({ ...row, outstanding: out });
+          // 미수액 0원(금액 0 후불 = 사실상 지원/무료건, 또는 전액수금)은 미수 아님 — 건수·금액 집계 제외
+          if (out > 0) {
+            arAmount += out;
+            arRows.push({ ...row, outstanding: out });
+          }
         }
       } else if (mode === 'support') {
         if (date.startsWith(month)) supportThisMonth++;
