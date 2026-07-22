@@ -124,7 +124,7 @@
     const sel = curPageId === p.id;
     const hasSub = p.sub && p.sub.length;
     const chev = hasSub ? `<span class="chev ${p.open ? 'open' : ''}">▶</span>` : `<span class="chev leaf"></span>`;
-    const acts = ACT([['addsub', '하위페이지', '＋'], ['rename', '이름변경', '✎'], ['del', '삭제', '✕', 'del']]);
+    const acts = ACT([['promote', '상위로 올리기 (←)', '←'], ['demote', '하위로 내리기 (→)', '→'], ['addsub', '하위페이지 추가', '＋'], ['rename', '이름변경', '✎'], ['del', '삭제', '✕', 'del']]);
     let h = `<div class="node"><div class="row prow ${sel ? 'sel' : ''}" data-page="${p.id}" data-sec="${secId}" style="padding-left:${pad}px">${chev}<span class="pgico">📄</span><span class="label">${esc(p.title || '제목 없음')}</span>${acts}</div>`;
     if (hasSub && p.open) h += `<div class="children">${p.sub.map(s => pageRowHtml(s, depth + 1, secId)).join('')}</div>`;
     return h + `</div>`;
@@ -137,7 +137,7 @@
         if (row.dataset.node) { const id = row.dataset.node;
           if (act === 'addchild') addNode(id); else if (act === 'addpage') { curSecId = id; addPage(null); } else if (act === 'rename') renameNode(id); else if (act === 'del') deleteNode(id);
         } else if (row.dataset.page) { const id = row.dataset.page; curSecId = row.dataset.sec;
-          if (act === 'addsub') addPage(id); else if (act === 'rename') renamePage(id, row.dataset.sec); else if (act === 'del') deletePage(id, row.dataset.sec);
+          if (act === 'addsub') addPage(id); else if (act === 'demote') demotePage(id, row.dataset.sec); else if (act === 'promote') promotePage(id, row.dataset.sec); else if (act === 'rename') renamePage(id, row.dataset.sec); else if (act === 'del') deletePage(id, row.dataset.sec);
         }
         return;
       }
@@ -452,6 +452,29 @@
     if (parentPageId) { const par = findPage(sec.pages, parentPageId); par.open = true; par.sub = par.sub || []; par.sub.push(p); } else sec.pages.push(p);
     curPageId = p.id; saveTree(); renderNav(); openCanvas();
     setTimeout(() => { const t = $('docTitle'); if (t) t.focus(); }, 30);
+  }
+  // 페이지 위치 찾기: { list, index, parentPage(null=최상위) }
+  function locatePage(pages, id, parent) {
+    const idx = pages.findIndex(p => p.id === id); if (idx >= 0) return { list: pages, index: idx, parentPage: parent || null };
+    for (const p of pages) { if (p.sub && p.sub.length) { const r = locatePage(p.sub, id, p); if (r) return r; } }
+    return null;
+  }
+  // → 하위로: 바로 위 형제 페이지의 하위페이지로
+  function demotePage(id, secId) {
+    const sec = findNode(secId || curSecId); const loc = locatePage(sec.pages, id); if (!loc) return;
+    if (loc.index === 0) { alert('바로 위에 형제 페이지가 없어 하위로 내릴 수 없습니다.'); return; }
+    const P = loc.list.splice(loc.index, 1)[0]; const prev = loc.list[loc.index - 1];
+    prev.sub = prev.sub || []; prev.sub.push(P); prev.open = true;
+    curPageId = P.id; curSecId = sec.id; saveTree(); renderNav(); openCanvas();
+  }
+  // ← 상위로: 부모와 같은 레벨(부모 바로 다음)으로
+  function promotePage(id, secId) {
+    const sec = findNode(secId || curSecId); const loc = locatePage(sec.pages, id); if (!loc) return;
+    if (!loc.parentPage) { alert('이미 최상위 페이지입니다.'); return; }
+    const P = loc.list.splice(loc.index, 1)[0];
+    const ploc = locatePage(sec.pages, loc.parentPage.id);
+    (ploc ? ploc.list : sec.pages).splice(ploc ? ploc.index + 1 : sec.pages.length, 0, P);
+    curPageId = P.id; curSecId = sec.id; saveTree(); renderNav(); openCanvas();
   }
   function renamePage(id, secId) { const sec = findNode(secId || curSecId); const p = findPage(sec.pages, id);
     dialog('페이지 이름', [{ key: 'name', label: '제목', value: p.title || '' }], (v) => { p.title = v.name.trim(); p.updated = today(); saveTree(); renderNav(); if (curPageId === id) openCanvas(); });
