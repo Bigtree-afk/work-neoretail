@@ -13,6 +13,51 @@
   const SEC_COLORS = ['#8B5CF6', '#3B82F6', '#1AA79E', '#E1567A', '#E29B33', '#3FA95B', '#64748B'];
   const NB_ICONS = ['💼', '⌨️', '🌱', '📘', '🎯', '🗂️', '⭐'];
 
+  /* ── Lucide 계열 인라인 SVG 아이콘 (외부 CDN 없음. stroke=currentColor 로 테마/hover 자동) ── */
+  const ICON = {
+    bold: '<path d="M6 4h8a4 4 0 0 1 0 8H6z"/><path d="M6 12h9a4 4 0 0 1 0 8H6z"/>',
+    h1: '<path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="m17 12 3-2v8"/>',
+    h2: '<path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1"/>',
+    list: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>',
+    olist: '<path d="M10 6h11M10 12h11M10 18h11"/><path d="M4 6h1v4M4 10h2"/><path d="M6 18H4c0-1 2-1.6 2-2.6S5 14.5 4 15"/>',
+    quote: '<path d="M6 15q-1 0-1-1V9q0-1 1-1h3q1 0 1 1v3q0 3-3 4M15 15q-1 0-1-1V9q0-1 1-1h3q1 0 1 1v3q0 3-3 4"/>',
+    table: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 10h18M3 15h18M9 3v18M15 3v18"/>',
+    clip: '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+    fontcolor: '<path d="M5 18 11 5l6 13"/><path d="M7.5 13.5h7"/><rect x="4" y="20.2" width="16" height="2.4" rx="1" fill="var(--accent)" stroke="none"/>',
+    bucket: '<path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z"/>',
+    bucketOff: '<path d="M12 3s5.5 5.5 5.5 9.5a5.5 5.5 0 0 1-11 0c0-1.3.6-2.7 1.4-4"/><path d="m4 4 16 16"/>',
+    rowAbove: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 13h18"/><path d="M12 5.5v4M10 7.5h4"/>',
+    rowBelow: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 11h18"/><path d="M12 14.5v4M10 16.5h4"/>',
+    colLeft: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M13 3v18"/><path d="M8 10v4M6 12h4"/>',
+    colRight: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M11 3v18"/><path d="M16 10v4M14 12h4"/>',
+    rowDel: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18"/><path d="M9 16.5h6"/>',
+    colDel: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><path d="M14.5 12h4"/>',
+    merge: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h5M16 12h5"/><path d="M11 8l-3 4 3 4M13 8l3 4-3 4"/>',
+    split: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><path d="M8 9l-2 3 2 3M16 9l2 3-2 3"/>',
+    alignL: '<path d="M3 6h18M3 12h11M3 18h15"/>',
+    alignC: '<path d="M3 6h18M6 12h12M5 18h14"/>',
+    alignR: '<path d="M3 6h18M10 12h11M6 18h15"/>',
+    valT: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8"/>',
+    valM: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12h8"/>',
+    valB: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 16h8"/>',
+    header: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><rect x="3.5" y="3.5" width="17" height="5.5" rx="1.5" fill="var(--accent)" opacity="0.16" stroke="none"/>',
+    trash: '<path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+    x: '<path d="M18 6 6 18M6 6l12 12"/>',
+    arrowL: '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
+    arrowR: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+    chevR: '<path d="m9 6 6 6-6 6"/>',
+    chevD: '<path d="m6 9 6 6 6-6"/>',
+    folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+    folderOpen: '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H21a2 2 0 0 1 1.94 2.5l-1.55 6A2 2 0 0 1 19.46 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
+    file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/>',
+    panel: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    theme: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/>',
+  };
+  function ic(name, size) { const p = ICON[name]; if (!p) return ''; const s = size || 20; return `<svg class="ic" viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`; }
+
   /* ── 인증 게이트 ── */
   function authEmail() {
     try { const a = JSON.parse(localStorage.getItem('ns_auth') || 'null'); if (a && a.loggedIn) return String(a.id || a.email || '').toLowerCase(); } catch (_) {}
@@ -91,7 +136,7 @@
   function renderRail() {
     const r = $('rail');
     r.innerHTML = DATA.notebooks.map(n => `<div class="nb-ico ${n.id === curNb ? 'on' : ''}" style="background:${n.color}" title="${esc(n.name)}" data-nb="${n.id}">${n.ico || '📘'}</div>`).join('')
-      + `<div class="spring"></div><button class="add" id="addNbBtn" title="새 필기장">＋</button>`;
+      + `<div class="spring"></div><button class="add" id="addNbBtn" title="새 필기장">${ic('plus', 18)}</button>`;
     r.querySelectorAll('[data-nb]').forEach(el => { el.onclick = () => { curNb = el.dataset.nb; curSecId = null; curPageId = null; selectFirst(); }; el.ondblclick = () => editNotebook(el.dataset.nb); });
     $('addNbBtn').onclick = () => editNotebook(null);
     const cur = nb(); $('nbName').textContent = cur ? cur.name : 'ONE'; if (cur) document.querySelector('#nbSwitch .dot').style.background = cur.color;
@@ -103,19 +148,19 @@
     $('navHead').textContent = cur ? cur.name : '내용';
     host.innerHTML = (cur ? cur.nodes : []).map(n => nodeHtml(n, 0)).join('') || '<div class="empty-hint">＋ 로 섹션을 추가하세요</div>';
   }
-  const ACT = (list) => `<span class="rowacts">${list.map(([a, t, ic, cls]) => `<button data-act="${a}" title="${t}" ${cls ? `class="${cls}"` : ''}>${ic}</button>`).join('')}</span>`;
+  const ACT = (list) => `<span class="rowacts">${list.map(([a, t, icon, cls]) => `<button data-act="${a}" title="${t}"${cls ? ` class="${cls}"` : ''}>${ic(icon, 14)}</button>`).join('')}</span>`;
   function nodeHtml(n, depth) {
     const pad = 6 + depth * 13;
     if (n.type === 'group') {
-      const acts = ACT([['addchild', '안에 추가', '＋'], ['rename', '이름변경', '✎'], ['del', '삭제', '✕', 'del']]);
-      let h = `<div class="node"><div class="row" data-node="${n.id}" data-kind="group" style="padding-left:${pad}px"><span class="chev ${n.open ? 'open' : ''}">▶</span><span class="gico">${n.open ? '📂' : '📁'}</span><span class="label">${esc(n.name)}</span>${acts}</div>`;
+      const acts = ACT([['addchild', '안에 추가', 'plus'], ['rename', '이름변경', 'pencil'], ['del', '삭제', 'x', 'del']]);
+      let h = `<div class="node"><div class="row" data-node="${n.id}" data-kind="group" style="padding-left:${pad}px"><span class="chev ${n.open ? 'open' : ''}">${ic('chevR', 12)}</span><span class="gico">${ic(n.open ? 'folderOpen' : 'folder', 15)}</span><span class="label">${esc(n.name)}</span>${acts}</div>`;
       if (n.open && n.children && n.children.length) h += `<div class="children">${n.children.map(c => nodeHtml(c, depth + 1)).join('')}</div>`;
       return h + `</div>`;
     }
     // section
-    const acts = ACT([['addpage', '페이지 추가', '＋'], ['rename', '이름변경', '✎'], ['del', '삭제', '✕', 'del']]);
+    const acts = ACT([['addpage', '페이지 추가', 'plus'], ['rename', '이름변경', 'pencil'], ['del', '삭제', 'x', 'del']]);
     const cnt = `<span class="count">${countPages(n.pages)}</span>`;
-    let h = `<div class="node"><div class="row" data-node="${n.id}" data-kind="section" style="padding-left:${pad}px"><span class="chev ${n.open ? 'open' : ''}">▶</span><span class="sdot" style="background:${n.color}"></span><span class="label">${esc(n.name)}</span>${cnt}${acts}</div>`;
+    let h = `<div class="node"><div class="row" data-node="${n.id}" data-kind="section" style="padding-left:${pad}px"><span class="chev ${n.open ? 'open' : ''}">${ic('chevR', 12)}</span><span class="sdot" style="background:${n.color}"></span><span class="label">${esc(n.name)}</span>${cnt}${acts}</div>`;
     if (n.open) h += `<div class="children">${(n.pages || []).map(p => pageRowHtml(p, depth + 1, n.id)).join('') || `<div class="empty-hint" style="padding:8px 12px;font-size:12px;text-align:left">＋ 페이지 추가</div>`}</div>`;
     return h + `</div>`;
   }
@@ -123,9 +168,9 @@
     const pad = 6 + depth * 13;
     const sel = curPageId === p.id;
     const hasSub = p.sub && p.sub.length;
-    const chev = hasSub ? `<span class="chev ${p.open ? 'open' : ''}">▶</span>` : `<span class="chev leaf"></span>`;
-    const acts = ACT([['promote', '상위로 올리기 (←)', '←'], ['demote', '하위로 내리기 (→)', '→'], ['addsub', '하위페이지 추가', '＋'], ['rename', '이름변경', '✎'], ['del', '삭제', '✕', 'del']]);
-    let h = `<div class="node"><div class="row prow ${sel ? 'sel' : ''}" data-page="${p.id}" data-sec="${secId}" style="padding-left:${pad}px">${chev}<span class="pgico">📄</span><span class="label">${esc(p.title || '제목 없음')}</span>${acts}</div>`;
+    const chev = hasSub ? `<span class="chev ${p.open ? 'open' : ''}">${ic('chevR', 12)}</span>` : `<span class="chev leaf"></span>`;
+    const acts = ACT([['promote', '상위로 올리기 (←)', 'arrowL'], ['demote', '하위로 내리기 (→)', 'arrowR'], ['addsub', '하위페이지 추가', 'plus'], ['rename', '이름변경', 'pencil'], ['del', '삭제', 'x', 'del']]);
+    let h = `<div class="node"><div class="row prow ${sel ? 'sel' : ''}" data-page="${p.id}" data-sec="${secId}" style="padding-left:${pad}px">${chev}<span class="pgico">${ic('file', 15)}</span><span class="label">${esc(p.title || '제목 없음')}</span>${acts}</div>`;
     if (hasSub && p.open) h += `<div class="children">${p.sub.map(s => pageRowHtml(s, depth + 1, secId)).join('')}</div>`;
     return h + `</div>`;
   }
@@ -538,8 +583,25 @@
   }
 
   /* ── 부트 ── */
+  function paintStaticIcons() {
+    // 정적 버튼 아이콘 주입 [id, icon, label?]
+    const map = [
+      ['tbBold', 'bold'], ['tbH1', 'h1'], ['tbH2', 'h2'], ['tbList', 'list'], ['tbOList', 'olist'], ['tbQuote', 'quote'],
+      ['tbTable', 'table', '표'], ['tbAttach', 'clip', '첨부'],
+      ['tbFontColorBtn', 'fontcolor'], ['tbCellColorBtn', 'bucket'], ['tbCellColorClear', 'bucketOff'],
+      ['tbRowAbove', 'rowAbove'], ['tbRowBelow', 'rowBelow'], ['tbColLeft', 'colLeft'], ['tbColRight', 'colRight'], ['tbDelRow', 'rowDel'], ['tbDelCol', 'colDel'],
+      ['tbMerge', 'merge', '병합'], ['tbSplit', 'split', '분할'],
+      ['tbAlL', 'alignL'], ['tbAlC', 'alignC'], ['tbAlR', 'alignR'], ['tbVaT', 'valT'], ['tbVaM', 'valM'], ['tbVaB', 'valB'],
+      ['tbHeadRow', 'header'], ['tbDelTable', 'trash'],
+      ['navToggle', 'panel', , 18], ['themeBtn', 'theme', , 18], ['addSec', 'plus', , 17], ['newPageFab', 'plus', , 26],
+    ];
+    map.forEach(([id, name, label, size]) => { const el = $(id); if (el) el.innerHTML = ic(name, size || 18) + (label ? ` <span class="tlabel">${label}</span>` : ''); });
+    const s = document.querySelector('.search span'); if (s) s.innerHTML = ic('search', 15);
+    const chev = document.querySelector('#nbSwitch .chev'); if (chev) chev.innerHTML = ic('chevD', 13);
+  }
   async function boot() {
     if (!enforceGate()) return;
+    paintStaticIcons();
     $('addSec').onclick = () => addNode(null);
     $('newPageFab').onclick = () => addPage(null);
     $('navToggle').onclick = () => $('mainGrid').classList.toggle('nav-collapsed');

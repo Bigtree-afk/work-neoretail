@@ -188,6 +188,24 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:14p
 .lb .x{position:fixed;top:14px;right:16px;background:rgba(255,255,255,.16);color:#fff;border:1.5px solid rgba(255,255,255,.5);border-radius:24px;padding:8px 15px;font-weight:800;cursor:pointer}
 
 .newpage-fab{position:fixed;right:22px;bottom:22px;width:52px;height:52px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:24px;box-shadow:0 6px 20px rgba(107,79,224,.4);z-index:8;cursor:pointer}
+/* ── Lucide 인라인 SVG 아이콘 ── */
+svg.ic{display:inline-block;vertical-align:middle;flex:0 0 auto;pointer-events:none}
+.toolbar button{display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.toolbar button svg.ic{width:18px;height:18px}
+.toolbar .colorbtn svg.ic,.toolbar #tbFontColorBtn svg.ic{width:19px;height:19px}
+.rowacts button{display:grid;place-items:center}
+.rowacts button svg.ic{width:14px;height:14px}
+.chev svg.ic{width:12px;height:12px}
+.gico,.pgico{display:inline-flex;align-items:center;color:var(--mut)}
+.row.prow.sel .pgico{color:var(--accent)}
+.rail .add,.col-head .add{display:inline-grid;place-items:center}
+.rail .add svg.ic{width:18px;height:18px}
+.newpage-fab{display:grid;place-items:center}
+.newpage-fab svg.ic{width:26px;height:26px}
+.search span{display:inline-flex;align-items:center;color:var(--faint)}
+.nb-switch .chev{display:inline-flex;align-items:center;color:var(--faint)}
+.icon-btn{display:inline-grid;place-items:center}
+.icon-btn svg.ic{width:18px;height:18px}
 .empty-hint{color:var(--faint);font-size:13px;padding:40px 10px;text-align:center}
 /* 표 셀 드래그 선택 하이라이트 (칸 배경색 위에도 보이도록 inset 테두리) */
 .doc-body .one-rt td.cellsel,.doc-body .one-rt th.cellsel{box-shadow:inset 0 0 0 2px var(--accent);position:relative}
