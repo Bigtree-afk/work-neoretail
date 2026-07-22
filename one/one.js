@@ -176,7 +176,7 @@
     bodyEl.onpaste = onPaste;
     bodyEl.onkeydown = onBodyKeydown;
     bodyEl.onmousemove = rzHover;
-    bodyEl.onmousedown = rzStart;
+    bodyEl.onmousedown = onBodyMousedown;
     renderAtts();
   }
   let _touchT = null; function scheduleTouchTree() { clearTimeout(_touchT); _touchT = setTimeout(() => saveTree(), 1500); }
@@ -298,21 +298,47 @@
     if (el) { _curCell = el; try { const rng = document.createRange(); rng.selectNodeContents(el); rng.collapse(true); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rng); } catch (_) {} }
     updateTableTools();
   }
-  function mergeDir(dir) {
-    if (!_curCell) return; const tbl = tableOf(_curCell);
-    const grid = readGrid(tbl); const A = grid.cells.find(rec => rec._el === _curCell); if (!A) return;
-    let B = null;
-    if (dir === 'right') { const n = (grid.occ[A.r0] || [])[A.c0 + A.cs]; if (n && n.r0 === A.r0 && n.rs === A.rs) B = n; }
-    else if (dir === 'left') { const n = (grid.occ[A.r0] || [])[A.c0 - 1]; if (n && n.r0 === A.r0 && n.rs === A.rs) B = n; }
-    else if (dir === 'down') { const n = (grid.occ[A.r0 + A.rs] || [])[A.c0]; if (n && n.c0 === A.c0 && n.cs === A.cs) B = n; }
-    else if (dir === 'up') { const n = (grid.occ[A.r0 - 1] || [])[A.c0]; if (n && n.c0 === A.c0 && n.cs === A.cs) B = n; }
-    if (!B) { alert('병합할 수 없습니다 — 인접 셀의 크기(행·열 정렬)가 맞아야 합니다.'); return; }
-    const keep = (dir === 'right' || dir === 'down') ? A : B;
-    const drop = keep === A ? B : A;
-    const dt = (drop.html || '').trim(); if (dt && dt !== '<br>') { const kt = (keep.html || '').trim(); keep.html = (kt && kt !== '<br>' ? kt + '<br>' : '') + drop.html; }
-    if (dir === 'right' || dir === 'left') keep.cs = A.cs + B.cs; else keep.rs = A.rs + B.rs;
-    grid.cells = grid.cells.filter(x => x !== drop); rebuildOcc(grid); writeGrid(tbl, grid);
-    restoreCaret(tbl, keep.r0, keep.c0); afterEdit();
+  /* ── 드래그로 셀 범위 선택 → 선택 전체 병합 ── */
+  let _selAnchor = null, _selDown = false, _selMoved = false, _selCells = [], _selRange = null;
+  function clearCellSel() { document.querySelectorAll('#docBody .one-rt .cellsel').forEach(c => c.classList.remove('cellsel')); _selCells = []; _selRange = null; }
+  function selectRange(a, b) {
+    const tbl = a.closest('table'); if (!tbl || b.closest('table') !== tbl) return;
+    const grid = readGrid(tbl); const A = grid.cells.find(r => r._el === a), B = grid.cells.find(r => r._el === b); if (!A || !B) return;
+    let r0 = Math.min(A.r0, B.r0), c0 = Math.min(A.c0, B.c0), r1 = Math.max(A.r0 + A.rs - 1, B.r0 + B.rs - 1), c1 = Math.max(A.c0 + A.cs - 1, B.c0 + B.cs - 1);
+    let changed = true; // 병합셀이 걸치면 사각형 확장
+    while (changed) { changed = false; grid.cells.forEach(rec => { const rr1 = rec.r0 + rec.rs - 1, cc1 = rec.c0 + rec.cs - 1; if (rec.r0 <= r1 && rr1 >= r0 && rec.c0 <= c1 && cc1 >= c0) { if (rec.r0 < r0) { r0 = rec.r0; changed = true; } if (rr1 > r1) { r1 = rr1; changed = true; } if (rec.c0 < c0) { c0 = rec.c0; changed = true; } if (cc1 > c1) { c1 = cc1; changed = true; } } }); }
+    clearCellSel(); const set = new Set();
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const rec = (grid.occ[r] || [])[c]; if (rec && !set.has(rec._el)) { set.add(rec._el); rec._el.classList.add('cellsel'); _selCells.push(rec._el); } }
+    _selRange = { r0, c0, r1, c1, tbl };
+  }
+  function mergeSelection() {
+    if (_selCells.length < 2 || !_selRange) { alert('병합할 칸들을 마우스로 드래그해 선택한 뒤 눌러주세요.'); return; }
+    const { r0, c0, r1, c1 } = _selRange; const tbl = _selRange.tbl;
+    const grid = readGrid(tbl); const keep = (grid.occ[r0] || [])[c0]; if (!keep) return;
+    let html = ''; const seen = new Set();
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const rec = (grid.occ[r] || [])[c]; if (rec && !seen.has(rec)) { seen.add(rec); const t = (rec.html || '').trim(); if (t && t !== '<br>') html += (html ? '<br>' : '') + rec.html; } }
+    keep.html = html || '<br>'; keep.rs = r1 - r0 + 1; keep.cs = c1 - c0 + 1;
+    grid.cells = grid.cells.filter(rec => rec === keep || !(rec.r0 >= r0 && rec.r0 <= r1 && rec.c0 >= c0 && rec.c0 <= c1));
+    rebuildOcc(grid); writeGrid(tbl, grid); restoreCaret(tbl, r0, c0); clearCellSel(); afterEdit();
+  }
+  function onBodyMousedown(e) {
+    if (_rzHint) { rzStart(e); return; }
+    const cell = e.target.closest && e.target.closest('.one-rt td, .one-rt th');
+    clearCellSel(); _selAnchor = cell || null; _selDown = !!cell; _selMoved = false;
+  }
+  function onDocMouseMove(e) {
+    if (_rz) { rzMove(e); return; }
+    if (_selDown && _selAnchor) {
+      let cell = e.target.closest && e.target.closest('.one-rt td, .one-rt th');
+      if (!cell) { const el = document.elementFromPoint(e.clientX, e.clientY); cell = el && el.closest && el.closest('.one-rt td, .one-rt th'); }
+      if (cell && cell.closest('table') === _selAnchor.closest('table') && (cell !== _selAnchor || _selMoved)) {
+        _selMoved = true; e.preventDefault(); const s = window.getSelection(); if (s) s.removeAllRanges(); selectRange(_selAnchor, cell);
+      }
+    }
+  }
+  function onDocMouseUp() {
+    if (_rz) rzEnd();
+    if (_selDown) { _selDown = false; if (!_selMoved) clearCellSel(); else { _curCell = _selAnchor; updateTableTools(); } }
   }
   function splitCell() {
     if (!_curCell) return; const tbl = tableOf(_curCell);
@@ -495,7 +521,7 @@
     $('tbRowAbove').onclick = () => addRow(false); $('tbRowBelow').onclick = () => addRow(true);
     $('tbColLeft').onclick = () => addCol(false); $('tbColRight').onclick = () => addCol(true);
     $('tbDelRow').onclick = delRow; $('tbDelCol').onclick = delCol; $('tbHeadRow').onclick = toggleHeadRow; $('tbDelTable').onclick = () => delTable(false);
-    $('tbML').onclick = () => mergeDir('left'); $('tbMR').onclick = () => mergeDir('right'); $('tbMU').onclick = () => mergeDir('up'); $('tbMD').onclick = () => mergeDir('down'); $('tbSplit').onclick = splitCell;
+    $('tbMerge').onclick = mergeSelection; $('tbSplit').onclick = splitCell;
     // 색상
     $('tbFontColorBtn').onclick = () => $('tbFontColor').click();
     $('tbFontColor').oninput = (e) => applyFontColor(e.target.value);
@@ -503,8 +529,8 @@
     $('tbCellColor').oninput = (e) => applyCellColor(e.target.value);
     $('tbCellColorClear').onclick = clearCellColor;
     document.addEventListener('selectionchange', updateTableTools);
-    document.addEventListener('mousemove', rzMove);
-    document.addEventListener('mouseup', rzEnd);
+    document.addEventListener('mousemove', onDocMouseMove);
+    document.addEventListener('mouseup', onDocMouseUp);
     bindNav();
     const t = (function () { try { return localStorage.getItem('one_theme'); } catch (_) { return null; } })(); if (t) document.documentElement.setAttribute('data-theme', t);
     await loadTree(); curNb = DATA.notebooks[0].id; selectFirst(); setSaveInd('saved');
