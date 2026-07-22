@@ -175,6 +175,8 @@
     bodyEl.oninput = () => { body.html = bodyEl.innerHTML; page.updated = today(); savePage(page.id); scheduleTouchTree(); };
     bodyEl.onpaste = onPaste;
     bodyEl.onkeydown = onBodyKeydown;
+    bodyEl.onmousemove = rzHover;
+    bodyEl.onmousedown = rzStart;
     renderAtts();
   }
   let _touchT = null; function scheduleTouchTree() { clearTimeout(_touchT); _touchT = setTimeout(() => saveTree(), 1500); }
@@ -192,6 +194,15 @@
   }
 
   /* ── 리치 에디터 ── */
+  const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|rgba?\([\d.,%\s]+\)|[a-zA-Z]+)$/;
+  function safeStyle(s) {
+    if (!s) return '';
+    const allow = { 'color': COLOR_RE, 'background-color': COLOR_RE, 'width': /^\d+(\.\d+)?(px|%)$/, 'height': /^\d+(\.\d+)?px$/, 'text-align': /^(left|center|right|justify)$/, 'font-weight': /^(bold|[1-9]00)$/ };
+    const out = [];
+    String(s).split(';').forEach(rule => { const i = rule.indexOf(':'); if (i < 0) return; const k = rule.slice(0, i).trim().toLowerCase(), v = rule.slice(i + 1).trim(); if (allow[k] && allow[k].test(v) && !/url\(|expression|javascript:/i.test(v)) out.push(k + ':' + v); });
+    return out.join(';');
+  }
+  const STYLED = { SPAN: 1, TD: 1, TH: 1, P: 1, DIV: 1, H1: 1, H2: 1, H3: 1, LI: 1, TABLE: 1 };
   function sanitizeRich(html) {
     const src = String(html || ''); if (!src) return '';
     const idoc = document.implementation.createHTMLDocument('x'); idoc.body.innerHTML = src;
@@ -201,12 +212,14 @@
       if (ch.nodeType !== 1) return; const tag = ch.tagName;
       if (tag === 'BR') { out += '<br>'; return; }
       if (tag === 'IMG') { const s = ch.getAttribute('src') || ''; if (/^data:image\//i.test(s)) out += `<img src="${s}">`; return; }
+      if (tag === 'FONT') { const col = ch.getAttribute('color'); let st = safeStyle(ch.getAttribute('style')); if (!st && col && COLOR_RE.test(col)) st = 'color:' + col; out += `<span${st ? ` style="${st}"` : ''}>${walk(ch)}</span>`; return; }
       if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'IFRAME' || tag === 'OBJECT') return;
       if (!ALLOW[tag]) { out += walk(ch); return; }
       let attrs = '';
       if (tag === 'A') { const h = ch.getAttribute('href') || ''; if (/^https?:|^mailto:/i.test(h)) attrs += ` href="${esc(h)}" target="_blank" rel="noopener"`; }
       if (tag === 'TD' || tag === 'TH') { const cs = parseInt(ch.getAttribute('colspan')) || 0, rs = parseInt(ch.getAttribute('rowspan')) || 0; if (cs > 1) attrs += ` colspan="${cs}"`; if (rs > 1) attrs += ` rowspan="${rs}"`; }
       if (tag === 'TABLE') attrs = ' class="one-rt"';
+      if (STYLED[tag]) { const st = safeStyle(ch.getAttribute('style')); if (st) attrs += ` style="${st}"`; }
       const t = tag.toLowerCase(); out += `<${t}${attrs}>${walk(ch)}</${t}>`;
     }); return out; };
     return walk(idoc.body);
@@ -309,13 +322,53 @@
     for (let dr = 0; dr < rs; dr++) for (let dc = 0; dc < cs; dc++) { if (dr === 0 && dc === 0) continue; grid.cells.push({ r0: r0 + dr, c0: c0 + dc, rs: 1, cs: 1, html: '<br>', tag }); }
     rebuildOcc(grid); writeGrid(tbl, grid); restoreCaret(tbl, r0, c0); afterEdit();
   }
-  /* 표 셀 키보드: Ctrl+Enter=아래 행 추가, Shift+Enter=오른쪽 열 추가 */
+  /* 표 셀 키보드: Ctrl+Enter=아래 행, Shift+Enter=오른쪽 열, Tab=다음 칸(끝이면 행 추가), Shift+Tab=이전 칸 */
   function onBodyKeydown(e) {
+    const cell = currentCell();
+    if (e.key === 'Tab') { if (!cell) return; e.preventDefault(); _curCell = cell; moveCell(cell, e.shiftKey ? -1 : 1); return; }
     if (e.key !== 'Enter') return;
-    const cell = currentCell(); if (!cell) return;   // 표 셀 안에서만
+    if (!cell) return;
     if (e.ctrlKey || e.metaKey) { e.preventDefault(); _curCell = cell; addRow(true); }
     else if (e.shiftKey) { e.preventDefault(); _curCell = cell; addCol(true); }
   }
+  function focusCell(el) { if (!el) return; _curCell = el; try { const rng = document.createRange(); rng.selectNodeContents(el); rng.collapse(false); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rng); } catch (_) {} updateTableTools(); }
+  function moveCell(cell, dir) {
+    const tbl = tableOf(cell); const cells = [...tbl.querySelectorAll('td,th')]; const i = cells.indexOf(cell);
+    if (dir > 0) { if (i + 1 < cells.length) focusCell(cells[i + 1]); else { const tr = cell.parentNode; addRow(true); focusCell(tr.nextSibling && tr.nextSibling.children[0]); } }
+    else { if (i - 1 >= 0) focusCell(cells[i - 1]); }
+  }
+
+  /* ── 색상: 글자색(선택 텍스트) / 칸 배경색(현재 셀) ── */
+  function applyFontColor(color) { const el = $('docBody'); el.focus(); try { document.execCommand('styleWithCSS', false, true); } catch (_) {} document.execCommand('foreColor', false, color); afterEdit(); }
+  function applyCellColor(color) { if (!_curCell) { alert('표 안의 칸을 먼저 클릭하세요'); return; } _curCell.style.backgroundColor = color; afterEdit(); }
+  function clearCellColor() { if (!_curCell) return; _curCell.style.backgroundColor = ''; if (!_curCell.getAttribute('style')) _curCell.removeAttribute('style'); afterEdit(); }
+
+  /* ── 표 테두리 드래그로 열 너비·행 높이 조절 ── */
+  let _rz = null, _rzHint = null;
+  function rzHover(e) {
+    if (_rz) return; const el = $('docBody');
+    const cell = e.target.closest && e.target.closest('.one-rt td, .one-rt th');
+    if (!cell) { el.style.cursor = ''; _rzHint = null; return; }
+    const r = cell.getBoundingClientRect();
+    const nearRight = r.right - e.clientX < 6 && r.right - e.clientX >= -1;
+    const nearBottom = r.bottom - e.clientY < 6 && r.bottom - e.clientY >= -1;
+    if (nearRight) { el.style.cursor = 'col-resize'; _rzHint = { type: 'col', cell }; }
+    else if (nearBottom) { el.style.cursor = 'row-resize'; _rzHint = { type: 'row', cell }; }
+    else { el.style.cursor = ''; _rzHint = null; }
+  }
+  function rzStart(e) {
+    if (!_rzHint) return; e.preventDefault();
+    const cell = _rzHint.cell, r = cell.getBoundingClientRect(), tbl = cell.closest('table');
+    if (_rzHint.type === 'col') _rz = { type: 'col', tbl, colIdx: [...cell.parentNode.children].indexOf(cell), startX: e.clientX, startW: r.width };
+    else _rz = { type: 'row', tr: cell.parentNode, startY: e.clientY, startH: cell.parentNode.getBoundingClientRect().height };
+    document.body.style.userSelect = 'none';
+  }
+  function rzMove(e) {
+    if (!_rz) return;
+    if (_rz.type === 'col') { const w = Math.max(30, Math.round(_rz.startW + (e.clientX - _rz.startX))); [..._rz.tbl.querySelectorAll('tr')].forEach(tr => { const c = tr.children[_rz.colIdx]; if (c) c.style.width = w + 'px'; }); }
+    else { const h = Math.max(24, Math.round(_rz.startH + (e.clientY - _rz.startY))); [..._rz.tr.children].forEach(c => c.style.height = h + 'px'); }
+  }
+  function rzEnd() { if (!_rz) return; _rz = null; document.body.style.userSelect = ''; afterEdit(); }
 
   function attachFile() {
     const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true;
@@ -443,7 +496,15 @@
     $('tbColLeft').onclick = () => addCol(false); $('tbColRight').onclick = () => addCol(true);
     $('tbDelRow').onclick = delRow; $('tbDelCol').onclick = delCol; $('tbHeadRow').onclick = toggleHeadRow; $('tbDelTable').onclick = () => delTable(false);
     $('tbML').onclick = () => mergeDir('left'); $('tbMR').onclick = () => mergeDir('right'); $('tbMU').onclick = () => mergeDir('up'); $('tbMD').onclick = () => mergeDir('down'); $('tbSplit').onclick = splitCell;
+    // 색상
+    $('tbFontColorBtn').onclick = () => $('tbFontColor').click();
+    $('tbFontColor').oninput = (e) => applyFontColor(e.target.value);
+    $('tbCellColorBtn').onclick = () => $('tbCellColor').click();
+    $('tbCellColor').oninput = (e) => applyCellColor(e.target.value);
+    $('tbCellColorClear').onclick = clearCellColor;
     document.addEventListener('selectionchange', updateTableTools);
+    document.addEventListener('mousemove', rzMove);
+    document.addEventListener('mouseup', rzEnd);
     bindNav();
     const t = (function () { try { return localStorage.getItem('one_theme'); } catch (_) { return null; } })(); if (t) document.documentElement.setAttribute('data-theme', t);
     await loadTree(); curNb = DATA.notebooks[0].id; selectFirst(); setSaveInd('saved');

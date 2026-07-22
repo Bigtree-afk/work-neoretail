@@ -117,6 +117,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:14p
 .toolbar .ttools{display:inline-flex;align-items:center;gap:2px}
 .toolbar .ttools button{min-width:26px;padding:0 6px;font-size:12px}
 .toolbar button.danger:hover{background:#FDE8E8;color:var(--danger)}
+.toolbar .colorbtn .ca{border-bottom:3px solid #e1567a;line-height:1;font-weight:900;padding-bottom:1px}
+.toolbar .colorbtn .cb{color:#e0a92a;font-size:14px}
 /* 필기장 드롭다운 메뉴 */
 .nb-menu{position:absolute;top:46px;left:120px;z-index:200;background:var(--canvas);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow);padding:6px;min-width:210px}
 .nb-menu .mi{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px}
@@ -143,7 +145,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:14p
 .doc-body img{max-width:100%;border-radius:6px;margin:6px 0;display:block}
 .doc-body blockquote{border-left:3px solid var(--accent-line);padding:2px 0 2px 14px;color:var(--mut);margin:10px 0}
 .one-rt{border-collapse:collapse;margin:10px 0;font-size:13.5px;table-layout:auto}
-.one-rt td,.one-rt th{border:1px solid var(--line);padding:6px 9px;min-width:40px;word-break:break-word;vertical-align:top}
+.one-rt td,.one-rt th{border:1px solid var(--line);padding:6px 9px;min-width:24px;word-break:break-word;vertical-align:top;overflow:hidden}
 .one-rt th{background:var(--chrome);font-weight:700}
 .doc-body:focus .one-rt td:focus,.one-rt td:focus{outline:2px solid var(--accent-line);outline-offset:-2px;background:var(--accent-soft)}
 /* attachments */
