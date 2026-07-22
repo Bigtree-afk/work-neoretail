@@ -302,7 +302,14 @@
   /* ── 표 편집 (현재 셀 기준) ── */
   let _curCell = null;
   function currentCell() { const sel = window.getSelection(); if (!sel || !sel.rangeCount) return null; let node = sel.anchorNode; while (node && node !== document.body) { if (node.nodeType === 1 && (node.tagName === 'TD' || node.tagName === 'TH') && node.closest('.one-rt') && node.closest('#docBody')) return node; node = node.parentNode; } return null; }
-  function updateTableTools() { const tt = $('ttools'); if (!tt) return; const cell = currentCell(); _curCell = cell; tt.style.display = cell ? 'inline-flex' : 'none'; }
+  function updateTableTools() {
+    const tt = $('ttools'); if (!tt) return;
+    const cell = currentCell();
+    if (cell) _curCell = cell;                                   // 캐럿이 셀 안이면 현재 셀 갱신
+    const active = !!cell || (_selCells && _selCells.length > 0); // 드래그 선택 중에도 도구 유지
+    if (!active) _curCell = null;                                // 표 밖으로 나가면 해제
+    tt.style.display = active ? 'inline-flex' : 'none';
+  }
   const cellIndex = (cell) => [...cell.parentNode.children].indexOf(cell);
   const tableOf = (cell) => cell.closest('table');
   const rowsOf = (tbl) => [...tbl.querySelectorAll('tr')];
@@ -411,8 +418,9 @@
 
   /* ── 색상: 글자색(선택 텍스트) / 칸 배경색(현재 셀) ── */
   function applyFontColor(color) { const el = $('docBody'); el.focus(); try { document.execCommand('styleWithCSS', false, true); } catch (_) {} document.execCommand('foreColor', false, color); afterEdit(); }
-  function applyCellColor(color) { if (!_curCell) { alert('표 안의 칸을 먼저 클릭하세요'); return; } _curCell.style.backgroundColor = color; afterEdit(); }
-  function clearCellColor() { if (!_curCell) return; _curCell.style.backgroundColor = ''; if (!_curCell.getAttribute('style')) _curCell.removeAttribute('style'); afterEdit(); }
+  function selectedCellsOr() { return (_selCells && _selCells.length) ? _selCells.slice() : (_curCell ? [_curCell] : []); }
+  function applyCellColor(color) { const cells = selectedCellsOr(); if (!cells.length) { alert('표 안의 칸을 클릭(또는 드래그로 여러 칸 선택)하세요.'); return; } cells.forEach(c => c.style.backgroundColor = color); afterEdit(); }
+  function clearCellColor() { const cells = selectedCellsOr(); if (!cells.length) return; cells.forEach(c => { c.style.backgroundColor = ''; if (!c.getAttribute('style')) c.removeAttribute('style'); }); afterEdit(); }
   // 표 칸 정렬 — 선택된 칸들(없으면 현재 칸)에 가로(textAlign)/세로(verticalAlign) 적용
   function alignCells(prop, val) {
     const cells = (_selCells && _selCells.length) ? _selCells.slice() : (_curCell ? [_curCell] : []);
