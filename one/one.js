@@ -197,7 +197,7 @@
   const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|rgba?\([\d.,%\s]+\)|[a-zA-Z]+)$/;
   function safeStyle(s) {
     if (!s) return '';
-    const allow = { 'color': COLOR_RE, 'background-color': COLOR_RE, 'width': /^\d+(\.\d+)?(px|%)$/, 'height': /^\d+(\.\d+)?px$/, 'text-align': /^(left|center|right|justify)$/, 'font-weight': /^(bold|[1-9]00)$/ };
+    const allow = { 'color': COLOR_RE, 'background-color': COLOR_RE, 'width': /^\d+(\.\d+)?(px|%)$/, 'height': /^\d+(\.\d+)?px$/, 'text-align': /^(left|center|right|justify)$/, 'vertical-align': /^(top|middle|bottom|baseline)$/, 'font-weight': /^(bold|[1-9]00)$/ };
     const out = [];
     String(s).split(';').forEach(rule => { const i = rule.indexOf(':'); if (i < 0) return; const k = rule.slice(0, i).trim().toLowerCase(), v = rule.slice(i + 1).trim(); if (allow[k] && allow[k].test(v) && !/url\(|expression|javascript:/i.test(v)) out.push(k + ':' + v); });
     return out.join(';');
@@ -368,6 +368,13 @@
   function applyFontColor(color) { const el = $('docBody'); el.focus(); try { document.execCommand('styleWithCSS', false, true); } catch (_) {} document.execCommand('foreColor', false, color); afterEdit(); }
   function applyCellColor(color) { if (!_curCell) { alert('표 안의 칸을 먼저 클릭하세요'); return; } _curCell.style.backgroundColor = color; afterEdit(); }
   function clearCellColor() { if (!_curCell) return; _curCell.style.backgroundColor = ''; if (!_curCell.getAttribute('style')) _curCell.removeAttribute('style'); afterEdit(); }
+  // 표 칸 정렬 — 선택된 칸들(없으면 현재 칸)에 가로(textAlign)/세로(verticalAlign) 적용
+  function alignCells(prop, val) {
+    const cells = (_selCells && _selCells.length) ? _selCells.slice() : (_curCell ? [_curCell] : []);
+    if (!cells.length) { alert('표 안의 칸을 클릭(또는 드래그로 여러 칸 선택)한 뒤 눌러주세요.'); return; }
+    cells.forEach(c => { c.style[prop] = val; if (!c.getAttribute('style')) c.removeAttribute('style'); });
+    afterEdit();
+  }
 
   /* ── 표 테두리 드래그로 열 너비·행 높이 조절 ── */
   let _rz = null, _rzHint = null;
@@ -545,6 +552,8 @@
     $('tbColLeft').onclick = () => addCol(false); $('tbColRight').onclick = () => addCol(true);
     $('tbDelRow').onclick = delRow; $('tbDelCol').onclick = delCol; $('tbHeadRow').onclick = toggleHeadRow; $('tbDelTable').onclick = () => delTable(false);
     $('tbMerge').onclick = mergeSelection; $('tbSplit').onclick = splitCell;
+    $('tbAlL').onclick = () => alignCells('textAlign', 'left'); $('tbAlC').onclick = () => alignCells('textAlign', 'center'); $('tbAlR').onclick = () => alignCells('textAlign', 'right');
+    $('tbVaT').onclick = () => alignCells('verticalAlign', 'top'); $('tbVaM').onclick = () => alignCells('verticalAlign', 'middle'); $('tbVaB').onclick = () => alignCells('verticalAlign', 'bottom');
     // 색상
     $('tbFontColorBtn').onclick = () => $('tbFontColor').click();
     $('tbFontColor').oninput = (e) => applyFontColor(e.target.value);

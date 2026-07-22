@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#6B4FE0">
 <title>ONE</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%236B4FE0'/><text x='50' y='68' font-size='58' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='900'>O</text></svg>">
-<link rel="stylesheet" href="/one/one.css?v=2026-07-22-6">
+<link rel="stylesheet" href="/one/one.css?v=2026-07-22-7">
 </head>
 <body>
 <div class="app">
@@ -61,6 +61,14 @@
           <button id="tbMerge" title="선택한 칸 병합 (드래그로 여러 칸 선택 후)">⧉ <span class="tlabel">병합</span></button>
           <button id="tbSplit" title="병합 해제(분할)">⊟ <span class="tlabel">분할</span></button>
           <span class="tsep"></span>
+          <span class="tlabel" style="color:var(--accent);padding:0 2px">정렬</span>
+          <button id="tbAlL" title="가로 왼쪽">↤</button>
+          <button id="tbAlC" title="가로 가운데">↔</button>
+          <button id="tbAlR" title="가로 오른쪽">↦</button>
+          <button id="tbVaT" title="세로 위">↥</button>
+          <button id="tbVaM" title="세로 가운데">↕</button>
+          <button id="tbVaB" title="세로 아래">↧</button>
+          <span class="tsep"></span>
           <button id="tbHeadRow" title="머리행 토글">머리</button>
           <button id="tbDelTable" class="danger" title="표 삭제">🗑</button>
         </span>
@@ -72,6 +80,6 @@
 
 <button class="newpage-fab" id="newPageFab" title="새 페이지">＋</button>
 
-<script src="/one/one.js?v=2026-07-22-6"></script>
+<script src="/one/one.js?v=2026-07-22-7"></script>
 </body>
 </html>
