@@ -325,7 +325,7 @@
     const rows = [...tbl.querySelectorAll('tr')]; const occ = []; const cells = [];
     rows.forEach((tr, r) => { occ[r] = occ[r] || []; let c = 0;
       [...tr.children].forEach(cell => { while (occ[r][c]) c++; const cs = cell.colSpan || 1, rs = cell.rowSpan || 1;
-        const rec = { r0: r, c0: c, rs, cs, html: cell.innerHTML, tag: cell.tagName.toLowerCase(), _el: cell }; cells.push(rec);
+        const rec = { r0: r, c0: c, rs, cs, html: cell.innerHTML, tag: cell.tagName.toLowerCase(), style: cell.getAttribute('style') || '', _el: cell }; cells.push(rec);
         for (let dr = 0; dr < rs; dr++) { occ[r + dr] = occ[r + dr] || []; for (let dc = 0; dc < cs; dc++) occ[r + dr][c + dc] = rec; }
         c += cs;
       });
@@ -340,7 +340,7 @@
   function writeGrid(tbl, grid) {
     let html = '';
     for (let r = 0; r < grid.nrows; r++) { html += '<tr>';
-      for (let c = 0; c < grid.ncols; c++) { const rec = (grid.occ[r] || [])[c]; if (rec && rec.r0 === r && rec.c0 === c) { const sp = (rec.cs > 1 ? ` colspan="${rec.cs}"` : '') + (rec.rs > 1 ? ` rowspan="${rec.rs}"` : ''); html += `<${rec.tag}${sp}>${rec.html || '<br>'}</${rec.tag}>`; } }
+      for (let c = 0; c < grid.ncols; c++) { const rec = (grid.occ[r] || [])[c]; if (rec && rec.r0 === r && rec.c0 === c) { const sp = (rec.cs > 1 ? ` colspan="${rec.cs}"` : '') + (rec.rs > 1 ? ` rowspan="${rec.rs}"` : ''); const st = safeStyle(rec.style || ''); html += `<${rec.tag}${sp}${st ? ` style="${st}"` : ''}>${rec.html || '<br>'}</${rec.tag}>`; } }
       html += '</tr>';
     }
     tbl.innerHTML = html;
@@ -370,6 +370,8 @@
     let html = ''; const seen = new Set();
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const rec = (grid.occ[r] || [])[c]; if (rec && !seen.has(rec)) { seen.add(rec); const t = (rec.html || '').trim(); if (t && t !== '<br>') html += (html ? '<br>' : '') + rec.html; } }
     keep.html = html || '<br>'; keep.rs = r1 - r0 + 1; keep.cs = c1 - c0 + 1;
+    // 병합 셀은 여러 열/행을 걸치므로 단일-칸 너비/높이는 제거(다른 행의 셀이 열 너비 유지). 색·정렬은 보존.
+    keep.style = String(keep.style || '').split(';').filter(s => { const k = (s.split(':')[0] || '').trim().toLowerCase(); return s.trim() && k !== 'width' && k !== 'height'; }).join(';');
     grid.cells = grid.cells.filter(rec => rec === keep || !(rec.r0 >= r0 && rec.r0 <= r1 && rec.c0 >= c0 && rec.c0 <= c1));
     rebuildOcc(grid); writeGrid(tbl, grid); restoreCaret(tbl, r0, c0); clearCellSel(); afterEdit();
   }
@@ -417,7 +419,10 @@
   }
 
   /* ── 색상: 글자색(선택 텍스트) / 칸 배경색(현재 셀) ── */
-  function applyFontColor(color) { const el = $('docBody'); el.focus(); try { document.execCommand('styleWithCSS', false, true); } catch (_) {} document.execCommand('foreColor', false, color); afterEdit(); }
+  function applyFontColor(color) {
+    if (_selCells && _selCells.length) { _selCells.forEach(c => c.style.color = color); afterEdit(); return; }  // 드래그로 선택한 칸들: 칸 텍스트 전체 색
+    const el = $('docBody'); el.focus(); try { document.execCommand('styleWithCSS', false, true); } catch (_) {} document.execCommand('foreColor', false, color); afterEdit();
+  }
   function selectedCellsOr() { return (_selCells && _selCells.length) ? _selCells.slice() : (_curCell ? [_curCell] : []); }
   function applyCellColor(color) { const cells = selectedCellsOr(); if (!cells.length) { alert('표 안의 칸을 클릭(또는 드래그로 여러 칸 선택)하세요.'); return; } cells.forEach(c => c.style.backgroundColor = color); afterEdit(); }
   function clearCellColor() { const cells = selectedCellsOr(); if (!cells.length) return; cells.forEach(c => { c.style.backgroundColor = ''; if (!c.getAttribute('style')) c.removeAttribute('style'); }); afterEdit(); }
