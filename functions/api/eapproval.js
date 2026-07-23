@@ -23,9 +23,19 @@ const DOCS_KEY = 'eapproval_docs';
 const CFG_KEY = 'eapproval_config';
 const DEL_KEY = 'eapproval_deleted';
 const FUND_KEY = 'eapproval_fund';
+const ATT_PREFIX = 'eap_att_';                    // 첨부 개별 저장 (문서 blob 비대화 방지)
+const attKey = (id) => ATT_PREFIX + String(id).replace(/[^a-zA-Z0-9_-]/g, '');
 
 export async function onRequestGet({ request, env }) {
   if (!env.STORES_KV) return json({ docs: [], config: {}, error: 'KV not bound' }, 200);
+  // 첨부 개별 조회: GET /api/eapproval?att=<id> → { attachment:{dataUrl,name,type,size} }
+  try {
+    const attId = new URL(request.url).searchParams.get('att');
+    if (attId) {
+      const a = await safeGetJson(env, attKey(attId), null);
+      return new Response(JSON.stringify({ attachment: a }), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=31536000, immutable', 'access-control-allow-origin': '*' } });
+    }
+  } catch (_) {}
   const docsRaw = await safeGetJson(env, DOCS_KEY, { docs: [] });
   const docs = Array.isArray(docsRaw) ? docsRaw : (Array.isArray(docsRaw?.docs) ? docsRaw.docs : []);
   const config = (await safeGetJson(env, CFG_KEY, {})) || {};
@@ -56,6 +66,17 @@ export async function onRequestPost({ request, env }) {
     catch (e) { return json({ error: 'invalid_json', detail: String(e) }, 400); }
 
     const result = { ok: true };
+
+    // ── 0) 첨부 개별 저장: POST { attachment:{id,name,type,size,dataUrl} } ──
+    if (body.attachment && body.attachment.id) {
+      const a = body.attachment;
+      const rec = { id: String(a.id), name: a.name || '', type: a.type || '', size: a.size || 0, dataUrl: a.dataUrl || '' };
+      const s = JSON.stringify(rec);
+      if (s.length > 24_000_000) return json({ error: 'attachment_too_large', size: s.length }, 413);
+      try { await env.STORES_KV.put(attKey(a.id), s); }
+      catch (e) { return json({ error: 'kv_put_failed_att', detail: String(e) }, 500); }
+      return json({ ok: true, id: String(a.id) }, 200);
+    }
 
     // ── 1) 삭제 레지스트리 (부활 차단) ──
     let deletedIds = new Set();

@@ -750,18 +750,15 @@
     let pending = 0, added = 0;
     const done = () => { d.updatedAt = Date.now(); _save(docs); EAP.openDetail(id); toast(added ? ('📎 첨부 ' + added + '건 추가') : '추가된 첨부 없음'); };
     [...files].forEach(f => {
-      // 중복 방지 — 같은 이름+크기의 '내용 있는' 첨부가 이미 있으면 skip
-      if (d.attachments.some(a => a && a.name === f.name && a.size === f.size && a.dataUrl)) {
-        toast('이미 첨부됨: ' + f.name); return;
-      }
-      const item = { name: f.name, type: f.type, size: f.size };
-      if (f.size <= ATT_CAP) {
-        pending++;
-        const r = new FileReader();
-        r.onload = e => { item.dataUrl = e.target.result; added++; if (--pending === 0) done(); };
-        r.onerror = () => { if (--pending === 0) done(); };
-        r.readAsDataURL(f);
-      } else { toast('⚠ ' + f.name + ' (' + fsize(f.size) + ') — 2MB 초과, 저장 안 됨'); }
+      // 중복 방지 — 같은 이름+크기 첨부가 이미 있으면 skip
+      if (d.attachments.some(a => a && a.name === f.name && a.size === f.size)) { toast('이미 첨부됨: ' + f.name); return; }
+      if (f.size > ATT_CAP) { toast('⚠ ' + f.name + ' (' + fsize(f.size) + ') — 8MB 초과, 저장 안 됨'); return; }
+      const item = { id: _attId(), name: f.name, type: f.type, size: f.size };
+      pending++;
+      const r = new FileReader();
+      r.onload = e => { item.dataUrl = e.target.result; added++; uploadAttachment(item).then(ok => { if (ok) delete item.dataUrl; if (--pending === 0) done(); }); };
+      r.onerror = () => { if (--pending === 0) done(); };
+      r.readAsDataURL(f);
       d.attachments.push(item);
     });
     if (pending === 0) done();
@@ -962,18 +959,28 @@
   EAP.saveMyRoute = function () {
     const r = getRoutes(); r[ME()] = draftLine.slice(); saveCfgKey('routes', r); toast('💾 내 기본 결재선 저장');
   };
-  const ATT_CAP = 2 * 1024 * 1024;   // 2MB — 이 이하 파일은 내용(dataUrl) 저장해 나중에 열람 가능
+  // 첨부는 KV 에 개별 저장(eap_att_<id>) → 문서 blob 비대화 방지(모바일 localStorage 초과 해결).
+  const ATT_CAP = 8 * 1024 * 1024;   // 8MB (개별 저장이라 상한 상향)
+  const _attId = () => 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const _attCache = {};
+  async function uploadAttachment(a) {
+    try { const r = await fetch('/api/eapproval', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ attachment: { id: a.id, name: a.name, type: a.type, size: a.size, dataUrl: a.dataUrl } }) }); const j = await r.json(); return !!(j && j.ok); } catch (_) { return false; }
+  }
+  async function resolveAttachment(a) {   // dataUrl 확보: 인라인이면 그대로, id 만 있으면 KV 조회(캐시)
+    if (a && a.dataUrl) return a.dataUrl;
+    if (!a || !a.id) return null;
+    if (_attCache[a.id]) return _attCache[a.id];
+    try { const r = await fetch('/api/eapproval?att=' + encodeURIComponent(a.id)); const j = await r.json(); const du = j && j.attachment && j.attachment.dataUrl; if (du) _attCache[a.id] = du; return du || null; } catch (_) { return null; }
+  }
+  // 문서 저장용 참조 — 업로드 성공분은 dataUrl 제거(슬림), 실패분은 인라인 유지(유실 방지)
+  const attRef = (a) => (a && a._up && a.id) ? { id: a.id, name: a.name, type: a.type, size: a.size } : { id: a.id, name: a.name, type: a.type, size: a.size, dataUrl: a.dataUrl };
   EAP.addAtt = function (files) {
     [...files].forEach(f => {
-      const item = { name: f.name, type: f.type, size: f.size };
-      // 모든 파일 유형(PDF·문서·이미지 등) 내용 저장 — 2MB 초과만 메타만(열람 불가 안내)
-      if (f.size <= ATT_CAP) {
-        const r = new FileReader();
-        r.onload = e => { item.dataUrl = e.target.result; renderAttList(); };
-        r.readAsDataURL(f);
-      } else {
-        toast('⚠ ' + f.name + ' (' + fsize(f.size) + ') — 2MB 초과로 내용은 저장되지 않습니다');
-      }
+      if (f.size > ATT_CAP) { toast('⚠ ' + f.name + ' (' + fsize(f.size) + ') — 8MB 초과로 첨부 안 됨'); return; }
+      const item = { id: _attId(), name: f.name, type: f.type, size: f.size };
+      const r = new FileReader();
+      r.onload = e => { item.dataUrl = e.target.result; renderAttList(); uploadAttachment(item).then(ok => { item._up = ok; }); };
+      r.readAsDataURL(f);
       draftAtts.push(item);
     });
     renderAttList();
@@ -1027,7 +1034,7 @@
       if (!d) { toast('문서를 찾을 수 없습니다'); _editDocId = null; return; }
       d.kind = cat; d.title = title; d.tpl = draftTpl.name; d.tplId = draftTpl.id;
       d.fields = fields; d.line = line; d.step = 1; d.status = 'wait';
-      d.cc = draftCC.slice(); d.attachments = draftAtts.slice();
+      d.cc = draftCC.slice(); d.attachments = draftAtts.map(attRef);
       applyCatFields(d);
       d.history = d.history || []; d.history.push({ n: me, act: '재상신', at: kstNow() });
       d.updatedAt = Date.now();
@@ -1043,7 +1050,7 @@
       id: genId('D'), kind: cat, title, drafter: me, at: kstNow(),
       tpl: draftTpl.name, tplId: draftTpl.id, fields,
       line, step: 1, status: 'wait', history: [{ n: me, act: '기안', at: kstNow() }],
-      cc: draftCC.slice(), attachments: draftAtts.slice(),
+      cc: draftCC.slice(), attachments: draftAtts.map(attRef),
       createdAt: Date.now(), updatedAt: Date.now(),
     };
     applyCatFields(d);
@@ -1261,8 +1268,10 @@
         const idx = li++; _lbImgs.push(a.dataUrl);
         imgsHtml += `<span style="position:relative;display:inline-flex;align-items:flex-start;gap:2px"><img class="eap-att-pv" src="${a.dataUrl}" onclick="EAP.openImg(${idx})">${rm(oi)}</span>`;
       } else {
-        filesHtml += a.dataUrl
-          ? `<div class="eap-att-thumb"><a href="#" onclick="EAP.openAtt(${oi});return false" style="color:#2563EB;font-weight:700;cursor:pointer">📄 ${esc(a.name)}</a> <span class="eap-meta">${fsize(a.size)}</span>${rm(oi)}</div>`
+        const openable = a.dataUrl || a.id;   // id 있으면 KV 에서 불러올 수 있음
+        const icon = /^image\//.test(a.type || '') ? '🖼' : '📄';
+        filesHtml += openable
+          ? `<div class="eap-att-thumb"><a href="#" onclick="EAP.openAtt(${oi});return false" style="color:#2563EB;font-weight:700;cursor:pointer">${icon} ${esc(a.name)}</a> <span class="eap-meta">${fsize(a.size)}</span>${rm(oi)}</div>`
           : `<div class="eap-att-thumb">📄 ${esc(a.name)} <span class="eap-meta">${fsize(a.size)} · 내용 미저장(구 첨부 — 다시 첨부 필요)</span>${rm(oi)}</div>`;
       }
     });
@@ -1283,15 +1292,23 @@
     _save(docs); EAP.openDetail(id); toast('🗑 첨부 삭제');
   };
   // 첨부 열기 — dataUrl → Blob → 새 탭(뷰). 팝업 차단 시 다운로드 fallback. (data: 직접이동은 Chrome 차단되므로 blob 사용)
-  EAP.openAtt = function (i) {
+  EAP.openAtt = async function (i) {
     const a = (_detailAtts || [])[i];
-    if (!a || !a.dataUrl) { toast('첨부 내용이 없습니다'); return; }
+    if (!a) return;
+    const du = await resolveAttachment(a);   // 인라인 or KV 조회
+    if (!du) { toast('첨부 내용을 불러오지 못했습니다'); return; }
+    if (/^image\//.test(a.type || '')) {     // 이미지는 라이트박스
+      const host = document.getElementById('eapModalHost');
+      const lb = document.createElement('div'); lb.className = 'eap-lb show'; lb.id = 'eapLb';
+      lb.innerHTML = `<button class="eap-lb-x" onclick="EAP.closeImg()">✕ 닫기</button><img id="eapLbImg" src="${du}">`;
+      lb.onclick = e => { if (e.target === lb) EAP.closeImg(); };
+      const img = lb.querySelector('#eapLbImg'); img.onclick = () => img.classList.toggle('zoom');
+      host.appendChild(lb); return;
+    }
     try {
-      const comma = a.dataUrl.indexOf(',');
-      const meta = a.dataUrl.slice(0, comma);
-      const b64 = a.dataUrl.slice(comma + 1);
-      const mime = (meta.match(/data:([^;]+)/) || [])[1] || a.type || 'application/octet-stream';
-      const bin = atob(b64);
+      const comma = du.indexOf(',');
+      const mime = (du.slice(0, comma).match(/data:([^;]+)/) || [])[1] || a.type || 'application/octet-stream';
+      const bin = atob(du.slice(comma + 1));
       const arr = new Uint8Array(bin.length);
       for (let k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
       const url = URL.createObjectURL(new Blob([arr], { type: mime }));

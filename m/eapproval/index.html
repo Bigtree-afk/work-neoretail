@@ -188,8 +188,9 @@
   async function pullHolidays(){try{const y=new Date(Date.now()+9*3600*1000).getFullYear();const all=new Set();for(const yr of [y,y+1]){const r=await fetch('/api/holidays?year='+yr);if(r.ok){const j=await r.json();(j.holidays||[]).forEach(d=>all.add(d));}}if(all.size)localStorage.setItem('ns_eap_holidays',JSON.stringify([...all]));}catch(_){}}
 
   /* data layer */
-  function getDocs(){try{return JSON.parse(localStorage.getItem(DOCS_LS)||'[]');}catch(_){return [];}}
-  function writeDocs(a){setItem(DOCS_LS,JSON.stringify(a));}
+  let _memDocs=null;   // 세션 메모리 사본 — localStorage 저장 실패(quota)해도 리스트가 렌더되도록
+  function getDocs(){if(_memDocs)return _memDocs;try{return JSON.parse(localStorage.getItem(DOCS_LS)||'[]');}catch(_){return [];}}
+  function writeDocs(a){_memDocs=a;setItem(DOCS_LS,JSON.stringify(a));}
   function setDocs(a){writeDocs(a);schedulePush();}
   function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_LS)||'{}');}catch(_){return {};}}
   function mergeEapCfg(local,cloud){local=local||{};cloud=cloud||{};const out=Object.assign({},local);for(const k of ['routes','birth','leave','lineMap','fund'])if(cloud[k]&&typeof cloud[k]==='object')out[k]=Object.assign({},local[k]||{},cloud[k]);for(const k of ['holidays','holidayExcludes']){const a=Array.isArray(local[k])?local[k]:[],b=Array.isArray(cloud[k])?cloud[k]:[];if(a.length||b.length)out[k]=[...new Set([...a,...b])];}if(Array.isArray(cloud.tpl)&&cloud.tpl.length){const byId=new Map((Array.isArray(local.tpl)?local.tpl:[]).map(t=>[t.id,t]));cloud.tpl.forEach(t=>{if(t&&t.id)byId.set(t.id,t);});out.tpl=[...byId.values()];}out.updatedAt=Date.now();return out;}
@@ -473,28 +474,42 @@
   }
 
   /* ── detail ── */
+  // 첨부: dataUrl 인라인이면 그대로, id 만 있으면 KV 조회(캐시). (첨부는 문서 blob 밖에 개별 저장)
+  const _attCacheM={};
+  async function resolveAttM(a){
+    if(a&&a.dataUrl)return a.dataUrl;
+    if(!a||!a.id)return null;
+    if(_attCacheM[a.id])return _attCacheM[a.id];
+    try{const r=await fetch('/api/eapproval?att='+encodeURIComponent(a.id));const j=await r.json();const du=j&&j.attachment&&j.attachment.dataUrl;if(du)_attCacheM[a.id]=du;return du||null;}catch(_){return null;}
+  }
   function attView(atts){
     atts=atts||[];if(!atts.length)return '';
     window._eapAtts=atts;
-    const isImg=a=>/^image\//.test(a.type||'')&&a.dataUrl;
-    const imgs=atts.filter(isImg);window._eapLb=imgs.map(a=>a.dataUrl);
+    const isImgInline=a=>/^image\//.test(a.type||'')&&a.dataUrl;   // 인라인 이미지만 썸네일
+    const imgs=atts.filter(isImgInline);window._eapLb=imgs.map(a=>a.dataUrl);
     let filesHtml='';
     atts.forEach((a,i)=>{
-      if(isImg(a))return;
-      filesHtml+=a.dataUrl
-        ? '<div class="att-item" style="cursor:pointer;color:#2563EB" onclick="_eapOpenAtt('+i+')">📄 '+esc(a.name)+' '+fsize(a.size)+'</div>'
+      if(isImgInline(a))return;
+      const openable=a.dataUrl||a.id;
+      const icon=/^image\//.test(a.type||'')?'🖼':'📄';
+      filesHtml+=openable
+        ? '<div class="att-item" style="cursor:pointer;color:#2563EB" onclick="_eapOpenAtt('+i+')">'+icon+' '+esc(a.name)+' '+fsize(a.size)+'</div>'
         : '<div class="att-item">📄 '+esc(a.name)+' '+fsize(a.size)+' · <span style="color:#94A3B8">내용 미저장(구 첨부)</span></div>';
     });
     return '<div class="sech">📎 첨부 ('+atts.length+')</div><div class="att-imgs">'+imgs.map((a,i)=>'<img class="att-pv" src="'+a.dataUrl+'" onclick="_eapImg('+i+')">').join('')+'</div>'+filesHtml;
   }
-  window._eapImg=function(i){const u=(window._eapLb||[])[i];if(!u)return;const lb=document.createElement('div');lb.className='lb';lb.id='eapLb';lb.innerHTML='<button class="x" onclick="_eapImgClose()">✕ 닫기</button><img src="'+u+'">';lb.onclick=e=>{if(e.target===lb)_eapImgClose();};document.body.appendChild(lb);};
+  function _openLbM(src){const lb=document.createElement('div');lb.className='lb';lb.id='eapLb';lb.innerHTML='<button class="x" onclick="_eapImgClose()">✕ 닫기</button><img src="'+src+'">';lb.onclick=e=>{if(e.target===lb)_eapImgClose();};document.body.appendChild(lb);}
+  window._eapImg=function(i){const u=(window._eapLb||[])[i];if(!u)return;_openLbM(u);};
   window._eapImgClose=function(){const el=document.getElementById('eapLb');if(el)el.remove();};
-  // 첨부(비이미지) 열기 — dataUrl → Blob → 새 탭. (data: 직접이동은 브라우저 차단 → blob 사용)
-  window._eapOpenAtt=function(i){
+  // 첨부 열기 — 인라인 or KV 조회 → 이미지는 라이트박스, 그외 Blob 새 탭
+  window._eapOpenAtt=async function(i){
     const a=(window._eapAtts||[])[i];
-    if(!a||!a.dataUrl){toast('첨부 내용이 없습니다');return;}
+    if(!a)return;
+    const du=await resolveAttM(a);
+    if(!du){toast('첨부 내용을 불러오지 못했습니다');return;}
+    if(/^image\//.test(a.type||'')){_openLbM(du);return;}
     try{
-      const c=a.dataUrl.indexOf(','),meta=a.dataUrl.slice(0,c),b64=a.dataUrl.slice(c+1);
+      const c=du.indexOf(','),meta=du.slice(0,c),b64=du.slice(c+1);
       const mime=(meta.match(/data:([^;]+)/)||[])[1]||a.type||'application/octet-stream';
       const bin=atob(b64),arr=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)arr[k]=bin.charCodeAt(k);
       const url=URL.createObjectURL(new Blob([arr],{type:mime}));
