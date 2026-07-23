@@ -190,7 +190,7 @@
   /* data layer */
   let _memDocs=null;   // 세션 메모리 사본 — localStorage 저장 실패(quota)해도 리스트가 렌더되도록
   function getDocs(){if(_memDocs)return _memDocs;try{return JSON.parse(localStorage.getItem(DOCS_LS)||'[]');}catch(_){return [];}}
-  function writeDocs(a){_memDocs=a;setItem(DOCS_LS,JSON.stringify(a));}
+  function writeDocs(a){_memDocs=a;const s=JSON.stringify(a);setItem(DOCS_LS,s);try{return (localStorage.getItem(DOCS_LS)||'').length===s.length;}catch(_){return false;}}   // 반환: localStorage 실제 저장 성공 여부
   function setDocs(a){writeDocs(a);schedulePush();}
   function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_LS)||'{}');}catch(_){return {};}}
   function mergeEapCfg(local,cloud){local=local||{};cloud=cloud||{};const out=Object.assign({},local);for(const k of ['routes','birth','leave','lineMap','fund'])if(cloud[k]&&typeof cloud[k]==='object')out[k]=Object.assign({},local[k]||{},cloud[k]);for(const k of ['holidays','holidayExcludes']){const a=Array.isArray(local[k])?local[k]:[],b=Array.isArray(cloud[k])?cloud[k]:[];if(a.length||b.length)out[k]=[...new Set([...a,...b])];}if(Array.isArray(cloud.tpl)&&cloud.tpl.length){const byId=new Map((Array.isArray(local.tpl)?local.tpl:[]).map(t=>[t.id,t]));cloud.tpl.forEach(t=>{if(t&&t.id)byId.set(t.id,t);});out.tpl=[...byId.values()];}out.updatedAt=Date.now();return out;}
@@ -217,14 +217,14 @@
     }catch(e){}
   }
   let _syncing=false;
-  async function syncFromCloud(){
+  async function syncFromCloud(force){
     if(_syncing)return;_syncing=true;
     try{
-      const etag=localStorage.getItem(DOCS_ETAG)||'';
+      const etag=force?'':(localStorage.getItem(DOCS_ETAG)||'');   // force: etag 무시하고 무조건 최신 fetch(딥링크)
       const res=await fetch('/api/eapproval',{headers:etag?{'If-None-Match':etag}:{}});
       if(res.status===304){_syncing=false;return;}
       if(!res.ok){_syncing=false;return;}
-      const ne=res.headers.get('ETag');if(ne)localStorage.setItem(DOCS_ETAG,ne);
+      const ne=res.headers.get('ETag');
       const data=await res.json();
       const cloudDocs=Array.isArray(data.docs)?data.docs:[];
       const cloudDel=Array.isArray(data.deleted)?data.deleted:[];
@@ -233,11 +233,11 @@
       const local=getDocs(),byId=new Map(),mt=d=>Number(d&&(d.updatedAt||d.createdAt))||0;
       for(const d of local)if(d&&d.id&&!delSet.has(String(d.id)))byId.set(String(d.id),d);
       for(const d of cloudDocs){if(!d||!d.id||delSet.has(String(d.id)))continue;const id=String(d.id),ex=byId.get(id);if(!ex||mt(d)>=mt(ex))byId.set(id,d);}
-      writeDocs([...byId.values()]);
+      const ok=writeDocs([...byId.values()]);
+      if(ne&&ok)localStorage.setItem(DOCS_ETAG,ne);   // ⚠ etag 는 실제 저장 성공 시에만 — 실패 시 다음 로드가 304 로 불완전 캐시 쓰는 버그 방지
+      else if(!ok){try{localStorage.removeItem(DOCS_ETAG);}catch(_){}}   // 저장 실패 → etag 제거(다음 로드 재fetch). _memDocs 로 현재 세션 렌더는 유지
       try{localStorage.setItem(CFG_LS,JSON.stringify(mergeEapCfg(getCfg(),data.config||{})));}catch(_){}
-      // 자금 거래(view 전용) — 클라우드 값 반영 (모바일은 fund 를 push 안 함)
       try{if(Array.isArray(data.fund))setItem(FUND_LS,JSON.stringify(data.fund));}catch(_){}
-      // 최신 결재상태 반영 — 폼 작성 중이 아니면 현재 화면 재렌더(목록/상세)
       const v=parseHash().view; if(v==='list')renderList(); else if(v==='detail')render();
     }catch(e){}
     _syncing=false;
@@ -651,11 +651,14 @@
 
   /* ── boot ── */
   (async function init(){
-    try{await syncFromCloud();}catch(_){}
+    let deepDoc=null; try{deepDoc=new URLSearchParams(location.search).get('doc');}catch(_){}
+    // 딥링크(?doc)면 etag 무시하고 강제 최신화 → 링크한 문서가 stale 캐시에 없어 '찾을 수 없음' 되던 버그 방지
+    try{await syncFromCloud(!!deepDoc);}catch(_){}
     pullHolidays();
-    // 딥링크 ?doc=ID — 동기화가 늦어도 무조건 상세로 진입(미발견 시 renderDetail 안내 + 이후 sync 로 자동 표시)
-    try{const id=new URLSearchParams(location.search).get('doc');if(id){location.hash='#detail/'+id;}}catch(_){}
+    if(deepDoc){ location.hash='#detail/'+deepDoc; }
     render();
+    // 딥링크 문서가 첫 sync 에도 없으면(막 상신됨) 한 번 더 강제 재시도 후 재렌더
+    if(deepDoc && !getDocs().some(d=>d&&d.id===deepDoc)){ setTimeout(async()=>{ try{await syncFromCloud(true);}catch(_){} if(parseHash().view==='detail')render(); }, 1200); }
     // 자동 동기화: 15초 폴링 + 탭복귀/포커스 즉시 (폼 작성 중 제외)
     setInterval(()=>{if(parseHash().view!=='form')syncFromCloud();},15000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&parseHash().view!=='form')syncFromCloud();});
