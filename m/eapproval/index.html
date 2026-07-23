@@ -676,6 +676,14 @@
     setInterval(()=>{if(parseHash().view!=='form')syncFromCloud();},15000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&parseHash().view!=='form')syncFromCloud();});
     window.addEventListener('focus',()=>{if(parseHash().view!=='form')syncFromCloud();});
+    // iOS Safari/LINE 인앱브라우저 bfcache 복원(persisted): JS 재실행 없이 옛 렌더가 되살아나
+    // 딥링크 문서가 stale 목록에 없으면 '찾을 수 없음' 으로 굳어짐 → 복원 시 현재 화면 강제 재렌더/재동기화
+    window.addEventListener('pageshow',(e)=>{
+      if(!e.persisted)return;
+      const r=parseHash();
+      if(r.view==='detail')renderDetail(r.id);   // renderDetail 이 없으면 강제 재동기화 자가치유
+      else if(r.view!=='form')syncFromCloud();
+    });
   })();
 })();
 </script>
