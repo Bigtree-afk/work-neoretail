@@ -519,10 +519,23 @@
     }catch(e){toast('첨부 열기 실패');}
   };
 
-  function renderDetail(id){
+  async function renderDetail(id,_retry){
     const d=getDocs().find(x=>x.id===id);
     const box=document.getElementById('view-detail');
-    if(!d){box.innerHTML='<div class="empty">문서를 찾을 수 없습니다</div>';return;}
+    if(!d){
+      // 자가치유: 로컬에 없으면 즉시 "없음" 선언 X — 강제 재동기화(등록/딥링크/bfcache stale 대응) 후 재조회
+      const n=_retry||0;
+      if(n<3){
+        box.innerHTML='<div class="empty">📄 문서 불러오는 중…</div>';
+        try{await syncFromCloud(true);}catch(_){}
+        if(parseHash().view!=='detail'||parseHash().id!==id)return; // 그 사이 화면 이동
+        if(getDocs().find(x=>x.id===id))return renderDetail(id,n+1);
+        setTimeout(()=>{if(parseHash().view==='detail'&&parseHash().id===id)renderDetail(id,n+1);},700);
+        return;
+      }
+      box.innerHTML='<div class="empty">문서를 찾을 수 없습니다<br><span class="meta" style="display:block;margin-top:6px">삭제됐거나 접근 권한이 없는 문서일 수 있어요.</span><button class="btn btn-o" style="margin-top:12px" onclick="location.reload()">🔄 새로고침</button></div>';
+      return;
+    }
     const k=KIND[d.kind]||KIND.gen;
     const t=tplById(d.tplId)||{id:d.tplId,name:d.tpl||'문서',fields:(d.fields||[]).map(f=>({label:f.label,type:f.type}))};
     const vals={};(d.fields||[]).forEach(f=>{vals[f.label]=f.value;});
