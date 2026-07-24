@@ -626,6 +626,33 @@
     if (REC.onBU) { window.removeEventListener('beforeunload', REC.onBU); REC.onBU = null; }
     if (REC.onVis) { document.removeEventListener('visibilitychange', REC.onVis); REC.onVis = null; }
   }
+  /* ── 녹음 오디오 IndexedDB 저장 — 앱 전환·탭 폐기에도 오디오 생존 → 정본(Whisper) 전사 복구 ── */
+  const RIDB = { name: 'one_rec_audio', store: 'chunks', meta: 'meta' };
+  function ridbOpen() {
+    return new Promise((res) => { let done = false, fin = v => { if (!done) { done = true; res(v); } };
+      try {
+        if (!window.indexedDB) return fin(null);
+        const rq = indexedDB.open(RIDB.name, 1);
+        rq.onupgradeneeded = () => { const db = rq.result; if (!db.objectStoreNames.contains(RIDB.store)) db.createObjectStore(RIDB.store, { autoIncrement: true }); if (!db.objectStoreNames.contains(RIDB.meta)) db.createObjectStore(RIDB.meta); };
+        rq.onsuccess = () => fin(rq.result); rq.onerror = () => fin(null); setTimeout(() => fin(null), 3000);
+      } catch (_) { fin(null); }
+    });
+  }
+  async function ridbReset(mime) { const db = await ridbOpen(); if (!db) return; try { const tx = db.transaction([RIDB.store, RIDB.meta], 'readwrite'); tx.objectStore(RIDB.store).clear(); tx.objectStore(RIDB.meta).put({ mime: mime || 'audio/webm', at: Date.now(), page: curPageId || '' }, 'cur'); } catch (_) {} }
+  function ridbAppend(blob) { ridbOpen().then(db => { if (!db) return; try { db.transaction(RIDB.store, 'readwrite').objectStore(RIDB.store).add(blob); } catch (_) {} }); }
+  async function ridbAssemble() {
+    const db = await ridbOpen(); if (!db) return null;
+    return new Promise((res) => { try {
+      const tx = db.transaction([RIDB.store, RIDB.meta], 'readonly');
+      let mime = 'audio/webm'; const parts = [];
+      tx.objectStore(RIDB.meta).get('cur').onsuccess = (e) => { if (e.target.result && e.target.result.mime) mime = e.target.result.mime; };
+      const cur = tx.objectStore(RIDB.store).openCursor();
+      cur.onsuccess = (e) => { const c = e.target.result; if (c) { parts.push(c.value); c.continue(); } else res(parts.length ? new Blob(parts, { type: mime }) : null); };
+      cur.onerror = () => res(null);
+    } catch (_) { res(null); } });
+  }
+  async function ridbClear() { const db = await ridbOpen(); if (!db) return; try { const tx = db.transaction([RIDB.store, RIDB.meta], 'readwrite'); tx.objectStore(RIDB.store).clear(); tx.objectStore(RIDB.meta).clear(); } catch (_) {} }
+  async function ridbCount() { const db = await ridbOpen(); if (!db) return 0; return new Promise((res) => { try { const rq = db.transaction(RIDB.store, 'readonly').objectStore(RIDB.store).count(); rq.onsuccess = () => res(rq.result || 0); rq.onerror = () => res(0); } catch (_) { res(0); } }); }
   function recPanelHtml() {
     return `<div class="ov" id="recOv"></div>
     <div class="rec-panel" id="recPanel">
@@ -634,7 +661,7 @@
         <button class="rec-x" id="recClose" title="닫기">${ic('x', 18) || '✕'}</button>
       </div>
       <div class="rec-status" id="recStatus"><span class="rec-dot" id="recDot"></span><span id="recStat">대기 중</span> <b id="recTime">00:00</b></div>
-      <div class="rec-hint" id="recHint">아래 실시간 인식은 <b>대략적인 미리보기</b>입니다. 정확한 회의록은 정지 후 <b>[🎯 Whisper 정확 전사]</b>를 쓰세요. ⚠ 녹음 중에는 이 탭을 <b>화면에 켜 둔 채</b>로 두세요 — 다른 앱으로 전환하면 녹음이 중단될 수 있습니다(화면 꺼짐은 자동 방지).</div>
+      <div class="rec-hint" id="recHint">아래 실시간 인식은 <b>대략적인 미리보기</b>입니다. <b>정지하면 녹음 전체를 자동으로 정확히 다시 전사(Whisper)</b>해 실시간의 누락을 보완합니다. ⚠ 녹음 중에는 이 탭을 <b>화면에 켜 둔 채</b>로 두세요(화면 꺼짐은 자동 방지). 앱을 전환해 녹음이 끊겨도 저장된 오디오로 복구 전사할 수 있어요.</div>
       <textarea class="rec-ta" id="recText" placeholder="여기에 전사 텍스트가 표시됩니다. 직접 수정해도 됩니다."></textarea>
       <div class="rec-ctrls">
         <button class="rec-btn rec-go" id="recStart">● 녹음 시작</button>
@@ -669,9 +696,17 @@
         $('recActions').style.display = 'flex';
         $('recHint').innerHTML = '↩ 이전에 인식된 전사를 <b>복원</b>했습니다. 그대로 [회의록 정리]하거나, <button id="recClearDraft" class="rec-btn" style="padding:2px 9px;font-size:11px">새로 시작</button> 하세요.';
         const cb = document.getElementById('recClearDraft');
-        if (cb) cb.onclick = () => { recClearDraft(); REC.finalText = ''; $('recText').value = ''; $('recActions').style.display = 'none'; $('recHint').textContent = '새로 녹음하세요.'; };
+        if (cb) cb.onclick = () => { recClearDraft(); ridbClear(); REC.finalText = ''; REC.blob = null; $('recText').value = ''; $('recActions').style.display = 'none'; $('recHint').textContent = '새로 녹음하세요.'; };
       }
     } catch (_) {}
+    // 앱 전환·탭 폐기로 끊긴 녹음의 오디오가 IndexedDB 에 남아있으면 복구 전사 제안
+    ridbCount().then(n => {
+      if (n > 0 && document.getElementById('recPanel') && !REC.recActive) {
+        const h = $('recHint'); if (!h) return;
+        h.innerHTML += ' <div style="margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)">💾 중단된 녹음의 <b>오디오가 저장</b>되어 있습니다. <button id="recRecover" class="rec-btn rec-primary" style="padding:4px 11px;font-size:12px">↩ 오디오로 정본 전사</button></div>';
+        const rb = document.getElementById('recRecover'); if (rb) rb.onclick = recRecoverAudio;
+      }
+    });
   }
   function closeRecPanel() {
     if (REC.recActive) { try { recStop(); } catch (_) {} }
@@ -698,7 +733,8 @@
     // MediaRecorder — 오디오 저장(재전사·미리듣기). timeslice 로 3초마다 chunk flush.
     let mime = 'audio/webm'; try { if (!MediaRecorder.isTypeSupported(mime)) mime = ''; } catch (_) { mime = ''; }
     REC.mr = new MediaRecorder(REC.stream, mime ? { mimeType: mime } : undefined);
-    REC.mr.ondataavailable = e => { if (e.data && e.data.size) REC.chunks.push(e.data); };
+    await ridbReset(REC.mr.mimeType || mime || 'audio/webm');   // 새 세션 — 이전 오디오 청크 비우고 메타 기록
+    REC.mr.ondataavailable = e => { if (e.data && e.data.size) { REC.chunks.push(e.data); ridbAppend(e.data); } };   // 메모리 + IndexedDB 동시 저장
     REC.mr.onstop = recOnAudioReady;
     REC.mr.start(3000);
     // Web Speech — 실시간 전사(미리보기)
@@ -726,8 +762,21 @@
     const au = $('recAudio'); if (au) { au.src = url; au.style.display = 'block'; }
     const dl = $('recDownload'); if (dl) { dl.href = url; dl.download = 'meeting-' + today() + '.webm'; }
     $('recActions').style.display = 'flex';
-    // 실시간 전사 결과를 textarea 로
+    // 실시간 전사 결과를 textarea 로 (Whisper 정본 전사 전까지 임시 표시)
     $('recText').value = (REC.finalText || '').trim();
+    // 정지 즉시 녹음 전체를 자동으로 정확히 재전사 → 실시간 인식의 누락 보완(정본)
+    autoWhisperAfterStop();
+  }
+  async function autoWhisperAfterStop() {
+    if (!REC.blob || REC.blob.size < 8000 || REC.busy) return;   // 너무 짧으면 skip
+    REC.busy = true; recProg('🎯 정본 전사 생성 중(Whisper)… 녹음이 길면 잠시 걸립니다');
+    try {
+      const out = await transcribeBlob(REC.blob);
+      if (out) { REC.finalText = out; $('recText').value = out; recSaveDraft(); recProg('✅ 정본 전사 완료 — 실시간보다 정확합니다'); }
+      else recProg('정본 전사 결과가 없어 실시간 전사를 사용합니다');
+      setTimeout(() => recProg(''), 3000);
+    } catch (e) { recProg('정본 전사 실패 — 실시간 전사를 사용합니다 (' + e.message + ')'); setTimeout(() => recProg(''), 4000); }
+    finally { REC.busy = false; }
   }
   /* Web Speech (webkitSpeechRecognition) — 실시간, 종료 시 자동 재시작 */
   function startSpeech() {
@@ -750,39 +799,64 @@
     r.onend = () => { if (REC.recActive) { try { r.start(); } catch (_) {} } };
     try { r.start(); } catch (_) {}
   }
-  /* ── Whisper 재전사: 오디오 → 16kHz mono WAV 청크 → 순차 전송 ── */
+  /* ── Whisper 전사 코어: 오디오 blob → 16kHz mono WAV 50초 청크 → 순차 전송 → 텍스트 ── */
   function recProg(msg) { const p = $('recProg'); if (p) { p.style.display = msg ? 'block' : 'none'; p.textContent = msg || ''; } }
-  async function recWhisper() {
+  async function transcribeBlob(blob) {
+    const buf = await blob.arrayBuffer();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const actx = new AC();
+    const decoded = await actx.decodeAudioData(buf.slice(0));
+    try { actx.close(); } catch (_) {}
+    const mono16k = await resampleMono16k(decoded);   // Float32Array @16kHz
+    const CHUNK_SEC = 50, SR = 16000, chunkLen = CHUNK_SEC * SR;
+    const total = Math.ceil(mono16k.length / chunkLen);
+    let out = '';
+    for (let i = 0; i < total; i++) {
+      recProg(`정본 전사 중… (${i + 1}/${total})`);
+      const slice = mono16k.subarray(i * chunkLen, (i + 1) * chunkLen);
+      const wav = encodeWav16(slice, SR);
+      const b64 = bytesToB64(new Uint8Array(wav));
+      const r = await fetch('/api/one-transcribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ audio: b64, language: 'ko' }) });
+      const d = await r.json();
+      if (d && d.ok && d.text) out += (out ? ' ' : '') + d.text.trim();
+      else if (d && d.error) throw new Error(d.error + (d.detail ? ': ' + d.detail : ''));
+    }
+    return out.trim();
+  }
+  async function recWhisper() {   // 수동 재전사 버튼 (메모리 blob 우선, 없으면 IndexedDB 복구)
     if (REC.busy) return;
-    if (!REC.blob) { alert('먼저 녹음하세요.'); return; }
+    let blob = REC.blob;
+    if (!blob) { recProg('저장된 오디오 불러오는 중…'); blob = await ridbAssemble(); if (blob) REC.blob = blob; }
+    if (!blob) { alert('전사할 오디오가 없습니다. 먼저 녹음하세요.'); recProg(''); return; }
     REC.busy = true; recProg('오디오 디코딩 중…');
     try {
-      const buf = await REC.blob.arrayBuffer();
-      const AC = window.AudioContext || window.webkitAudioContext;
-      const actx = new AC();
-      const decoded = await actx.decodeAudioData(buf.slice(0));
-      try { actx.close(); } catch (_) {}
-      const mono16k = await resampleMono16k(decoded);   // Float32Array @16kHz
-      const CHUNK_SEC = 50, SR = 16000, chunkLen = CHUNK_SEC * SR;
-      const total = Math.ceil(mono16k.length / chunkLen);
-      let out = '';
-      for (let i = 0; i < total; i++) {
-        recProg(`Whisper 전사 중… (${i + 1}/${total})`);
-        const slice = mono16k.subarray(i * chunkLen, (i + 1) * chunkLen);
-        const wav = encodeWav16(slice, SR);
-        const b64 = bytesToB64(new Uint8Array(wav));
-        const r = await fetch('/api/one-transcribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ audio: b64, language: 'ko' }) });
-        const d = await r.json();
-        if (d && d.ok && d.text) out += (out ? ' ' : '') + d.text.trim();
-        else if (d && d.error) throw new Error(d.error + (d.detail ? ': ' + d.detail : ''));
-      }
-      REC.finalText = out.trim();
-      $('recText').value = REC.finalText; recSaveDraft();
-      recProg(out ? '✅ 재전사 완료' : '⚠ 인식된 내용이 없습니다');
+      const out = await transcribeBlob(blob);
+      REC.finalText = out; $('recText').value = out; recSaveDraft();
+      recProg(out ? '✅ 정본 전사 완료' : '⚠ 인식된 내용이 없습니다');
       setTimeout(() => recProg(''), 2500);
     } catch (e) {
-      recProg('⚠ 재전사 실패: ' + e.message); setTimeout(() => recProg(''), 4000);
+      recProg('⚠ 전사 실패: ' + e.message); setTimeout(() => recProg(''), 4000);
     } finally { REC.busy = false; }
+  }
+  /* 앱 전환·탭 폐기로 끊긴 녹음의 오디오를 IndexedDB 에서 복구해 정본 전사 */
+  async function recRecoverAudio() {
+    if (REC.busy) return;
+    recProg('이전 녹음 오디오 불러오는 중…');
+    const blob = await ridbAssemble();
+    if (!blob) { recProg('복구할 오디오가 없습니다'); setTimeout(() => recProg(''), 2500); return; }
+    REC.blob = blob;
+    const url = URL.createObjectURL(blob);
+    const au = $('recAudio'); if (au) { au.src = url; au.style.display = 'block'; }
+    const dl = $('recDownload'); if (dl) { dl.href = url; dl.download = 'meeting-' + today() + '.webm'; }
+    $('recActions').style.display = 'flex';
+    REC.busy = true; recProg('🎯 복구 오디오 정본 전사 중(Whisper)…');
+    try {
+      const out = await transcribeBlob(blob);
+      if (out) { REC.finalText = out; $('recText').value = out; recSaveDraft(); }
+      recProg(out ? '✅ 복구 전사 완료' : '⚠ 인식 결과가 없습니다(오디오 손상 가능)');
+      setTimeout(() => recProg(''), 3000);
+    } catch (e) { recProg('⚠ 복구 전사 실패: ' + e.message + ' — 저장된 실시간 전사를 사용하세요'); setTimeout(() => recProg(''), 5000); }
+    finally { REC.busy = false; }
   }
   // AudioBuffer → 16kHz mono Float32 (OfflineAudioContext 리샘플)
   async function resampleMono16k(ab) {
@@ -814,7 +888,7 @@
   function recInsertText() {
     const t = ($('recText').value || '').trim(); if (!t) { alert('전사 내용이 없습니다.'); return; }
     const html = '<h3>🎙 회의 전사 (' + today() + ')</h3><p>' + esc(t).replace(/\n+/g, '</p><p>') + '</p><p><br></p>';
-    insertToPage(html); recClearDraft(); closeRecPanel();
+    insertToPage(html); recClearDraft(); ridbClear(); closeRecPanel();
   }
   async function recMinutes() {
     if (REC.busy) return;
@@ -827,7 +901,7 @@
       const d = await r.json();
       if (d && d.ok && d.html) {
         insertToPage(d.html + '<p><br></p><details><summary>🎙 원본 전사</summary><p>' + esc(t).replace(/\n+/g, '</p><p>') + '</p></details><p><br></p>');
-        recClearDraft();
+        recClearDraft(); ridbClear();
         recProg('✅ 회의록 삽입 완료'); setTimeout(closeRecPanel, 800);
       } else { throw new Error((d && (d.detail || d.error)) || '알 수 없는 오류'); }
     } catch (e) { recProg('⚠ 회의록 정리 실패: ' + e.message); setTimeout(() => recProg(''), 4000); }
