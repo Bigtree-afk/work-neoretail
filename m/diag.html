@@ -175,6 +175,8 @@ async function run() {
   } catch(e){ serverErr = String(e); }
 
   const tokenMatch = (localResync === serverResync);
+  // 로컬에만 있고 서버엔 없는 테스트 작업 = 진짜 '부활' 신호. (양쪽 같으면 정상 데이터)
+  const ghost = (typeof serverTest === 'number') ? Math.max(0, localTest.length - serverTest) : 0;
 
   out.innerHTML = `
     <div class="card" style="border-color:${db?'#334155':'#B45309'}">
@@ -197,8 +199,10 @@ async function run() {
       <div class="k">로컬 작업 / 매장</div>
       <div class="v">${localJobs.length}건 · ${localStores.length}개 <span style="font-size:11px;color:#94A3B8">(출처: ${esc(jr.from)})</span></div>
       <div class="k" style="margin-top:8px">로컬 ${TEST_STORE} 작업</div>
-      <div class="v ${localTest.length?'bad':'ok'}">${localTest.length}건 ${localTest.length?'🔴 (잔존)':'✓ (없음)'}</div>
-      ${localTest.length ? `<pre>${esc(JSON.stringify(localTest.map(j=>({id:j.id,type:j.type,thread:(j.thread||[]).length})),null,1))}</pre>` : ''}
+      <div class="v ${ghost>0?'bad':'ok'}">${localTest.length}건 ${
+        ghost>0 ? '🔴 서버엔 없는 '+ghost+'건이 로컬에만 있음 (부활 의심 — [강제 초기화])'
+                : (localTest.length ? '✓ 서버와 일치 (정상 데이터)' : '✓ 없음')}</div>
+      ${ghost>0 ? `<pre>${esc(JSON.stringify(localTest.map(j=>({id:j.id,type:j.type,thread:(j.thread||[]).length})),null,1))}</pre>` : ''}
     </div>
     <div class="card">
       <div class="k">서버 작업 총</div>
@@ -213,7 +217,7 @@ async function run() {
       <div class="k" style="margin-top:8px">서버 resync_token</div>
       <div class="v">${esc(serverResync)}</div>
       <div class="k" style="margin-top:8px">토큰 일치</div>
-      <div class="v ${tokenMatch?'warn':'ok'}">${tokenMatch ? '⚠ 같음 — force-resync 안 일어남' : '✓ 다름 — 다음 sync 시 force-resync 발동해야 함'}</div>
+      <div class="v ${tokenMatch?'ok':'warn'}">${tokenMatch ? '✓ 같음 — 이 기기는 최신 상태' : '⚠ 다름 — 다음 sync 에 강제 재동기화가 일어납니다(정상 복구 과정)'}</div>
     </div>
     <div class="card" style="border-color:#475569">
       <div class="k">m-core.js 버전</div>
