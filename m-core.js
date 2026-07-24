@@ -1065,7 +1065,7 @@
         const cloudDeletedRaw = Array.isArray(data?.deleted) ? data.deleted : [];
         const delIds = new Set(cloudDeletedRaw.map(e => String(e && e.id || '')).filter(Boolean));
         const clean = cloudJobsRaw.filter(j => j && j.id && !delIds.has(j.id));
-        _safeSetItem('ns_jobs', JSON.stringify(clean));
+        _bigSet('ns_jobs', JSON.stringify(clean));
         try { localStorage.setItem('ns_resync_token', cloudToken); } catch(_){}
         try { _refreshJobsSnap(); } catch(_){}  // 🕐 snapshot 동기화
         for (const id of delIds) { try { _addTombstone('job', id); } catch(_){} }
@@ -1127,7 +1127,7 @@
         dedupSeen.add(j.id);
         merged.push(j);
       }
-      _safeSetItem('ns_jobs', JSON.stringify(merged));
+      _bigSet('ns_jobs', JSON.stringify(merged));
       try { if (_newEtag) localStorage.setItem('ns_jobs_etag', _newEtag); } catch(_){}
       try { _refreshJobsSnap(); } catch(_){}  // 🕐 snapshot 동기화
       // 🩹 sync 후 status 와 thread 정합성 자동 보정 — 옛 데이터의 drift 자가 치료
@@ -2125,7 +2125,7 @@
       tomb = tomb.filter(t => !(t && t.type === 'job' && liveIds.has(t.id)));
       localStorage.setItem('ns_tombstones', JSON.stringify(tomb));
     } catch(_){}
-    try { _safeSetItem('ns_jobs', JSON.stringify(clean)); } catch(_){}
+    try { _bigSet('ns_jobs', JSON.stringify(clean)); } catch(_){}
     try { if (typeof _refreshJobsSnap === 'function') _refreshJobsSnap(); } catch(_){}
     try { if (typeof syncStoresFromCloud === 'function') await syncStoresFromCloud(); } catch(e){}
     alert('✅ 클라우드 기준 동기화 완료 — 새로고침합니다');
