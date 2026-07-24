@@ -509,7 +509,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-07-10-name-fix"></script>
+<script src="/m-core.js?v=2026-07-24-idb-storage"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    상수
@@ -1825,6 +1825,7 @@ window.onLineSendJob = function(){
    초기 로드
 ═══════════════════════════════════════════════════════════ */
 (async function init(){
+  try{ await window._storageReady; }catch(_){}   // 📦 IndexedDB 적재 완료 후 렌더(빈 화면 방지)
   $('fStoreSearch').addEventListener('input', onStoreSearchInput);
   $('fStoreSearch').addEventListener('focus', onStoreSearchInput);
   // 클라우드에서 점포·작업 데이터 동시 풀 — 모바일 첫 진입 시 매장 검색 0건 사고 방지

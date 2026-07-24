@@ -550,7 +550,7 @@
 })();
 </script>
 
-<script src="/m-core.js?v=2026-07-10-name-fix"></script>
+<script src="/m-core.js?v=2026-07-24-idb-storage"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    소모품 품목 카탈로그
@@ -1730,6 +1730,7 @@ window.onLineSendJob = function(){
    init
 ═══════════════════════════════════════════════════════════ */
 (async function init(){
+  try{ await window._storageReady; }catch(_){}   // 📦 IndexedDB 적재 완료 후 렌더(빈 화면 방지)
   $('fStoreSearch').addEventListener('input', onStoreSearchInput);
   $('fStoreSearch').addEventListener('focus', onStoreSearchInput);
   try { await Promise.allSettled([window.syncStoresFromCloud && window.syncStoresFromCloud(), window.syncJobsFromCloud()]); } catch(_){}

@@ -141,7 +141,7 @@
   <a class="item" href="/m/settings/"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-07-10-name-fix"></script>
+<script src="/m-core.js?v=2026-07-24-idb-storage"></script>
 <script>
 /* ════════════════════════════════════════════════
    전자결재 모바일 SPA
@@ -664,6 +664,7 @@
 
   /* ── boot ── */
   (async function init(){
+    try{ await window._storageReady; }catch(_){}   // 📦 IndexedDB 적재 완료 후 렌더(빈 화면 방지)
     let deepDoc=null; try{deepDoc=new URLSearchParams(location.search).get('doc');}catch(_){}
     // 딥링크(?doc)면 etag 무시하고 강제 최신화 → 링크한 문서가 stale 캐시에 없어 '찾을 수 없음' 되던 버그 방지
     try{await syncFromCloud(!!deepDoc);}catch(_){}

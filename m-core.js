@@ -306,11 +306,108 @@
     try { return JSON.parse(localStorage.getItem('ns_users') || '[]'); } catch { return []; }
   }
 
+  /* ═══════════════════════════════════════════════════════════
+   * 📦 대용량 로컬 저장소 — IndexedDB 백엔드 (localStorage 5MB 한도 탈출)
+   *
+   *  문제(2026-07 사고의 근본원인): ns_jobs(≈2.0MB) + ns_stores(≈2.4MB) = 4.4MB 로 모바일
+   *    한도 5MB 에 근접. 데이터는 단조 증가(작업 853건·thread 누적)라 조금만 늘어도
+   *    QuotaExceededError → 저장이 "조용히" 실패하고 화면은 저장소를 읽으니 빈 목록이 됨.
+   *    청소는 상자를 잠깐 비울 뿐 증가 곡선이 결국 이김 → 상자 자체를 교체.
+   *
+   *  해결: 실제 저장은 IndexedDB(브라우저가 디스크 여유로 관리, 수백MB~), 읽기는 메모리 raw
+   *    사본으로 **동기 유지** → getJobs/getStores/saveJobs/saveStores 시그니처 불변
+   *    (모바일 호출부 60여 곳 무수정).
+   *
+   *  부팅: m-core 로드 즉시 hydrate 시작 → `window._storageReady` 를 각 SPA init 이 await.
+   *  안전장치: hydrate 완료 전 save 는 거부 — 빈 배열이 IDB 를 덮어쓰는 사고 차단.
+   *  폴백: IDB 불가(구형/차단/시크릿) 시 기존 localStorage 경로로 자동 회귀 — 동작 동일.
+   * ═══════════════════════════════════════════════════════════ */
+  var _BIG_KEYS = ['ns_jobs', 'ns_stores'];
+  var _bigMem = Object.create(null);          // key -> raw JSON 문자열 (동기 읽기용 메모리 사본)
+  var _bigHydrated = false, _idbDB = null;
+
+  function _idbOpen() {
+    return new Promise(function (res) {
+      var done = false, fin = function (v) { if (!done) { done = true; res(v); } };
+      try {
+        if (!global.indexedDB) return fin(null);
+        var rq = indexedDB.open('ns_local', 1);
+        rq.onupgradeneeded = function () { try { rq.result.createObjectStore('kv'); } catch (_) {} };
+        rq.onsuccess = function () { fin(rq.result); };
+        rq.onerror = function () { fin(null); };
+        rq.onblocked = function () { fin(null); };
+        setTimeout(function () { fin(null); }, 3000);   // 무응답 시 폴백(부팅 무한대기 방지)
+      } catch (_) { fin(null); }
+    });
+  }
+  function _idbGet(key) {
+    return new Promise(function (res) {
+      if (!_idbDB) return res(null);
+      try {
+        var rq = _idbDB.transaction('kv', 'readonly').objectStore('kv').get(key);
+        rq.onsuccess = function () { res(rq.result == null ? null : rq.result); };
+        rq.onerror = function () { res(null); };
+      } catch (_) { res(null); }
+    });
+  }
+  function _idbPut(key, val) {
+    return new Promise(function (res) {
+      if (!_idbDB) return res(false);
+      try {
+        var tx = _idbDB.transaction('kv', 'readwrite');
+        tx.objectStore('kv').put(val, key);
+        tx.oncomplete = function () { res(true); };
+        tx.onerror = function () { res(false); };
+        tx.onabort = function () { res(false); };
+      } catch (_) { res(false); }
+    });
+  }
+  // 동기 읽기 — 메모리 사본 우선, 없으면(폴백/hydrate 전) localStorage
+  function _bigGet(key) {
+    if (_bigMem[key] != null) return _bigMem[key];
+    try { return localStorage.getItem(key); } catch (_) { return null; }
+  }
+  // 동기 쓰기 — 메모리 즉시 반영 후 IDB write-through(비동기). IDB 없으면 기존 localStorage 경로.
+  function _bigSet(key, val) {
+    _bigMem[key] = val;
+    if (_idbDB) { _idbPut(key, val); return true; }
+    return _safeSetItem(key, val);
+  }
+  global._bigGet = _bigGet;
+  global._bigSet = _bigSet;
+  global._storageBackend = function () { return _idbDB ? 'indexeddb' : 'localstorage'; };
+
+  // hydrate — IDB 에서 메모리로 적재. 최초 1회 localStorage → IDB 이관 후 원본 키 제거(5MB 상자 비움).
+  global._storageReady = (async function _hydrateBig() {
+    try {
+      _idbDB = await _idbOpen();
+      for (var i = 0; i < _BIG_KEYS.length; i++) {
+        var k = _BIG_KEYS[i], v = null;
+        if (_idbDB) { try { v = await _idbGet(k); } catch (_) {} }
+        if (v == null) {
+          var ls = null; try { ls = localStorage.getItem(k); } catch (_) {}
+          if (ls != null) {
+            v = ls;
+            if (_idbDB) {
+              var moved = await _idbPut(k, ls);
+              // 이관 성공 시에만 제거 — 실패 시 localStorage 원본 보존(데이터 소실 방지)
+              if (moved) { try { localStorage.removeItem(k); } catch (_) {} }
+            }
+          }
+        }
+        if (v != null) _bigMem[k] = v;
+      }
+    } catch (_) {}
+    _bigHydrated = true;
+    try { console.log('[storage] backend=' + (_idbDB ? 'IndexedDB' : 'localStorage(폴백)')); } catch (_) {}
+    return true;
+  })();
+
   // ── STORES — index.html L12753 ───────────────────────────────
   // ⚡ 파싱 캐시 — raw 문자열 키. ns_stores 변경 시 자동 무효화. JSON.parse 반복 비용 제거.
   let _storesCacheRaw = null, _storesCacheArr = [];
   function getStores() {
-    let raw; try { raw = localStorage.getItem('ns_stores') || '[]'; } catch { return []; }
+    let raw; try { raw = _bigGet('ns_stores') || '[]'; } catch { return []; }
     if (raw === _storesCacheRaw) return _storesCacheArr.slice();
     _storesCacheRaw = raw;
     try { _storesCacheArr = JSON.parse(raw); } catch { _storesCacheArr = []; }
@@ -362,7 +459,9 @@
   }
   global._leanStores = _leanStores;
   function saveStores(arr) {
-    _safeSetItem('ns_stores', JSON.stringify(_leanStores(arr)));
+    // 🛡 hydrate 전 저장 거부 — 아직 안 읽힌 상태의 빈/부분 배열이 저장소를 덮어쓰는 사고 차단
+    if (!_bigHydrated) { try { console.warn('[storage] hydrate 전 saveStores 무시'); } catch(_){} return; }
+    _bigSet('ns_stores', JSON.stringify(_leanStores(arr)));
   }
   // 🧹 레거시 ns_stores 즉시 재압축 (로드 1회) — 이전 버전이 저장한 full ns_stores(~5MB, contacts 포함)는
   //   syncStoresFromCloud 의 ETag 304 때문에 영구 잔존해 다른 키 저장을 quota 로 막음(저장공간 부족 토스트).
@@ -672,7 +771,7 @@
   // ⚡ 파싱 캐시 — raw 문자열 키. ns_jobs 변경 시 자동 무효화. JSON.parse 반복 비용 제거.
   let _jobsCacheRaw = null, _jobsCacheArr = [];
   function getJobs() {
-    let raw; try { raw = localStorage.getItem('ns_jobs') || '[]'; } catch { return []; }
+    let raw; try { raw = _bigGet('ns_jobs') || '[]'; } catch { return []; }
     if (raw === _jobsCacheRaw) return _jobsCacheArr.slice();
     _jobsCacheRaw = raw;
     try { _jobsCacheArr = JSON.parse(raw); } catch { _jobsCacheArr = []; }
@@ -709,6 +808,8 @@
   }
 
   function saveJobs(arr) {
+    // 🛡 hydrate 전 저장 거부 — 아직 안 읽힌 상태의 빈/부분 배열이 저장소를 덮어쓰는 사고 차단
+    if (!_bigHydrated) { try { console.warn('[storage] hydrate 전 saveJobs 무시'); } catch(_){} return; }
     // 🛡 id 기준 dedup — 중복 등록 방어 (PC 와 동일)
     let safe = arr;
     if (Array.isArray(arr)) {
@@ -739,7 +840,7 @@
       }
       _saveJobsSnap(newSnap);
     } catch(_){}
-    const _ok = _safeSetItem('ns_jobs', JSON.stringify(safe));
+    const _ok = _bigSet('ns_jobs', JSON.stringify(safe));
     scheduleAutoBackup();
     if (_ok) {
       schedulePushJobsToCloud();
@@ -978,7 +1079,7 @@
         try { if (_newEtag) localStorage.setItem('ns_jobs_etag', _newEtag); } catch(_){}
         return;
       }
-      const local = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
+      const local = (function(){ try { return JSON.parse(_bigGet('ns_jobs')||'[]'); } catch { return []; } })();
       const cloud = Array.isArray(data?.jobs) ? data.jobs : [];
       // 🪦 서버 측 삭제 레지스트리 적용 — 다른 기기에서 admin-delete 된 항목을 이 기기에서도 자동 제거
       const cloudDeleted = Array.isArray(data?.deleted) ? data.deleted : [];
@@ -1065,7 +1166,7 @@
     // jobsOverride — 로컬 저장(quota) 실패 시 메모리 배열을 직접 전송해 소실 방지
     const jobs = (opts && Array.isArray(opts.jobsOverride))
       ? opts.jobsOverride
-      : (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
+      : (function(){ try { return JSON.parse(_bigGet('ns_jobs')||'[]'); } catch { return []; } })();
     // 🪦 threadTombstones — 로컬 ns_tombstones 의 thread / thread-children 자동 동봉
     //   서버가 deleted_threads / deleted_thread_children KV 에 union 등록 → 다른 PC 자동 차단
     const _allTombs = (function(){ try { return JSON.parse(localStorage.getItem('ns_tombstones') || '[]'); } catch { return []; } })();
@@ -1262,8 +1363,8 @@
       const delStoreIds = new Set(cloudDeletedStores.map(e => String(e.id||'')).filter(Boolean));
       const cleanJobs = cloudJobs.filter(j => j && j.id && !delJobIds.has(j.id));
       const cleanStores = cloudStores.filter(s => s && s.id && !delStoreIds.has(s.id));
-      _safeSetItem('ns_jobs', JSON.stringify(cleanJobs));
-      _safeSetItem('ns_stores', JSON.stringify(_leanStores(cleanStores)));
+      _bigSet('ns_jobs', JSON.stringify(cleanJobs));
+      _bigSet('ns_stores', JSON.stringify(_leanStores(cleanStores)));
       // 삭제 레지스트리를 로컬 tombstone 에도 등록
       for (const id of delJobIds) { try { _addTombstone('job', id); } catch(_){} }
       for (const id of delStoreIds) { try { _addTombstone('store', id); } catch(_){} }
