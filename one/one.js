@@ -595,6 +595,218 @@
     renderRail(); renderNav(); openCanvas();
   }
 
+  /* ═══════════════════════════════════════════════════════════
+   * 🎙 회의 녹음 → 회의록
+   *   - MediaRecorder 로 오디오 캡처(재전사·미리듣기용, 메모리 보관)
+   *   - Web Speech API 로 실시간 전사(말하는 즉시 텍스트)
+   *   - Whisper 재전사(/api/one-transcribe): 오디오를 16kHz mono WAV 청크로 잘라 순차 전송
+   *   - 회의록 정리(/api/one-meeting): 전사 텍스트를 Claude 로 구조화
+   * ═══════════════════════════════════════════════════════════ */
+  const REC = {
+    stream: null, mr: null, chunks: [], blob: null,
+    rec: null, recActive: false, finalText: '', interim: '',
+    t0: 0, timer: null, busy: false,
+  };
+  function recPanelHtml() {
+    return `<div class="ov" id="recOv"></div>
+    <div class="rec-panel" id="recPanel">
+      <div class="rec-head">
+        <span>🎙 회의 녹음</span>
+        <button class="rec-x" id="recClose" title="닫기">${ic('x', 18) || '✕'}</button>
+      </div>
+      <div class="rec-status" id="recStatus"><span class="rec-dot" id="recDot"></span><span id="recStat">대기 중</span> <b id="recTime">00:00</b></div>
+      <div class="rec-hint" id="recHint">브라우저 실시간 인식으로 말하는 즉시 아래에 텍스트가 쌓입니다. 정지 후 [Whisper 재전사]로 더 정확하게 다시 뽑거나, [회의록 정리]로 요약할 수 있어요.</div>
+      <textarea class="rec-ta" id="recText" placeholder="여기에 전사 텍스트가 표시됩니다. 직접 수정해도 됩니다."></textarea>
+      <div class="rec-ctrls">
+        <button class="rec-btn rec-go" id="recStart">● 녹음 시작</button>
+        <button class="rec-btn rec-stop" id="recStop" disabled>■ 정지</button>
+        <audio class="rec-audio" id="recAudio" controls style="display:none"></audio>
+      </div>
+      <div class="rec-actions" id="recActions" style="display:none">
+        <button class="rec-btn" id="recWhisper">🔁 Whisper 재전사</button>
+        <button class="rec-btn rec-primary" id="recMinutes">📋 회의록 정리</button>
+        <button class="rec-btn" id="recInsert">📄 전사만 삽입</button>
+        <a class="rec-btn rec-dl" id="recDownload" download="recording.webm">💾 오디오 저장</a>
+      </div>
+      <div class="rec-prog" id="recProg" style="display:none"></div>
+    </div>`;
+  }
+  function openRecPanel() {
+    if (!curPageId) { alert('먼저 페이지를 여세요.'); return; }
+    if (document.getElementById('recPanel')) return;
+    const wrap = document.createElement('div'); wrap.id = 'recWrap'; wrap.innerHTML = recPanelHtml();
+    document.body.appendChild(wrap);
+    $('recClose').onclick = closeRecPanel; $('recOv').onclick = closeRecPanel;
+    $('recStart').onclick = recStart; $('recStop').onclick = recStop;
+    $('recWhisper').onclick = recWhisper; $('recMinutes').onclick = recMinutes; $('recInsert').onclick = recInsertText;
+    $('recText').oninput = () => { REC.finalText = $('recText').value; };
+  }
+  function closeRecPanel() {
+    if (REC.recActive) { try { recStop(); } catch (_) {} }
+    try { if (REC.stream) REC.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    REC.stream = null;
+    const w = document.getElementById('recWrap'); if (w) w.remove();
+  }
+  function recSetStat(txt, on) {
+    const s = $('recStat'), d = $('recDot'); if (s) s.textContent = txt; if (d) d.classList.toggle('on', !!on);
+  }
+  function recTick() {
+    const el = $('recTime'); if (!el) return;
+    const s = Math.floor((Date.now() - REC.t0) / 1000);
+    el.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }
+  async function recStart() {
+    if (REC.recActive) return;
+    try { REC.stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { alert('마이크 권한이 필요합니다: ' + e.message); return; }
+    REC.chunks = []; REC.blob = null; REC.interim = '';
+    if (!REC.finalText) REC.finalText = $('recText').value || '';
+    // MediaRecorder — 오디오 저장(재전사·미리듣기)
+    let mime = 'audio/webm'; try { if (!MediaRecorder.isTypeSupported(mime)) mime = ''; } catch (_) { mime = ''; }
+    REC.mr = new MediaRecorder(REC.stream, mime ? { mimeType: mime } : undefined);
+    REC.mr.ondataavailable = e => { if (e.data && e.data.size) REC.chunks.push(e.data); };
+    REC.mr.onstop = recOnAudioReady;
+    REC.mr.start();
+    // Web Speech — 실시간 전사
+    startSpeech();
+    REC.recActive = true; REC.t0 = Date.now(); REC.timer = setInterval(recTick, 500); recTick();
+    recSetStat('녹음 중', true);
+    $('recStart').disabled = true; $('recStop').disabled = false;
+    $('recActions').style.display = 'none'; $('recAudio').style.display = 'none';
+  }
+  function recStop() {
+    if (!REC.recActive) return;
+    REC.recActive = false;
+    clearInterval(REC.timer);
+    try { REC.rec && REC.rec.stop(); } catch (_) {}
+    try { REC.mr && REC.mr.state !== 'inactive' && REC.mr.stop(); } catch (_) {}
+    recSetStat('정지됨', false);
+    $('recStart').disabled = false; $('recStop').disabled = true;
+  }
+  function recOnAudioReady() {
+    try { if (REC.stream) REC.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    REC.blob = new Blob(REC.chunks, { type: (REC.mr && REC.mr.mimeType) || 'audio/webm' });
+    const url = URL.createObjectURL(REC.blob);
+    const au = $('recAudio'); if (au) { au.src = url; au.style.display = 'block'; }
+    const dl = $('recDownload'); if (dl) { dl.href = url; dl.download = 'meeting-' + today() + '.webm'; }
+    $('recActions').style.display = 'flex';
+    // 실시간 전사 결과를 textarea 로
+    $('recText').value = (REC.finalText || '').trim();
+  }
+  /* Web Speech (webkitSpeechRecognition) — 실시간, 종료 시 자동 재시작 */
+  function startSpeech() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { $('recHint').textContent = '⚠ 이 브라우저는 실시간 인식을 지원하지 않습니다(크롬/엣지 권장). 녹음 후 [Whisper 재전사]를 사용하세요.'; return; }
+    const r = new SR(); REC.rec = r;
+    r.lang = 'ko-KR'; r.continuous = true; r.interimResults = true;
+    r.onresult = ev => {
+      let interim = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const t = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) REC.finalText += (REC.finalText && !/\s$/.test(REC.finalText) ? ' ' : '') + t.trim();
+        else interim += t;
+      }
+      REC.interim = interim;
+      const ta = $('recText'); if (ta) { ta.value = (REC.finalText + (interim ? ' ' + interim : '')).trim(); ta.scrollTop = ta.scrollHeight; }
+    };
+    r.onerror = () => {};
+    r.onend = () => { if (REC.recActive) { try { r.start(); } catch (_) {} } };
+    try { r.start(); } catch (_) {}
+  }
+  /* ── Whisper 재전사: 오디오 → 16kHz mono WAV 청크 → 순차 전송 ── */
+  function recProg(msg) { const p = $('recProg'); if (p) { p.style.display = msg ? 'block' : 'none'; p.textContent = msg || ''; } }
+  async function recWhisper() {
+    if (REC.busy) return;
+    if (!REC.blob) { alert('먼저 녹음하세요.'); return; }
+    REC.busy = true; recProg('오디오 디코딩 중…');
+    try {
+      const buf = await REC.blob.arrayBuffer();
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const actx = new AC();
+      const decoded = await actx.decodeAudioData(buf.slice(0));
+      try { actx.close(); } catch (_) {}
+      const mono16k = await resampleMono16k(decoded);   // Float32Array @16kHz
+      const CHUNK_SEC = 50, SR = 16000, chunkLen = CHUNK_SEC * SR;
+      const total = Math.ceil(mono16k.length / chunkLen);
+      let out = '';
+      for (let i = 0; i < total; i++) {
+        recProg(`Whisper 전사 중… (${i + 1}/${total})`);
+        const slice = mono16k.subarray(i * chunkLen, (i + 1) * chunkLen);
+        const wav = encodeWav16(slice, SR);
+        const b64 = bytesToB64(new Uint8Array(wav));
+        const r = await fetch('/api/one-transcribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ audio: b64, language: 'ko' }) });
+        const d = await r.json();
+        if (d && d.ok && d.text) out += (out ? ' ' : '') + d.text.trim();
+        else if (d && d.error) throw new Error(d.error + (d.detail ? ': ' + d.detail : ''));
+      }
+      REC.finalText = out.trim();
+      $('recText').value = REC.finalText;
+      recProg(out ? '✅ 재전사 완료' : '⚠ 인식된 내용이 없습니다');
+      setTimeout(() => recProg(''), 2500);
+    } catch (e) {
+      recProg('⚠ 재전사 실패: ' + e.message); setTimeout(() => recProg(''), 4000);
+    } finally { REC.busy = false; }
+  }
+  // AudioBuffer → 16kHz mono Float32 (OfflineAudioContext 리샘플)
+  async function resampleMono16k(ab) {
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const dur = ab.duration, outLen = Math.ceil(dur * 16000);
+    const oac = new OAC(1, outLen, 16000);
+    const src = oac.createBufferSource(); src.buffer = ab; src.connect(oac.destination); src.start(0);
+    const rendered = await oac.startRendering();
+    return rendered.getChannelData(0);
+  }
+  // Float32 PCM → 16-bit WAV (ArrayBuffer)
+  function encodeWav16(samples, sampleRate) {
+    const n = samples.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    ws(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); ws(8, 'WAVE'); ws(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    ws(36, 'data'); v.setUint32(40, n * 2, true);
+    let o = 44; for (let i = 0; i < n; i++) { let s = Math.max(-1, Math.min(1, samples[i])); v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7FFF, true); o += 2; }
+    return buf;
+  }
+  // Uint8Array → base64 (스택오버플로 방지 청크 처리)
+  function bytesToB64(bytes) {
+    let bin = '', CH = 0x8000;
+    for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+    return btoa(bin);
+  }
+  /* ── 결과 삽입 ── */
+  function recInsertText() {
+    const t = ($('recText').value || '').trim(); if (!t) { alert('전사 내용이 없습니다.'); return; }
+    const html = '<h3>🎙 회의 전사 (' + today() + ')</h3><p>' + esc(t).replace(/\n+/g, '</p><p>') + '</p><p><br></p>';
+    insertToPage(html); closeRecPanel();
+  }
+  async function recMinutes() {
+    if (REC.busy) return;
+    const t = ($('recText').value || '').trim();
+    if (t.length < 10) { alert('전사 내용이 너무 짧습니다.'); return; }
+    REC.busy = true; recProg('Claude 가 회의록을 정리하는 중…');
+    try {
+      const title = ((findNode(curPageId) || {}).title) || '';
+      const r = await fetch('/api/one-meeting', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ transcript: t, title }) });
+      const d = await r.json();
+      if (d && d.ok && d.html) {
+        insertToPage(d.html + '<p><br></p><details><summary>🎙 원본 전사</summary><p>' + esc(t).replace(/\n+/g, '</p><p>') + '</p></details><p><br></p>');
+        recProg('✅ 회의록 삽입 완료'); setTimeout(closeRecPanel, 800);
+      } else { throw new Error((d && (d.detail || d.error)) || '알 수 없는 오류'); }
+    } catch (e) { recProg('⚠ 회의록 정리 실패: ' + e.message); setTimeout(() => recProg(''), 4000); }
+    finally { REC.busy = false; }
+  }
+  function insertToPage(html) {
+    const el = $('docBody'); if (!el) return;
+    el.focus();
+    // 커서가 본문 안이 아니면 끝에 삽입
+    const sel = window.getSelection();
+    if (!sel.rangeCount || !el.contains(sel.anchorNode)) {
+      const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); sel.removeAllRanges(); sel.addRange(r);
+    }
+    document.execCommand('insertHTML', false, html);
+    afterEdit();
+  }
+
   /* ── 부트 ── */
   function paintStaticIcons() {
     // 정적 버튼 아이콘 주입 [id, icon, label?]
@@ -623,6 +835,7 @@
     $('tbBold').onclick = () => exec('bold'); $('tbH1').onclick = () => exec('formatBlock', 'H1'); $('tbH2').onclick = () => exec('formatBlock', 'H2');
     $('tbList').onclick = () => exec('insertUnorderedList'); $('tbOList').onclick = () => exec('insertOrderedList'); $('tbQuote').onclick = () => exec('formatBlock', 'BLOCKQUOTE');
     $('tbTable').onclick = insertTable; $('tbAttach').onclick = attachFile;
+    { const rb = $('tbRec'); if (rb) rb.onclick = openRecPanel; }
     $('tbRowAbove').onclick = () => addRow(false); $('tbRowBelow').onclick = () => addRow(true);
     $('tbColLeft').onclick = () => addCol(false); $('tbColRight').onclick = () => addCol(true);
     $('tbDelRow').onclick = delRow; $('tbDelCol').onclick = delCol; $('tbHeadRow').onclick = toggleHeadRow; $('tbDelTable').onclick = () => delTable(false);

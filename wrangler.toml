@@ -9,6 +9,10 @@ PUBLIC_R2_BASE = "https://pub-c102a6c282f54e61a6aa74b74e17c235.r2.dev"
 binding = "STORES_KV"
 id = "81fa2de1ce5147429aabd063c2e3dc67"
 
+# Workers AI — ONE 노트 녹음 Whisper 전사(/api/one-transcribe) 용
+[ai]
+binding = "AI"
+
 # 첨부 (이미지+파일) 저장소
 #   업로드 후 prefix 분리:
 #     images/{yyyy}/{MM}/{uuid}.jpg
