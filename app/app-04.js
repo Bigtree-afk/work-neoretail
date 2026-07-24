@@ -79,7 +79,7 @@
     _pushJobsTimer = setTimeout(() => { pushJobsToCloud(); }, 5000);
   }
   async function pushJobsToCloud(opts) {
-    const jobs = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
+    const jobs = (function(){ try { return JSON.parse(window._bigGet('ns_jobs')||'[]'); } catch { return []; } })();
     // 🪦 threadTombstones — 로컬 ns_tombstones 중 thread / thread-children 만 추출해 서버에 동봉.
     //   서버는 deleted_threads / deleted_thread_children KV 키에 union 등록 후
     //   incoming/cloud jobs 의 thread 에서 자동 제거 → 다른 PC 도 자동 차단됨.
@@ -203,8 +203,8 @@
     function _snapshotHash() {
       try {
         // ⚡ A-5 — JSON.parse(1.4MB) 제거. raw 문자열 content-hash 로 변경 감지(파싱 없음).
-        const j = localStorage.getItem('ns_jobs') || '';
-        const s = localStorage.getItem('ns_stores') || '';
+        const j = window._bigGet('ns_jobs') || '';
+        const s = window._bigGet('ns_stores') || '';
         return window._fastHash ? (window._fastHash(j) + '/' + window._fastHash(s)) : (j.length + '/' + s.length);
       } catch { return ''; }
     }
@@ -1382,7 +1382,7 @@
     return {
       ts: Date.now(),
       version: 2,
-      jobs:          JSON.parse(localStorage.getItem('ns_jobs')           || '[]'),
+      jobs:          JSON.parse(window._bigGet('ns_jobs')           || '[]'),
       users:         JSON.parse(localStorage.getItem('ns_users')          || '[]'),
       allowedEmails: JSON.parse(localStorage.getItem('ns_allowed_emails') || '[]'),
       comments:      JSON.parse(localStorage.getItem('ns_comments')       || '{}'),
@@ -1452,8 +1452,8 @@
         // 복원 직전 자동 스냅샷
         pushSnapshot(createSnapshot());
         // 복원
-        if (Array.isArray(snap.stores))        localStorage.setItem('ns_stores',         JSON.stringify(snap.stores));
-        if (Array.isArray(snap.jobs))          localStorage.setItem('ns_jobs',           JSON.stringify(snap.jobs));
+        if (Array.isArray(snap.stores))        window._bigSet('ns_stores',         JSON.stringify(snap.stores));
+        if (Array.isArray(snap.jobs))          window._bigSet('ns_jobs',           JSON.stringify(snap.jobs));
         if (Array.isArray(snap.users))         localStorage.setItem('ns_users',          JSON.stringify(snap.users));
         if (Array.isArray(snap.allowedEmails)) localStorage.setItem('ns_allowed_emails', JSON.stringify(snap.allowedEmails));
         if (snap.comments && typeof snap.comments === 'object') {
@@ -1476,8 +1476,8 @@
     if (!snap) return;
     if (!confirm(`${new Date(snap.ts).toLocaleString('ko-KR')} 시점으로 복원합니다.\n복원 직전 현재 상태도 자동 백업됩니다. 계속하시겠습니까?`)) return;
     pushSnapshot(createSnapshot());
-    if (Array.isArray(snap.stores))        localStorage.setItem('ns_stores',         JSON.stringify(snap.stores));
-    if (Array.isArray(snap.jobs))          localStorage.setItem('ns_jobs',           JSON.stringify(snap.jobs));
+    if (Array.isArray(snap.stores))        window._bigSet('ns_stores',         JSON.stringify(snap.stores));
+    if (Array.isArray(snap.jobs))          window._bigSet('ns_jobs',           JSON.stringify(snap.jobs));
     if (Array.isArray(snap.users))         localStorage.setItem('ns_users',          JSON.stringify(snap.users));
     if (Array.isArray(snap.allowedEmails)) localStorage.setItem('ns_allowed_emails', JSON.stringify(snap.allowedEmails));
     if (snap.comments && typeof snap.comments === 'object') {
@@ -1506,8 +1506,8 @@
     if (!snap) return;
     const snapJobs = Array.isArray(snap.jobs) ? snap.jobs : [];
     const snapStores = Array.isArray(snap.stores) ? snap.stores : [];
-    const curJobs = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
-    const curStores = (function(){ try { return JSON.parse(localStorage.getItem('ns_stores')||'[]'); } catch { return []; } })();
+    const curJobs = (function(){ try { return JSON.parse(window._bigGet('ns_jobs')||'[]'); } catch { return []; } })();
+    const curStores = (function(){ try { return JSON.parse(window._bigGet('ns_stores')||'[]'); } catch { return []; } })();
 
     // 미리 보기 카운트
     const curJobIds = new Set(curJobs.map(j => j.id));
@@ -1591,8 +1591,8 @@
       if (!sById.has(b.id)) { finalStores.push(b); sById.set(b.id, b); }
     });
 
-    localStorage.setItem('ns_jobs', JSON.stringify(merged));
-    localStorage.setItem('ns_stores', JSON.stringify(finalStores));
+    window._bigSet('ns_jobs', JSON.stringify(merged));
+    window._bigSet('ns_stores', JSON.stringify(finalStores));
 
     // 즉시 cloud push (다른 PC 가 stale cloud 로 다시 덮지 않게)
     try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud(); } catch(e){}

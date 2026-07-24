@@ -178,7 +178,7 @@
 
   // 진단용 — 콘솔에서 window.diagnoseStoreJobs('정이가마트') 또는 사업자번호로 호출
   window.diagnoseStoreJobs = function(bizOrName) {
-    const jobs = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
+    const jobs = (function(){ try { return JSON.parse(window._bigGet('ns_jobs')||'[]'); } catch { return []; } })();
     const needle = String(bizOrName||'').toLowerCase();
     const matches = jobs.filter(j => {
       const sn = (j.storeName||j.store||'').toLowerCase();

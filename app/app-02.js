@@ -597,7 +597,7 @@
     const inst = buildEquipInstance(src);
     s.equipment.push(inst);
     if (typeof saveStores === 'function') saveStores(stores);
-    else localStorage.setItem('ns_stores', JSON.stringify(stores));
+    else window._bigSet('ns_stores', JSON.stringify(stores));
     if (opts && opts.toast && typeof showToast === 'function') showToast(`✓ ${inst.name} 추가됨`);
     return inst;
   }
@@ -624,7 +624,7 @@
       });
     }
     if (typeof saveStores === 'function') saveStores(stores);
-    else localStorage.setItem('ns_stores', JSON.stringify(stores));
+    else window._bigSet('ns_stores', JSON.stringify(stores));
     if (opts && opts.toast && typeof showToast === 'function') showToast('✓ 장비 정보 수정됨');
     return true;
   }
@@ -658,7 +658,7 @@
       moved.push(newInst);
     });
     if (typeof saveStores === 'function') saveStores(stores);
-    else localStorage.setItem('ns_stores', JSON.stringify(stores));
+    else window._bigSet('ns_stores', JSON.stringify(stores));
     if (opts && opts.toast && typeof showToast === 'function') showToast(`✓ ${moved.length}건 이전 완료`);
     return { ok:true, moved };
   }
@@ -711,7 +711,7 @@
     });
     if (added > 0) {
       if (typeof saveStores === 'function') saveStores(stores);
-      else localStorage.setItem('ns_stores', JSON.stringify(stores));
+      else window._bigSet('ns_stores', JSON.stringify(stores));
     }
     return added;
   }
@@ -834,7 +834,7 @@
     });
     if ((added > 0 || updated > 0) && !opts.storesArr) {   // 단독 호출만 저장 (배치는 caller 가 1회 저장)
       if (typeof saveStores === 'function') saveStores(stores);
-      else localStorage.setItem('ns_stores', JSON.stringify(stores));
+      else window._bigSet('ns_stores', JSON.stringify(stores));
     }
     return added;
   }
@@ -847,7 +847,7 @@
     jobs.forEach(j => { try { total += ingestJobContactsToStore(j, { storesArr: stores }) || 0; } catch(_){} });
     if (total > 0) {
       if (typeof saveStores === 'function') saveStores(stores);
-      else localStorage.setItem('ns_stores', JSON.stringify(stores));
+      else window._bigSet('ns_stores', JSON.stringify(stores));
       try { if (typeof pushStoresToCloud === 'function') pushStoresToCloud({ toast:false }); } catch(e){}
     }
     return { ok:true, added: total };
@@ -1276,11 +1276,10 @@
   /* ── 기존 점포 전체 삭제 ── */
   function clearAllStores() {
     let cnt = 0;
-    try { cnt = (JSON.parse(localStorage.getItem('ns_stores') || '[]')).length; } catch(e) {}
+    try { cnt = (JSON.parse(window._bigGet('ns_stores') || '[]')).length; } catch(e) {}
     if (!confirm(`저장된 점포 ${cnt.toLocaleString()}개를 모두 삭제하고 페이지를 새로고침합니다.\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`)) return;
     try {
-      localStorage.removeItem('ns_stores');
-      localStorage.setItem('ns_stores', '[]');
+      window._bigSet('ns_stores', '[]');   // IDB 사본 포함 초기화
     } catch(e) {}
     try {
       const tb = document.getElementById('storeListTbody');

@@ -2780,7 +2780,7 @@
   //   자동 무효화(별도 hook 불필요). JSON.parse(~1MB) 반복 비용 제거. .slice() 로 배열 변형 격리.
   let _storesCacheRaw = null, _storesCacheArr = [];
   function getStores() {
-    let raw; try { raw = localStorage.getItem('ns_stores') || '[]'; } catch { return []; }
+    let raw; try { raw = window._bigGet('ns_stores') || '[]'; } catch { return []; }
     if (raw === _storesCacheRaw) return _storesCacheArr.slice();
     _storesCacheRaw = raw;
     try { _storesCacheArr = JSON.parse(raw); } catch { _storesCacheArr = []; }
@@ -2796,7 +2796,9 @@
 
   function saveStores(arr, opts) {
     opts = opts || {};
-    localStorage.setItem('ns_stores', JSON.stringify(arr));
+    // 🛡 적재 완료 전 저장 거부 — 아직 안 읽힌 상태의 빈/부분 배열이 저장소를 덮어쓰는 사고 차단
+    if (window._storageHydrated && !window._storageHydrated()) { try { console.warn('[storage] 적재 전 saveStores 무시'); } catch(_){} return; }
+    window._bigSet('ns_stores', JSON.stringify(arr));
     scheduleAutoBackup();
     // fromSync: true 면 dirty 안 켜고 push 스케줄 안 함 (sync 후 echo push 방지)
     if (opts.fromSync) return;
@@ -2831,7 +2833,7 @@
       if (opts.toast && typeof showToast === 'function') showToast('변경 사항 없음 — push 생략');
       return { ok:true, skipped:true };
     }
-    const stores = (function(){ try { return JSON.parse(localStorage.getItem('ns_stores')||'[]'); } catch { return []; } })();
+    const stores = (function(){ try { return JSON.parse(window._bigGet('ns_stores')||'[]'); } catch { return []; } })();
     const body = JSON.stringify({ stores, source:'client' });
     // content-skip
     const h = window._fastHash(body);
@@ -2872,7 +2874,7 @@
   // ⚡ 파싱 캐시 — raw 문자열 키. ns_jobs 변경 시 raw 가 달라져 자동 무효화. JSON.parse(~400KB) 반복 제거.
   let _jobsCacheRaw = null, _jobsCacheArr = [];
   function getJobs() {
-    let raw; try { raw = localStorage.getItem('ns_jobs') || '[]'; } catch { return []; }
+    let raw; try { raw = window._bigGet('ns_jobs') || '[]'; } catch { return []; }
     if (raw === _jobsCacheRaw) return _jobsCacheArr.slice();
     _jobsCacheRaw = raw;
     try { _jobsCacheArr = JSON.parse(raw); } catch { _jobsCacheArr = []; }
@@ -2915,6 +2917,8 @@
   window._refreshJobsSnap = _refreshJobsSnap;
 
   function saveJobs(arr) {
+    // 🛡 적재 완료 전 저장 거부 — 아직 안 읽힌 상태의 빈/부분 배열이 저장소를 덮어쓰는 사고 차단
+    if (window._storageHydrated && !window._storageHydrated()) { try { console.warn('[storage] 적재 전 saveJobs 무시'); } catch(_){} return; }
     // 🛡 id 기준 dedup — 중복 등록 사고 방어 (어디서든 같은 id 가 두 번 들어가면 첫 항목만 유지)
     let safe = arr;
     if (Array.isArray(arr)) {
@@ -2950,7 +2954,7 @@
       _saveJobsSnap(newSnap);
       if (stamped > 0) console.debug('[saveJobs] mtime 스탬프', stamped, '건');
     } catch(e) { console.warn('[saveJobs mtime]', e); }
-    localStorage.setItem('ns_jobs', JSON.stringify(safe));
+    window._bigSet('ns_jobs', JSON.stringify(safe));
     scheduleAutoBackup();
     schedulePushJobsToCloud();
   }
@@ -3241,7 +3245,7 @@
         const cloudDeletedRaw = Array.isArray(data?.deleted) ? data.deleted : [];
         const delIds = new Set(cloudDeletedRaw.map(e => String(e && e.id || '')).filter(Boolean));
         const clean = cloudJobsRaw.filter(j => j && j.id && !delIds.has(j.id));
-        try { localStorage.setItem('ns_jobs', JSON.stringify(clean)); } catch(_){}
+        try { window._bigSet('ns_jobs', JSON.stringify(clean)); } catch(_){}
         try { localStorage.setItem('ns_resync_token', cloudToken); } catch(_){}
         // 🕐 cloud-pulled 상태로 snapshot 동기화 — 다음 saveJobs 가 cloud job 을 "변경됨" 으로 오인 안 함
         try { _refreshJobsSnap(); } catch(_){}
@@ -3256,7 +3260,7 @@
         try { if (_newEtag) localStorage.setItem('ns_jobs_etag', _newEtag); } catch(_){}
         return;
       }
-      const local = (function(){ try { return JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch { return []; } })();
+      const local = (function(){ try { return JSON.parse(window._bigGet('ns_jobs')||'[]'); } catch { return []; } })();
       const cloud = Array.isArray(data?.jobs) ? data.jobs : [];
       // 🪦 서버 측 삭제 레지스트리 — admin-delete 로 다른 기기에서 지운 항목을
       //    이 기기에서도 자동 제거 + 로컬 tombstone 등록 (재발 차단)
@@ -3315,7 +3319,7 @@
         dedupSeen.add(j.id);
         merged.push(j);
       }
-      localStorage.setItem('ns_jobs', JSON.stringify(merged));
+      window._bigSet('ns_jobs', JSON.stringify(merged));
       try { if (_newEtag) localStorage.setItem('ns_jobs_etag', _newEtag); } catch(_){}
       // 🕐 머지 결과로 snapshot 갱신 — 다음 saveJobs 가 cloud-pulled job 을 "변경됨" 으로 오인 안 함
       try { _refreshJobsSnap(); } catch(_){}
@@ -3451,7 +3455,7 @@
       tomb = tomb.filter(t => !(t && t.type === 'job' && liveIds.has(t.id)));
       localStorage.setItem('ns_tombstones', JSON.stringify(tomb));
     } catch(_){}
-    try { localStorage.setItem('ns_jobs', JSON.stringify(clean)); } catch(_){}
+    try { window._bigSet('ns_jobs', JSON.stringify(clean)); } catch(_){}
     try { if (typeof _refreshJobsSnap === 'function') _refreshJobsSnap(); } catch(_){}
     try { if (typeof syncFromCloud === 'function') await syncFromCloud(); } catch(e){ console.warn('[repull] store sync', e); }
     toast('✅ 클라우드 기준 동기화 완료 — 새로고침합니다', 3000);

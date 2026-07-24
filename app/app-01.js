@@ -1,3 +1,104 @@
+  /* ═══════════════════════════════════════════════════════════════════════
+   * 📦 대용량 로컬 저장소 — IndexedDB 백엔드 (localStorage 5MB 한도 탈출)
+   *
+   *  ⚠ SSOT 쌍둥이 정의 — 모바일 `m-core.js` 의 동일 블록과 **반드시 함께** 수정.
+   *    (PC 는 m-core.js 를 로드하지 않음 — `_searchStores`·`_sigSkip`·`_jobDoneSort` 와 동일 패턴)
+   *
+   *  근본원인: ns_jobs + ns_stores 를 고정 5MB 상자(localStorage)에 통째로 복제하는데
+   *    데이터는 단조 증가 → QuotaExceededError 시 저장이 "조용히" 실패하고 화면은
+   *    저장소를 읽으니 빈 목록이 됨(2026-07 모바일 사고). 청소는 시간만 벌므로 상자를 교체.
+   *
+   *  구조: 실제 저장 = IndexedDB(브라우저가 디스크 여유로 관리), 읽기 = 메모리 raw 사본으로
+   *    **동기 유지** → getJobs/getStores/saveJobs/saveStores 시그니처 불변(PC 호출부 200여 곳 무수정).
+   *  부팅: `window._storageReady` 적재 프로미스. 완료 후 `ns:data-changed` 로 전 화면 재렌더.
+   *  안전장치: 적재 완료 전 save 거부 — 빈 배열이 저장소를 덮어쓰는 사고 차단.
+   *  폴백: IDB 불가(구형/차단) 시 localStorage 로 자동 회귀 — 기존 동작과 동일.
+   * ═══════════════════════════════════════════════════════════════════════ */
+  var _BIG_KEYS = ['ns_jobs', 'ns_stores'];
+  var _bigMem = Object.create(null);        // key -> raw JSON 문자열 (동기 읽기용)
+  var _bigHydrated = false, _idbDB = null;
+
+  function _idbOpen() {
+    return new Promise(function (res) {
+      var done = false, fin = function (v) { if (!done) { done = true; res(v); } };
+      try {
+        if (!window.indexedDB) return fin(null);
+        var rq = indexedDB.open('ns_local', 1);
+        rq.onupgradeneeded = function () { try { rq.result.createObjectStore('kv'); } catch (_) {} };
+        rq.onsuccess = function () { fin(rq.result); };
+        rq.onerror = function () { fin(null); };
+        rq.onblocked = function () { fin(null); };
+        setTimeout(function () { fin(null); }, 3000);   // 무응답 시 폴백(부팅 무한대기 방지)
+      } catch (_) { fin(null); }
+    });
+  }
+  function _idbGet(key) {
+    return new Promise(function (res) {
+      if (!_idbDB) return res(null);
+      try {
+        var rq = _idbDB.transaction('kv', 'readonly').objectStore('kv').get(key);
+        rq.onsuccess = function () { res(rq.result == null ? null : rq.result); };
+        rq.onerror = function () { res(null); };
+      } catch (_) { res(null); }
+    });
+  }
+  function _idbPut(key, val) {
+    return new Promise(function (res) {
+      if (!_idbDB) return res(false);
+      try {
+        var tx = _idbDB.transaction('kv', 'readwrite');
+        tx.objectStore('kv').put(val, key);
+        tx.oncomplete = function () { res(true); };
+        tx.onerror = function () { res(false); };
+        tx.onabort = function () { res(false); };
+      } catch (_) { res(false); }
+    });
+  }
+  // 동기 읽기 — 메모리 사본 우선, 없으면(폴백/적재 전) localStorage
+  function _bigGet(key) {
+    if (_bigMem[key] != null) return _bigMem[key];
+    try { return localStorage.getItem(key); } catch (_) { return null; }
+  }
+  // 동기 쓰기 — 메모리 즉시 반영 + IDB write-through(비동기). IDB 없으면 localStorage.
+  function _bigSet(key, val) {
+    _bigMem[key] = val;
+    if (_idbDB) { _idbPut(key, val); return true; }
+    try { localStorage.setItem(key, val); return true; }
+    catch (e) {
+      try { console.warn('[storage] 용량 초과 — ' + key + ' 저장 실패'); } catch (_) {}
+      try { if (typeof showToast === 'function') showToast('⚠ 저장공간 부족 — 브라우저 데이터 정리가 필요합니다.', 6000); } catch (_) {}
+      return false;
+    }
+  }
+  window._bigGet = _bigGet;
+  window._bigSet = _bigSet;
+  window._storageBackend = function () { return _idbDB ? 'indexeddb' : 'localstorage'; };
+  window._storageHydrated = function () { return _bigHydrated; };
+
+  window._storageReady = (async function _hydrateBig() {
+    try {
+      _idbDB = await _idbOpen();
+      for (var i = 0; i < _BIG_KEYS.length; i++) {
+        var k = _BIG_KEYS[i], v = null;
+        if (_idbDB) { try { v = await _idbGet(k); } catch (_) {} }
+        if (v == null) {
+          var ls = null; try { ls = localStorage.getItem(k); } catch (_) {}
+          if (ls != null) {
+            v = ls;
+            // 이관 성공 시에만 원본 제거 — 실패 시 localStorage 보존(데이터 소실 방지)
+            if (_idbDB && await _idbPut(k, ls)) { try { localStorage.removeItem(k); } catch (_) {} }
+          }
+        }
+        if (v != null) _bigMem[k] = v;
+      }
+    } catch (_) {}
+    _bigHydrated = true;
+    try { console.log('[storage] backend=' + (_idbDB ? 'IndexedDB' : 'localStorage(폴백)')); } catch (_) {}
+    // 적재 완료 → 이미 그려진 화면들을 최신 데이터로 재렌더(첫 페인트가 빈 목록이었을 수 있음)
+    try { document.dispatchEvent(new CustomEvent('ns:data-changed', { detail: { reason: 'storage-hydrated' } })); } catch (_) {}
+    return true;
+  })();
+
   /* ══════════════════════════════════════════════
      클라우드 KV 동기화 (Cloudflare Pages Functions)
      - 페이지 로드 시 /api/stores 에서 받아 ns_stores 와 머지
@@ -406,7 +507,7 @@
       const forceResync = new URLSearchParams(location.search).has('force_resync');
       if (cur !== SCHEMA_VERSION || forceResync) {
         // 통째로 localStorage 매장 비우고 KV 에서 새로 받음 (가장 확실)
-        localStorage.removeItem('ns_stores');
+        window._bigSet('ns_stores', '[]');   // IDB 사본까지 초기화(단순 removeItem 은 IDB 잔존)
         localStorage.removeItem('ns_stores_meta');
         console.log('[migration v3] localStorage 매장 초기화 — KV 에서 신선한 데이터 재로드' + (forceResync ? ' (force_resync)' : ''));
         localStorage.setItem('ns_stores_schema_ver', SCHEMA_VERSION);
@@ -445,8 +546,8 @@
       let busy = false;
       const _hash = () => {
         try {
-          const j = localStorage.getItem('ns_jobs') || '';
-          const s = localStorage.getItem('ns_stores') || '';
+          const j = window._bigGet('ns_jobs') || '';
+          const s = window._bigGet('ns_stores') || '';
           return (window._fastHash ? window._fastHash(j + '|' + s) : (j.length + ':' + s.length));
         } catch { return ''; }
       };
