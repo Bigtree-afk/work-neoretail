@@ -1356,7 +1356,7 @@
   let _backupTimer = null;
 
   function getBackups() {
-    try { return JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]'); } catch { return []; }
+    try { return JSON.parse(window._bigGet(BACKUP_KEY) || '[]'); } catch { return []; }
   }
   // 스냅샷에서 stores 제거 — 매장은 대용량(2.8k건, ~1.2MB)+클라우드 보관이라 로컬 롤링백업에 넣으면
   //   라이브 데이터와 거의 중복돼 quota 초과 유발. 복원부는 snap.stores 없으면 매장을 건드리지 않음(안전).
@@ -1369,10 +1369,11 @@
   }
   function saveBackups(arr) {
     let a = _trimBackups(arr);
-    try { localStorage.setItem(BACKUP_KEY, JSON.stringify(a)); } catch (e) {
+    try { window._bigSet(BACKUP_KEY, JSON.stringify(a)); } catch (e) {
       // quota 초과 시 가장 오래된 것부터 삭제하며 재시도(다 안되면 비움 — 다른 키 저장 우선)
-      while (a.length > 0) { a.shift(); try { localStorage.setItem(BACKUP_KEY, JSON.stringify(a)); return; } catch(_){} }
-      try { localStorage.removeItem(BACKUP_KEY); } catch(_){}
+      //   IDB 백엔드에선 사실상 발생 안 함(폴백 localStorage 경로 대비 유지)
+      while (a.length > 0) { a.shift(); try { window._bigSet(BACKUP_KEY, JSON.stringify(a)); return; } catch(_){} }
+      try { window._bigSet(BACKUP_KEY, '[]'); } catch(_){}
       console.warn('백업 저장 실패: quota — 백업 비움');
     }
   }

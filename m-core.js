@@ -322,7 +322,7 @@
    *  안전장치: hydrate 완료 전 save 는 거부 — 빈 배열이 IDB 를 덮어쓰는 사고 차단.
    *  폴백: IDB 불가(구형/차단/시크릿) 시 기존 localStorage 경로로 자동 회귀 — 동작 동일.
    * ═══════════════════════════════════════════════════════════ */
-  var _BIG_KEYS = ['ns_jobs', 'ns_stores'];
+  var _BIG_KEYS = ['ns_jobs', 'ns_stores', 'ns_backups'];   // ns_backups=PC 자동백업(작업 스냅샷 6개, 작업 증가 시 6배로 커짐)
   var _bigMem = Object.create(null);          // key -> raw JSON 문자열 (동기 읽기용 메모리 사본)
   var _bigHydrated = false, _idbDB = null;
 
