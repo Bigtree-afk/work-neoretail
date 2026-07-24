@@ -208,7 +208,7 @@ async function run() {
       <div class="k">서버 작업 총</div>
       <div class="v">${serverJobs}건</div>
       <div class="k" style="margin-top:8px">서버 ${TEST_STORE} 작업</div>
-      <div class="v ${serverTest?'bad':'ok'}">${serverTest}건 ${serverTest?'🔴':'✓ (없음 — 서버는 깨끗)'}</div>
+      <div class="v ok">${serverTest}건 ${serverTest?'(서버 기준값 — 로컬과 비교용)':'✓ (없음)'}</div>
       ${serverErr?`<div class="v bad">서버 오류: ${esc(serverErr)}</div>`:''}
     </div>
     <div class="card">
