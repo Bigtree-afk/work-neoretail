@@ -606,7 +606,26 @@
     stream: null, mr: null, chunks: [], blob: null,
     rec: null, recActive: false, finalText: '', interim: '',
     t0: 0, timer: null, busy: false,
+    wake: null, onBU: null, onVis: null,
   };
+  const REC_DRAFT_KEY = 'one_rec_draft';
+  function recSaveDraft() {
+    try { localStorage.setItem(REC_DRAFT_KEY, JSON.stringify({ t: REC.finalText || '', at: Date.now(), page: curPageId || '' })); } catch (_) {}
+  }
+  function recClearDraft() { try { localStorage.removeItem(REC_DRAFT_KEY); } catch (_) {} }
+  // 화면 꺼짐/백그라운드 폐기 방지용 wake lock (모바일에서 특히 중요)
+  async function recAcquireWake() { try { if ('wakeLock' in navigator) REC.wake = await navigator.wakeLock.request('screen'); } catch (_) {} }
+  function recReleaseWake() { try { REC.wake && REC.wake.release && REC.wake.release(); } catch (_) {} REC.wake = null; }
+  function recArmGuards() {
+    REC.onBU = (e) => { e.preventDefault(); e.returnValue = ''; return ''; };  // 녹음 중 새로고침/이탈 경고
+    window.addEventListener('beforeunload', REC.onBU);
+    REC.onVis = () => { if (document.visibilityState === 'visible' && REC.recActive) { recAcquireWake(); try { REC.rec && REC.rec.start(); } catch (_) {} } };  // 복귀 시 인식 재개
+    document.addEventListener('visibilitychange', REC.onVis);
+  }
+  function recDisarmGuards() {
+    if (REC.onBU) { window.removeEventListener('beforeunload', REC.onBU); REC.onBU = null; }
+    if (REC.onVis) { document.removeEventListener('visibilitychange', REC.onVis); REC.onVis = null; }
+  }
   function recPanelHtml() {
     return `<div class="ov" id="recOv"></div>
     <div class="rec-panel" id="recPanel">
@@ -615,7 +634,7 @@
         <button class="rec-x" id="recClose" title="닫기">${ic('x', 18) || '✕'}</button>
       </div>
       <div class="rec-status" id="recStatus"><span class="rec-dot" id="recDot"></span><span id="recStat">대기 중</span> <b id="recTime">00:00</b></div>
-      <div class="rec-hint" id="recHint">브라우저 실시간 인식으로 말하는 즉시 아래에 텍스트가 쌓입니다. 정지 후 [Whisper 재전사]로 더 정확하게 다시 뽑거나, [회의록 정리]로 요약할 수 있어요.</div>
+      <div class="rec-hint" id="recHint">아래 실시간 인식은 <b>대략적인 미리보기</b>입니다. 정확한 회의록은 정지 후 <b>[🎯 Whisper 정확 전사]</b>를 쓰세요. ⚠ 녹음 중에는 이 탭을 <b>화면에 켜 둔 채</b>로 두세요 — 다른 앱으로 전환하면 녹음이 중단될 수 있습니다(화면 꺼짐은 자동 방지).</div>
       <textarea class="rec-ta" id="recText" placeholder="여기에 전사 텍스트가 표시됩니다. 직접 수정해도 됩니다."></textarea>
       <div class="rec-ctrls">
         <button class="rec-btn rec-go" id="recStart">● 녹음 시작</button>
@@ -623,7 +642,7 @@
         <audio class="rec-audio" id="recAudio" controls style="display:none"></audio>
       </div>
       <div class="rec-actions" id="recActions" style="display:none">
-        <button class="rec-btn" id="recWhisper">🔁 Whisper 재전사</button>
+        <button class="rec-btn rec-primary" id="recWhisper">🎯 Whisper 정확 전사</button>
         <button class="rec-btn rec-primary" id="recMinutes">📋 회의록 정리</button>
         <button class="rec-btn" id="recInsert">📄 전사만 삽입</button>
         <a class="rec-btn rec-dl" id="recDownload" download="recording.webm">💾 오디오 저장</a>
@@ -636,15 +655,29 @@
     if (document.getElementById('recPanel')) return;
     const wrap = document.createElement('div'); wrap.id = 'recWrap'; wrap.innerHTML = recPanelHtml();
     document.body.appendChild(wrap);
-    $('recClose').onclick = closeRecPanel; $('recOv').onclick = closeRecPanel;
+    $('recClose').onclick = closeRecPanel;
+    // 녹음 중 배경 클릭으로 실수로 닫히지 않게 — 진행 중엔 확인
+    $('recOv').onclick = () => { if (REC.recActive) { if (confirm('녹음 중입니다. 정말 닫을까요? (녹음이 중단됩니다)')) closeRecPanel(); } else closeRecPanel(); };
     $('recStart').onclick = recStart; $('recStop').onclick = recStop;
     $('recWhisper').onclick = recWhisper; $('recMinutes').onclick = recMinutes; $('recInsert').onclick = recInsertText;
-    $('recText').oninput = () => { REC.finalText = $('recText').value; };
+    $('recText').oninput = () => { REC.finalText = $('recText').value; recSaveDraft(); };
+    // 이전 세션(백그라운드 폐기 등)에서 남은 전사 복원
+    try {
+      const d = JSON.parse(localStorage.getItem(REC_DRAFT_KEY) || 'null');
+      if (d && d.t && d.t.trim()) {
+        $('recText').value = d.t; REC.finalText = d.t;
+        $('recActions').style.display = 'flex';
+        $('recHint').innerHTML = '↩ 이전에 인식된 전사를 <b>복원</b>했습니다. 그대로 [회의록 정리]하거나, <button id="recClearDraft" class="rec-btn" style="padding:2px 9px;font-size:11px">새로 시작</button> 하세요.';
+        const cb = document.getElementById('recClearDraft');
+        if (cb) cb.onclick = () => { recClearDraft(); REC.finalText = ''; $('recText').value = ''; $('recActions').style.display = 'none'; $('recHint').textContent = '새로 녹음하세요.'; };
+      }
+    } catch (_) {}
   }
   function closeRecPanel() {
     if (REC.recActive) { try { recStop(); } catch (_) {} }
     try { if (REC.stream) REC.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
     REC.stream = null;
+    recReleaseWake(); recDisarmGuards();
     const w = document.getElementById('recWrap'); if (w) w.remove();
   }
   function recSetStat(txt, on) {
@@ -657,22 +690,24 @@
   }
   async function recStart() {
     if (REC.recActive) return;
-    try { REC.stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    // 노이즈 억제·에코 제거·자동 게인 — 인식 품질 향상(Web Speech·Whisper 공통)
+    try { REC.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
     catch (e) { alert('마이크 권한이 필요합니다: ' + e.message); return; }
     REC.chunks = []; REC.blob = null; REC.interim = '';
     if (!REC.finalText) REC.finalText = $('recText').value || '';
-    // MediaRecorder — 오디오 저장(재전사·미리듣기)
+    // MediaRecorder — 오디오 저장(재전사·미리듣기). timeslice 로 3초마다 chunk flush.
     let mime = 'audio/webm'; try { if (!MediaRecorder.isTypeSupported(mime)) mime = ''; } catch (_) { mime = ''; }
     REC.mr = new MediaRecorder(REC.stream, mime ? { mimeType: mime } : undefined);
     REC.mr.ondataavailable = e => { if (e.data && e.data.size) REC.chunks.push(e.data); };
     REC.mr.onstop = recOnAudioReady;
-    REC.mr.start();
-    // Web Speech — 실시간 전사
+    REC.mr.start(3000);
+    // Web Speech — 실시간 전사(미리보기)
     startSpeech();
     REC.recActive = true; REC.t0 = Date.now(); REC.timer = setInterval(recTick, 500); recTick();
-    recSetStat('녹음 중', true);
+    recSetStat('녹음 중 · 화면 켜 두세요', true);
     $('recStart').disabled = true; $('recStop').disabled = false;
     $('recActions').style.display = 'none'; $('recAudio').style.display = 'none';
+    recAcquireWake(); recArmGuards();
   }
   function recStop() {
     if (!REC.recActive) return;
@@ -682,6 +717,7 @@
     try { REC.mr && REC.mr.state !== 'inactive' && REC.mr.stop(); } catch (_) {}
     recSetStat('정지됨', false);
     $('recStart').disabled = false; $('recStop').disabled = true;
+    recReleaseWake(); recDisarmGuards(); recSaveDraft();
   }
   function recOnAudioReady() {
     try { if (REC.stream) REC.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
@@ -708,6 +744,7 @@
       }
       REC.interim = interim;
       const ta = $('recText'); if (ta) { ta.value = (REC.finalText + (interim ? ' ' + interim : '')).trim(); ta.scrollTop = ta.scrollHeight; }
+      recSaveDraft();   // 백그라운드 폐기돼도 전사 텍스트는 살아남게 즉시 저장
     };
     r.onerror = () => {};
     r.onend = () => { if (REC.recActive) { try { r.start(); } catch (_) {} } };
@@ -740,7 +777,7 @@
         else if (d && d.error) throw new Error(d.error + (d.detail ? ': ' + d.detail : ''));
       }
       REC.finalText = out.trim();
-      $('recText').value = REC.finalText;
+      $('recText').value = REC.finalText; recSaveDraft();
       recProg(out ? '✅ 재전사 완료' : '⚠ 인식된 내용이 없습니다');
       setTimeout(() => recProg(''), 2500);
     } catch (e) {
@@ -777,7 +814,7 @@
   function recInsertText() {
     const t = ($('recText').value || '').trim(); if (!t) { alert('전사 내용이 없습니다.'); return; }
     const html = '<h3>🎙 회의 전사 (' + today() + ')</h3><p>' + esc(t).replace(/\n+/g, '</p><p>') + '</p><p><br></p>';
-    insertToPage(html); closeRecPanel();
+    insertToPage(html); recClearDraft(); closeRecPanel();
   }
   async function recMinutes() {
     if (REC.busy) return;
@@ -790,6 +827,7 @@
       const d = await r.json();
       if (d && d.ok && d.html) {
         insertToPage(d.html + '<p><br></p><details><summary>🎙 원본 전사</summary><p>' + esc(t).replace(/\n+/g, '</p><p>') + '</p></details><p><br></p>');
+        recClearDraft();
         recProg('✅ 회의록 삽입 완료'); setTimeout(closeRecPanel, 800);
       } else { throw new Error((d && (d.detail || d.error)) || '알 수 없는 오류'); }
     } catch (e) { recProg('⚠ 회의록 정리 실패: ' + e.message); setTimeout(() => recProg(''), 4000); }
