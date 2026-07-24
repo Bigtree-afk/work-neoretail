@@ -12,6 +12,10 @@
   .k{font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px}
   .v{font-size:15px;font-weight:700;color:#F1F5F9;word-break:break-all;margin-top:3px}
   .ok{color:#34D399}.bad{color:#F87171}.warn{color:#FBBF24}
+  .row{display:flex;justify-content:space-between;padding:2px 0}
+  .row span:last-child{margin-left:10px;white-space:nowrap}
+  .big{color:#F87171;font-weight:700}
+  .sub{font-size:11px;color:#64748B;margin-top:6px}
   button{width:100%;padding:14px;margin-top:8px;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer}
   .btn-fix{background:#DC2626;color:#fff}
   .btn-reload{background:#2563EB;color:#fff}
@@ -22,17 +26,69 @@
 <h1>📱 모바일 동기화 진단</h1>
 <div id="out">로딩 중…</div>
 
-<button class="btn-reload" style="background:#059669" onclick="slimCache()">🗜 캐시 정리 (저장공간 확보 — 데이터 유실 없음)</button>
-<button class="btn-fix" onclick="hardReset()">🧹 강제 초기화 (localStorage 비우고 서버에서 새로 받기)</button>
+<button class="btn-reload" style="background:#059669" onclick="slimCache()">🗜 캐시 정리 (재생성 가능 캐시만 — 데이터 유실 없음)</button>
+<button class="btn-fix" onclick="hardReset()">🧹 강제 초기화 (로컬 비우고 서버에서 새로 받기)</button>
 <button class="btn-reload" onclick="location.reload()">🔄 새로고침</button>
 
 <script>
+/* ⚠ 이 페이지는 의도적으로 m-core.js 를 로드하지 않는다 — 앱이 고장 났을 때도 떠야 하는
+   독립 진단 도구. 따라서 IndexedDB 접근을 여기서 자체 구현한다.
+   (저장 구조 본체는 m-core.js / app/app-01.js 의 _bigGet/_bigSet — 스키마 동일 유지) */
 const TEST_STORE = '테스트매장';
+const IDB_NAME = 'ns_local', IDB_STORE = 'kv';
+const BIG_KEYS = ['ns_jobs', 'ns_stores', 'ns_backups'];   // IndexedDB 로 옮긴 대용량 키
 function esc(s){return String(s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));}
 function fmtKB(n){return (n/1024).toFixed(0)+'KB';}
 
-// localStorage 사용량 분석 (문자수 기준 — 실제 바이트는 UTF-16 이라 ×2)
-function storageBreakdown(){
+/* ── IndexedDB 최소 헬퍼 ─────────────────────────────── */
+function idbOpen(){
+  return new Promise(res=>{
+    let done=false, fin=v=>{ if(!done){done=true;res(v);} };
+    try{
+      if(!window.indexedDB) return fin(null);
+      const rq=indexedDB.open(IDB_NAME,1);
+      rq.onupgradeneeded=()=>{ try{ rq.result.createObjectStore(IDB_STORE); }catch(_){} };
+      rq.onsuccess=()=>fin(rq.result);
+      rq.onerror=()=>fin(null);
+      rq.onblocked=()=>fin(null);
+      setTimeout(()=>fin(null),3000);
+    }catch(_){ fin(null); }
+  });
+}
+function idbGet(db,k){
+  return new Promise(res=>{
+    if(!db) return res(null);
+    try{ const rq=db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(k);
+      rq.onsuccess=()=>res(rq.result==null?null:rq.result); rq.onerror=()=>res(null);
+    }catch(_){ res(null); }
+  });
+}
+function idbPut(db,k,v){
+  return new Promise(res=>{
+    if(!db) return res(false);
+    try{ const tx=db.transaction(IDB_STORE,'readwrite'); tx.objectStore(IDB_STORE).put(v,k);
+      tx.oncomplete=()=>res(true); tx.onerror=()=>res(false); tx.onabort=()=>res(false);
+    }catch(_){ res(false); }
+  });
+}
+function idbDel(db,k){
+  return new Promise(res=>{
+    if(!db) return res(false);
+    try{ const tx=db.transaction(IDB_STORE,'readwrite'); tx.objectStore(IDB_STORE).delete(k);
+      tx.oncomplete=()=>res(true); tx.onerror=()=>res(false); tx.onabort=()=>res(false);
+    }catch(_){ res(false); }
+  });
+}
+/* 실데이터 읽기 — IndexedDB 우선, 없으면 localStorage(폴백/이관 전) */
+async function readBig(db,k){
+  const v = await idbGet(db,k);
+  if (v != null) return { raw:v, from:'IndexedDB' };
+  let ls=null; try{ ls=localStorage.getItem(k); }catch(_){}
+  return { raw: ls, from: ls==null ? '(없음)' : 'localStorage' };
+}
+
+/* ── 사용량 분석 ─────────────────────────────────────── */
+function localBreakdown(){
   let items=[], total=0;
   for (let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i); const v=localStorage.getItem(k)||'';
@@ -41,49 +97,75 @@ function storageBreakdown(){
   items.sort((a,b)=>b[1]-a[1]);
   return {items,total};
 }
+async function idbBreakdown(db){
+  let items=[], total=0;
+  for (const k of BIG_KEYS){
+    const v = await idbGet(db,k);
+    const chars = v==null ? 0 : (k.length+String(v).length);
+    if (chars) { total+=chars; items.push([k,chars]); }
+  }
+  items.sort((a,b)=>b[1]-a[1]);
+  return {items,total};
+}
 
-// 모바일 캐시 정리 — 재생성 가능한 캐시/PC전용 백업 제거 + ns_stores 재압축. (작업/매장 실데이터 유실 없음)
-function slimCache(){
-  const before = storageBreakdown().total;
-  // 1) 모바일에서 불필요/재생성 가능 — ns_backups(PC 자동백업), etag/snap 캐시
-  ['ns_backups','ns_jobs_snap','ns_jobs_etag','ns_stores_etag'].forEach(k=>{ try{localStorage.removeItem(k);}catch(_){} });
-  // 2) ns_stores 재압축 — 모바일 미사용 대용량 필드 제거 (다음 sync 시 클라우드가 재공급)
-  const DROP=['contacts','equipment','changeLog','storeMemos','memos','fieldUpdatedAt','ecountRegDate','storeRegDate','history'];
-  try {
-    const raw=localStorage.getItem('ns_stores');
-    if (raw) {
-      const arr=JSON.parse(raw);
-      if (Array.isArray(arr)) {
-        const lean=arr.map(s=>{ if(!s||typeof s!=='object')return s; const o={}; for(const k in s){ if(DROP.indexOf(k)>=0)continue; o[k]=s[k]; } return o; });
-        const lj=JSON.stringify(lean);
-        if (lj.length < raw.length) { try{localStorage.setItem('ns_stores', lj);}catch(_){ try{localStorage.removeItem('ns_stores');}catch(__){} } }
+/* ── 캐시 정리 — 재생성 가능한 것만 ────────────────────── */
+async function slimCache(){
+  const db = await idbOpen();
+  const before = localBreakdown().total;
+  // 재생성 가능(다음 sync 가 다시 만듦): etag / mtime 스냅샷
+  ['ns_jobs_snap','ns_jobs_etag','ns_stores_etag'].forEach(k=>{ try{localStorage.removeItem(k);}catch(_){} });
+  // 폴백(localStorage 백엔드) 상태에서만 매장 재압축이 의미 있음 — IDB 백엔드면 용량 여유가 충분
+  let leaned = false;
+  if (!db) {
+    const DROP=['contacts','equipment','changeLog','storeMemos','memos','fieldUpdatedAt','ecountRegDate','storeRegDate','history'];
+    try {
+      const raw=localStorage.getItem('ns_stores');
+      if (raw) {
+        const arr=JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          const lean=arr.map(s=>{ if(!s||typeof s!=='object')return s; const o={}; for(const k in s){ if(DROP.indexOf(k)>=0)continue; o[k]=s[k]; } return o; });
+          const lj=JSON.stringify(lean);
+          if (lj.length < raw.length) { try{ localStorage.setItem('ns_stores', lj); leaned=true; }catch(_){} }
+        }
       }
-    }
-  } catch(_){}
-  const after = storageBreakdown().total;
-  alert('🗜 정리 완료\n'+fmtKB(before)+' → '+fmtKB(after)+' (문자수)\n확보: '+fmtKB(before-after)+'\n\n작업/매장 데이터는 그대로입니다. 새로고침하면 클라우드에서 최신 매장정보를 다시 받습니다.');
+    } catch(_){}
+  }
+  const after = localBreakdown().total;
+  alert('🗜 정리 완료\n'
+    + 'localStorage ' + fmtKB(before) + ' → ' + fmtKB(after) + ' (확보 ' + fmtKB(before-after) + ')\n'
+    + (db ? '\n저장 백엔드가 IndexedDB 라 작업/매장 데이터는 애초에 localStorage 를 쓰지 않습니다.\n(정리 대상은 재생성 가능한 캐시뿐)'
+          : (leaned ? '\n매장 데이터도 재압축했습니다.' : ''))
+    + '\n\n작업/매장 실데이터는 그대로입니다.');
   run();
 }
 
+/* ── 진단 렌더 ───────────────────────────────────────── */
 async function run() {
   const out = document.getElementById('out');
-  // 0. localStorage 사용량
-  const sb = storageBreakdown();
-  const estBytes = sb.total*2;                 // UTF-16
-  const overWarn = estBytes > 4_500_000;
-  const rowsHtml = sb.items.slice(0,12).map(([k,c])=>{
-    const big = c > 300_000;
-    return `<div style="display:flex;justify-content:space-between;padding:2px 0;${big?'color:#F87171;font-weight:700':''}"><span style="word-break:break-all">${esc(k)}</span><span style="margin-left:10px;white-space:nowrap">${fmtKB(c)}</span></div>`;
-  }).join('');
-  // 1. 로컬 상태
-  let localJobs = [];
-  try { localJobs = JSON.parse(localStorage.getItem('ns_jobs')||'[]'); } catch(e){}
+  const db = await idbOpen();
+  const backend = db ? 'IndexedDB' : 'localStorage (폴백)';
+
+  // 0. 사용량
+  const lb = localBreakdown();
+  const ib = await idbBreakdown(db);
+  const lsBytes = lb.total*2;                      // UTF-16
+  const lsOver = lsBytes > 4_000_000;              // localStorage 만 5MB 한도 적용
+  const lsRows = lb.items.slice(0,8).map(([k,c])=>
+    `<div class="row ${c>300_000?'big':''}"><span>${esc(k)}</span><span>${fmtKB(c)}</span></div>`).join('') || '<div class="sub">(비어 있음)</div>';
+  const idbRows = ib.items.map(([k,c])=>
+    `<div class="row"><span>${esc(k)}</span><span>${fmtKB(c)}</span></div>`).join('') || '<div class="sub">(아직 없음 — 앱 화면을 한 번 열면 생성됩니다)</div>';
+
+  // 1. 로컬 작업 데이터 (IDB 우선)
+  const jr = await readBig(db,'ns_jobs');
+  let localJobs=[]; try{ localJobs = JSON.parse(jr.raw||'[]'); }catch(_){}
+  const sr = await readBig(db,'ns_stores');
+  let localStores=[]; try{ localStores = JSON.parse(sr.raw||'[]'); }catch(_){}
   const localResync = localStorage.getItem('ns_resync_token') || '(없음)';
   const localTest = localJobs.filter(j => String(j.storeName||j.store||'').includes(TEST_STORE));
-  const mcoreVer = (window.NS_MOBILE_CORE_VERSION || '(m-core.js 로드 안 됨)');
+  const mcoreVer = (window.NS_MOBILE_CORE_VERSION || '(이 페이지는 m-core.js 를 로드하지 않음 — 정상)');
 
   // 2. 서버 상태
-  let serverResync = '?', serverJobs = '?', serverTest = '?', serverErr = '';
+  let serverResync='?', serverJobs='?', serverTest='?', serverErr='';
   try {
     const r = await fetch('/api/jobs?_cb='+Math.random(), {cache:'no-store'});
     const d = await r.json();
@@ -92,21 +174,38 @@ async function run() {
     serverTest = (d.jobs||[]).filter(j => String(j.storeName||j.store||'').includes(TEST_STORE)).length;
   } catch(e){ serverErr = String(e); }
 
-  // 3. m-core.js 가 어떤 버전 참조하는지 (이 페이지가 로드한 script src)
-  const scriptSrc = Array.from(document.scripts).map(s=>s.src).filter(s=>s.includes('m-core')).join(', ') || '(이 페이지엔 m-core 없음)';
-
   const tokenMatch = (localResync === serverResync);
 
   out.innerHTML = `
-    <div class="card" style="${overWarn?'border-color:#DC2626':''}">
-      <div class="k">📦 localStorage 사용량 (문자수 / UTF-16 추정)</div>
-      <div class="v ${overWarn?'bad':'ok'}">${fmtKB(sb.total)} / ~${(estBytes/1024/1024).toFixed(2)}MB ${overWarn?'🔴 한도(5MB) 임박 — 아래 [캐시 정리]':'✓ 여유'}</div>
-      <div style="margin-top:8px;font-size:12px">${rowsHtml}</div>
-      <div class="k" style="margin-top:6px;color:#64748B">300KB 초과 키는 빨강. ns_backups·ns_stores 가 크면 [🗜 캐시 정리] 누르면 확보됩니다.</div>
+    <div class="card" style="border-color:${db?'#334155':'#B45309'}">
+      <div class="k">💾 저장 백엔드</div>
+      <div class="v ${db?'ok':'warn'}">${db?'✓ IndexedDB (한도 넉넉 — 브라우저가 디스크 여유로 관리)':'⚠ localStorage 폴백 (5MB 한도 — IndexedDB 사용 불가 환경)'}</div>
+      <div class="sub">작업·매장·백업은 IndexedDB 에 저장됩니다. localStorage 는 설정·토큰 등 작은 값만 씁니다.</div>
     </div>
     <div class="card">
-      <div class="k">m-core.js 버전</div>
-      <div class="v">${esc(mcoreVer)}</div>
+      <div class="k">📦 IndexedDB (실데이터 · 한도 제한 사실상 없음)</div>
+      <div class="v ok">${fmtKB(ib.total)}</div>
+      <div style="margin-top:6px;font-size:12px">${idbRows}</div>
+    </div>
+    <div class="card" style="${lsOver?'border-color:#DC2626':''}">
+      <div class="k">🗄 localStorage (설정·캐시 · 한도 5MB)</div>
+      <div class="v ${lsOver?'bad':'ok'}">${fmtKB(lb.total)} / ~${(lsBytes/1024/1024).toFixed(2)}MB ${lsOver?'🔴 한도 임박 — 아래 [캐시 정리]':'✓ 여유'}</div>
+      <div style="margin-top:8px;font-size:12px">${lsRows}</div>
+      <div class="sub">여기에 ns_jobs·ns_stores 가 크게 남아 있으면 IndexedDB 이관 전 상태입니다. 앱 화면을 한 번 열면 자동 이관됩니다.</div>
+    </div>
+    <div class="card">
+      <div class="k">로컬 작업 / 매장</div>
+      <div class="v">${localJobs.length}건 · ${localStores.length}개 <span style="font-size:11px;color:#94A3B8">(출처: ${esc(jr.from)})</span></div>
+      <div class="k" style="margin-top:8px">로컬 ${TEST_STORE} 작업</div>
+      <div class="v ${localTest.length?'bad':'ok'}">${localTest.length}건 ${localTest.length?'🔴 (잔존)':'✓ (없음)'}</div>
+      ${localTest.length ? `<pre>${esc(JSON.stringify(localTest.map(j=>({id:j.id,type:j.type,thread:(j.thread||[]).length})),null,1))}</pre>` : ''}
+    </div>
+    <div class="card">
+      <div class="k">서버 작업 총</div>
+      <div class="v">${serverJobs}건</div>
+      <div class="k" style="margin-top:8px">서버 ${TEST_STORE} 작업</div>
+      <div class="v ${serverTest?'bad':'ok'}">${serverTest}건 ${serverTest?'🔴':'✓ (없음 — 서버는 깨끗)'}</div>
+      ${serverErr?`<div class="v bad">서버 오류: ${esc(serverErr)}</div>`:''}
     </div>
     <div class="card">
       <div class="k">로컬 resync_token</div>
@@ -116,41 +215,39 @@ async function run() {
       <div class="k" style="margin-top:8px">토큰 일치</div>
       <div class="v ${tokenMatch?'warn':'ok'}">${tokenMatch ? '⚠ 같음 — force-resync 안 일어남' : '✓ 다름 — 다음 sync 시 force-resync 발동해야 함'}</div>
     </div>
-    <div class="card">
-      <div class="k">로컬 ns_jobs 총</div>
-      <div class="v">${localJobs.length}건</div>
-      <div class="k" style="margin-top:8px">로컬 ${TEST_STORE} 작업</div>
-      <div class="v ${localTest.length?'bad':'ok'}">${localTest.length}건 ${localTest.length?'🔴 (잔존)':'✓ (없음)'}</div>
-      ${localTest.length ? `<pre>${esc(JSON.stringify(localTest.map(j=>({id:j.id,type:j.type,thread:(j.thread||[]).length})),null,1))}</pre>` : ''}
-    </div>
-    <div class="card">
-      <div class="k">서버 ns_jobs 총</div>
-      <div class="v">${serverJobs}건</div>
-      <div class="k" style="margin-top:8px">서버 ${TEST_STORE} 작업</div>
-      <div class="v ${serverTest?'bad':'ok'}">${serverTest}건 ${serverTest?'🔴':'✓ (없음 — 서버는 깨끗)'}</div>
-      ${serverErr?`<div class="v bad">서버 오류: ${esc(serverErr)}</div>`:''}
-    </div>
     <div class="card" style="border-color:#475569">
-      <div class="k">이 페이지가 로드한 m-core script</div>
-      <div class="v" style="font-size:11px">${esc(scriptSrc)}</div>
+      <div class="k">m-core.js 버전</div>
+      <div class="v" style="font-size:12px">${esc(mcoreVer)}</div>
     </div>
   `;
 }
 
+/* ── 강제 초기화 — IndexedDB + localStorage 양쪽 비우기 ──
+   ⚠ localStorage 만 지우면 IndexedDB 사본이 남아 초기화가 무효화된다. */
 async function hardReset() {
-  if (!confirm('localStorage 의 작업/매장 데이터를 비우고 서버에서 새로 받습니다.\n계속할까요?')) return;
+  if (!confirm('로컬의 작업/매장 데이터를 비우고 서버에서 새로 받습니다.\n(IndexedDB·localStorage 양쪽)\n계속할까요?')) return;
   try {
-    localStorage.removeItem('ns_jobs');
-    localStorage.removeItem('ns_stores');
-    localStorage.removeItem('ns_resync_token');
-    // 서버에서 새로 받아 저장
+    const db = await idbOpen();
+    for (const k of BIG_KEYS) {
+      await idbDel(db,k);
+      try{ localStorage.removeItem(k); }catch(_){}
+    }
+    ['ns_resync_token','ns_jobs_snap','ns_jobs_etag','ns_stores_etag'].forEach(k=>{ try{localStorage.removeItem(k);}catch(_){} });
+
     const r = await fetch('/api/jobs?_cb='+Math.random(), {cache:'no-store'});
     const d = await r.json();
     const delIds = new Set((d.deleted||[]).map(e=>String(e.id||'')));
     const clean = (d.jobs||[]).filter(j => j && j.id && !delIds.has(j.id));
-    (window._safeSetItem || ((k,v)=>localStorage.setItem(k,v)))('ns_jobs', JSON.stringify(clean));
-    if (d.resyncToken) localStorage.setItem('ns_resync_token', d.resyncToken);
-    alert('✅ 초기화 완료 — ' + clean.length + '건 받음. 작업 화면으로 돌아가 확인하세요.');
+    const payload = JSON.stringify(clean);
+
+    // 앱과 같은 저장소에 써야 다음 로드에서 읽힌다 — IDB 우선, 불가 시 localStorage
+    let wrote = await idbPut(db,'ns_jobs',payload);
+    if (!wrote) { try{ localStorage.setItem('ns_jobs', payload); wrote=true; }catch(_){} }
+    if (d.resyncToken) { try{ localStorage.setItem('ns_resync_token', d.resyncToken); }catch(_){} }
+
+    alert(wrote
+      ? '✅ 초기화 완료 — ' + clean.length + '건 받음 (' + (db?'IndexedDB':'localStorage') + ').\n작업 화면으로 돌아가 확인하세요.'
+      : '⚠ 데이터는 받았으나 저장에 실패했습니다. 시크릿(비공개) 탭인지 확인해 주세요.');
     run();
   } catch(e) {
     alert('초기화 실패: ' + e.message);
