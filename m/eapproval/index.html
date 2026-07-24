@@ -141,7 +141,7 @@
   <a class="item" href="/m/settings/"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-07-24-idb-storage3"></script>
+<script src="/m-core.js?v=2026-07-24-eap-del-cc"></script>
 <script>
 /* ════════════════════════════════════════════════
    전자결재 모바일 SPA
@@ -208,13 +208,18 @@
   function getFundMeta(){const f=getCfg().fund||{};return {opening:f.opening||{},openingDate:f.openingDate||kstDate(),closings:(f.closings&&typeof f.closings==='object')?f.closings:{},cats:(f.cats&&typeof f.cats==='object')?f.cats:{}};}
   function fundBalAsOf(co,date){const m=getFundMeta();let b=Number(m.opening[co]||0);getFundTx().forEach(t=>{if(t&&t.co===co&&t.date>=m.openingDate&&t.date<=date)b+=(t.dir==='in'?(Number(t.amount)||0):-(Number(t.amount)||0));});return b;}
 
-  let _pushT=null;
+  let _pushT=null, _pendingTombs=[];   // tombstone = 삭제 레지스트리 등록분(서버가 부활 차단)
   function schedulePush(){clearTimeout(_pushT);_pushT=setTimeout(doPush,1200);}
   async function doPush(){
+    // ⚠ 삭제는 유실되면 다른 기기에서 부활하므로, 전송 실패 시 tombstone 을 되돌려 다음 push 에 재시도
+    const sending=_pendingTombs.slice(); _pendingTombs=[];
     try{
-      const res=await fetch('/api/eapproval',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({docs:getDocs()})});
+      const payload={docs:getDocs()};
+      if(sending.length)payload.tombstones=sending;
+      const res=await fetch('/api/eapproval',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
       if(res.ok){try{localStorage.removeItem(DOCS_ETAG);}catch(_){}}
-    }catch(e){}
+      else if(sending.length){_pendingTombs=sending.concat(_pendingTombs);schedulePush();}
+    }catch(e){ if(sending.length){_pendingTombs=sending.concat(_pendingTombs);schedulePush();} }
   }
   let _syncing=false;
   async function syncFromCloud(force){
@@ -251,6 +256,11 @@
   function canView(d){return isAdmin()||inParty(d);}
   function isMyTurn(d){return d.status==='wait'&&d.line[d.step]&&d.line[d.step].n===ME();}
   function isCC(d){const me=ME();return (d.cc||[]).includes(me)&&d.drafter!==me&&!(d.line||[]).some(s=>s.n===me);}
+  // 🗑 완료(ok) 결재 삭제 권한 — 지정 관리자만. ⚠ PC app/eapproval.js 의 DOC_DELETERS 와 쌍둥이(양쪽 동일 유지)
+  const DOC_DELETERS=['이동호','김혜연'];
+  function canDeleteDoc(d){return !!d&&d.status==='ok'&&(isAdmin()||DOC_DELETERS.includes(ME()));}
+  // 👁 완료(ok) 결재의 참조 추가 — 공유 목적이라 전 직원 허용
+  function canAddCC(d){return !!d&&d.status==='ok';}
   // 검색 노출 대상(권한): 기안/결재선은 진행중도, 참조는 완료 후만 (서브탭 규칙과 동일)
   function searchVisible(d){if(!d)return false;if(isAdmin())return true;const me=ME();if(d.drafter===me)return true;if((d.line||[]).some(s=>s.n===me))return true;if((d.cc||[]).includes(me)&&d.status==='ok')return true;return false;}
   function docSearchBlob(d){const p=[d.title,d.drafter,d.tpl,(KIND[d.kind]||{}).label];(d.fields||[]).forEach(f=>{p.push(f.label);p.push(f.type==='rich'?String(f.value||'').replace(/<[^>]+>/g,' '):f.value);});(d.line||[]).forEach(s=>p.push(s.n));(d.cc||[]).forEach(n=>p.push(n));if(d.amount)p.push(String(d.amount));return p.filter(Boolean).join(' ').toLowerCase();}
@@ -551,6 +561,18 @@
     }else if(d.drafter===ME()&&d.status==='rej'){
       act='<div class="meta" style="margin-top:12px;margin-bottom:6px">반려된 기안 — 수정 후 다시 상신할 수 있습니다.</div><div class="actrow"><button class="btn btn-o" onclick="_eapEdit(\''+esc(id)+'\')">✏️ 수정 후 재상신</button><button class="btn btn-p" onclick="_eapResubmit(\''+esc(id)+'\')">📤 그대로</button></div>';
     }
+    // 🗑 완료 결재 삭제 (지정 관리자) — 되돌릴 수 없어 다른 액션과 분리
+    if(canDeleteDoc(d)){
+      act+='<div style="margin-top:14px;padding-top:12px;border-top:1px solid #E2E8F0">'
+        +'<button class="btn btn-rej" style="width:100%" onclick="_eapDelDoc(\''+esc(id)+'\')">🗑 이 결재 삭제</button>'
+        +'<div class="meta" style="margin-top:4px">완료된 결재를 모든 기기에서 영구 삭제합니다.</div></div>';
+    }
+    // 👁 참조 — 완료 건은 누구나 참조자 추가 가능(사후 공유)
+    const ccNow=Array.isArray(d.cc)?d.cc:[];
+    const ccAdd=canAddCC(d)?STAFF().filter(n=>n&&n!==d.drafter&&!ccNow.includes(n)):[];
+    const ccHtml=(ccNow.length?'<div class="meta" style="margin-top:6px">참조: '+ccNow.map(esc).join(', ')+'</div>':'')
+      +(ccAdd.length?'<div style="margin-top:6px"><div class="meta" style="margin-bottom:3px">👁 참조 추가 — 이름을 누르면 바로 공유되고 LINE 알림이 갑니다</div>'
+        +'<div class="picker">'+ccAdd.map(n=>'<span class="pk" onclick="_eapAddCC(\''+esc(id)+'\',\''+esc(n)+'\')">＋'+esc(n)+'</span>').join('')+'</div></div>':'');
     let execHtml='';
     if(d.kind==='pay'&&d.status==='ok'){
       execHtml=d.execStatus==='done'
@@ -560,7 +582,7 @@
     box.innerHTML='<div class="ctop"><span class="kind '+k.cls+'">'+k.label+'</span>'+stBadge(d)+'</div>'
       +docFormHtml(t,'view',vals)+execHtml
       +'<div class="sech">결재선</div>'+lineHtml(d)
-      +((d.cc&&d.cc.length)?'<div class="meta" style="margin-top:6px">참조: '+d.cc.map(esc).join(', ')+'</div>':'')
+      +ccHtml
       +attView(d.attachments)
       +'<div class="sech">처리 이력</div>'+hist+act;
   }
@@ -578,6 +600,31 @@
 
   /* ── form (draft) ── */
   let draftTpl=null,draftLine=[],draftCC=[],_editDocId=null,_editVals={};
+  /* 👁 완료 결재에 참조자 추가 — 전 직원 가능(사후 공유). 참조자는 '참조' 탭에서 열람 가능해짐 */
+  window._eapAddCC=function(id,name){
+    if(!name)return;
+    const docs=getDocs(),d=docs.find(x=>x.id===id);
+    if(!d)return;
+    if(!canAddCC(d)){toast('완료된 결재에만 참조를 추가할 수 있습니다');return;}
+    d.cc=Array.isArray(d.cc)?d.cc:[];
+    if(d.cc.includes(name)){toast('이미 참조에 있습니다');return;}
+    d.cc.push(name);
+    d.history=d.history||[];
+    d.history.push({n:ME(),act:'참조추가',at:kstNow(),op:name});
+    d.updatedAt=Date.now();
+    setDocs(docs); notify(name,'cc',d); render(); toast('👁 참조 추가 — '+name);
+  };
+  /* 🗑 완료 결재 삭제 — 지정 관리자만. 삭제 레지스트리 등록으로 다른 기기 부활 차단 */
+  window._eapDelDoc=function(id){
+    const docs=getDocs(),d=docs.find(x=>x.id===id);
+    if(!d)return;
+    if(!canDeleteDoc(d)){toast('완료된 결재만, 지정된 관리자만 삭제할 수 있습니다');return;}
+    if(!confirm('이 결재를 삭제합니다.\n\n'+(d.title||'(제목 없음)')+'\n기안: '+(d.drafter||'')+'\n\n모든 기기에서 사라지며 되돌릴 수 없습니다.\n계속할까요?'))return;
+    try{const del=getDeleted();if(!del.includes(id)){del.push(id);localStorage.setItem(DEL_LS,JSON.stringify(del));}}catch(_){}
+    _pendingTombs.push({id,deletedAt:new Date().toISOString(),reason:'doc-del'});
+    setDocs(docs.filter(x=>x.id!==id));
+    location.hash=''; toast('🗑 결재를 삭제했습니다');
+  };
   window._eapEdit=function(id){const d=getDocs().find(x=>x.id===id);if(!d)return;if(d.drafter!==ME()){toast('본인 기안만 수정 가능');return;}_editDocId=id;location.hash='#form';if(parseHash().view==='form')render();};
   window._eapNewDraft=function(){_editDocId=null;_editVals={};draftTpl=null;location.hash='#form';};
   function renderForm(){

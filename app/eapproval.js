@@ -143,6 +143,12 @@
   }
   // 연차 일수(부여/사용) + 결재 루트를 관리할 수 있는 담당자 — 관리자 외 추가 권한
   const MANAGERS = ['이동호', '김혜연'];
+  // 🗑 완료(ok) 결재 삭제 권한 — 지정 관리자만. 진행중/반려/회수 건은 삭제 불가(회수·반려로 처리).
+  //   ⚠ 모바일 m/eapproval/index.html 의 DOC_DELETERS 와 쌍둥이 — 한쪽 수정 시 양쪽 동일하게.
+  const DOC_DELETERS = ['이동호', '김혜연'];
+  function canDeleteDoc(d) { return !!d && d.status === 'ok' && (isAdmin() || DOC_DELETERS.includes(ME())); }
+  // 👁 완료(ok) 결재의 참조 추가 — 공유 목적이라 전 직원 허용.
+  function canAddCC(d) { return !!d && d.status === 'ok'; }
   function canEditLeave() { return isAdmin() || MANAGERS.includes(ME()); }
   function canManageRoutes() { return isAdmin() || MANAGERS.includes(ME()); }
   // 생일/기념일 등록 권한 — 관리자 + 지정 사용자
@@ -701,6 +707,21 @@
     } else if (d.drafter === ME() && d.status === 'rej') {
       actions = `<div class="eap-meta" style="margin-bottom:6px">반려된 기안입니다. 수정 후 다시 상신할 수 있습니다.</div><div class="eap-actrow"><button class="eap-btn eap-btn-o" onclick="EAP.openDraftEdit(${J(d.id)})">✏️ 수정 후 재상신</button><button class="eap-btn eap-btn-p" onclick="EAP.resubmit(${J(d.id)})">📤 그대로 재상신</button></div>`;
     }
+    // 🗑 완료 결재 삭제 (지정 관리자) — 되돌릴 수 없으므로 다른 액션과 분리해 아래쪽에 배치
+    if (canDeleteDoc(d)) {
+      actions += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-200)">
+        <button class="eap-btn eap-btn-rej" style="width:100%" onclick="EAP.delDoc(${J(d.id)})">🗑 이 결재 삭제</button>
+        <div class="eap-meta" style="margin-top:4px">완료된 결재를 모든 기기에서 영구 삭제합니다.</div></div>`;
+    }
+
+    // 👁 참조 — 완료 건은 누구나 참조자를 추가할 수 있다(사후 공유)
+    const ccNow = Array.isArray(d.cc) ? d.cc : [];
+    const ccAdd = canAddCC(d) ? STAFF().filter(n => n && n !== d.drafter && !ccNow.includes(n)) : [];
+    const ccHtml = `
+        ${ccNow.length ? `<div class="eap-meta" style="margin-top:6px">참조: ${ccNow.map(esc).join(', ')}</div>` : ''}
+        ${ccAdd.length ? `<div style="margin-top:6px">
+          <div class="eap-meta" style="margin-bottom:3px">👁 참조 추가 — 이름을 누르면 바로 공유되고 LINE 알림이 갑니다</div>
+          <div class="eap-picker">${ccAdd.map(n => `<span class="eap-pk" onclick="EAP.addCC(${J(d.id)},${J(n)})">＋${esc(n)}</span>`).join('')}</div></div>` : ''}`;
 
     // 자금집행
     let execHtml = '';
@@ -730,7 +751,7 @@
         ${execHtml}
         <div class="eap-sech">결재선</div>
         ${lineHtml(d)}
-        ${(d.cc && d.cc.length) ? `<div class="eap-meta" style="margin-top:6px">참조: ${d.cc.map(esc).join(', ')}</div>` : ''}
+        ${ccHtml}
         ${attView(d.attachments)}
         ${(d.drafter === ME() || isAdmin()) ? `<div style="margin-top:8px"><input id="eapReAttInput" type="file" multiple style="display:none" onchange="EAP.addAttToDoc(${J(d.id)}, this.files)"><button class="eap-att-btn" onclick="document.getElementById('eapReAttInput').click()">📎 파일 추가 / 재첨부</button> <span class="eap-meta">기존 첨부에 파일을 더합니다 (재상신 없이)</span></div>` : ''}
         ${lineCard}
@@ -739,6 +760,39 @@
         <div class="eap-mactions">${actions}</div>
       </div>`;
     openModal(html);
+  };
+
+  /* 👁 완료 결재에 참조자 추가 — 전 직원 가능(사후 공유).
+     참조자는 '참조' 탭에서 완료 건을 열람할 수 있게 된다(searchVisible/서브탭 규칙과 동일). */
+  EAP.addCC = function (id, name) {
+    if (!name) return;
+    const docs = getDocs(); const d = docs.find(x => x.id === id);
+    if (!d) return;
+    if (!canAddCC(d)) { toast('완료된 결재에만 참조를 추가할 수 있습니다'); return; }
+    d.cc = Array.isArray(d.cc) ? d.cc : [];
+    if (d.cc.includes(name)) { toast('이미 참조에 있습니다'); return; }
+    d.cc.push(name);
+    d.history = d.history || [];
+    d.history.push({ n: ME(), act: '참조추가', at: kstNow(), op: name });
+    d.updatedAt = Date.now();
+    _save(docs);
+    notify(name, 'cc', d);
+    EAP.openDetail(id);
+    toast('👁 참조 추가 — ' + name);
+  };
+
+  /* 🗑 완료 결재 삭제 — 지정 관리자(DOC_DELETERS)만. 되돌릴 수 없음.
+     삭제 레지스트리(tombstone)에 등록해 다른 기기에서 부활하지 않게 한다(jobs 와 동일 방식). */
+  EAP.delDoc = function (id) {
+    const docs = getDocs(); const d = docs.find(x => x.id === id);
+    if (!d) return;
+    if (!canDeleteDoc(d)) { toast('완료된 결재만, 지정된 관리자만 삭제할 수 있습니다'); return; }
+    if (!confirm('이 결재를 삭제합니다.\n\n' + (d.title || '(제목 없음)') + '\n기안: ' + (d.drafter || '') + '\n\n모든 기기에서 사라지며 되돌릴 수 없습니다.\n계속할까요?')) return;
+    addDeleted(id);
+    _pendingTombs.push({ id, deletedAt: new Date().toISOString(), reason: 'doc-del' });
+    _save(docs.filter(x => x.id !== id));
+    EAP.closeModal(); renderTab();
+    toast('🗑 결재를 삭제했습니다');
   };
 
   // 기존(상신된) 문서에 파일 추가 — 재상신 없이 첨부만 보강 (기안자/관리자). 수정 이전 첨부 재첨부용.

@@ -28,6 +28,7 @@ const EVENT_LABEL = {
   rejected: '⛔ 결재 반려',
   done:     '🎉 최종 승인 완료',
   exec:     '💸 자금 집행완료',
+  cc:       '👁 참조 공유',
 };
 
 export async function onRequestPost({ request, env }) {
@@ -69,11 +70,14 @@ export async function onRequestPost({ request, env }) {
   if (event === 'approved' || event === 'done' || event === 'exec' || event === 'rejected') {
     // 기안자에게 결과 통지
     line1 = `${label}\n\n"${title}"${drafter ? ` (기안: ${drafter})` : ''}`;
+  } else if (event === 'cc') {
+    // 완료된 결재를 참조자로 공유 — 결재 요청이 아니라 열람 안내
+    line1 = `${label}\n\n${viaGroup ? `[${toName}님] ` : ''}완료된 결재가 참조로 공유되었습니다.\n"${title}"${drafter ? `\n기안자: ${drafter}` : ''}`;
   } else {
     // 다음 결재자에게 요청
     line1 = `${label}\n\n${viaGroup ? `[${toName}님] ` : ''}"${title}" 결재를 요청합니다.${drafter ? `\n기안자: ${drafter}` : ''}`;
   }
-  const text = `${line1}\n\n📱 결재하러 가기:\n${link}`;
+  const text = `${line1}\n\n📱 ${event === 'cc' ? '결재 내용 보기' : '결재하러 가기'}:\n${link}`;
 
   try {
     const r = await fetch(LINE_PUSH_URL, {
