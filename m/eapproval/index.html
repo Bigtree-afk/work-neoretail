@@ -141,7 +141,7 @@
   <a class="item" href="/m/settings/"><span class="icn">⚙️</span>설정</a>
 </nav>
 
-<script src="/m-core.js?v=2026-07-24-eap-del-cc"></script>
+<script src="/m-core.js?v=2026-07-28-leave-restore"></script>
 <script>
 /* ════════════════════════════════════════════════
    전자결재 모바일 SPA
@@ -620,10 +620,12 @@
     if(!d)return;
     if(!canDeleteDoc(d)){toast('완료된 결재만, 지정된 관리자만 삭제할 수 있습니다');return;}
     if(!confirm('이 결재를 삭제합니다.\n\n'+(d.title||'(제목 없음)')+'\n기안: '+(d.drafter||'')+'\n\n모든 기기에서 사라지며 되돌릴 수 없습니다.\n계속할까요?'))return;
+    // 🌴 완료된 연차 삭제 → 사용 일수 복원 (승인 시 d.days 만큼 누적된 used 를 되돌림)
+    if(d.kind==='leave'&&Number(d.days)){const c=getCfg();c.leave=c.leave||{};const l=c.leave[d.drafter]||{total:15,used:0};l.used=Math.max(0,(Number(l.used)||0)-Number(d.days));c.leave[d.drafter]=l;c.updatedAt=Date.now();setItem(CFG_LS,JSON.stringify(c));pushCfg();}
     try{const del=getDeleted();if(!del.includes(id)){del.push(id);localStorage.setItem(DEL_LS,JSON.stringify(del));}}catch(_){}
     _pendingTombs.push({id,deletedAt:new Date().toISOString(),reason:'doc-del'});
     setDocs(docs.filter(x=>x.id!==id));
-    location.hash=''; toast('🗑 결재를 삭제했습니다');
+    location.hash=''; toast(d.kind==='leave'&&Number(d.days)?'🗑 삭제 — 연차 '+d.days+'일 복원':'🗑 결재를 삭제했습니다');
   };
   window._eapEdit=function(id){const d=getDocs().find(x=>x.id===id);if(!d)return;if(d.drafter!==ME()){toast('본인 기안만 수정 가능');return;}_editDocId=id;location.hash='#form';if(parseHash().view==='form')render();};
   window._eapNewDraft=function(){_editDocId=null;_editVals={};draftTpl=null;location.hash='#form';};

@@ -788,11 +788,17 @@
     if (!d) return;
     if (!canDeleteDoc(d)) { toast('완료된 결재만, 지정된 관리자만 삭제할 수 있습니다'); return; }
     if (!confirm('이 결재를 삭제합니다.\n\n' + (d.title || '(제목 없음)') + '\n기안: ' + (d.drafter || '') + '\n\n모든 기기에서 사라지며 되돌릴 수 없습니다.\n계속할까요?')) return;
+    // 🌴 완료된 연차 삭제 → 사용 일수 복원. used 는 최종승인 시 d.days 만큼 누적된 값이므로 되돌린다.
+    if (d.kind === 'leave' && Number(d.days)) {
+      const all = getLeaveAll(); const cur = all[d.drafter] || { total: 15, used: 0 };
+      cur.used = Math.max(0, (Number(cur.used) || 0) - Number(d.days));
+      all[d.drafter] = cur; saveCfgKey('leave', all);
+    }
     addDeleted(id);
     _pendingTombs.push({ id, deletedAt: new Date().toISOString(), reason: 'doc-del' });
     _save(docs.filter(x => x.id !== id));
     EAP.closeModal(); renderTab();
-    toast('🗑 결재를 삭제했습니다');
+    toast(d.kind === 'leave' && Number(d.days) ? '🗑 삭제 — 연차 ' + d.days + '일 복원' : '🗑 결재를 삭제했습니다');
   };
 
   // 기존(상신된) 문서에 파일 추가 — 재상신 없이 첨부만 보강 (기안자/관리자). 수정 이전 첨부 재첨부용.
