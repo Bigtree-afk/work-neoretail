@@ -608,6 +608,7 @@
     t0: 0, timer: null, busy: false,
     wake: null, onBU: null, onVis: null,
   };
+  let recBytes = 0;
   const REC_DRAFT_KEY = 'one_rec_draft';
   function recSaveDraft() {
     try { localStorage.setItem(REC_DRAFT_KEY, JSON.stringify({ t: REC.finalText || '', at: Date.now(), page: curPageId || '' })); } catch (_) {}
@@ -660,19 +661,21 @@
         <span>🎙 회의 녹음</span>
         <button class="rec-x" id="recClose" title="닫기">${ic('x', 18) || '✕'}</button>
       </div>
-      <div class="rec-status" id="recStatus"><span class="rec-dot" id="recDot"></span><span id="recStat">대기 중</span> <b id="recTime">00:00</b></div>
-      <div class="rec-hint" id="recHint">아래 실시간 인식은 <b>대략적인 미리보기</b>입니다. <b>정지하면 녹음 전체를 자동으로 정확히 다시 전사(Whisper)</b>해 실시간의 누락을 보완합니다. ⚠ 녹음 중에는 이 탭을 <b>화면에 켜 둔 채</b>로 두세요(화면 꺼짐은 자동 방지). 앱을 전환해 녹음이 끊겨도 저장된 오디오로 복구 전사할 수 있어요.</div>
-      <textarea class="rec-ta" id="recText" placeholder="여기에 전사 텍스트가 표시됩니다. 직접 수정해도 됩니다."></textarea>
+      <div class="rec-status" id="recStatus"><span class="rec-dot" id="recDot"></span><span id="recStat">대기 중</span> <b id="recTime">00:00</b> <span class="rec-save" id="recSave"></span></div>
+      <div class="rec-hint" id="recHint"><b>오디오가 정본입니다.</b> 녹음하면 실제 소리가 저장되고, <b>정지하면 그 오디오 전체를 정확히 전사(Whisper)</b>합니다. 아래 실시간 글자는 참고용 미리보기라 일부 지워질 수 있지만 <b>오디오는 온전히 보존</b>되니 언제든 다시 전사할 수 있어요. ⚠ 녹음 중엔 이 탭을 화면에 켜 두세요(화면 꺼짐 자동 방지).</div>
+      <textarea class="rec-ta" id="recText" placeholder="정지하면 오디오 전체를 정확히 전사한 결과가 여기 표시됩니다. 직접 수정도 가능합니다."></textarea>
+      <div class="rec-interim" id="recInterim" style="display:none"></div>
       <div class="rec-ctrls">
         <button class="rec-btn rec-go" id="recStart">● 녹음 시작</button>
         <button class="rec-btn rec-stop" id="recStop" disabled>■ 정지</button>
+        <label class="rec-btn rec-upl" title="예전에 저장한 녹음 파일을 전사">🎧 저장한 녹음 파일 전사<input type="file" id="recUpload" accept="audio/*,video/webm" style="display:none"></label>
         <audio class="rec-audio" id="recAudio" controls style="display:none"></audio>
       </div>
       <div class="rec-actions" id="recActions" style="display:none">
-        <button class="rec-btn rec-primary" id="recWhisper">🎯 Whisper 정확 전사</button>
+        <button class="rec-btn rec-primary" id="recWhisper">🎯 오디오 정확 전사</button>
         <button class="rec-btn rec-primary" id="recMinutes">📋 회의록 정리</button>
         <button class="rec-btn" id="recInsert">📄 전사만 삽입</button>
-        <a class="rec-btn rec-dl" id="recDownload" download="recording.webm">💾 오디오 저장</a>
+        <a class="rec-btn rec-dl" id="recDownload" download="recording.webm">💾 오디오 파일 저장</a>
       </div>
       <div class="rec-prog" id="recProg" style="display:none"></div>
     </div>`;
@@ -688,6 +691,7 @@
     $('recStart').onclick = recStart; $('recStop').onclick = recStop;
     $('recWhisper').onclick = recWhisper; $('recMinutes').onclick = recMinutes; $('recInsert').onclick = recInsertText;
     $('recText').oninput = () => { REC.finalText = $('recText').value; recSaveDraft(); };
+    { const up = $('recUpload'); if (up) up.onchange = () => { const f = up.files && up.files[0]; if (f) recTranscribeFile(f); up.value = ''; }; }
     // 이전 세션(백그라운드 폐기 등)에서 남은 전사 복원
     try {
       const d = JSON.parse(localStorage.getItem(REC_DRAFT_KEY) || 'null');
@@ -734,8 +738,9 @@
     let mime = 'audio/webm'; try { if (!MediaRecorder.isTypeSupported(mime)) mime = ''; } catch (_) { mime = ''; }
     REC.mr = new MediaRecorder(REC.stream, mime ? { mimeType: mime } : undefined);
     await ridbReset(REC.mr.mimeType || mime || 'audio/webm');   // 새 세션 — 이전 오디오 청크 비우고 메타 기록
-    REC.mr.ondataavailable = e => { if (e.data && e.data.size) { REC.chunks.push(e.data); ridbAppend(e.data); } };   // 메모리 + IndexedDB 동시 저장
+    REC.mr.ondataavailable = e => { if (e.data && e.data.size) { REC.chunks.push(e.data); ridbAppend(e.data); recBytes += e.data.size; const sv = $('recSave'); if (sv) sv.textContent = '· 💾 오디오 저장 중 ' + (recBytes < 1048576 ? Math.round(recBytes / 1024) + 'KB' : (recBytes / 1048576).toFixed(1) + 'MB'); } };   // 메모리 + IndexedDB 동시 저장
     REC.mr.onstop = recOnAudioReady;
+    recBytes = 0;
     REC.mr.start(3000);
     // Web Speech — 실시간 전사(미리보기)
     startSpeech();
@@ -757,15 +762,36 @@
   }
   function recOnAudioReady() {
     try { if (REC.stream) REC.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    recShowInterim('');
     REC.blob = new Blob(REC.chunks, { type: (REC.mr && REC.mr.mimeType) || 'audio/webm' });
     const url = URL.createObjectURL(REC.blob);
     const au = $('recAudio'); if (au) { au.src = url; au.style.display = 'block'; }
     const dl = $('recDownload'); if (dl) { dl.href = url; dl.download = 'meeting-' + today() + '.webm'; }
+    const sv = $('recSave'); if (sv) sv.textContent = '· 💾 오디오 저장됨 (' + (REC.blob.size < 1048576 ? Math.round(REC.blob.size / 1024) + 'KB' : (REC.blob.size / 1048576).toFixed(1) + 'MB') + ')';
     $('recActions').style.display = 'flex';
     // 실시간 전사 결과를 textarea 로 (Whisper 정본 전사 전까지 임시 표시)
     $('recText').value = (REC.finalText || '').trim();
     // 정지 즉시 녹음 전체를 자동으로 정확히 재전사 → 실시간 인식의 누락 보완(정본)
     autoWhisperAfterStop();
+  }
+  /* 예전에 저장한 오디오 파일을 올려 전사 — "나중에 다시 전사" 의 가장 확실한 경로(파일 = 영구) */
+  async function recTranscribeFile(file) {
+    if (REC.busy) return;
+    if (!file) return;
+    REC.blob = file;
+    const url = URL.createObjectURL(file);
+    const au = $('recAudio'); if (au) { au.src = url; au.style.display = 'block'; }
+    const dl = $('recDownload'); if (dl) { dl.href = url; dl.download = file.name || ('audio-' + today()); }
+    $('recActions').style.display = 'flex';
+    const sv = $('recSave'); if (sv) sv.textContent = '· 🎧 ' + (file.name || '업로드 파일');
+    REC.busy = true; recProg('🎧 업로드한 오디오 전사 중(Whisper)…');
+    try {
+      const out = await transcribeBlob(file);
+      if (out) { REC.finalText = out; $('recText').value = out; recSaveDraft(); }
+      recProg(out ? '✅ 전사 완료 — [회의록 정리]로 요약할 수 있어요' : '⚠ 인식 결과가 없습니다(오디오 확인)');
+      setTimeout(() => recProg(''), 3500);
+    } catch (e) { recProg('⚠ 전사 실패: ' + e.message); setTimeout(() => recProg(''), 4500); }
+    finally { REC.busy = false; }
   }
   async function autoWhisperAfterStop() {
     if (!REC.blob || REC.blob.size < 8000 || REC.busy) return;   // 너무 짧으면 skip
@@ -785,6 +811,8 @@
     const r = new SR(); REC.rec = r;
     r.lang = 'ko-KR'; r.continuous = true; r.interimResults = true;
     r.onresult = ev => {
+      // ✅ 확정(final)만 textarea 에 append — 한 번 들어온 글자는 지워지지 않음.
+      //    미확정(interim)은 아래 별도 줄에만 흐릿하게 표시(계속 바뀌어도 본문은 안 흔들림).
       let interim = '';
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
         const t = ev.results[i][0].transcript;
@@ -792,13 +820,19 @@
         else interim += t;
       }
       REC.interim = interim;
-      const ta = $('recText'); if (ta) { ta.value = (REC.finalText + (interim ? ' ' + interim : '')).trim(); ta.scrollTop = ta.scrollHeight; }
-      recSaveDraft();   // 백그라운드 폐기돼도 전사 텍스트는 살아남게 즉시 저장
+      const ta = $('recText'); if (ta && document.activeElement !== ta) { ta.value = REC.finalText; ta.scrollTop = ta.scrollHeight; }
+      recShowInterim(interim);
+      recSaveDraft();   // 백그라운드 폐기돼도 확정 전사는 살아남게 즉시 저장
     };
     r.onerror = () => {};
-    r.onend = () => { if (REC.recActive) { try { r.start(); } catch (_) {} } };
+    r.onend = () => {
+      // 재시작 직전, 아직 확정 안 된 interim 을 본문에 커밋해 경계 손실을 줄임
+      if (REC.interim) { REC.finalText += (REC.finalText && !/\s$/.test(REC.finalText) ? ' ' : '') + REC.interim.trim(); REC.interim = ''; recShowInterim(''); const ta = $('recText'); if (ta && document.activeElement !== ta) ta.value = REC.finalText; recSaveDraft(); }
+      if (REC.recActive) { try { r.start(); } catch (_) {} }
+    };
     try { r.start(); } catch (_) {}
   }
+  function recShowInterim(t) { const el = $('recInterim'); if (!el) return; if (t) { el.textContent = '🎤 ' + t; el.style.display = 'block'; } else { el.textContent = ''; el.style.display = 'none'; } }
   /* ── Whisper 전사 코어: 오디오 blob → 16kHz mono WAV 50초 청크 → 순차 전송 → 텍스트 ── */
   function recProg(msg) { const p = $('recProg'); if (p) { p.style.display = msg ? 'block' : 'none'; p.textContent = msg || ''; } }
   async function transcribeBlob(blob) {
