@@ -51,7 +51,8 @@ async function callClaudeOnce(apiKey, model, system, messages, timeoutMs) {
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST', signal: ctl.signal,
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      // user-agent 명시 — 빈 UA + CF 워커 egress IP 는 Anthropic 앞단 WAF 가 봇으로 403 차단하는 패턴
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'user-agent': 'neoretail-one/1.0 (+https://work.neoretail.net)' },
       body: JSON.stringify(payload),
     });
     const text = await r.text();
@@ -103,9 +104,9 @@ async function handleChat({ request, env }) {
       try { res = await callClaudeOnce(apiKey, model, system, messages, 22000); }
       catch (e) { if (attempt === 0) { await sleep(900); continue; } return { err: 'timeout_or_network', detail: String((e && e.message) || e) }; }
       if (res.ok) return res;
-      // 429/5xx + 403(Anthropic 간헐적 'Request not allowed' 남용탐지)도 1회 재시도
-      if ((res.status === 429 || res.status === 403 || res.status >= 500) && attempt === 0) { await sleep(900); continue; }
-      return res;   // 404/403(재시도 후에도)/기타 → 상위에서 처리
+      // 429/5xx 만 1회 재시도(진짜 일시 오류). 403 은 재시도하면 엣지 남용차단만 악화 → 즉시 반환(상위서 sonnet 폴백)
+      if ((res.status === 429 || res.status >= 500) && attempt === 0) { await sleep(900); continue; }
+      return res;   // 404/403/기타 → 상위에서 처리(폴백)
     }
   }
 

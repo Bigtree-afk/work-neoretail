@@ -1128,12 +1128,13 @@
   function chatErrMsg(d) {
     const err = String((d && d.error) || '');
     const detail = String((d && d.detail) || '');
+    const tail = detail ? ('  ⟨' + detail.replace(/\s+/g, ' ').slice(0, 120) + '⟩') : '';
     if (err === 'no_claude_key') return '⚠ Claude API 키가 설정되지 않았습니다 (관리자 → LINE 설정).';
-    if (/forbidden|403/.test(err) || /forbidden|not allowed/i.test(detail)) return '⚠ Anthropic 이 요청을 일시 거부했어요. 잠시 후 [🎤 말하기]로 다시 시도해 주세요.';
+    if (/forbidden|403/.test(err) || /forbidden|not allowed/i.test(detail)) return '⚠ 요청이 거부됐어요(403). 10~20초 뒤 [🎤 말하기]로 다시 시도해 주세요. 계속되면 대화를 [🔄 새 대화]로 초기화해 보세요.' + tail;
     if (/timeout|network/.test(err)) return '⚠ 응답이 지연됐어요(타임아웃). 다시 시도해 주세요.';
-    if (/429/.test(err)) return '⚠ 잠시 요청이 많아요. 몇 초 뒤 다시 시도해 주세요.';
+    if (/429/.test(err)) return '⚠ 잠시 요청이 많아요. 10초쯤 뒤 다시 시도해 주세요.';
     if (err === 'empty_reply') return '⚠ Claude 응답이 비어 있어요. 다시 말해 주세요.';
-    return '⚠ 응답 실패 — 다시 시도해 주세요. (' + (err || '알 수 없음') + ')';
+    return '⚠ 응답 실패 — 다시 시도해 주세요. (' + (err || '알 수 없음') + ')' + tail;
   }
   async function chatRespond(statMsg, _retried) {
     CHAT.busy = true;
@@ -1148,11 +1149,13 @@
         CHAT.busy = false;
         chatSpeak(d.reply);
       } else {
-        // 일시 거부(forbidden/429/타임아웃)는 클라이언트에서도 1회 자동 재시도
-        const transient = d && /forbidden|403|429|timeout|network|claude_5/.test(String(d.error || '') + String(d.detail || ''));
+        try { console.error('[one-chat 응답오류]', d); } catch (_) {}
+        // 타임아웃/네트워크/5xx 만 1회 자동 재시도(넉넉히 대기). 403/forbidden 은 재시도 폭주가
+        // 엣지 남용차단을 악화시키므로 재시도하지 않고 바로 안내(사용자가 잠시 뒤 수동 재시도).
+        const transient = d && /timeout|network|claude_5/.test(String(d.error || ''));
         if (transient && !_retried) {
           chatSetStat('⚠ 일시 오류 — 자동 재시도 중…', true);
-          await new Promise(r => setTimeout(r, 1200));
+          await new Promise(r => setTimeout(r, 2000));
           CHAT.busy = false;
           return chatRespond('다시 시도 중…', true);
         }

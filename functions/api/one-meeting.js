@@ -81,6 +81,7 @@ ${transcript.slice(0, 24000)}`;
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
+        'user-agent': 'neoretail-one/1.0 (+https://work.neoretail.net)',
       },
       body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 4000, messages: [{ role: 'user', content: prompt }] }),
     });
