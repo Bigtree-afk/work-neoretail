@@ -47,11 +47,16 @@ export async function onRequestPost({ request, env }) {
 원문:
 ${text.slice(0, 16000)}`;
 
+  let base = 'https://api.anthropic.com/v1/messages';
+  if (cfg.anthropicBase && /^https:\/\//.test(cfg.anthropicBase)) {
+    base = cfg.anthropicBase.replace(/\/+$/, '');
+    if (!/\/v1\/messages$/.test(base)) base += '/v1/messages';
+  }
   let r;
   try {
-    r = await fetch('https://api.anthropic.com/v1/messages', {
+    r = await fetch(base, {
       method: 'POST',
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'user-agent': 'neoretail-one/1.0 (+https://work.neoretail.net)' },
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'accept': 'application/json', 'user-agent': 'neoretail-one/1.0 (+https://work.neoretail.net)' },
       body: JSON.stringify({ model: MODEL, max_tokens: 8000, messages: [{ role: 'user', content: prompt }] }),
     });
   } catch (e) { return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 200); }

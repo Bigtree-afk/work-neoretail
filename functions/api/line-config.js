@@ -46,6 +46,7 @@ export async function onRequestGet({ env, request }) {
     categoryRooms:      cfg.categoryRooms || {},
     alertRecipientId:   cfg.alertRecipientId || '',
     alertRecipientName: cfg.alertRecipientName || '',
+    anthropicBase:      cfg.anthropicBase || '',   // 비밀 아님(게이트웨이 URL) — 평문 반환
     hasToken:           !!cfg.channelAccessToken,
     hasSecret:          !!cfg.channelSecret,
     hasParseSecret:     !!cfg.parseSecret,
@@ -63,6 +64,11 @@ export async function onRequestPost({ env, request }) {
   const keys = ['channelAccessToken', 'channelSecret', 'parseSecret', 'claudeApiKey', 'roomMap', 'categoryRooms', 'alertRecipientId', 'alertRecipientName'];
   for (const k of keys) {
     if (body[k] !== undefined && body[k] !== null && body[k] !== '') cur[k] = body[k];
+  }
+  // anthropicBase(게이트웨이 URL) — 빈 문자열이면 삭제(직접호출 복귀) 허용
+  if (body.anthropicBase !== undefined && body.anthropicBase !== null) {
+    const v = String(body.anthropicBase).trim();
+    if (v) cur.anthropicBase = v; else delete cur.anthropicBase;
   }
   await env.STORES_KV.put(KV_KEY, JSON.stringify(cur));
   return json({ ok:true }, 200);

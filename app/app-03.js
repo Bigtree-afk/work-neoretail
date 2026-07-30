@@ -1295,6 +1295,9 @@
       showMask('lineCfgSecret',      d.channelSecret,      d.hasSecret);
       showMask('lineCfgParseSecret', d.parseSecret,        d.hasParseSecret);
       showMask('lineCfgClaudeKey',   d.claudeApiKey,       d.hasClaudeKey);
+      // AI Gateway URL — 비밀 아님, 실제값 노출(편집 가능)
+      const abEl = document.getElementById('lineCfgAnthropicBase');
+      if (abEl) { abEl.value = d.anthropicBase || ''; window._loadedAnthropicBase = d.anthropicBase || ''; }
 
       // 알림 수신자 셀렉트 채우기 — _lineRooms 가 로드되어 있어야 옵션이 보임
       _populateAlertRecipientSelect(d.alertRecipientId || '', d.alertRecipientName || '');
@@ -1322,6 +1325,9 @@
     const s = document.getElementById('lineCfgSecret').value.trim();        if (s) payload.channelSecret = s;
     const p = document.getElementById('lineCfgParseSecret').value.trim();   if (p) payload.parseSecret = p;
     const c = document.getElementById('lineCfgClaudeKey').value.trim();     if (c) payload.claudeApiKey = c;
+    // AI Gateway URL — 변경됐을 때만 전송(빈값이면 서버가 삭제=직접호출 복귀)
+    const abEl2 = document.getElementById('lineCfgAnthropicBase');
+    if (abEl2 && abEl2.value.trim() !== (window._loadedAnthropicBase || '')) payload.anthropicBase = abEl2.value.trim();
     // 알림 수신자 — 셀렉트 값 + 표시명
     const alertSel = document.getElementById('lineCfgAlertRecipient');
     if (alertSel && alertSel.value) {

@@ -107,7 +107,11 @@ async function handleChat({ request, env }) {
     return m;
   });
 
-  const baseUrl = (cfg.anthropicBase && /^https:\/\//.test(cfg.anthropicBase)) ? cfg.anthropicBase : '';
+  let baseUrl = '';
+  if (cfg.anthropicBase && /^https:\/\//.test(cfg.anthropicBase)) {
+    baseUrl = cfg.anthropicBase.replace(/\/+$/, '');
+    if (!/\/v1\/messages$/.test(baseUrl)) baseUrl += '/v1/messages';   // .../anthropic 형태면 자동 보정
+  }
   const sleep = (ms) => new Promise(res => setTimeout(res, ms));
   // 호출 — 타임아웃 22s, 429/5xx/네트워크는 1회 재시도, Opus 5 미지원(404/403)이면 sonnet 폴백
   async function callWithRetry(model) {
