@@ -103,8 +103,9 @@ async function handleChat({ request, env }) {
       try { res = await callClaudeOnce(apiKey, model, system, messages, 22000); }
       catch (e) { if (attempt === 0) { await sleep(900); continue; } return { err: 'timeout_or_network', detail: String((e && e.message) || e) }; }
       if (res.ok) return res;
-      if ((res.status === 429 || res.status >= 500) && attempt === 0) { await sleep(900); continue; }
-      return res;   // 404/403/기타 → 상위에서 처리
+      // 429/5xx + 403(Anthropic 간헐적 'Request not allowed' 남용탐지)도 1회 재시도
+      if ((res.status === 429 || res.status === 403 || res.status >= 500) && attempt === 0) { await sleep(900); continue; }
+      return res;   // 404/403(재시도 후에도)/기타 → 상위에서 처리
     }
   }
 

@@ -1070,7 +1070,12 @@
     const me = chatMe();
     box.innerHTML = CHAT.turns.map(t => {
       const who = t.role === 'user' ? esc(me) : '🤖 Claude';
-      const disp = t.paste ? ('<span class="chat-paste-tag">📎 붙여넣은 자료</span>' + esc(t.preview || '') + (t.preview && t.preview.length >= 200 ? ' …' : '')) : esc(t.content);
+      let disp;
+      if (t.paste) {
+        const full = t.pasteText || t.preview || '';
+        disp = '<span class="chat-paste-tag">📎 붙여넣은 자료 · ' + full.length.toLocaleString() + '자 (전량 Claude에 전달)</span>'
+          + '<div class="chat-paste-body">' + esc(full) + '</div>';
+      } else { disp = esc(t.content); }
       return `<div class="chat-msg ${t.role === 'user' ? 'me' : 'ai'}"><span class="chat-who">${who}</span>${disp}</div>`;
     }).join('') || '<div class="meta" style="text-align:center;padding:14px">[🎤 말하기]를 눌러 대화를 시작하세요.</div>';
     box.scrollTop = box.scrollHeight;
@@ -1114,7 +1119,17 @@
     CHAT.turns.push({ role: 'user', content: text }); chatRenderLog();
     chatRespond();
   }
-  async function chatRespond(statMsg) {
+  function chatErrMsg(d) {
+    const err = String((d && d.error) || '');
+    const detail = String((d && d.detail) || '');
+    if (err === 'no_claude_key') return '⚠ Claude API 키가 설정되지 않았습니다 (관리자 → LINE 설정).';
+    if (/forbidden|403/.test(err) || /forbidden|not allowed/i.test(detail)) return '⚠ Anthropic 이 요청을 일시 거부했어요. 잠시 후 [🎤 말하기]로 다시 시도해 주세요.';
+    if (/timeout|network/.test(err)) return '⚠ 응답이 지연됐어요(타임아웃). 다시 시도해 주세요.';
+    if (/429/.test(err)) return '⚠ 잠시 요청이 많아요. 몇 초 뒤 다시 시도해 주세요.';
+    if (err === 'empty_reply') return '⚠ Claude 응답이 비어 있어요. 다시 말해 주세요.';
+    return '⚠ 응답 실패 — 다시 시도해 주세요. (' + (err || '알 수 없음') + ')';
+  }
+  async function chatRespond(statMsg, _retried) {
     CHAT.busy = true;
     chatSetStat(statMsg || 'Claude 가 생각 중…', true);
     try {
@@ -1126,8 +1141,18 @@
         CHAT.turns.push({ role: 'assistant', content: d.reply }); chatRenderLog();
         CHAT.busy = false;
         chatSpeak(d.reply);
-      } else { chatSetStat('⚠ 응답 실패: ' + ((d && (d.detail || d.error)) || '알 수 없음'), false); CHAT.busy = false; }
-    } catch (e) { chatSetStat('⚠ ' + e.message, false); CHAT.busy = false; }
+      } else {
+        // 일시 거부(forbidden/429/타임아웃)는 클라이언트에서도 1회 자동 재시도
+        const transient = d && /forbidden|403|429|timeout|network|claude_5/.test(String(d.error || '') + String(d.detail || ''));
+        if (transient && !_retried) {
+          chatSetStat('⚠ 일시 오류 — 자동 재시도 중…', true);
+          await new Promise(r => setTimeout(r, 1200));
+          CHAT.busy = false;
+          return chatRespond('다시 시도 중…', true);
+        }
+        chatSetStat(chatErrMsg(d), false); CHAT.busy = false;
+      }
+    } catch (e) { chatSetStat('⚠ ' + e.message + ' — 다시 시도해 주세요.', false); CHAT.busy = false; }
   }
   /* 📋 지난 녹음 전사·정리한 텍스트를 대화에 자료로 넣기 */
   function chatPasteOpen() {
@@ -1145,7 +1170,7 @@
     const ta = $('chatPasteText'); const raw = (ta && ta.value || '').trim();
     if (!raw) { alert('붙여넣을 텍스트가 없습니다.'); return; }
     const content = '아래는 참고 자료(지난 녹음 전사 또는 정리한 노트)입니다. 읽고, 이걸 바탕으로 함께 아이디어를 이어가 주세요.\n\n' + raw;
-    CHAT.turns.push({ role: 'user', content, paste: true, preview: raw.slice(0, 200) });
+    CHAT.turns.push({ role: 'user', content, paste: true, pasteText: raw });
     chatRenderLog();
     const box = $('chatPasteBox'); if (box) box.style.display = 'none'; if (ta) ta.value = '';
     chatRespond('Claude 가 자료를 읽는 중…');
