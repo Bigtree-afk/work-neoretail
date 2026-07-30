@@ -25,7 +25,7 @@ function json(obj, status = 200) {
 export async function onRequestOptions() { return json({}, 204); }
 
 export async function onRequestPost({ request, env }) {
-  if (!env.STORES_KV) return json({ ok: false, error: 'kv_not_bound' }, 500);
+  if (!env.STORES_KV) return json({ ok: false, error: 'kv_not_bound' }, 200);
   let body;
   try { body = await request.json(); } catch (_) { return json({ ok: false, error: 'bad_json' }, 400); }
   const text = String((body && body.text) || '').trim();
@@ -35,7 +35,7 @@ export async function onRequestPost({ request, env }) {
   let cfg = {};
   try { cfg = (await env.STORES_KV.get(CFG_KEY, 'json')) || {}; } catch (_) {}
   const apiKey = cfg.claudeApiKey;
-  if (!apiKey) return json({ ok: false, error: 'no_claude_key' }, 503);
+  if (!apiKey) return json({ ok: false, error: 'no_claude_key' }, 200);
 
   const prompt = `아래는 음성 인식(STT)으로 받아쓴 텍스트입니다. 편집하기 쉽도록 형식만 다듬어 주세요.
 규칙:
@@ -54,13 +54,13 @@ ${text.slice(0, 16000)}`;
       headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({ model: MODEL, max_tokens: 8000, messages: [{ role: 'user', content: prompt }] }),
     });
-  } catch (e) { return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 502); }
-  if (!r.ok) { const e = await r.text().catch(() => ''); return json({ ok: false, error: 'claude_' + r.status, detail: e.slice(0, 200) }, 502); }
+  } catch (e) { return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 200); }
+  if (!r.ok) { const e = await r.text().catch(() => ''); return json({ ok: false, error: 'claude_' + r.status, detail: e.slice(0, 200) }, 200); }
 
-  const data = await r.json();
+  let data; try { data = JSON.parse(await r.text()); } catch (_) { return json({ ok: false, error: 'claude_bad_json' }, 200); }
   let out = '';
   for (const b of (data.content || [])) { if (b && b.type === 'text') out += b.text; }
   out = out.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
-  if (!out) return json({ ok: false, error: 'empty_result' }, 502);
+  if (!out) return json({ ok: false, error: 'empty_result' }, 200);
   return json({ ok: true, text: out });
 }

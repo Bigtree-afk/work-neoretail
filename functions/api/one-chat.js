@@ -36,12 +36,35 @@ const SYSTEM = `당신은 사용자와 음성으로 대화하며 아이디어를
 
 export async function onRequestOptions() { return json({}, 204); }
 
-export async function onRequestPost({ request, env }) {
-  if (!env.STORES_KV) return json({ ok: false, error: 'kv_not_bound' }, 500);
+export async function onRequestPost(ctx) {
+  // 🛡 어떤 경우에도 JSON 만 반환 — 미처리 예외로 Cloudflare 502(HTML) 뜨는 것 차단
+  try { return await handleChat(ctx); }
+  catch (e) { return json({ ok: false, error: 'server', detail: String((e && e.message) || e).slice(0, 200) }, 200); }
+}
+
+// 지정 ms 후 abort 되는 Claude 호출 (fetch 가 매달려 워커가 죽는 것 방지)
+async function callClaudeOnce(apiKey, model, system, messages, timeoutMs) {
+  const payload = { model, max_tokens: 1024, system, messages };
+  if (/opus-5|opus-4-8|opus-4-7|fable-5|sonnet-5/.test(model)) payload.thinking = { type: 'disabled' };
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', signal: ctl.signal,
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const text = await r.text();
+    return { status: r.status, ok: r.ok, text };
+  } finally { clearTimeout(timer); }
+}
+
+async function handleChat({ request, env }) {
+  if (!env.STORES_KV) return json({ ok: false, error: 'kv_not_bound' }, 200);
 
   let body;
   try { body = await request.json(); }
-  catch (_) { return json({ ok: false, error: 'bad_json' }, 400); }
+  catch (_) { return json({ ok: false, error: 'bad_json' }, 200); }
 
   const msgs = Array.isArray(body && body.messages) ? body.messages : [];
   const clean = msgs
@@ -57,7 +80,7 @@ export async function onRequestPost({ request, env }) {
   let cfg = {};
   try { cfg = (await env.STORES_KV.get(CFG_KEY, 'json')) || {}; } catch (_) {}
   const apiKey = cfg.claudeApiKey;
-  if (!apiKey) return json({ ok: false, error: 'no_claude_key', detail: '관리자 페이지 → LINE 설정에서 Claude API key 입력 필요' }, 503);
+  if (!apiKey) return json({ ok: false, error: 'no_claude_key', detail: '관리자 페이지 → LINE 설정에서 Claude API key 입력 필요' }, 200);
 
   const title = String((body && body.title) || '').trim();
   const system = [{
@@ -68,54 +91,41 @@ export async function onRequestPost({ request, env }) {
 
   // 누적 이력 캐싱 — 마지막 직전 메시지에 breakpoint(다음 턴이 캐시에서 읽음)
   const messages = clean.map((m, i) => {
-    if (i === clean.length - 2) {
-      return { role: m.role, content: [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }] };
-    }
+    if (i === clean.length - 2) return { role: m.role, content: [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }] };
     return m;
   });
 
-  async function callClaude(model) {
-    const payload = {
-      model,
-      max_tokens: 1024,
-      system,
-      messages,
-    };
-    // Opus 5 는 thinking 기본 on → 음성 대화 지연/비용 줄이려 disabled(도구 없음이라 안전).
-    //   내부 태그 누출 방지 위해 '생각하지 마' 류 지시는 넣지 않고 system 에 태그 금지만 명시함.
-    if (/opus-5|opus-4-8|opus-4-7|fable-5|sonnet-5/.test(model)) {
-      payload.thinking = { type: 'disabled' };
+  const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+  // 호출 — 타임아웃 22s, 429/5xx/네트워크는 1회 재시도, Opus 5 미지원(404/403)이면 sonnet 폴백
+  async function callWithRetry(model) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let res;
+      try { res = await callClaudeOnce(apiKey, model, system, messages, 22000); }
+      catch (e) { if (attempt === 0) { await sleep(900); continue; } return { err: 'timeout_or_network', detail: String((e && e.message) || e) }; }
+      if (res.ok) return res;
+      if ((res.status === 429 || res.status >= 500) && attempt === 0) { await sleep(900); continue; }
+      return res;   // 404/403/기타 → 상위에서 처리
     }
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    return r;
   }
 
-  let r, model = PRIMARY_MODEL;
-  try { r = await callClaude(PRIMARY_MODEL); }
-  catch (e) { return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 502); }
-
-  // Opus 5 미지원 키 → sonnet 폴백 (404 model_not_found / 403)
-  if (!r.ok && (r.status === 404 || r.status === 403)) {
+  let model = PRIMARY_MODEL;
+  let res = await callWithRetry(PRIMARY_MODEL);
+  if (res && res.err) return json({ ok: false, error: res.err, detail: (res.detail || '').slice(0, 200) }, 200);
+  // Opus 5 미지원 키 → sonnet 폴백
+  if (res && !res.ok && (res.status === 404 || res.status === 403)) {
     model = FALLBACK_MODEL;
-    try { r = await callClaude(FALLBACK_MODEL); } catch (e) { return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 502); }
+    res = await callWithRetry(FALLBACK_MODEL);
+    if (res && res.err) return json({ ok: false, error: res.err, detail: (res.detail || '').slice(0, 200) }, 200);
   }
-  if (!r.ok) {
-    const e = await r.text().catch(() => '');
-    return json({ ok: false, error: 'claude_' + r.status, detail: e.slice(0, 200) }, 502);
-  }
+  if (!res || !res.ok) return json({ ok: false, error: 'claude_' + ((res && res.status) || '000'), detail: (res && res.text || '').slice(0, 200) }, 200);
 
-  const data = await r.json();
-  if (data.stop_reason === 'refusal') {
-    return json({ ok: true, reply: '그 주제는 제가 도와드리기 어려워요. 다른 이야기를 해볼까요?', model, refusal: true });
-  }
+  let data;
+  try { data = JSON.parse(res.text); }
+  catch (_) { return json({ ok: false, error: 'claude_bad_json', detail: (res.text || '').slice(0, 120) }, 200); }
+  if (data.stop_reason === 'refusal') return json({ ok: true, reply: '그 주제는 제가 도와드리기 어려워요. 다른 이야기를 해볼까요?', model, refusal: true });
   let reply = '';
   for (const b of (data.content || [])) { if (b && b.type === 'text') reply += b.text; }
   reply = reply.trim();
-  if (!reply) return json({ ok: false, error: 'empty_reply' }, 502);
-
+  if (!reply) return json({ ok: false, error: 'empty_reply' }, 200);
   return json({ ok: true, reply, model: data.model || model });
 }

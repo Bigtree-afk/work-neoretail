@@ -38,7 +38,7 @@ function sanitizeHtml(s) {
 export async function onRequestOptions() { return json({}, 204); }
 
 export async function onRequestPost({ request, env }) {
-  if (!env.STORES_KV) return json({ ok: false, error: 'kv_not_bound' }, 500);
+  if (!env.STORES_KV) return json({ ok: false, error: 'kv_not_bound' }, 200);
 
   let body;
   try { body = await request.json(); }
@@ -51,7 +51,7 @@ export async function onRequestPost({ request, env }) {
   let cfg = {};
   try { cfg = (await env.STORES_KV.get(CFG_KEY, 'json')) || {}; } catch (_) {}
   const apiKey = cfg.claudeApiKey;
-  if (!apiKey) return json({ ok: false, error: 'no_claude_key', detail: '관리자 페이지 → LINE 설정에서 Claude API key 입력 필요' }, 503);
+  if (!apiKey) return json({ ok: false, error: 'no_claude_key', detail: '관리자 페이지 → LINE 설정에서 Claude API key 입력 필요' }, 200);
 
   const title = String((body && body.title) || '').trim();
   const hint = String((body && body.hint) || '').trim();
@@ -85,16 +85,16 @@ ${transcript.slice(0, 24000)}`;
       body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 4000, messages: [{ role: 'user', content: prompt }] }),
     });
   } catch (e) {
-    return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 502);
+    return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 200);
   }
   if (!r.ok) {
     const e = await r.text().catch(() => '');
-    return json({ ok: false, error: 'claude_' + r.status, detail: e.slice(0, 200) }, 502);
+    return json({ ok: false, error: 'claude_' + r.status, detail: e.slice(0, 200) }, 200);
   }
-  const data = await r.json();
+  let data; try { data = JSON.parse(await r.text()); } catch (_) { return json({ ok: false, error: 'claude_bad_json' }, 200); }
   const raw = (data.content && data.content[0] && data.content[0].text) || '';
   const html = sanitizeHtml(raw);
-  if (!html) return json({ ok: false, error: 'empty_result' }, 502);
+  if (!html) return json({ ok: false, error: 'empty_result' }, 200);
 
   return json({ ok: true, html, model: CLAUDE_MODEL });
 }
