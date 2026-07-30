@@ -953,6 +953,155 @@
     afterEdit();
   }
 
+  /* ═══════════════════════════════════════════════════════════
+   * 🗣 AI 음성 회의 — Claude 와 턴 방식 음성 대화로 아이디어 탐색
+   *   내 말 → Web Speech(STT) → /api/one-chat(Claude) → speechSynthesis(TTS)
+   *   Claude 가 말하는 동안엔 인식을 멈춰 에코 방지, 끝나면 다시 듣기.
+   * ═══════════════════════════════════════════════════════════ */
+  const CHAT = { rec: null, active: false, speaking: false, busy: false, turns: [], interim: '', wake: null };
+  function chatPanelHtml() {
+    return `<div class="ov" id="chatOv"></div>
+    <div class="rec-panel" id="chatPanel">
+      <div class="rec-head"><span>🗣 AI 음성 회의</span><button class="rec-x" id="chatClose" title="닫기">${ic('x', 18) || '✕'}</button></div>
+      <div class="rec-status"><span class="rec-dot" id="chatDot"></span><span id="chatStat">대기 중</span></div>
+      <div class="rec-hint">마이크 버튼을 누르고 말하면 Claude 가 음성으로 답하며 함께 아이디어를 탐색합니다(크롬/엣지 권장). Claude 가 말하는 동안엔 듣기를 멈춥니다. 대화가 끝나면 [회의록 정리]로 정리하세요.</div>
+      <div class="chat-log" id="chatLog"></div>
+      <div class="rec-interim" id="chatInterim" style="display:none"></div>
+      <div class="rec-ctrls">
+        <button class="rec-btn rec-go" id="chatMic">🎤 말하기</button>
+        <button class="rec-btn rec-stop" id="chatStopSpk" style="display:none">⏹ AI 답변 멈추기</button>
+      </div>
+      <div class="rec-actions">
+        <button class="rec-btn rec-primary" id="chatMinutes">📋 회의록 정리</button>
+        <button class="rec-btn" id="chatInsert">📄 대화 삽입</button>
+      </div>
+      <div class="rec-prog" id="chatProg" style="display:none"></div>
+    </div>`;
+  }
+  function openChatPanel() {
+    if (!curPageId) { alert('먼저 페이지를 여세요.'); return; }
+    if (document.getElementById('chatPanel')) return;
+    const wrap = document.createElement('div'); wrap.id = 'chatWrap'; wrap.innerHTML = chatPanelHtml();
+    document.body.appendChild(wrap);
+    CHAT.turns = []; CHAT.active = false; CHAT.speaking = false; CHAT.busy = false; CHAT.interim = '';
+    $('chatClose').onclick = closeChatPanel; $('chatOv').onclick = closeChatPanel;
+    $('chatMic').onclick = chatToggleListen;
+    $('chatStopSpk').onclick = chatStopSpeaking;
+    $('chatMinutes').onclick = chatMinutes; $('chatInsert').onclick = chatInsert;
+    if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
+      $('chatStat').textContent = '⚠ 이 브라우저는 음성 인식을 지원하지 않습니다 (크롬/엣지 권장)';
+      $('chatMic').disabled = true;
+    }
+    chatRenderLog();
+  }
+  function closeChatPanel() {
+    chatStopSpeaking();
+    CHAT.active = false;
+    try { CHAT.rec && CHAT.rec.stop(); } catch (_) {}
+    try { if (CHAT.wake) { CHAT.wake.release(); CHAT.wake = null; } } catch (_) {}
+    const w = document.getElementById('chatWrap'); if (w) w.remove();
+  }
+  function chatSetStat(t, on) { const s = $('chatStat'), d = $('chatDot'); if (s) s.textContent = t; if (d) d.classList.toggle('on', !!on); }
+  function chatShowInterim(t) { const el = $('chatInterim'); if (!el) return; if (t) { el.textContent = '🎤 ' + t; el.style.display = 'block'; } else { el.style.display = 'none'; } }
+  function chatRenderLog() {
+    const box = $('chatLog'); if (!box) return;
+    box.innerHTML = CHAT.turns.map(t =>
+      `<div class="chat-msg ${t.role === 'user' ? 'me' : 'ai'}"><span class="chat-who">${t.role === 'user' ? '나' : '🤖 Claude'}</span>${esc(t.content)}</div>`
+    ).join('') || '<div class="meta" style="text-align:center;padding:14px">마이크를 눌러 대화를 시작하세요.</div>';
+    box.scrollTop = box.scrollHeight;
+  }
+  function chatToggleListen() {
+    if (CHAT.busy || CHAT.speaking) return;
+    if (CHAT.active) { CHAT.active = false; try { CHAT.rec && CHAT.rec.stop(); } catch (_) {} chatSetStat('대기 중', false); $('chatMic').textContent = '🎤 말하기'; return; }
+    chatStartListen();
+  }
+  async function chatStartListen() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return;
+    try { if ('wakeLock' in navigator && !CHAT.wake) CHAT.wake = await navigator.wakeLock.request('screen'); } catch (_) {}
+    const r = new SR(); CHAT.rec = r; CHAT.active = true; CHAT.interim = '';
+    r.lang = 'ko-KR'; r.continuous = false; r.interimResults = true;
+    let finalText = '';
+    r.onresult = ev => {
+      let interim = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const t = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) finalText += t; else interim += t;
+      }
+      CHAT.interim = interim; chatShowInterim(finalText + interim);
+    };
+    r.onerror = () => {};
+    r.onend = () => {
+      chatShowInterim('');
+      const said = (finalText || '').trim();
+      if (said && CHAT.active) { chatSend(said); }
+      else if (CHAT.active) { try { r.start(); } catch (_) {} }   // 아무 말 없었으면 계속 듣기
+    };
+    chatSetStat('듣는 중… 말씀하세요', true); $('chatMic').textContent = '⏸ 듣기 정지';
+    try { r.start(); } catch (_) {}
+  }
+  async function chatSend(text) {
+    CHAT.active = false; CHAT.busy = true;
+    try { CHAT.rec && CHAT.rec.stop(); } catch (_) {}
+    $('chatMic').textContent = '🎤 말하기';
+    CHAT.turns.push({ role: 'user', content: text }); chatRenderLog();
+    chatSetStat('Claude 가 생각 중…', true);
+    try {
+      const title = ((findNode(curPageId) || {}).title) || '';
+      const r = await fetch('/api/one-chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: CHAT.turns, title }) });
+      const d = await r.json();
+      if (d && d.ok && d.reply) {
+        CHAT.turns.push({ role: 'assistant', content: d.reply }); chatRenderLog();
+        chatSpeak(d.reply);
+      } else { chatSetStat('⚠ 응답 실패: ' + ((d && (d.detail || d.error)) || '알 수 없음'), false); }
+    } catch (e) { chatSetStat('⚠ 오류: ' + e.message, false); }
+    finally { CHAT.busy = false; }
+  }
+  function chatSpeak(text) {
+    if (!window.speechSynthesis) { chatSetStat('음성 합성 미지원 — 텍스트만 표시', false); return; }
+    try { window.speechSynthesis.cancel(); } catch (_) {}
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ko-KR'; u.rate = 1.05;
+    const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+    const ko = voices.find(v => /ko/i.test(v.lang)); if (ko) u.voice = ko;
+    CHAT.speaking = true; chatSetStat('🤖 Claude 가 말하는 중…', true); $('chatStopSpk').style.display = 'inline-flex'; $('chatMic').disabled = true;
+    u.onend = u.onerror = () => {
+      CHAT.speaking = false; $('chatStopSpk').style.display = 'none'; $('chatMic').disabled = false;
+      chatSetStat('내 차례 — 🎤 말하기', false);
+      // 답변 끝나면 자동으로 다시 듣기(핸즈프리 대화)
+      chatStartListen();
+    };
+    try { window.speechSynthesis.speak(u); } catch (_) { CHAT.speaking = false; }
+  }
+  function chatStopSpeaking() {
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
+    CHAT.speaking = false; const b = $('chatStopSpk'); if (b) b.style.display = 'none'; const m = $('chatMic'); if (m) m.disabled = false;
+  }
+  function chatDialogueText() {
+    return CHAT.turns.map(t => (t.role === 'user' ? '나: ' : 'Claude: ') + t.content).join('\n');
+  }
+  function chatInsert() {
+    if (!CHAT.turns.length) { alert('대화 내용이 없습니다.'); return; }
+    const html = '<h3>🗣 AI 회의 대화 (' + today() + ')</h3>' +
+      CHAT.turns.map(t => '<p><b>' + (t.role === 'user' ? '나' : 'Claude') + ':</b> ' + esc(t.content) + '</p>').join('') + '<p><br></p>';
+    insertToPage(html); closeChatPanel();
+  }
+  async function chatMinutes() {
+    if (CHAT.busy) return;
+    const t = chatDialogueText();
+    if (t.length < 20) { alert('대화 내용이 너무 짧습니다.'); return; }
+    CHAT.busy = true; const p = $('chatProg'); if (p) { p.style.display = 'block'; p.textContent = 'Claude 가 회의록을 정리하는 중…'; }
+    try {
+      const title = ((findNode(curPageId) || {}).title) || '';
+      const r = await fetch('/api/one-meeting', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ transcript: t, title, hint: 'AI 브레인스토밍 대화입니다. 나온 아이디어와 결론을 정리하세요.' }) });
+      const d = await r.json();
+      if (d && d.ok && d.html) {
+        insertToPage(d.html + '<p><br></p><details><summary>🗣 대화 원문</summary>' + CHAT.turns.map(x => '<p><b>' + (x.role === 'user' ? '나' : 'Claude') + ':</b> ' + esc(x.content) + '</p>').join('') + '</details><p><br></p>');
+        if (p) p.textContent = '✅ 회의록 삽입 완료'; setTimeout(closeChatPanel, 800);
+      } else { throw new Error((d && (d.detail || d.error)) || '알 수 없음'); }
+    } catch (e) { if (p) { p.textContent = '⚠ 실패: ' + e.message; setTimeout(() => { p.style.display = 'none'; }, 4000); } }
+    finally { CHAT.busy = false; }
+  }
+
   /* ── 부트 ── */
   function paintStaticIcons() {
     // 정적 버튼 아이콘 주입 [id, icon, label?]
@@ -982,6 +1131,7 @@
     $('tbList').onclick = () => exec('insertUnorderedList'); $('tbOList').onclick = () => exec('insertOrderedList'); $('tbQuote').onclick = () => exec('formatBlock', 'BLOCKQUOTE');
     $('tbTable').onclick = insertTable; $('tbAttach').onclick = attachFile;
     { const rb = $('tbRec'); if (rb) rb.onclick = openRecPanel; }
+    { const cb = $('tbChat'); if (cb) cb.onclick = openChatPanel; }
     $('tbRowAbove').onclick = () => addRow(false); $('tbRowBelow').onclick = () => addRow(true);
     $('tbColLeft').onclick = () => addCol(false); $('tbColRight').onclick = () => addCol(true);
     $('tbDelRow').onclick = delRow; $('tbDelCol').onclick = delCol; $('tbHeadRow').onclick = toggleHeadRow; $('tbDelTable').onclick = () => delTable(false);
