@@ -859,8 +859,8 @@
     if (t.length < 5) { alert('다듬을 텍스트가 없습니다.'); return; }
     REC.busy = true; recProg('✨ 띄어쓰기·문단 다듬는 중(Claude)…');
     try {
-      const r = await fetch('/api/one-tidy', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: t }) });
-      const txt = await r.text(); let d; try { d = JSON.parse(txt); } catch (_) { throw new Error(/^\s*</.test(txt) ? '서버 응답 오류 — 새로고침 후 다시' : '서버 오류 ' + r.status); }
+      const r = await fetch(location.origin + '/api/one-tidy?_=' + Date.now(), { method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: t }) });
+      const txt = await r.text(); let d; try { d = JSON.parse(txt); } catch (_) { throw new Error(/^\s*</.test(txt) ? ('서버가 웹페이지를 반환(HTTP ' + r.status + ') — 주소/네트워크 확인') : '서버 오류 ' + r.status); }
       if (d && d.ok && d.text) { REC.finalText = d.text; const ta = $('recText'); if (ta) ta.value = d.text; recSaveDraft(); recProg('✅ 다듬기 완료 — 필요하면 직접 더 수정하세요'); }
       else throw new Error((d && (d.detail || d.error)) || '실패');
       setTimeout(() => recProg(''), 3000);
@@ -1174,12 +1174,15 @@
   }
   // JSON 응답 강제 파서 — API 경로 미스/캐시로 HTML 이 오면 "Unexpected token '<'" 대신 안내 메시지
   async function chatPostJson(url, body) {
-    const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    // 캐시/프록시가 끼어든 옛 응답 회피 — no-store + 캐시버스트, 절대경로(origin 고정)
+    const u = location.origin + url + (url.includes('?') ? '&' : '?') + '_=' + Date.now();
+    const r = await fetch(u, { method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const txt = await r.text();
     try { return JSON.parse(txt); }
     catch (_) {
-      if (/^\s*<(!doctype|html)/i.test(txt)) throw new Error('서버에서 API 응답을 받지 못했어요(HTML 반환). 페이지를 새로고침(Ctrl+Shift+R) 후 다시 시도하세요.');
-      throw new Error('서버 오류(' + r.status + '). 새로고침 후 다시 시도하세요.');
+      const head = txt.slice(0, 50).replace(/\s+/g, ' ').trim();
+      if (/^\s*<(!doctype|html)/i.test(txt)) throw new Error('서버가 JSON 대신 웹페이지를 돌려줬어요 (HTTP ' + r.status + '). 회사망·프록시 차단이거나 주소가 다를 수 있어요. 주소창이 work.neoretail.net/one/ 인지 확인해 주세요.');
+      throw new Error('서버 오류 HTTP ' + r.status + ' — ' + head);
     }
   }
   function chatDialogueText() {
