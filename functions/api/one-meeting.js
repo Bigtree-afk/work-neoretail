@@ -103,11 +103,12 @@ ${transcript.slice(0, 24000)}`;
   }
 
   let model = CLAUDE_MODEL;
-  let res;
+  let res, primaryFail = '';
   try { res = await callOnce(CLAUDE_MODEL); }
   catch (e) { return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 200); }
   // Opus 미지원 키(404/403) → sonnet 폴백
   if (!res.ok && (res.status === 404 || res.status === 403)) {
+    primaryFail = res.status + ':' + (res.text || '').replace(/\s+/g, ' ').slice(0, 160);
     model = FALLBACK_MODEL;
     try { res = await callOnce(FALLBACK_MODEL); }
     catch (e) { return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 200); }
@@ -118,5 +119,5 @@ ${transcript.slice(0, 24000)}`;
   const html = sanitizeHtml(raw);
   if (!html) return json({ ok: false, error: 'empty_result' }, 200);
 
-  return json({ ok: true, html, model: data.model || model });
+  return json({ ok: true, html, model: data.model || model, primaryFail: primaryFail || undefined });
 }
