@@ -1028,7 +1028,13 @@
     const wrap = document.createElement('div'); wrap.id = 'chatWrap'; wrap.innerHTML = chatPanelHtml();
     document.body.appendChild(wrap);
     CHAT.turns = []; CHAT.listening = false; CHAT.speaking = false; CHAT.busy = false; CHAT.buf = ''; CHAT.interim = '';
-    $('chatClose').onclick = closeChatPanel; $('chatOv').onclick = closeChatPanel;
+    $('chatClose').onclick = closeChatPanel;
+    // 배경 클릭: 대화 진행 중이면 실수로 닫히지 않게 무시(빈 상태에서만 닫기)
+    $('chatOv').onclick = () => {
+      const active = (CHAT.turns && CHAT.turns.length) || CHAT.listening || CHAT.speaking || CHAT.busy;
+      if (active) return;   // 대화 중 — 배경 클릭 무시(✕ 로만 닫기)
+      closeChatPanel();
+    };
     $('chatMic').onclick = chatMicBtn;
     $('chatMinutes').onclick = chatMinutes; $('chatInsert').onclick = chatInsert;
     $('chatPaste').onclick = chatPasteOpen;
