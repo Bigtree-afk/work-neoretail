@@ -241,6 +241,14 @@ svg.ic{display:inline-block;vertical-align:middle;flex:0 0 auto;pointer-events:n
 .rec-upl{cursor:pointer}
 /* 🗣 AI 음성 회의 대화 로그 */
 .chat-log{border:1px solid var(--line);border-radius:10px;padding:10px;max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;background:var(--canvas)}
+/* 대화창 크기 조절 — 우하단 드래그 핸들. inset:0+margin:auto 로 커져도 중앙 유지 */
+#chatPanel{top:0;left:0;right:0;bottom:0;margin:auto;transform:none;
+  width:min(560px,94vw);height:min(720px,86vh);max-width:96vw;max-height:94vh;min-width:340px;min-height:380px;
+  resize:both;overflow:auto}
+#chatPanel .chat-log{flex:1 1 auto;max-height:none;min-height:120px}
+/* 리사이즈 핸들 잘 보이게(우하단 대각 그립) */
+#chatPanel::after{content:"";position:absolute;right:3px;bottom:3px;width:12px;height:12px;pointer-events:none;
+  background:linear-gradient(135deg,transparent 0 46%,var(--faint) 46% 54%,transparent 54% 70%,var(--faint) 70% 78%,transparent 78%);opacity:.6}
 .chat-msg{max-width:85%;padding:8px 11px;border-radius:12px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
 .chat-msg .chat-who{display:block;font-size:10.5px;font-weight:800;opacity:.6;margin-bottom:2px}
 .chat-msg.me{align-self:flex-end;background:var(--accent-soft);color:var(--ink);border-bottom-right-radius:3px}

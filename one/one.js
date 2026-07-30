@@ -1028,6 +1028,20 @@
     const wrap = document.createElement('div'); wrap.id = 'chatWrap'; wrap.innerHTML = chatPanelHtml();
     document.body.appendChild(wrap);
     CHAT.turns = []; CHAT.listening = false; CHAT.speaking = false; CHAT.busy = false; CHAT.buf = ''; CHAT.interim = '';
+    // 대화창 크기 복원 + 조절 시 저장
+    try {
+      const panel = $('chatPanel');
+      const saved = JSON.parse(localStorage.getItem('one_chat_size') || 'null');
+      if (panel && saved && saved.w && saved.h) { panel.style.width = saved.w + 'px'; panel.style.height = saved.h + 'px'; }
+      if (panel && window.ResizeObserver) {
+        let t = null;
+        CHAT.ro = new ResizeObserver(() => {
+          clearTimeout(t);
+          t = setTimeout(() => { try { localStorage.setItem('one_chat_size', JSON.stringify({ w: Math.round(panel.offsetWidth), h: Math.round(panel.offsetHeight) })); } catch (_) {} }, 300);
+        });
+        CHAT.ro.observe(panel);
+      }
+    } catch (_) {}
     $('chatClose').onclick = closeChatPanel;
     // 배경 클릭: 대화 진행 중이면 실수로 닫히지 않게 무시(빈 상태에서만 닫기)
     $('chatOv').onclick = () => {
@@ -1061,6 +1075,7 @@
     try { CHAT.rec && CHAT.rec.stop(); } catch (_) {}
     try { if (CHAT.wake) { CHAT.wake.release(); CHAT.wake = null; } } catch (_) {}
     if (CHAT.onKey) { document.removeEventListener('keydown', CHAT.onKey); CHAT.onKey = null; }
+    try { if (CHAT.ro) { CHAT.ro.disconnect(); CHAT.ro = null; } } catch (_) {}
     const w = document.getElementById('chatWrap'); if (w) w.remove();
   }
   function chatSetStat(t, on) { const s = $('chatStat'), d = $('chatDot'); if (s) s.textContent = t; if (d) d.classList.toggle('on', !!on); }
