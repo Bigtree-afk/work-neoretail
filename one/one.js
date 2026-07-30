@@ -971,8 +971,17 @@
       <div class="rec-hint"><b>[🎤 말하기]</b>를 누르고 말한 뒤 <b>Space</b> 또는 <b>Enter</b>를 누르면 Claude 가 답합니다. Claude 가 말하는 중에 <b>[🎤 말하기]</b>를 누르면 즉시 멈추고 내 차례로 바뀝니다(크롬/엣지 권장).</div>
       <div class="chat-log" id="chatLog"></div>
       <div class="rec-interim" id="chatInterim" style="display:none"></div>
+      <div class="chat-paste" id="chatPasteBox" style="display:none">
+        <textarea id="chatPasteText" placeholder="지난 녹음 전사나 정리한 텍스트를 붙여넣으세요. Claude 가 이 자료를 참고해 함께 논의합니다."></textarea>
+        <div class="rec-ctrls" style="margin-top:6px">
+          <button class="rec-btn" id="chatPasteFromPage">📄 현재 페이지 본문 가져오기</button>
+          <button class="rec-btn rec-primary" id="chatPasteSend">💬 대화에 넣기</button>
+          <button class="rec-btn" id="chatPasteCancel">취소</button>
+        </div>
+      </div>
       <div class="rec-ctrls">
         <button class="rec-btn rec-go" id="chatMic">🎤 말하기</button>
+        <button class="rec-btn" id="chatPaste">📋 자료 붙여넣기</button>
       </div>
       <div class="rec-actions">
         <button class="rec-btn rec-primary" id="chatMinutes">📋 회의록 정리</button>
@@ -990,6 +999,10 @@
     $('chatClose').onclick = closeChatPanel; $('chatOv').onclick = closeChatPanel;
     $('chatMic').onclick = chatMicBtn;
     $('chatMinutes').onclick = chatMinutes; $('chatInsert').onclick = chatInsert;
+    $('chatPaste').onclick = chatPasteOpen;
+    $('chatPasteFromPage').onclick = chatPasteFromPage;
+    $('chatPasteSend').onclick = chatPasteSend;
+    $('chatPasteCancel').onclick = () => { const b = $('chatPasteBox'); if (b) b.style.display = 'none'; };
     // Space / Enter = 내 발화 종료 후 전송 (AI 발화 중이면 중단하고 내 차례)
     CHAT.onKey = (e) => {
       if (!document.getElementById('chatPanel')) return;
@@ -1023,9 +1036,11 @@
   function chatRenderLog() {
     const box = $('chatLog'); if (!box) return;
     const me = chatMe();
-    box.innerHTML = CHAT.turns.map(t =>
-      `<div class="chat-msg ${t.role === 'user' ? 'me' : 'ai'}"><span class="chat-who">${t.role === 'user' ? esc(me) : '🤖 Claude'}</span>${esc(t.content)}</div>`
-    ).join('') || '<div class="meta" style="text-align:center;padding:14px">[🎤 말하기]를 눌러 대화를 시작하세요.</div>';
+    box.innerHTML = CHAT.turns.map(t => {
+      const who = t.role === 'user' ? esc(me) : '🤖 Claude';
+      const disp = t.paste ? ('<span class="chat-paste-tag">📎 붙여넣은 자료</span>' + esc(t.preview || '') + (t.preview && t.preview.length >= 200 ? ' …' : '')) : esc(t.content);
+      return `<div class="chat-msg ${t.role === 'user' ? 'me' : 'ai'}"><span class="chat-who">${who}</span>${disp}</div>`;
+    }).join('') || '<div class="meta" style="text-align:center;padding:14px">[🎤 말하기]를 눌러 대화를 시작하세요.</div>';
     box.scrollTop = box.scrollHeight;
   }
   async function chatStartListen() {
@@ -1063,20 +1078,45 @@
     chatStopSpeaking();
     chatStartListen();
   }
-  async function chatSend(text) {
-    CHAT.busy = true;
+  function chatSend(text) {
     CHAT.turns.push({ role: 'user', content: text }); chatRenderLog();
-    chatSetStat('Claude 가 생각 중…', true);
+    chatRespond();
+  }
+  async function chatRespond(statMsg) {
+    CHAT.busy = true;
+    chatSetStat(statMsg || 'Claude 가 생각 중…', true);
     try {
       const title = ((findNode(curPageId) || {}).title) || '';
-      const r = await fetch('/api/one-chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: CHAT.turns, title }) });
-      const d = await r.json();
+      // API 에는 role/content 만 전송(내부 표시용 필드 제외)
+      const msgs = CHAT.turns.map(t => ({ role: t.role, content: t.content }));
+      const d = await chatPostJson('/api/one-chat', { messages: msgs, title });
       if (d && d.ok && d.reply) {
         CHAT.turns.push({ role: 'assistant', content: d.reply }); chatRenderLog();
         CHAT.busy = false;
         chatSpeak(d.reply);
       } else { chatSetStat('⚠ 응답 실패: ' + ((d && (d.detail || d.error)) || '알 수 없음'), false); CHAT.busy = false; }
-    } catch (e) { chatSetStat('⚠ 오류: ' + e.message, false); CHAT.busy = false; }
+    } catch (e) { chatSetStat('⚠ ' + e.message, false); CHAT.busy = false; }
+  }
+  /* 📋 지난 녹음 전사·정리한 텍스트를 대화에 자료로 넣기 */
+  function chatPasteOpen() {
+    if (CHAT.busy) return;
+    const box = $('chatPasteBox'); if (!box) return;
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    if (box.style.display === 'block') { const ta = $('chatPasteText'); if (ta) ta.focus(); }
+  }
+  function chatPasteFromPage() {
+    const el = $('docBody'); const ta = $('chatPasteText');
+    if (el && ta) { ta.value = (el.innerText || '').trim(); ta.focus(); }
+  }
+  function chatPasteSend() {
+    if (CHAT.busy) return;
+    const ta = $('chatPasteText'); const raw = (ta && ta.value || '').trim();
+    if (!raw) { alert('붙여넣을 텍스트가 없습니다.'); return; }
+    const content = '아래는 참고 자료(지난 녹음 전사 또는 정리한 노트)입니다. 읽고, 이걸 바탕으로 함께 아이디어를 이어가 주세요.\n\n' + raw;
+    CHAT.turns.push({ role: 'user', content, paste: true, preview: raw.slice(0, 200) });
+    chatRenderLog();
+    const box = $('chatPasteBox'); if (box) box.style.display = 'none'; if (ta) ta.value = '';
+    chatRespond('Claude 가 자료를 읽는 중…');
   }
   function chatSpeak(text) {
     if (!window.speechSynthesis) { chatSetStat('내 차례 — 🎤 말하기 (음성 합성 미지원, 텍스트만)', false); return; }
@@ -1100,6 +1140,16 @@
     try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
     const m = $('chatMic'); if (m) m.disabled = false;
   }
+  // JSON 응답 강제 파서 — API 경로 미스/캐시로 HTML 이 오면 "Unexpected token '<'" 대신 안내 메시지
+  async function chatPostJson(url, body) {
+    const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const txt = await r.text();
+    try { return JSON.parse(txt); }
+    catch (_) {
+      if (/^\s*<(!doctype|html)/i.test(txt)) throw new Error('서버에서 API 응답을 받지 못했어요(HTML 반환). 페이지를 새로고침(Ctrl+Shift+R) 후 다시 시도하세요.');
+      throw new Error('서버 오류(' + r.status + '). 새로고침 후 다시 시도하세요.');
+    }
+  }
   function chatDialogueText() {
     return CHAT.turns.map(t => (t.role === 'user' ? chatMe() + ': ' : 'Claude: ') + t.content).join('\n');
   }
@@ -1116,8 +1166,7 @@
     CHAT.busy = true; const p = $('chatProg'); if (p) { p.style.display = 'block'; p.textContent = 'Claude 가 회의록을 정리하는 중…'; }
     try {
       const title = ((findNode(curPageId) || {}).title) || '';
-      const r = await fetch('/api/one-meeting', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ transcript: t, title, hint: 'AI 브레인스토밍 대화입니다. 나온 아이디어와 결론을 정리하세요.' }) });
-      const d = await r.json();
+      const d = await chatPostJson('/api/one-meeting', { transcript: t, title, hint: 'AI 브레인스토밍 대화입니다. 나온 아이디어와 결론을 정리하세요.' });
       if (d && d.ok && d.html) {
         insertToPage(d.html + '<p><br></p><details><summary>🗣 대화 원문</summary>' + CHAT.turns.map(x => '<p><b>' + (x.role === 'user' ? esc(chatMe()) : 'Claude') + ':</b> ' + esc(x.content) + '</p>').join('') + '</details><p><br></p>');
         if (p) p.textContent = '✅ 회의록 삽입 완료'; setTimeout(closeChatPanel, 800);
