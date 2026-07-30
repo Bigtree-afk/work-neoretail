@@ -77,6 +77,7 @@ export async function onRequestPost({ request, env }) {
   <h4>✅ 결정 사항</h4> — 확정된 것만. 없으면 "특이사항 없음"
   <h4>📌 액션 아이템</h4> — 표(담당 / 할 일 / 기한). 담당·기한 불명이면 빈칸. 없으면 이 섹션 생략
 - 장황하지 않게, 실무자가 30초 안에 파악할 수 있게.
+- ⚡ 속도·간결 최우선: 각 항목은 정보 손실 없이 가장 압축된 한 줄로. 서론·맺음말·미사여구·중복 금지. 같은 내용을 두 번 쓰지 말 것. 곧바로 위 구조의 HTML 만 출력(생각 과정·설명 없이).
 ${hint ? '\n추가 맥락: ' + hint : ''}
 
 전사 내용:
@@ -94,7 +95,7 @@ ${transcript.slice(0, 24000)}`;
         'accept': 'application/json',
         'user-agent': 'neoretail-one/1.0 (+https://work.neoretail.net)',
       },
-      body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 4000, messages: [{ role: 'user', content: prompt }] }),
+      body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 2600, messages: [{ role: 'user', content: prompt }] }),
     });
   } catch (e) {
     return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 200);

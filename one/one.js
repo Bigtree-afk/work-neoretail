@@ -1203,7 +1203,7 @@
     if (!window.speechSynthesis) { chatSetStat('내 차례 — 🎤 말하기 (음성 합성 미지원, 텍스트만)', false); return; }
     try { window.speechSynthesis.cancel(); } catch (_) {}
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'ko-KR'; u.rate = 1.05;
+    u.lang = 'ko-KR'; u.rate = 1.26;   // 기존 1.05 대비 약 20% 빠르게
     const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
     const ko = voices.find(v => /ko/i.test(v.lang)); if (ko) u.voice = ko;
     CHAT.speaking = true; chatSetStat('🤖 Claude 가 말하는 중… (말하려면 🎤)', true);
