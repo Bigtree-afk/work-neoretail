@@ -1325,9 +1325,9 @@
     const s = document.getElementById('lineCfgSecret').value.trim();        if (s) payload.channelSecret = s;
     const p = document.getElementById('lineCfgParseSecret').value.trim();   if (p) payload.parseSecret = p;
     const c = document.getElementById('lineCfgClaudeKey').value.trim();     if (c) payload.claudeApiKey = c;
-    // AI Gateway URL — 변경됐을 때만 전송(빈값이면 서버가 삭제=직접호출 복귀)
+    // AI Gateway URL — 항상 전송(빈값이면 서버가 삭제=직접호출 복귀). 비밀 아니라 마스킹 없음.
     const abEl2 = document.getElementById('lineCfgAnthropicBase');
-    if (abEl2 && abEl2.value.trim() !== (window._loadedAnthropicBase || '')) payload.anthropicBase = abEl2.value.trim();
+    if (abEl2) payload.anthropicBase = abEl2.value.trim();
     // 알림 수신자 — 셀렉트 값 + 표시명
     const alertSel = document.getElementById('lineCfgAlertRecipient');
     if (alertSel && alertSel.value) {
