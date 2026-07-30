@@ -8,7 +8,8 @@
  * 서버측 Claude 키 재사용(line_config.claudeApiKey). 별도 키 불필요.
  */
 const CFG_KEY = 'line_config';
-const CLAUDE_MODEL = 'claude-sonnet-4-5-20250929';
+const CLAUDE_MODEL = 'claude-opus-5';                    // 회의록 정리 — 품질 우선(Opus)
+const FALLBACK_MODEL = 'claude-sonnet-4-5-20250929';     // Opus 미가용(404/403) 시 폴백
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
@@ -84,9 +85,10 @@ ${hint ? '\n추가 맥락: ' + hint : ''}
 ${transcript.slice(0, 24000)}`;
 
   const base = resolveClaudeUrl(cfg.anthropicBase) || 'https://api.anthropic.com/v1/messages';
-  let r;
-  try {
-    r = await fetch(base, {
+  async function callOnce(model) {
+    const payload = { model, max_tokens: 2600, messages: [{ role: 'user', content: prompt }] };
+    if (/opus-5|opus-4-8|opus-4-7|fable-5|sonnet-5/.test(model)) payload.thinking = { type: 'disabled' };  // 도구 없음 → 저지연·품질 유지
+    const rr = await fetch(base, {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
@@ -95,19 +97,26 @@ ${transcript.slice(0, 24000)}`;
         'accept': 'application/json',
         'user-agent': 'neoretail-one/1.0 (+https://work.neoretail.net)',
       },
-      body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 2600, messages: [{ role: 'user', content: prompt }] }),
+      body: JSON.stringify(payload),
     });
-  } catch (e) {
-    return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 200);
+    return { status: rr.status, ok: rr.ok, text: await rr.text() };
   }
-  if (!r.ok) {
-    const e = await r.text().catch(() => '');
-    return json({ ok: false, error: 'claude_' + r.status, detail: e.slice(0, 200) }, 200);
+
+  let model = CLAUDE_MODEL;
+  let res;
+  try { res = await callOnce(CLAUDE_MODEL); }
+  catch (e) { return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 200); }
+  // Opus 미지원 키(404/403) → sonnet 폴백
+  if (!res.ok && (res.status === 404 || res.status === 403)) {
+    model = FALLBACK_MODEL;
+    try { res = await callOnce(FALLBACK_MODEL); }
+    catch (e) { return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 200); }
   }
-  let data; try { data = JSON.parse(await r.text()); } catch (_) { return json({ ok: false, error: 'claude_bad_json' }, 200); }
+  if (!res.ok) return json({ ok: false, error: 'claude_' + res.status, detail: (res.text || '').slice(0, 200) }, 200);
+  let data; try { data = JSON.parse(res.text); } catch (_) { return json({ ok: false, error: 'claude_bad_json' }, 200); }
   const raw = (data.content && data.content[0] && data.content[0].text) || '';
   const html = sanitizeHtml(raw);
   if (!html) return json({ ok: false, error: 'empty_result' }, 200);
 
-  return json({ ok: true, html, model: CLAUDE_MODEL });
+  return json({ ok: true, html, model: data.model || model });
 }
