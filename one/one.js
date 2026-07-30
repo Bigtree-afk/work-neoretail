@@ -673,6 +673,7 @@
       </div>
       <div class="rec-actions" id="recActions" style="display:none">
         <button class="rec-btn rec-primary" id="recWhisper">🎯 오디오 정확 전사</button>
+        <button class="rec-btn" id="recTidy">✨ 띄어쓰기·문단 다듬기</button>
         <button class="rec-btn rec-primary" id="recMinutes">📋 회의록 정리</button>
         <button class="rec-btn" id="recInsert">📄 전사만 삽입</button>
         <a class="rec-btn rec-dl" id="recDownload" download="recording.webm">💾 오디오 파일 저장</a>
@@ -690,6 +691,7 @@
     $('recOv').onclick = () => { if (REC.recActive) { if (confirm('녹음 중입니다. 정말 닫을까요? (녹음이 중단됩니다)')) closeRecPanel(); } else closeRecPanel(); };
     $('recStart').onclick = recStart; $('recStop').onclick = recStop;
     $('recWhisper').onclick = recWhisper; $('recMinutes').onclick = recMinutes; $('recInsert').onclick = recInsertText;
+    { const tb = $('recTidy'); if (tb) tb.onclick = recTidyRun; }
     $('recText').oninput = () => { REC.finalText = $('recText').value; recSaveDraft(); };
     { const up = $('recUpload'); if (up) up.onchange = () => { const f = up.files && up.files[0]; if (f) recTranscribeFile(f); up.value = ''; }; }
     // 이전 세션(백그라운드 폐기 등)에서 남은 전사 복원
@@ -770,7 +772,7 @@
     const sv = $('recSave'); if (sv) sv.textContent = '· 💾 오디오 저장됨 (' + (REC.blob.size < 1048576 ? Math.round(REC.blob.size / 1024) + 'KB' : (REC.blob.size / 1048576).toFixed(1) + 'MB') + ')';
     $('recActions').style.display = 'flex';
     // 실시간 전사 결과를 textarea 로 (Whisper 정본 전사 전까지 임시 표시)
-    $('recText').value = (REC.finalText || '').trim();
+    recSetText(REC.finalText || '');
     // 정지 즉시 녹음 전체를 자동으로 정확히 재전사 → 실시간 인식의 누락 보완(정본)
     autoWhisperAfterStop();
   }
@@ -787,7 +789,7 @@
     REC.busy = true; recProg('🎧 업로드한 오디오 전사 중(Whisper)…');
     try {
       const out = await transcribeBlob(file);
-      if (out) { REC.finalText = out; $('recText').value = out; recSaveDraft(); }
+      if (out) { recSetText(out); }
       recProg(out ? '✅ 전사 완료 — [회의록 정리]로 요약할 수 있어요' : '⚠ 인식 결과가 없습니다(오디오 확인)');
       setTimeout(() => recProg(''), 3500);
     } catch (e) { recProg('⚠ 전사 실패: ' + e.message); setTimeout(() => recProg(''), 4500); }
@@ -798,7 +800,7 @@
     REC.busy = true; recProg('🎯 정본 전사 생성 중(Whisper)… 녹음이 길면 잠시 걸립니다');
     try {
       const out = await transcribeBlob(REC.blob);
-      if (out) { REC.finalText = out; $('recText').value = out; recSaveDraft(); recProg('✅ 정본 전사 완료 — 실시간보다 정확합니다'); }
+      if (out) { recSetText(out); recProg('✅ 정본 전사 완료 — 실시간보다 정확합니다'); }
       else recProg('정본 전사 결과가 없어 실시간 전사를 사용합니다');
       setTimeout(() => recProg(''), 3000);
     } catch (e) { recProg('정본 전사 실패 — 실시간 전사를 사용합니다 (' + e.message + ')'); setTimeout(() => recProg(''), 4000); }
@@ -835,6 +837,36 @@
   function recShowInterim(t) { const el = $('recInterim'); if (!el) return; if (t) { el.textContent = '🎤 ' + t; el.style.display = 'block'; } else { el.textContent = ''; el.style.display = 'none'; } }
   /* ── Whisper 전사 코어: 오디오 blob → 16kHz mono WAV 50초 청크 → 순차 전송 → 텍스트 ── */
   function recProg(msg) { const p = $('recProg'); if (p) { p.style.display = msg ? 'block' : 'none'; p.textContent = msg || ''; } }
+  // 전사 텍스트에 문장 단위 줄바꿈 적용 → 편집·삽입이 문단 단위로 쉬워짐(무료·즉시)
+  function _fmtTranscript(t) {
+    t = String(t || '').replace(/\s+/g, ' ').trim(); if (!t) return '';
+    let out = t.replace(/([.!?…])\s+/g, '$1\n');   // 문장부호 뒤 줄바꿈
+    out = out.split('\n').map(line => {
+      line = line.trim(); if (line.length <= 60) return line;   // 부호 없는 긴 줄(라이브 인식 등)은 어절 경계로 ~45자마다 보조 분할
+      const words = line.split(' '); let cur = '', res = [];
+      for (const w of words) { if ((cur + ' ' + w).trim().length > 45) { if (cur) res.push(cur.trim()); cur = w; } else cur = (cur ? cur + ' ' : '') + w; }
+      if (cur.trim()) res.push(cur.trim());
+      return res.join('\n');
+    }).join('\n');
+    return out.replace(/\n{3,}/g, '\n\n').trim();
+  }
+  // 전사 결과를 포맷해서 textarea·상태에 반영
+  function recSetText(t) { const f = _fmtTranscript(t); REC.finalText = f; const ta = $('recText'); if (ta) ta.value = f; recSaveDraft(); }
+  // Claude 다듬기(띄어쓰기·문장부호·문단) — 이미 정돈된 텍스트라 포맷 재적용 없이 그대로 반영
+  async function recTidyRun() {
+    if (REC.busy) return;
+    const t = ($('recText').value || '').trim();
+    if (t.length < 5) { alert('다듬을 텍스트가 없습니다.'); return; }
+    REC.busy = true; recProg('✨ 띄어쓰기·문단 다듬는 중(Claude)…');
+    try {
+      const r = await fetch('/api/one-tidy', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: t }) });
+      const txt = await r.text(); let d; try { d = JSON.parse(txt); } catch (_) { throw new Error(/^\s*</.test(txt) ? '서버 응답 오류 — 새로고침 후 다시' : '서버 오류 ' + r.status); }
+      if (d && d.ok && d.text) { REC.finalText = d.text; const ta = $('recText'); if (ta) ta.value = d.text; recSaveDraft(); recProg('✅ 다듬기 완료 — 필요하면 직접 더 수정하세요'); }
+      else throw new Error((d && (d.detail || d.error)) || '실패');
+      setTimeout(() => recProg(''), 3000);
+    } catch (e) { recProg('⚠ 다듬기 실패: ' + e.message); setTimeout(() => recProg(''), 4000); }
+    finally { REC.busy = false; }
+  }
   async function transcribeBlob(blob) {
     const buf = await blob.arrayBuffer();
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -865,7 +897,7 @@
     REC.busy = true; recProg('오디오 디코딩 중…');
     try {
       const out = await transcribeBlob(blob);
-      REC.finalText = out; $('recText').value = out; recSaveDraft();
+      recSetText(out);
       recProg(out ? '✅ 정본 전사 완료' : '⚠ 인식된 내용이 없습니다');
       setTimeout(() => recProg(''), 2500);
     } catch (e) {
@@ -886,7 +918,7 @@
     REC.busy = true; recProg('🎯 복구 오디오 정본 전사 중(Whisper)…');
     try {
       const out = await transcribeBlob(blob);
-      if (out) { REC.finalText = out; $('recText').value = out; recSaveDraft(); }
+      if (out) { recSetText(out); }
       recProg(out ? '✅ 복구 전사 완료' : '⚠ 인식 결과가 없습니다(오디오 손상 가능)');
       setTimeout(() => recProg(''), 3000);
     } catch (e) { recProg('⚠ 복구 전사 실패: ' + e.message + ' — 저장된 실시간 전사를 사용하세요'); setTimeout(() => recProg(''), 5000); }
