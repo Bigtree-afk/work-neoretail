@@ -43,20 +43,31 @@ export async function onRequestPost(ctx) {
 }
 
 // 지정 ms 후 abort 되는 Claude 호출 (fetch 가 매달려 워커가 죽는 것 방지)
-async function callClaudeOnce(apiKey, model, system, messages, timeoutMs) {
+// baseUrl: 기본 api.anthropic.com. cfg.anthropicBase 설정 시 Cloudflare AI Gateway 등으로 우회 가능
+//   (예: https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic/v1/messages)
+async function callClaudeOnce(apiKey, model, system, messages, timeoutMs, baseUrl) {
   const payload = { model, max_tokens: 1024, system, messages };
   if (/opus-5|opus-4-8|opus-4-7|fable-5|sonnet-5/.test(model)) payload.thinking = { type: 'disabled' };
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const r = await fetch(baseUrl || 'https://api.anthropic.com/v1/messages', {
       method: 'POST', signal: ctl.signal,
-      // user-agent 명시 — 빈 UA + CF 워커 egress IP 는 Anthropic 앞단 WAF 가 봇으로 403 차단하는 패턴
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'user-agent': 'neoretail-one/1.0 (+https://work.neoretail.net)' },
+      // 표준 클라이언트처럼 보이게 — 빈 UA + 워커 egress IP 는 Anthropic 앞단 CF 가 403 차단하는 패턴
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'accept': 'application/json',
+        'user-agent': 'neoretail-one/1.0 (+https://work.neoretail.net)',
+      },
       body: JSON.stringify(payload),
     });
     const text = await r.text();
-    return { status: r.status, ok: r.ok, text };
+    // 403/5xx 진단용 — 차단 주체 식별(server=cloudflare + cf-ray 면 엣지 차단)
+    let meta = '';
+    if (!r.ok) meta = ' [http=' + r.status + ' server=' + (r.headers.get('server') || '') + ' cf-ray=' + (r.headers.get('cf-ray') || '') + ' cf-mitigated=' + (r.headers.get('cf-mitigated') || '') + ' retry-after=' + (r.headers.get('retry-after') || '') + ']';
+    return { status: r.status, ok: r.ok, text, meta };
   } finally { clearTimeout(timer); }
 }
 
@@ -96,12 +107,13 @@ async function handleChat({ request, env }) {
     return m;
   });
 
+  const baseUrl = (cfg.anthropicBase && /^https:\/\//.test(cfg.anthropicBase)) ? cfg.anthropicBase : '';
   const sleep = (ms) => new Promise(res => setTimeout(res, ms));
   // 호출 — 타임아웃 22s, 429/5xx/네트워크는 1회 재시도, Opus 5 미지원(404/403)이면 sonnet 폴백
   async function callWithRetry(model) {
     for (let attempt = 0; attempt < 2; attempt++) {
       let res;
-      try { res = await callClaudeOnce(apiKey, model, system, messages, 22000); }
+      try { res = await callClaudeOnce(apiKey, model, system, messages, 22000, baseUrl); }
       catch (e) { if (attempt === 0) { await sleep(900); continue; } return { err: 'timeout_or_network', detail: String((e && e.message) || e) }; }
       if (res.ok) return res;
       // 429/5xx 만 1회 재시도(진짜 일시 오류). 403 은 재시도하면 엣지 남용차단만 악화 → 즉시 반환(상위서 sonnet 폴백)
@@ -119,7 +131,7 @@ async function handleChat({ request, env }) {
     res = await callWithRetry(FALLBACK_MODEL);
     if (res && res.err) return json({ ok: false, error: res.err, detail: (res.detail || '').slice(0, 200) }, 200);
   }
-  if (!res || !res.ok) return json({ ok: false, error: 'claude_' + ((res && res.status) || '000'), detail: (res && res.text || '').slice(0, 200) }, 200);
+  if (!res || !res.ok) return json({ ok: false, error: 'claude_' + ((res && res.status) || '000'), detail: ((res && res.text || '').slice(0, 160) + (res && res.meta || '')) }, 200);
 
   let data;
   try { data = JSON.parse(res.text); }
