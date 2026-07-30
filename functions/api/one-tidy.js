@@ -22,6 +22,15 @@ function json(obj, status = 200) {
   });
 }
 
+function resolveClaudeUrl(anthropicBase) {
+  let b = String(anthropicBase || '').trim().replace(/\/+$/, '');
+  if (!/^https:\/\//.test(b)) return '';
+  const gw = b.match(/^(https:\/\/gateway\.ai\.cloudflare\.com\/v1\/[^/]+\/[^/]+)(?:\/.*)?$/i);
+  if (gw) return gw[1] + '/anthropic/v1/messages';
+  if (/\/v1\/messages$/.test(b)) return b;
+  return b + '/v1/messages';
+}
+
 export async function onRequestOptions() { return json({}, 204); }
 
 export async function onRequestPost({ request, env }) {
@@ -47,11 +56,7 @@ export async function onRequestPost({ request, env }) {
 원문:
 ${text.slice(0, 16000)}`;
 
-  let base = 'https://api.anthropic.com/v1/messages';
-  if (cfg.anthropicBase && /^https:\/\//.test(cfg.anthropicBase)) {
-    base = cfg.anthropicBase.replace(/\/+$/, '');
-    if (!/\/v1\/messages$/.test(base)) base += '/v1/messages';
-  }
+  const base = resolveClaudeUrl(cfg.anthropicBase) || 'https://api.anthropic.com/v1/messages';
   let r;
   try {
     r = await fetch(base, {
