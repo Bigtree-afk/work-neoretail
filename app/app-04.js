@@ -206,7 +206,8 @@
         const j = window._bigGet('ns_jobs') || '';
         const s = window._bigGet('ns_stores') || '';
         const t = (function(){ try { return localStorage.getItem('ns_stocktake') || ''; } catch { return ''; } })();
-        return window._fastHash ? (window._fastHash(j) + '/' + window._fastHash(s) + '/' + window._fastHash(t)) : (j.length + '/' + s.length + '/' + t.length);
+        const e = (function(){ try { return (localStorage.getItem('ns_eap_docs') || '') + (localStorage.getItem('ns_eap_cfg') || ''); } catch { return ''; } })();
+        return window._fastHash ? (window._fastHash(j) + '/' + window._fastHash(s) + '/' + window._fastHash(t) + '/' + window._fastHash(e)) : (j.length + '/' + s.length + '/' + t.length + '/' + e.length);
       } catch { return ''; }
     }
 
@@ -222,6 +223,7 @@
         if (typeof window.syncJobsFromCloud === 'function') await window.syncJobsFromCloud({ auto: !opts.force });
         if (typeof window.syncFromCloud === 'function')      await window.syncFromCloud({ silent:true, auto: !opts.force });
         if (typeof window.syncStocktakeFromCloud === 'function') await window.syncStocktakeFromCloud();
+        if (window.EAP && typeof window.EAP._sync === 'function') await window.EAP._sync();   // 전자결재(연차/생일) — 대시보드 EVENT 최신화
       } catch(e) { /* 네트워크 실패 무시 */ }
       _busy = false;
       const after = _snapshotHash();
@@ -3468,6 +3470,12 @@
   function _renderDashSchedule() {
     const body = document.getElementById('dashTodayBody');
     if (!body) return;
+    // 🌴 전자결재(연차/생일) 데이터는 전자결재 화면일 때만 동기화됨 → 대시보드 EVENT 가 비어
+    //   보이고, 전자결재를 한 번 열어야 채워지던 문제. 이 카드 렌더 시 1회 eap 동기화 후 재렌더.
+    if (!window._eapDashSynced && window.EAP && typeof window.EAP._sync === 'function') {
+      window._eapDashSynced = true;
+      Promise.resolve(window.EAP._sync()).then(() => { try { _renderDashSchedule(); } catch (_) {} }).catch(() => {});
+    }
     const tab = window._dashSchTab || 'upcoming';
     const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
     const end = new Date(Date.now() + 9 * 3600 * 1000 + 30 * 86400000).toISOString().slice(0, 10);
