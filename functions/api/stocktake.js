@@ -118,7 +118,7 @@ export async function onRequestPost({ request, env }) {
 
     // upsert incoming (mtime 비교, 삭제된 id 는 부활 차단)
     let added = 0, replaced = 0, kept = 0, blocked = 0;
-    for (const inc of incoming) {
+    for (let inc of incoming) {
       if (!inc || typeof inc !== 'object' || !inc.id) continue;
       const id = String(inc.id);
       if (deletedIds.has(id)) { blocked++; continue; }   // 부활 차단
