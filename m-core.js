@@ -806,20 +806,25 @@
       const deleted = new Set((Array.isArray(data.deleted) ? data.deleted : []).map(e => String(e && e.id || '')).filter(Boolean));
       const cloudIds = new Set(cloud.map(r => String(r.id)));
       let local = []; try { local = JSON.parse(localStorage.getItem('ns_stocktake') || '[]'); } catch(_){}
-      // ② 로컬에만 있고(cloud X, deleted X) 있는 레코드 = 아직 안 올라간 로컬 기록 → 업로드(백필)
-      const localOnly = local.filter(r => r && r.id && !cloudIds.has(String(r.id)) && !deleted.has(String(r.id)));
-      let finalRecs = cloud;
-      if (localOnly.length) {
-        try {
-          const up = await fetch('/api/stocktake', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ records: localOnly }) });
-          if (up.ok) { const ud = await up.json(); if (Array.isArray(ud.records)) finalRecs = ud.records; }
-          else finalRecs = cloud.concat(localOnly);
-        } catch(_) { finalRecs = cloud.concat(localOnly); }
-      }
-      // ③ 캐시 = 클라우드(정본) [∪ 방금 업로드분], deleted 제외
-      const clean = finalRecs.filter(r => r && r.id && !deleted.has(String(r.id)));
+      // ② 레코드 단위 mtime 머지 — 최신이 이김(스테일 GET 이 로컬 최신을 덮는 복원버그 방지).
+      //    updatedAt/lastEditedAt/createdAt 순 mtime. 로컬 newer=방금편집/전파중 보호, cloud newer=타기기변경 수용.
+      const _mt = r => { const v = r && (r.updatedAt ?? r.lastEditedAt ?? r.createdAt); if (v==null||v==='') return 0; if (typeof v==='number') return v; const s=String(v); if (/^\d+$/.test(s)) return Number(s); const p=Date.parse(s); return p||0; };
+      const _byId = new Map();
+      cloud.forEach(r => { if (r && r.id && !deleted.has(String(r.id))) _byId.set(String(r.id), r); });
+      let _localWon = false;
+      local.forEach(r => {
+        if (!r || !r.id || deleted.has(String(r.id))) return;
+        const id = String(r.id); const c = _byId.get(id);
+        if (!c) { _byId.set(id, r); _localWon = true; return; }       // 로컬only(백필 대상) → 유지
+        if (_mt(r) > _mt(c)) { _byId.set(id, r); _localWon = true; }  // 로컬 최신 → 유지(스테일 덮어쓰기 방지)
+      });
+      const clean = [...(_byId.values())].filter(r => r && r.id && !deleted.has(String(r.id)));
       try { localStorage.setItem('ns_stocktake', JSON.stringify(clean)); } catch(_){}
-      try { if (etag && !localOnly.length) localStorage.setItem('ns_stocktake_etag', etag); else localStorage.removeItem('ns_stocktake_etag'); } catch(_){}
+      // ③ 백필/재전송 — 클라우드에 없거나 로컬이 더 최신인 레코드를 서버로 upsert(멱등)
+      const _toUpload = clean.filter(r => { const c = cloud.find(x => x && String(x.id) === String(r.id)); return !c || _mt(r) > _mt(c); });
+      if (_toUpload.length) { try { await fetch('/api/stocktake', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ records: _toUpload }) }); } catch(_){} }
+      // etag: 로컬 override 있었으면 다음 sync 는 풀-GET(수렴 전까지 304 skip 금지)
+      try { if (etag && !_localWon) localStorage.setItem('ns_stocktake_etag', etag); else localStorage.removeItem('ns_stocktake_etag'); } catch(_){}
     } catch(_) { /* 네트워크 실패 무시 */ }
   }
 
