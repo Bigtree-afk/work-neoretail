@@ -690,6 +690,7 @@ function renderHome(){
 ═══════════════════════════════════════════════════════════ */
 function renderEntry(){
   const list = $('entryList');
+  try { _selfHealStocktake(); } catch(_){}   // thread 완료됐는데 상담에 머문 기존 기록 status 보정
   const recs = (typeof getStocktakes === 'function') ? (getStocktakes() || []) : [];
   const filtered = recs.filter(r => String(r.status||'상담') !== '마감');
   // 정렬: scheduleDate 임박순 (오름차순). 없으면 consultDate, doneDate, createdAt
@@ -1270,13 +1271,11 @@ function openStocktakeLine(rec, opts){
   const entry = opts.entry;
   const status = (entry && entry.status) || rec.status || '';
   const todayK = todayKst();
-  let processDate = '';
-  if (status === '마감' || status === '정산' || status === '조사완료') {
-    processDate = rec.doneDate || rec.scheduleDate || todayK;
-  } else if (status === '일정확정') {
-    processDate = rec.scheduleDate || rec.consultDate || todayK;
-  } else {
-    processDate = rec.consultDate || todayK;
+  // 📅 LINE 일자 = 재고조사일(조사예정일 scheduleDate) 우선. 없을 때만 상태별 폴백.
+  let processDate = rec.scheduleDate || '';
+  if (!processDate) {
+    if (status === '마감' || status === '정산' || status === '조사완료') processDate = rec.doneDate || todayK;
+    else processDate = rec.consultDate || todayK;
   }
 
   // 헤드 콘텐츠
@@ -1494,6 +1493,40 @@ function renderThreadGroups(rec){
   }
 }
 
+/* thread 완료 → 재고조사 status 자동 전진(상담 등 → 조사완료). 하향 없음(sticky). jobs _recomputeJobStatus 미러.
+   요청접수(ROOT)가 하나라도 있고 전부 '완료'면 조사완료로 승격 + completed/doneDate 세팅. */
+function _recomputeStocktakeStatus(rec){
+  if (!rec) return false;
+  const thread = Array.isArray(rec.thread) ? rec.thread : [];
+  const roots = thread.filter(e => e && e.parentId === null);
+  if (!roots.length) return false;   // 요청접수 없으면 stage 는 수동 관리
+  const gs = window._groupStatus || function(root, kids){ if(!kids||!kids.length) return root.status||'요청접수'; return kids[kids.length-1].status||'진행'; };
+  const kidsByRoot = {};
+  thread.forEach(e => { if (e && e.parentId){ (kidsByRoot[e.parentId] = kidsByRoot[e.parentId] || []).push(e); } });
+  Object.keys(kidsByRoot).forEach(k => kidsByRoot[k].sort((a,b)=>String(a.ts||'').localeCompare(String(b.ts||''))));
+  const allDone = roots.every(r => gs(r, kidsByRoot[r.threadId] || []) === '완료');
+  if (!allDone) return false;        // 미완료 → 수동 stage 유지(하향 금지)
+  let changed = false;
+  const cur = STAGES.indexOf(String(rec.status || '상담'));
+  const doneIdx = STAGES.indexOf('조사완료');
+  if (cur < doneIdx) { rec.status = '조사완료'; changed = true; }
+  if (!rec.completed) { rec.completed = true; changed = true; }
+  if (!rec.doneDate)  { rec.doneDate = new Date(Date.now()+9*3600*1000).toISOString().slice(0,10); changed = true; }
+  if (changed) rec.updatedAt = Date.now();
+  return changed;
+}
+window._recomputeStocktakeStatus = _recomputeStocktakeStatus;
+/* 기존 데이터 self-heal — thread 완료됐는데 status 가 상담 등에 머문 레코드 보정(+클라우드 push). 변경 시에만 저장. */
+function _selfHealStocktake(){
+  try {
+    const arr = getStocktakes(); let changed = false;
+    arr.forEach(rec => { if (_recomputeStocktakeStatus(rec)) changed = true; });
+    if (changed) saveStocktakes(arr);
+    return changed;
+  } catch(_) { return false; }
+}
+window._selfHealStocktake = _selfHealStocktake;
+
 window.onAddRoot = function(){
   const text = ($('thNewRoot').value || '').trim();
   if (!text) { showToast('⚠ 요청 내용을 입력하세요'); return; }
@@ -1514,6 +1547,7 @@ window.onAddRoot = function(){
   rec.thread.push(entry);
   if (typeof window._threadMigrate === 'function') rec.thread = window._threadMigrate(rec.thread);
   rec.updatedAt = Date.now();
+  _recomputeStocktakeStatus(rec);   // thread 완료 시 status → 조사완료 자동 전진
   arr[ix] = rec;
   saveStocktakes(arr);
   if ($('thNewRootLine').checked) openStocktakeLine(rec, { entry });
@@ -1544,6 +1578,7 @@ window.onAddChild = function(rootId){
   rec.thread.push(entry);
   if (typeof window._threadMigrate === 'function') rec.thread = window._threadMigrate(rec.thread);
   rec.updatedAt = Date.now();
+  _recomputeStocktakeStatus(rec);   // thread 완료 시 status → 조사완료 자동 전진
   arr[ix] = rec;
   saveStocktakes(arr);
   if ($('ch_line_' + rootId).checked) openStocktakeLine(rec, { entry });
