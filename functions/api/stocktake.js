@@ -14,6 +14,9 @@
  * 작업(jobs) 과 달리 "localStorage 원본 + 머지" 가 아니라 클라우드가 진실.
  * 클라이언트는 레코드 1건씩만 보내고(전체 덮어쓰기 없음) 서버가 병합 → 동시편집 안전.
  */
+// 재고조사 단계 순서 — stage-sticky(강등 방지)용
+const STAGE_ORDER = { '상담':0, '일정확정':1, '조사완료':2, '정산':3, '마감':4 };
+
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
@@ -121,6 +124,16 @@ export async function onRequestPost({ request, env }) {
       if (deletedIds.has(id)) { blocked++; continue; }   // 부활 차단
       const ex = byId.get(id);
       if (!ex) { byId.set(id, inc); added++; continue; }
+      // 🔒 stage-sticky — 완료계열(조사완료/정산/마감) 또는 completed=true 인 기존을 더 이른 stage 로
+      //   강등 금지(스테일 기기가 상담 등을 올려 마감이 복원되던 버그 차단, jobs 완료-sticky 미러).
+      //   명시적 reopen(incoming.completed===false)만 강등 허용.
+      const exStage = STAGE_ORDER[ex.status] ?? 0;
+      const inStage = STAGE_ORDER[inc.status] ?? 0;
+      const exDone = ex.completed === true || exStage >= 2;
+      if (exDone && inStage < exStage && inc.completed !== false) {
+        // 강등 시도 → status/completed/doneDate 는 기존 유지(다른 필드는 아래 mtime 규칙대로 반영)
+        inc = { ...inc, status: ex.status, completed: (ex.completed === true) || inc.completed, doneDate: inc.doneDate || ex.doneDate };
+      }
       const exMt = mtimeMs(ex), inMt = mtimeMs(inc);
       if (!exMt || inMt > exMt) { byId.set(id, inc); replaced++; }
       else if (inMt === exMt && JSON.stringify(ex) !== JSON.stringify(inc)) { byId.set(id, inc); replaced++; }
