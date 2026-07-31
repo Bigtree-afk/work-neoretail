@@ -205,7 +205,8 @@
         // ⚡ A-5 — JSON.parse(1.4MB) 제거. raw 문자열 content-hash 로 변경 감지(파싱 없음).
         const j = window._bigGet('ns_jobs') || '';
         const s = window._bigGet('ns_stores') || '';
-        return window._fastHash ? (window._fastHash(j) + '/' + window._fastHash(s)) : (j.length + '/' + s.length);
+        const t = (function(){ try { return localStorage.getItem('ns_stocktake') || ''; } catch { return ''; } })();
+        return window._fastHash ? (window._fastHash(j) + '/' + window._fastHash(s) + '/' + window._fastHash(t)) : (j.length + '/' + s.length + '/' + t.length);
       } catch { return ''; }
     }
 
@@ -220,6 +221,7 @@
       try {
         if (typeof window.syncJobsFromCloud === 'function') await window.syncJobsFromCloud({ auto: !opts.force });
         if (typeof window.syncFromCloud === 'function')      await window.syncFromCloud({ silent:true, auto: !opts.force });
+        if (typeof window.syncStocktakeFromCloud === 'function') await window.syncStocktakeFromCloud();
       } catch(e) { /* 네트워크 실패 무시 */ }
       _busy = false;
       const after = _snapshotHash();
@@ -1331,6 +1333,7 @@
       if (sid === 'screen-vanhub'      && typeof window.renderVanHub === 'function')      window.renderVanHub();
       if (sid === 'screen-supplieshub' && typeof window.renderSuppliesHub === 'function') window.renderSuppliesHub();
       if (sid === 'screen-asmgmt'      && typeof hydrateAsMgmt === 'function')            hydrateAsMgmt();
+      if (sid === 'screen-stocktakehub') { try { (window._stocktakeSwitchPane ? window._stocktakeSwitchPane(window._stocktakeCurrentPane || 'list') : window.renderStocktakeHub && window.renderStocktakeHub()); } catch(_){} }
     } catch(e){}
     // 점포 상세 모달이 열려 있으면 해당 매장만 재렌더
     try {

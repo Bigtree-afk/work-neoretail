@@ -533,6 +533,17 @@
       try { if (typeof hydrateNewopen === 'function') hydrateNewopen('all'); } catch(e){}
       try { if (typeof hydrateSavedStores === 'function') hydrateSavedStores(); } catch(e){}
       try { if (typeof renderCalendar === 'function') renderCalendar(); } catch(e){}
+      // 재고조사 클라우드 정본 동기화(+로컬 기록 백필) — 완료 후 재고조사 화면이면 재렌더
+      if (typeof window.syncStocktakeFromCloud === 'function') {
+        window.syncStocktakeFromCloud().then(() => {
+          try {
+            const active = document.querySelector('.screen.active');
+            if (active && active.id === 'screen-stocktakehub') {
+              (window._stocktakeSwitchPane ? window._stocktakeSwitchPane(window._stocktakeCurrentPane || 'list') : window.renderStocktakeHub && window.renderStocktakeHub());
+            }
+          } catch(_){}
+        });
+      }
     }, 600);
 
     /* ════════════════════════════════════════════════════════════
@@ -1972,14 +1983,69 @@
   /* ─── 재고조사 Hub (Stocktake) ─── */
   window._stocktakeHubState = window._stocktakeHubState || { filter: 'all' };
 
+  /* 재고조사 = 클라우드 정본(cloud-native, 레코드 단위). getStocktakes=로컬캐시(동기),
+     saveStocktakes=캐시저장+변경분만 push, syncStocktakeFromCloud=pending flush→GET→로컬only 백필→캐시=클라우드.
+     ⚠ PC(app-01)·모바일(m-core) 쌍둥이 — 한쪽 수정 시 다른 쪽도 동일하게. */
   window.getStocktakes = function() {
     try { return JSON.parse(localStorage.getItem('ns_stocktake') || '[]'); } catch { return []; }
   };
-  window.saveStocktakes = function(arr) {
+  window._stReadPending = function() { try { return JSON.parse(localStorage.getItem('ns_stocktake_pending') || '{"recs":{},"dels":[]}'); } catch { return { recs:{}, dels:[] }; } };
+  window._stWritePending = function(p) { try { localStorage.setItem('ns_stocktake_pending', JSON.stringify(p)); } catch(_){} };
+  window._stQueue = function(records, deletedIds) {
+    const p = window._stReadPending();
+    (records||[]).forEach(r => { if (r && r.id) p.recs[String(r.id)] = r; });
+    (deletedIds||[]).forEach(id => { id = String(id); if (id) { if (!p.dels.includes(id)) p.dels.push(id); delete p.recs[id]; } });
+    window._stWritePending(p);
+  };
+  window._stFlushPending = async function() {
+    const p = window._stReadPending(); const recs = Object.values(p.recs || {}); const dels = p.dels || [];
+    if (!recs.length && !dels.length) return true;
     try {
-      localStorage.setItem('ns_stocktake', JSON.stringify(arr));
-      localStorage._storesDirty = '1';
-    } catch(e){ console.warn('saveStocktakes failed', e); }
+      const res = await fetch('/api/stocktake', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ records: recs, deletedIds: dels }) });
+      if (!res.ok) return false;
+      window._stWritePending({ recs:{}, dels:[] }); return true;
+    } catch(_) { return false; }
+  };
+  window.saveStocktakes = function(arr) {
+    arr = Array.isArray(arr) ? arr : [];
+    let prev = []; try { prev = JSON.parse(localStorage.getItem('ns_stocktake') || '[]'); } catch(_){}
+    try { localStorage.setItem('ns_stocktake', JSON.stringify(arr)); } catch(e){ console.warn('saveStocktakes failed', e); }
+    try {
+      const prevById = {}; prev.forEach(r => { if (r && r.id) prevById[String(r.id)] = JSON.stringify(r); });
+      const nowIds = new Set(); const changed = [];
+      arr.forEach(r => { if (!r || !r.id) return; const id = String(r.id); nowIds.add(id); const s = JSON.stringify(r); if (prevById[id] !== s) changed.push(r); });
+      const deletedIds = prev.filter(r => r && r.id && !nowIds.has(String(r.id))).map(r => String(r.id));
+      if (changed.length || deletedIds.length) { window._stQueue(changed, deletedIds); window._stFlushPending(); }
+    } catch(_){}
+  };
+  window.syncStocktakeFromCloud = async function() {
+    try {
+      await window._stFlushPending();   // ① 밀린 쓰기 먼저 반영
+      const inm = (function(){ try { return localStorage.getItem('ns_stocktake_etag') || ''; } catch { return ''; } })();
+      const res = await fetch('/api/stocktake', { cache:'no-store', headers: inm ? { 'If-None-Match': inm } : undefined });
+      if (res.status === 304) return;
+      if (!res.ok) return;
+      const etag = res.headers.get('ETag') || '';
+      const data = await res.json();
+      const cloud = Array.isArray(data.records) ? data.records : [];
+      const deleted = new Set((Array.isArray(data.deleted) ? data.deleted : []).map(e => String(e && e.id || '')).filter(Boolean));
+      const cloudIds = new Set(cloud.map(r => String(r.id)));
+      let local = []; try { local = JSON.parse(localStorage.getItem('ns_stocktake') || '[]'); } catch(_){}
+      // ② 로컬에만 있고(cloud X, deleted X) 있는 레코드 = 아직 안 올라간 로컬 기록 → 업로드(백필)
+      const localOnly = local.filter(r => r && r.id && !cloudIds.has(String(r.id)) && !deleted.has(String(r.id)));
+      let finalRecs = cloud;
+      if (localOnly.length) {
+        try {
+          const up = await fetch('/api/stocktake', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ records: localOnly }) });
+          if (up.ok) { const ud = await up.json(); if (Array.isArray(ud.records)) finalRecs = ud.records; }
+          else finalRecs = cloud.concat(localOnly);
+        } catch(_) { finalRecs = cloud.concat(localOnly); }
+      }
+      // ③ 캐시 = 클라우드(정본) [∪ 방금 업로드분], deleted 제외
+      const clean = finalRecs.filter(r => r && r.id && !deleted.has(String(r.id)));
+      try { localStorage.setItem('ns_stocktake', JSON.stringify(clean)); } catch(_){}
+      try { if (etag && !localOnly.length) localStorage.setItem('ns_stocktake_etag', etag); else localStorage.removeItem('ns_stocktake_etag'); } catch(_){}
+    } catch(_) { /* 네트워크 실패 무시 */ }
   };
 
   window._stEsc = function(s) {
