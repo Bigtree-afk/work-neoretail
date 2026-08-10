@@ -422,12 +422,13 @@
     if ((d.cc || []).includes(me) && d.status === 'ok') return true;
     return false;
   }
-  // 검색 대상 텍스트 blob — 제목·기안자·양식·필드(라벨+값, rich 는 태그 제거)·결재선·참조·금액
+  // 검색 대상 텍스트 blob — 제목·기안자·양식·필드(라벨+값, rich 는 태그 제거)·결재선·금액
+  //   ⚠ 참조(cc)는 검색 대상에서 제외 — 이름 검색 시 그 사람이 '참조'로만 걸린 타인 기안 문서가
+  //     섞여 나오던 문제(예: '한소현' 검색에 김지연·김혜연 기안 문서 노출). (참조 열람권한은 searchVisible 로 별도 처리)
   function _docSearchBlob(d) {
     const p = [d.title, d.drafter, d.tpl, (KIND[d.kind] || {}).label];
     (d.fields || []).forEach(f => { p.push(f.label); p.push(f.type === 'rich' ? String(f.value || '').replace(/<[^>]+>/g, ' ') : f.value); });
     (d.line || []).forEach(s => p.push(s.n));
-    (d.cc || []).forEach(n => p.push(n));
     if (d.amount) p.push(String(d.amount));
     return p.filter(Boolean).join(' ').toLowerCase();
   }
