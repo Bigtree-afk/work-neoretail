@@ -21,7 +21,7 @@
   const ADMIN_EMAILS = ['zoolex@gmail.com'];
 
   // ── UI 상태 ──
-  let TAB = 'appr', SUB = 'received', SCHSUB = 'up', SEARCH = '';
+  let TAB = 'appr', SUB = 'received', SCHSUB = 'up', SEARCH = '', SEARCHSCOPE = 'all';   // 검색범위: all(모두=권한 내 전체 필드) | drafter(기안자만)
   let _execFrom = '', _execTo = '';
   let _doneTplFilter = 'all';
   // 자금관리 상태
@@ -555,7 +555,11 @@
         <div id="eapChips" class="eap-chips">${chips}
           <span class="eap-searchbox">
             <span class="ic">🔍</span>
-            <input id="eapSearchInput" type="text" placeholder="결재 검색" value="${esc(SEARCH)}" oninput="EAP.setSearch(this.value)" onkeydown="if(event.key==='Escape')EAP.setSearch('')">
+            <select id="eapSearchScope" title="검색 범위" onchange="EAP.setSearchScope(this.value)" style="border:none;background:transparent;font-size:12px;font-weight:700;color:#555;outline:none;cursor:pointer;padding:0 2px">
+              <option value="all"${SEARCHSCOPE === 'all' ? ' selected' : ''}>모두</option>
+              <option value="drafter"${SEARCHSCOPE === 'drafter' ? ' selected' : ''}>기안자</option>
+            </select>
+            <input id="eapSearchInput" type="text" placeholder="${SEARCHSCOPE === 'drafter' ? '기안자 이름 검색' : '결재 검색(제목·기안자·내용)'}" value="${esc(SEARCH)}" oninput="EAP.setSearch(this.value)" onkeydown="if(event.key==='Escape')EAP.setSearch('')">
             <button id="eapSearchClear" title="검색 해제" style="${SEARCH ? '' : 'display:none'}" onclick="EAP.setSearch('')">✕</button>
           </span>
         </div>
@@ -570,7 +574,10 @@
     let list;
     if (q) {
       const toks = q.split(/\s+/).filter(Boolean);
-      list = docs.filter(searchVisible).filter(d => { const blob = _docSearchBlob(d); return toks.every(t => blob.includes(t)); });
+      list = docs.filter(searchVisible).filter(d => {
+        if (SEARCHSCOPE === 'drafter') { const nm = String(d.drafter || '').toLowerCase(); return toks.every(t => nm.includes(t)); }
+        const blob = _docSearchBlob(d); return toks.every(t => blob.includes(t));
+      });
     }
     else if (SUB === 'received') list = docs.filter(isMyTurn);
     else if (SUB === 'mine') list = docs.filter(d => d.drafter === me);
@@ -591,7 +598,8 @@
     }
     const body = list.length ? list.map(docCard).join('') : `<div class="eap-empty">${q ? '🔍 검색 결과가 없습니다' : '📭 항목이 없습니다'}</div>`;
     const execSum = (SUB === 'exec' && !q) ? `<div id="eapExecSummary">${execSummaryHtml()}</div>` : '';
-    const searchNote = q ? `<div class="eap-meta" style="margin:2px 0 8px">🔍 "<b>${esc(SEARCH)}</b>" 검색 결과 <b>${list.length}</b>건 <span style="opacity:.7">· 권한 있는 결재 전체에서 검색</span></div>` : '';
+    const scopeNote = SEARCHSCOPE === 'drafter' ? '기안자 기준' : '권한 있는 결재 전체(제목·기안자·내용)';
+    const searchNote = q ? `<div class="eap-meta" style="margin:2px 0 8px">🔍 "<b>${esc(SEARCH)}</b>" 검색 결과 <b>${list.length}</b>건 <span style="opacity:.7">· ${scopeNote}</span></div>` : '';
     return `${searchNote}${execSum}${doneTickers}<div>${body}</div>`;
   }
   EAP.setSearch = function (v) {
@@ -604,6 +612,14 @@
     const res = document.getElementById('eapApprResults');
     if (res) res.innerHTML = _apprResultsHtml();   // 리스트만 갱신 — 입력 DOM 유지 → 포커스/커서 보존
     else renderTab();
+  };
+  EAP.setSearchScope = function (v) {
+    SEARCHSCOPE = (v === 'drafter') ? 'drafter' : 'all';
+    const inEl = document.getElementById('eapSearchInput');
+    if (inEl) inEl.placeholder = SEARCHSCOPE === 'drafter' ? '기안자 이름 검색' : '결재 검색(제목·기안자·내용)';
+    const res = document.getElementById('eapApprResults');
+    if (res) res.innerHTML = _apprResultsHtml(); else renderTab();
+    if (inEl) inEl.focus();
   };
   EAP.setSub = function (s) { SUB = s; SEARCH = ''; _doneTplFilter = 'all'; renderTab(); };
   EAP.setDoneTpl = function (k) { _doneTplFilter = k; renderTab(); };
