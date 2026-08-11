@@ -255,7 +255,19 @@
   function myRoute(n) { const r = getRoutes()[n || ME()]; return Array.isArray(r) ? r.slice() : []; }
   function getBirths() { const b = getCfg().birth; return (b && typeof b === 'object') ? b : {}; }
   function getLeaveAll() { const l = getCfg().leave; return (l && typeof l === 'object') ? l : {}; }
-  function getLeave(name) { const l = getLeaveAll()[name]; return l || { total: 15, used: 0 }; }
+  // 🌴 연차 모델(2026-07-31): config.leave[name] = { total(부여), manual(수기 이월), manualDate }.
+  //   문서사용 = 승인(ok) 연차문서 합계(자동 파생) → used = manual + 문서사용, 잔여 = total − used.
+  //   used 를 단일 카운터로 누적하던 옛 방식은 동기화 유실/삭제버그로 부정확 → 파생으로 전환.
+  function _leaveDocUsed(name) {
+    return getDocs().reduce((s, d) => (d && d.kind === 'leave' && d.status === 'ok' && d.drafter === name) ? s + (Number(d.days) || 0) : s, 0);
+  }
+  function getLeave(name) {
+    const l = getLeaveAll()[name] || {};
+    const total = (l.total != null) ? (Number(l.total) || 0) : 15;
+    const manual = Number(l.manual) || 0;
+    const docUsed = _leaveDocUsed(name);
+    return { total, manual, manualDate: l.manualDate || '', docUsed, used: +(manual + docUsed).toFixed(2), remain: +(total - manual - docUsed).toFixed(2) };
+  }
   function getLineMap() { const m = getCfg().lineMap; return (m && typeof m === 'object') ? m : {}; }
 
   function saveCfgKey(key, val) {
@@ -789,12 +801,8 @@
     if (!d) return;
     if (!canDeleteDoc(d)) { toast('완료된 결재만, 지정된 관리자만 삭제할 수 있습니다'); return; }
     if (!confirm('이 결재를 삭제합니다.\n\n' + (d.title || '(제목 없음)') + '\n기안: ' + (d.drafter || '') + '\n\n모든 기기에서 사라지며 되돌릴 수 없습니다.\n계속할까요?')) return;
-    // 🌴 완료된 연차 삭제 → 사용 일수 복원. used 는 최종승인 시 d.days 만큼 누적된 값이므로 되돌린다.
-    if (d.kind === 'leave' && Number(d.days)) {
-      const all = getLeaveAll(); const cur = all[d.drafter] || { total: 15, used: 0 };
-      cur.used = Math.max(0, (Number(cur.used) || 0) - Number(d.days));
-      all[d.drafter] = cur; saveCfgKey('leave', all);
-    }
+    // 🌴 연차 삭제 시 사용일수 복원 불필요 — 문서사용은 문서 목록에서 파생(getLeave)되므로
+    //   문서가 삭제되면 자동으로 문서사용/잔여가 재계산됨. (옛 used 카운터 수동 복원 로직 제거)
     addDeleted(id);
     _pendingTombs.push({ id, deletedAt: new Date().toISOString(), reason: 'doc-del' });
     _save(docs.filter(x => x.id !== id));
@@ -850,10 +858,8 @@
     d.updatedAt = Date.now();
     if (d.step >= d.line.length) {
       d.status = 'ok';
-      if (d.kind === 'leave' && d.days) {
-        const all = getLeaveAll(); const cur = all[d.drafter] || { total: 15, used: 0 };
-        cur.used = (Number(cur.used) || 0) + Number(d.days); all[d.drafter] = cur; saveCfgKey('leave', all);
-      }
+      // 🌴 연차 최종승인 → 문서사용은 getLeave 가 승인(ok) 문서에서 자동 파생(수기+문서). 별도 카운터 가산 안 함.
+      //   (옛 used 누적 방식은 config 동기화 유실/삭제버그로 부정확했음 → 파생으로 대체)
       _save(docs);
       notify(d.drafter, 'done', d);
       toast('✅ 최종 승인 완료');
@@ -1394,31 +1400,64 @@
   function renderLeave() {
     const me = ME();
     const lv = getLeave(me);
-    const remain = (Number(lv.total) || 0) - (Number(lv.used) || 0);
     const pct = lv.total ? Math.min(100, Math.round((lv.used / lv.total) * 100)) : 0;
     const myDocs = getDocs().filter(d => d.kind === 'leave' && d.drafter === me).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     const canEdit = canEditLeave();
-    const team = (isAdmin() || canEdit) ? STAFF().map(n => { const l = getLeave(n); const r = (Number(l.total) || 0) - (Number(l.used) || 0); return `<tr><td>${esc(n)}</td><td>${l.total}</td><td>${l.used}</td><td><b>${r}</b></td>${canEdit ? `<td><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.openLeaveEdit(${J(n)})">✏️</button></td>` : ''}</tr>`; }).join('') : '';
+    // 팀 현황 — 직원 / 부여 / 수기입력 / 문서사용 / 잔여. 직원명 클릭 → 일자별 상세.
+    const team = (isAdmin() || canEdit) ? STAFF().map(n => {
+      const l = getLeave(n);
+      return `<tr>
+        <td><a href="#" onclick="EAP.openLeaveDetail(${J(n)});return false" style="color:#1F4E78;font-weight:700;text-decoration:underline">${esc(n)}</a></td>
+        <td>${l.total}</td><td>${l.manual}</td><td>${l.docUsed}</td><td><b style="color:#16A34A">${l.remain}</b></td>
+        ${canEdit ? `<td><button class="eap-btn eap-btn-o eap-btn-sm" onclick="EAP.openLeaveEdit(${J(n)})">✏️</button></td>` : ''}</tr>`;
+    }).join('') : '';
     return `
       <div class="eap-bar"><div></div><button class="eap-btn eap-btn-p" onclick="EAP.openDraft('t-leave')">🌴 연차 신청</button></div>
       <div class="eap-lvcards">
         <div class="eap-lv"><div class="v">${lv.total}</div><div class="l">부여</div></div>
-        <div class="eap-lv"><div class="v" style="color:#EA580C">${lv.used}</div><div class="l">사용</div></div>
-        <div class="eap-lv"><div class="v" style="color:#16A34A">${remain}</div><div class="l">잔여</div></div>
+        <div class="eap-lv"><div class="v" style="color:#9333EA">${lv.manual}</div><div class="l">수기입력</div></div>
+        <div class="eap-lv"><div class="v" style="color:#EA580C">${lv.docUsed}</div><div class="l">문서사용</div></div>
+        <div class="eap-lv"><div class="v" style="color:#16A34A">${lv.remain}</div><div class="l">잔여</div></div>
       </div>
-      <div class="eap-bar2"><div class="eap-prog"><i style="width:${pct}%"></i></div><span class="eap-meta">${pct}% 사용</span></div>
-      <div class="eap-sech">내 연차 신청 내역</div>
+      <div class="eap-bar2"><div class="eap-prog"><i style="width:${pct}%"></i></div><span class="eap-meta">${pct}% 사용 (수기 ${lv.manual} + 문서 ${lv.docUsed} = ${lv.used} / ${lv.total})</span></div>
+      <div class="eap-sech">내 연차 신청 내역 <span class="eap-meta">— 이름을 눌러 일자별 상세</span></div>
       ${myDocs.length ? myDocs.map(docCard).join('') : '<div class="eap-empty">신청 내역 없음</div>'}
-      ${(isAdmin() || canEdit) ? `<div class="eap-sech">팀 연차 현황${canEdit ? ' <span class="eap-meta">— ✏️ 부여/사용 일수 편집 가능</span>' : ''}</div><table class="eap-table"><thead><tr><th>직원</th><th>부여</th><th>사용</th><th>잔여</th>${canEdit ? '<th></th>' : ''}</tr></thead><tbody>${team}</tbody></table>` : ''}`;
+      ${(isAdmin() || canEdit) ? `<div class="eap-sech">팀 연차 현황${canEdit ? ' <span class="eap-meta">— ✏️ 부여/수기 편집 · 직원명 클릭 시 일자별 상세</span>' : ''}</div><table class="eap-table"><thead><tr><th>직원</th><th>부여</th><th>수기입력</th><th>문서사용</th><th>잔여</th>${canEdit ? '<th></th>' : ''}</tr></thead><tbody>${team}</tbody></table>` : ''}`;
   }
+  // 직원 일자별 연차 상세 — 수기 이월(원일자) + 승인 연차문서 각 건
+  EAP.openLeaveDetail = function (n) {
+    const l = getLeave(n);
+    const docs = getDocs().filter(d => d && d.kind === 'leave' && d.status === 'ok' && d.drafter === n)
+      .sort((a, b) => String(a.from || '').localeCompare(String(b.from || '')));
+    const rows = [];
+    if (l.manual > 0) rows.push(`<tr><td>${esc(l.manualDate || '-')}</td><td style="text-align:center">${l.manual}</td><td><span style="color:#9333EA;font-weight:700">수기 이월</span> · 시스템 도입 전 사용분</td></tr>`);
+    docs.forEach(d => {
+      const rng = d.to && d.to !== d.from ? (String(d.from).slice(0, 10) + '~' + String(d.to).slice(0, 10)) : String(d.from || '').slice(0, 10);
+      rows.push(`<tr><td>${esc(rng)}</td><td style="text-align:center">${d.days || 1}</td><td><span style="color:#EA580C;font-weight:700">문서</span> · ${esc(d.title || '연차신청')}</td></tr>`);
+    });
+    if (!rows.length) rows.push('<tr><td colspan="3" style="text-align:center;color:#888">사용 내역 없음</td></tr>');
+    const html = `<div class="eap-modal">
+      <div class="eap-mhead"><h3>🌴 ${esc(n)} 연차 상세</h3><button class="eap-x" onclick="EAP.closeModal()">✕</button></div>
+      <div class="eap-lvcards" style="margin-bottom:10px">
+        <div class="eap-lv"><div class="v">${l.total}</div><div class="l">부여</div></div>
+        <div class="eap-lv"><div class="v" style="color:#9333EA">${l.manual}</div><div class="l">수기</div></div>
+        <div class="eap-lv"><div class="v" style="color:#EA580C">${l.docUsed}</div><div class="l">문서</div></div>
+        <div class="eap-lv"><div class="v" style="color:#16A34A">${l.remain}</div><div class="l">잔여</div></div>
+      </div>
+      <table class="eap-table"><thead><tr><th>일자</th><th>일수</th><th>구분/내용</th></tr></thead><tbody>${rows.join('')}</tbody></table>
+      <div class="eap-meta" style="margin-top:8px">총 사용 ${l.used}일 = 수기 ${l.manual} + 문서 ${l.docUsed} · 잔여 ${l.remain}일 (부여 ${l.total} − 사용 ${l.used})</div>
+    </div>`;
+    openModal(html);
+  };
   EAP.openLeaveEdit = function (n) {
     if (!canEditLeave()) { toast('연차 편집 권한이 없습니다'); return; }
     const l = getLeave(n);
     const html = `<div class="eap-modal">
       <div class="eap-mhead"><h3>🌴 ${esc(n)} 연차 일수</h3><button class="eap-x" onclick="EAP.closeModal()">✕</button></div>
       <div class="eap-fld"><label>부여 일수 (총 연차)</label><input id="eapLvTotal" type="text" inputmode="numeric" value="${esc(l.total)}" oninput="EAP.fmtNum(this)"></div>
-      <div class="eap-fld"><label>사용 일수</label><input id="eapLvUsed" type="text" inputmode="numeric" value="${esc(l.used)}" oninput="EAP.fmtNum(this)"></div>
-      <div class="eap-meta">잔여 = 부여 − 사용 (자동 계산)</div>
+      <div class="eap-fld"><label>수기 입력 (시스템 도입 전 사용분)</label><input id="eapLvManual" type="text" inputmode="numeric" value="${esc(l.manual)}" oninput="EAP.fmtNum(this)"></div>
+      <div class="eap-fld"><label>수기 입력 일자</label><input id="eapLvManualDate" type="date" value="${esc(l.manualDate || '2026-07-01')}"></div>
+      <div class="eap-meta">문서사용(승인 연차) = <b>${l.docUsed}</b>일 (자동) · 잔여 = 부여 − (수기 + 문서사용)</div>
       <div class="eap-mactions"><button class="eap-btn eap-btn-p" style="width:100%" onclick="EAP.saveLeaveEdit(${J(n)})">저장</button></div>
     </div>`;
     openModal(html);
@@ -1426,9 +1465,12 @@
   EAP.saveLeaveEdit = function (n) {
     if (!canEditLeave()) { toast('연차 편집 권한이 없습니다'); return; }
     const total = Number(String((document.getElementById('eapLvTotal') || {}).value || '0').replace(/,/g, '')) || 0;
-    const used = Number(String((document.getElementById('eapLvUsed') || {}).value || '0').replace(/,/g, '')) || 0;
-    const all = getLeaveAll(); all[n] = { total, used }; saveCfgKey('leave', all);
-    EAP.closeModal(); renderTab(); toast('🌴 ' + n + ' 연차 ' + total + '일(사용 ' + used + ') 저장');
+    const manual = Number(String((document.getElementById('eapLvManual') || {}).value || '0').replace(/,/g, '')) || 0;
+    const manualDate = String((document.getElementById('eapLvManualDate') || {}).value || '') || '2026-07-01';
+    const all = getLeaveAll(); const prev = all[n] || {};
+    all[n] = Object.assign({}, prev, { total, manual, manualDate }); delete all[n].used;   // used 는 파생 — 저장 안 함
+    saveCfgKey('leave', all);
+    EAP.closeModal(); renderTab(); toast('🌴 ' + n + ' 연차 저장 (부여 ' + total + ' · 수기 ' + manual + ')');
   };
 
   /* ════════════════ 일정 (sch) ════════════════ */

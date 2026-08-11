@@ -202,7 +202,9 @@
 
   /* 연차/자금 데이터 (PC app/eapproval.js 쌍둥이) — 모바일은 조회 중심(자금 입력/마감은 PC) */
   function getLeaveAll(){const l=getCfg().leave;return (l&&typeof l==='object')?l:{};}
-  function getLeave(n){return getLeaveAll()[n]||{total:15,used:0};}
+  // 🌴 연차 파생 모델(2026-07-31, PC 쌍둥이): used = manual(수기) + 문서사용(승인 연차문서 합계)
+  function _leaveDocUsed(n){return getDocs().reduce(function(s,d){return (d&&d.kind==='leave'&&d.status==='ok'&&d.drafter===n)?s+(Number(d.days)||0):s;},0);}
+  function getLeave(n){var l=getLeaveAll()[n]||{};var total=(l.total!=null)?(Number(l.total)||0):15;var manual=Number(l.manual)||0;var docUsed=_leaveDocUsed(n);return {total:total,manual:manual,manualDate:l.manualDate||'',docUsed:docUsed,used:+(manual+docUsed).toFixed(2),remain:+(total-manual-docUsed).toFixed(2)};}
   const FUND_LS='ns_eap_fund', FUND_COS=['인토개인','인토법인','네오솔루션','세이브넷'];
   function getFundTx(){try{return JSON.parse(localStorage.getItem(FUND_LS)||'[]');}catch(_){return [];}}
   function getFundMeta(){const f=getCfg().fund||{};return {opening:f.opening||{},openingDate:f.openingDate||kstDate(),closings:(f.closings&&typeof f.closings==='object')?f.closings:{},cats:(f.cats&&typeof f.cats==='object')?f.cats:{}};}
@@ -380,15 +382,25 @@
   /* ── 연차관리 (leave) ── */
   function leaveHtml(){
     const me=ME(),lv=getLeave(me);
-    const tot=Number(lv.total)||0,used=Number(lv.used)||0,rem=tot-used;
     let team='';
     if(canEditLeave()){
-      const rows=STAFF().map(function(n){const l=getLeave(n);const r=(Number(l.total)||0)-(Number(l.used)||0);return '<tr><td>'+esc(n)+'</td><td style="text-align:center">'+(Number(l.total)||0)+'</td><td style="text-align:center">'+(Number(l.used)||0)+'</td><td style="text-align:center;font-weight:800">'+r+'</td></tr>';}).join('');
-      team='<div class="sech">팀 연차 현황</div><table class="mtbl"><thead><tr><th style="text-align:left">직원</th><th>부여</th><th>사용</th><th>잔여</th></tr></thead><tbody>'+rows+'</tbody></table><div class="meta" style="margin-top:6px">부여/사용 일수 편집은 💻 PC 에서.</div>';
+      const rows=STAFF().map(function(n){const l=getLeave(n);return '<tr onclick="_eapLeaveDetail('+JSON.stringify(n).replace(/"/g,'&quot;')+')" style="cursor:pointer"><td style="color:#1F4E78;font-weight:700;text-decoration:underline">'+esc(n)+'</td><td style="text-align:center">'+l.total+'</td><td style="text-align:center;color:#9333EA">'+l.manual+'</td><td style="text-align:center;color:#EA580C">'+l.docUsed+'</td><td style="text-align:center;font-weight:800;color:#16A34A">'+l.remain+'</td></tr>';}).join('');
+      team='<div class="sech">팀 연차 현황 <span class="meta">— 이름 탭 → 일자별 상세</span></div><table class="mtbl"><thead><tr><th style="text-align:left">직원</th><th>부여</th><th>수기</th><th>문서</th><th>잔여</th></tr></thead><tbody>'+rows+'</tbody></table><div class="meta" style="margin-top:6px">부여/수기 편집은 💻 PC 에서.</div>';
     }
-    return '<div class="lvcard"><div class="lv-n">'+esc(me)+' 님 연차</div><div class="lv-row"><span>부여 <b>'+tot+'</b></span><span>사용 <b>'+used+'</b></span><span class="lv-rem">잔여 <b>'+rem+'</b>일</span></div></div>'
+    return '<div class="lvcard"><div class="lv-n">'+esc(me)+' 님 연차</div><div class="lv-row"><span>부여 <b>'+lv.total+'</b></span><span>수기 <b>'+lv.manual+'</b></span><span>문서 <b>'+lv.docUsed+'</b></span><span class="lv-rem">잔여 <b>'+lv.remain+'</b>일</span></div></div>'
       +'<button class="btn btn-p" style="width:100%;margin:4px 0 14px" onclick="_eapNewLeave()">🌴 연차 신청</button>'+team;
   }
+  window._eapLeaveDetail=function(n){
+    const l=getLeave(n);
+    const docs=getDocs().filter(function(d){return d&&d.kind==='leave'&&d.status==='ok'&&d.drafter===n;}).sort(function(a,b){return String(a.from||'').localeCompare(String(b.from||''));});
+    let rows='';
+    if(l.manual>0)rows+='<tr><td>'+esc(l.manualDate||'-')+'</td><td style="text-align:center">'+l.manual+'</td><td>수기 이월</td></tr>';
+    docs.forEach(function(d){var rng=(d.to&&d.to!==d.from)?(String(d.from).slice(0,10)+'~'+String(d.to).slice(0,10)):String(d.from||'').slice(0,10);rows+='<tr><td>'+esc(rng)+'</td><td style="text-align:center">'+(d.days||1)+'</td><td>'+esc(d.title||'연차')+'</td></tr>';});
+    if(!rows)rows='<tr><td colspan="3" style="text-align:center;color:#888">사용 내역 없음</td></tr>';
+    alert(n+' 연차\n부여 '+l.total+' · 수기 '+l.manual+' · 문서 '+l.docUsed+' · 잔여 '+l.remain+'\n\n'+
+      (l.manual>0?('['+(l.manualDate||'-')+'] 수기 이월 '+l.manual+'일\n'):'')+
+      docs.map(function(d){var rng=(d.to&&d.to!==d.from)?(String(d.from).slice(0,10)+'~'+String(d.to).slice(0,10)):String(d.from||'').slice(0,10);return '['+rng+'] 문서 '+(d.days||1)+'일 · '+(d.title||'연차');}).join('\n'));
+  };
   window._eapNewLeave=function(){const t=getTpls().find(x=>x.cat==='leave');if(!t){toast('연차 양식이 없습니다 — PC에서 등록하세요');return;}_editDocId=null;_editVals={};draftTpl=t;location.hash='#form';};
 
   /* ── 자금관리 (fund) — 조회 전용(입력·마감은 PC) ── */
