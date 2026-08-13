@@ -2984,6 +2984,7 @@
    * ════════════════════════════════════════════════════════════════════════ */
   function _addTombstone(type, id, jobId) {
     if (!type || !id) return;
+    let wasNew = false;
     try {
       const key = 'ns_tombstones';
       const list = JSON.parse(localStorage.getItem(key) || '[]');
@@ -2993,6 +2994,7 @@
       const targetJob = jobId || null;
       const dup = list.some(t => t.type === type && t.id === id
                                   && (t.jobId || null) === targetJob);
+      wasNew = !dup;
       if (!dup) {
         list.push({ type, id, jobId: targetJob, ts: Date.now() });
       }
@@ -3010,8 +3012,32 @@
       try { _cloudDeleteJobIds([id]); } catch(_){}   // 토큰 보유 시 즉시 등록
       // 토큰 없어도 jobTombstones 동봉 push 로 전파되도록 push 예약 (reconcile 완료 후 동봉됨)
       try { if (typeof schedulePushJobsToCloud === 'function') schedulePushJobsToCloud(); } catch(_){}
+      if (wasNew) { try { _recoverStoreEquipByJob(id); } catch(_){} }   // 🖥️ 그 작업으로 설치된 매장 장비 회수
     }
   }
+  // 🖥️ 작업 삭제 시 그 작업(sourceJobId)으로 설치된 매장 장비 회수(status='removed'). 멱등·변경시만 저장.
+  function _recoverStoreEquipByJob(jobId) {
+    if (!jobId) return 0;
+    let stores; try { stores = (typeof getStores === 'function') ? (getStores() || []) : []; } catch(_) { return 0; }
+    const me = (typeof _currentUserName === 'function' ? (_currentUserName() || '') : '');
+    let changed = 0;
+    for (const s of stores) {
+      if (!s || !Array.isArray(s.equipment)) continue;
+      for (const e of s.equipment) {
+        if (e && String(e.sourceJobId || '') === String(jobId) && e.status === 'in_use') {
+          e.status = 'removed';
+          e.updatedAt = new Date().toISOString();
+          e.updatedBy = me;
+          e.history = Array.isArray(e.history) ? e.history : [];
+          e.history.push({ at: new Date().toISOString(), kind: 'removed', by: me, note: '소모품/작업 삭제로 자동 회수' });
+          changed++;
+        }
+      }
+    }
+    if (changed) { try { saveStores(stores); } catch(_){} }
+    return changed;
+  }
+  window._recoverStoreEquipByJob = _recoverStoreEquipByJob;
   // 클라우드 deleted_jobs 등록 — 토큰 없으면 silent skip (서버측 jobs.js 가 추가 방어선)
   async function _cloudDeleteJobIds(ids) {
     if (!Array.isArray(ids) || ids.length === 0) return;

@@ -937,8 +937,33 @@
     // 🪦 job 삭제는 즉시 클라우드 전파 예약 (jobTombstones 동봉 push) → 다른 기기 자동 정합화
     if (type === 'job' && wasNew) {
       try { if (typeof schedulePushJobsToCloud === 'function') schedulePushJobsToCloud(); } catch(_){}
+      try { _recoverStoreEquipByJob(id); } catch(_){}   // 🖥️ 그 작업으로 설치된 매장 장비 회수(status=removed)
     }
   }
+  // 🖥️ 작업 삭제 시, 그 작업(sourceJobId)으로 매장에 설치된 장비를 회수 처리(status='removed').
+  //   PC/모바일 공통. 이미 removed 등이면 건너뜀(멱등). 변경 있을 때만 저장.
+  function _recoverStoreEquipByJob(jobId) {
+    if (!jobId) return 0;
+    let stores; try { stores = (typeof getStores === 'function') ? (getStores() || []) : []; } catch(_) { return 0; }
+    const me = (typeof _currentAuthName === 'function' ? (_currentAuthName() || '') : '');
+    let changed = 0;
+    for (const s of stores) {
+      if (!s || !Array.isArray(s.equipment)) continue;
+      for (const e of s.equipment) {
+        if (e && String(e.sourceJobId || '') === String(jobId) && e.status === 'in_use') {
+          e.status = 'removed';
+          e.updatedAt = new Date().toISOString();
+          e.updatedBy = me;
+          e.history = Array.isArray(e.history) ? e.history : [];
+          e.history.push({ at: new Date().toISOString(), kind: 'removed', by: me, note: '소모품/작업 삭제로 자동 회수' });
+          changed++;
+        }
+      }
+    }
+    if (changed) { try { saveStores(stores); } catch(_){} }
+    return changed;
+  }
+  global._recoverStoreEquipByJob = _recoverStoreEquipByJob;
   function _getTombstones() {
     try { return JSON.parse(localStorage.getItem('ns_tombstones') || '[]'); }
     catch { return []; }
