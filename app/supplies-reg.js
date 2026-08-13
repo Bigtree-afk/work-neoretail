@@ -105,6 +105,7 @@
     const parts = [name, MODE_LABEL[r.mode] || r.mode, qty + (c.unit || '')];
     let s = parts.filter(Boolean).join(' ');
     if (r.mode !== 'support' && amt > 0) s += ` ${amt.toLocaleString('ko-KR')}원`;
+    if (r.itemMemo && String(r.itemMemo).trim()) s += ` · ${String(r.itemMemo).trim()}`;   // 장비 항목 메모
     return s;
   }
 
@@ -114,9 +115,17 @@
     const rowsHtml = _rows.map((r, i) => {
       const c = CATBY[r.type] || { unit: '' };
       const isEtc = r.type === '소모품/기타';
-      const itemCell = isEtc
-        ? `<div style="display:flex;flex-direction:column;gap:3px"><select onchange="supplyRegRowChange(${i},'type',this.value)" style="height:32px">${CAT.map(x => `<option value="${x.type}" ${x.type === r.type ? 'selected' : ''}>${E(x.label)}</option>`).join('')}</select><input value="${E(r.etcName || '')}" oninput="supplyRegRowChange(${i},'etcName',this.value)" placeholder="기타 품목명" style="height:28px;font-size:11.5px"></div>`
-        : `<select onchange="supplyRegRowChange(${i},'type',this.value)" style="height:32px">${CAT.map(x => `<option value="${x.type}" ${x.type === r.type ? 'selected' : ''}>${E(x.label)}</option>`).join('')}</select>`;
+      const isEquip = (r.type === '소모품/POS장비' || r.type === '소모품/VAN장비');
+      const _selHtml = `<select onchange="supplyRegRowChange(${i},'type',this.value)" style="height:32px">${CAT.map(x => `<option value="${x.type}" ${x.type === r.type ? 'selected' : ''}>${E(x.label)}</option>`).join('')}</select>`;
+      let itemCell;
+      if (isEtc) {
+        itemCell = `<div style="display:flex;flex-direction:column;gap:3px">${_selHtml}<input value="${E(r.etcName || '')}" oninput="supplyRegRowChange(${i},'etcName',this.value)" placeholder="기타 품목명" style="height:28px;font-size:11.5px"></div>`;
+      } else if (isEquip) {
+        // 🖥️ 장비(POS/VAN) — 항목 메모칸(모델·시리얼·수량내역 등) 노출, DB 저장
+        itemCell = `<div style="display:flex;flex-direction:column;gap:3px">${_selHtml}<input value="${E(r.itemMemo || '')}" oninput="supplyRegRowChange(${i},'itemMemo',this.value)" placeholder="장비 항목 메모 (예: 카드단말기 A모델·시리얼·구성 등)" style="height:28px;font-size:11.5px"></div>`;
+      } else {
+        itemCell = _selHtml;
+      }
       return `<div style="display:grid;grid-template-columns:1.5fr 0.95fr 1fr 0.9fr 28px;gap:6px;padding:6px 9px;align-items:start;border-bottom:1px solid var(--gray-100)">
         ${itemCell}
         <select onchange="supplyRegRowChange(${i},'mode',this.value)" style="height:32px">${MODES.map(m => `<option value="${m.v}" ${m.v === r.mode ? 'selected' : ''}>${E(m.label)}</option>`).join('')}</select>
@@ -254,6 +263,7 @@
       supplyQty: Number(r.qty) || 0,
       supplyUnit: c.unit || '',
       supplyEtcName: (r.type === '소모품/기타' ? (r.etcName || '') : undefined),
+      supplyMemo: (r.itemMemo && String(r.itemMemo).trim()) ? String(r.itemMemo).trim() : undefined,   // 장비 항목 메모(DB 저장)
       arDueDate: r.mode === 'postpaid' ? '' : undefined,
       thread: (typeof window._threadMigrate === 'function') ? window._threadMigrate(thread) : thread,
       status: asDone ? '완료' : '요청접수',
