@@ -289,6 +289,25 @@
     valid.forEach((r, k) => { const job = _buildJob(r, contact, asDone, ts, author, k); jobs.unshift(job); created.push(job); });
     if (typeof saveJobs === 'function') saveJobs(jobs);
     try { created.forEach(j => { if (typeof window.ingestJobContactsToStore === 'function') window.ingestJobContactsToStore(j, { allowUpdate:true }); }); } catch (_) {}
+    // 🖥️ POS/VAN 장비 → 매장 설치 장비(store.equipment)에 자동 반영 (등록 매장만)
+    try {
+      if (_store && _store.id && typeof window.addStoreEquipment === 'function') {
+        created.forEach(j => {
+          if (j.type !== '소모품/POS장비' && j.type !== '소모품/VAN장비') return;
+          const cat = (j.type === '소모품/POS장비') ? 'POS' : 'VAN';
+          const memo = (j.supplyMemo && String(j.supplyMemo).trim()) ? String(j.supplyMemo).trim() : '';
+          window.addStoreEquipment(_store, {
+            name: memo || (cat + ' 장비'),
+            category: cat,
+            qty: Number(j.supplyQty) || 1,
+            sourceJobId: j.id,
+            installedBy: author,
+            installedAt: (j.shipDate || _today()),
+            note: '소모품 등록에서 자동 추가' + (memo ? ' · ' + memo : ''),
+          });
+        });
+      }
+    } catch (_) {}
     try { if (typeof pushJobsToCloud === 'function') pushJobsToCloud({ toast: false }); } catch (_) {}
     if (typeof closeModal === 'function') closeModal('supplyRegModal');
     try { if (typeof window.renderSuppliesHub === 'function') window.renderSuppliesHub(); } catch (_) {}
