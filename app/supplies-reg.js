@@ -20,6 +20,8 @@
     { type: '소모품/가격라벨', label: '40×23 가격라벨', unit: '롤' },
     { type: '소모품/프라이스텍', label: '70×35 프라이스텍', unit: '롤' },
     { type: '소모품/저울라벨', label: '58×40 저울라벨', unit: '박스' },
+    { type: '소모품/POS장비', label: 'POS 장비', unit: '대' },
+    { type: '소모품/VAN장비', label: 'VAN 장비', unit: '대' },
     { type: '소모품/기타', label: '기타', unit: '개' },
   ];
   const CATBY = {}; CAT.forEach(c => CATBY[c.type] = c);
