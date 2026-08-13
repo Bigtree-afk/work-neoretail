@@ -2025,7 +2025,18 @@
       </div>
       <!-- 🏷️ 소모품 — 품목 아이콘 카드 + 발송일 (소모품 모드 전용) -->
       <div class="form-group js-supplies-only" style="margin-bottom:14px">
-        <label style="display:flex;align-items:center;gap:6px">🏷️ 소모품 품목 <span style="font-size:10px;color:var(--gray-400);font-weight:400">— 아이콘 클릭으로 품목 선택</span></label>
+        <label style="display:flex;align-items:center;gap:6px">🏷️ 소모품 작업 유형 <span style="font-size:10px;color:var(--gray-400);font-weight:400">— 드롭다운 또는 아이콘으로 선택</span></label>
+        <select id="suppliesTypeSelect" onchange="pickSupplyType(this.value)" style="width:100%;margin:4px 0 8px;padding:8px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:13px;background:#fff;font-weight:600">
+          <option value="">— 작업 유형 선택 —</option>
+          <option value="소모품/POS용지">🧾 3"포스용지 (POS용지)</option>
+          <option value="소모품/단말용지">📃 이동단말기 용지</option>
+          <option value="소모품/가격라벨">🏷️ 가격라벨</option>
+          <option value="소모품/프라이스텍">🪪 프라이스텍</option>
+          <option value="소모품/저울라벨">⚖️ 저울라벨</option>
+          <option value="소모품/POS장비">🖥️ POS 장비</option>
+          <option value="소모품/VAN장비">💳 VAN 장비</option>
+          <option value="소모품/기타">✚ 기타</option>
+        </select>
         <div id="suppliesPicker" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">
           <button type="button" class="sup-pick" data-sup-type="소모품/POS용지"   data-sup-name='3"포스용지' onclick="pickSupplyItem(this)" style="background:#fff;border:2px solid var(--gray-200);border-radius:10px;padding:11px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .12s">
             <div style="font-size:24px">🧾</div><div style="font-size:12px;font-weight:800">3"포스용지</div><div style="font-size:10px;color:var(--gray-500)">80×80 감열지</div>
@@ -3933,7 +3944,7 @@
 <script src="/app/app-02.js?v=2026-07-31-dash-eap" defer></script>
 <script src="/app/app-03.js?v=2026-07-31-dash-eap" defer></script>
 <script src="/app/app-04.js?v=2026-07-31-supplies-eq" defer></script>
-<script src="/app/app-05.js?v=2026-08-13-supplies-eq2" defer></script>
+<script src="/app/app-05.js?v=2026-08-13-supplies-eq3" defer></script>
 <script src="/app/app-06.js?v=2026-07-31-dash-eap" defer></script>
 <script src="/app/app-07.js?v=2026-08-13-supplies-eq2" defer></script>
 <script src="/app/app-08.js?v=2026-07-31-dash-eap" defer></script>

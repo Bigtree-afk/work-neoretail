@@ -2029,12 +2029,23 @@
     '소모품/기타':      '개',
   };
   // 🏷️ 소모품 picker — 아이콘 카드 클릭 시 jobType 설정 + 시각 active 표시 + 단위 자동
+  // 드롭다운(작업 유형 select)으로 소모품 유형 선택 — 아이콘 카드와 동일 처리(카드 찾아 위임)
+  window.pickSupplyType = function(type) {
+    if (!type) return;
+    const btn = document.querySelector('#suppliesPicker .sup-pick[data-sup-type="' + type + '"]');
+    if (btn) { window.pickSupplyItem(btn); return; }
+    // 카드가 없을 때(안전망) — 최소 셋팅
+    const hidden = document.getElementById('suppliesPickedType'); if (hidden) hidden.value = type;
+    const jt = document.getElementById('jobType'); if (jt) jt.value = type;
+  };
   window.pickSupplyItem = function(btn) {
     if (!btn) return;
     const type = btn.getAttribute('data-sup-type') || '소모품/기타';
     const name = btn.getAttribute('data-sup-name') || '기타 소모품';
     document.querySelectorAll('#suppliesPicker .sup-pick').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    const typeSel = document.getElementById('suppliesTypeSelect');   // 드롭다운도 동기화
+    if (typeSel && typeSel.value !== type) typeSel.value = type;
     const sel = document.getElementById('jobType');
     if (sel) sel.value = type;
     const hidden = document.getElementById('suppliesPickedType');
