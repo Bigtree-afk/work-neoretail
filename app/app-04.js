@@ -889,6 +889,8 @@
       '소모품/가격라벨':  { name: '가격라벨',        spec: '40×23' },
       '소모품/프라이스텍':{ name: '프라이스텍',      spec: '70×35' },
       '소모품/저울라벨':  { name: '저울라벨',        spec: '58×40' },
+      '소모품/POS장비':   { name: 'POS 장비',        spec: ''      },
+      '소모품/VAN장비':   { name: 'VAN 장비',        spec: ''      },
       '소모품/기타':      { name: '기타',            spec: ''      },
     };
     const typeKey = String(job.type||'');

@@ -303,6 +303,18 @@
           <div class="sub">58×40 700매/롤 · 58×70 450매/롤</div>
         </a>
       </div>
+      <div class="items-row2">
+        <a class="item-card" href='#form?item=POS%20%EC%9E%A5%EB%B9%84&type=%EC%86%8C%EB%AA%A8%ED%92%88%2FPOS%EC%9E%A5%EB%B9%84'>
+          <div class="em">🖥️</div>
+          <div class="nm">POS 장비</div>
+          <div class="sub">POS 단말·주변기기</div>
+        </a>
+        <a class="item-card" href='#form?item=VAN%20%EC%9E%A5%EB%B9%84&type=%EC%86%8C%EB%AA%A8%ED%92%88%2FVAN%EC%9E%A5%EB%B9%84'>
+          <div class="em">💳</div>
+          <div class="nm">VAN 장비</div>
+          <div class="sub">카드단말·VAN 기기</div>
+        </a>
+      </div>
       <a class="item-other" href='#form?item=%EA%B8%B0%ED%83%80&type=%EC%86%8C%EB%AA%A8%ED%92%88%2F%EA%B8%B0%ED%83%80'>
         <div class="em">✚</div>
         <div>
@@ -561,6 +573,8 @@ const SUPPLY_ITEMS = {
   '가격라벨':     { emoji:'🏷️', type:'소모품/가격라벨',   unit:'롤'   },
   '프라이스텍':   { emoji:'🪪', type:'소모품/프라이스텍', unit:'롤'   },
   '저울라벨':     { emoji:'⚖️', type:'소모품/저울라벨',   unit:'박스' },
+  'POS 장비':     { emoji:'🖥️', type:'소모품/POS장비',   unit:'대'   },
+  'VAN 장비':     { emoji:'💳', type:'소모품/VAN장비',   unit:'대'   },
   '기타':         { emoji:'📦', type:'소모품/기타',       unit:'개'   },
 };
 
@@ -607,6 +621,7 @@ function todayKST(){
    #home / #entry / #form?item=... / #form/edit/<id> / #thread/<id>
 ═══════════════════════════════════════════════════════════ */
 let _currentJobId = null;
+let _editChildId = null;   // 처리결과(child) 수정 모드 대상 threadId
 let _thNewRootPicker = null;
 const _childPickers = new Map();
 function parseHash(){
@@ -1352,6 +1367,7 @@ window.onDeleteJob = function(){
    THREAD
 ═══════════════════════════════════════════════════════════ */
 function renderThread(jobId){
+  if (_currentJobId !== jobId) _editChildId = null;   // 다른 건 열면 수정모드 해제(같은 건 재렌더는 유지)
   _currentJobId = jobId;
   const jobs = getJobs();
   const j = jobs.find(x => x.id === jobId);
@@ -1480,10 +1496,28 @@ function renderThreadGroupsMobile(j){
     const childHtml = children.map(c => {
       const cc = c.status === '완료' ? 'done' : c.status === '진행' ? 'prog' : '';
       const cIcon = c.status === '완료' ? '✅' : c.status === '진행' ? '🔄' : '📥';
+      // ✏️ 처리결과 수정 모드 — 완료되지 않은 건에 잘못 입력한 처리결과 등을 고칠 수 있게
+      if (_editChildId === c.threadId) {
+        return `
+        <div class="tg-child ${cc}" style="border:1.5px solid var(--accent)">
+          <div class="radio-row">
+            <label class="radio-chip${c.status==='진행'?' on':''}"><input type="radio" name="ed-st-${c.threadId}" value="진행"${c.status==='진행'?' checked':''}> 🔄 진행</label>
+            <label class="radio-chip${c.status==='완료'?' on':''}"><input type="radio" name="ed-st-${c.threadId}" value="완료"${c.status==='완료'?' checked':''}> ✅ 완료</label>
+          </div>
+          <textarea class="field-textarea" id="ed-text-${c.threadId}">${esc(c.text||'')}</textarea>
+          <div class="tg-btn-row">
+            <button class="btn btn-outline" style="flex:0;padding:7px 12px" onclick="onCancelChildEdit()">취소</button>
+            <button class="btn btn-primary" onclick="onSaveChildEdit('${esc(c.threadId)}')">저장</button>
+          </div>
+        </div>`;
+      }
       return `
         <div class="tg-child ${cc}">
           <div class="hdr">${cIcon} <b>${esc(c.status||'')}</b> · ${esc(c.author||'담당자')} · ${esc(c.ts||'')}
-            <button class="del" style="margin-left:auto;font-size:13px;background:transparent;border:none;color:var(--gray-400);cursor:pointer" title="삭제" onclick="onDelChild('${esc(c.threadId)}')">✕</button>
+            <span style="margin-left:auto;display:inline-flex;gap:2px">
+              <button class="del" style="font-size:13px;background:transparent;border:none;color:var(--gray-400);cursor:pointer" title="수정" onclick="onEditChild('${esc(c.threadId)}')">✏️</button>
+              <button class="del" style="font-size:13px;background:transparent;border:none;color:var(--gray-400);cursor:pointer" title="삭제" onclick="onDelChild('${esc(c.threadId)}')">✕</button>
+            </span>
           </div>
           <div class="txt">${esc(c.text||'')}</div>
           ${_renderEntryAttachments(c)}
@@ -1503,13 +1537,13 @@ function renderThreadGroupsMobile(j){
         <div class="tg-author">— ${esc(r.author||'담당자')}</div>
         ${_renderEntryAttachments(r)}
         ${childHtml}
-        ${(!isSynth && gs !== '완료') ? `
+        ${(gs !== '완료') ? `
         <div class="tg-form">
           <div class="radio-row">
             <label class="radio-chip"><input type="radio" name="ch_${r.threadId}" value="진행"> 🔄 진행</label>
             <label class="radio-chip"><input type="radio" name="ch_${r.threadId}" value="완료"> ✅ 완료</label>
           </div>
-          <textarea class="field-textarea" id="ch_text_${r.threadId}" placeholder="처리 내용 입력..."></textarea>
+          <textarea class="field-textarea" id="ch_text_${r.threadId}" placeholder="${isSynth ? '처리 결과 입력 (등록건에 처리결과를 남깁니다)' : '처리 내용 입력...'}"></textarea>
           <div id="ch_attach_${esc(r.threadId)}"></div>
           <div class="tg-btn-row">
             <label class="line-mini"><input type="checkbox" id="ch_line_${r.threadId}"> 📡 추가 후 LINE 발송</label>
@@ -1587,18 +1621,34 @@ window.onAddChild = function(rootId){
   const ix = jobs.findIndex(x => x.id === _currentJobId);
   if (ix < 0) return;
   const j = jobs[ix];
+  j.thread = Array.isArray(j.thread) ? j.thread : [];
   const childPicker = _childPickers.get(rootId);
   const attachments = (childPicker && childPicker.get()) || [];
+  // synthetic root(등록시점 정보 — 실제 thread ROOT 없음)에 처리결과를 남기면,
+  //   먼저 등록내용을 실제 요청접수 ROOT 로 실체화한 뒤 그 아래에 처리결과를 붙인다.
+  let parentId = rootId;
+  const hasRealRoot = j.thread.some(e => e && e.threadId === rootId && e.parentId === null);
+  if (!hasRealRoot || String(rootId).indexOf('TR-synth-') === 0) {
+    const rootEntry = {
+      ts: (j.receivedAt ? String(j.receivedAt).slice(0,16).replace('T',' ') : window._kstNow()),
+      author: j.createdBy || (window._currentAuthName() || '담당자'),
+      status: '요청접수',
+      text: (j.initialRequest || j.supplyMemo || '요청접수 (등록 정보)'),
+      threadId: _newThreadId(),
+      parentId: null,
+    };
+    j.thread.push(rootEntry);
+    parentId = rootEntry.threadId;
+  }
   const entry = {
     ts: window._kstNow(),
     author: window._currentAuthName() || '담당자',
     status,
     text,
     threadId: _newThreadId(),
-    parentId: rootId,
+    parentId: parentId,
     attachments,
   };
-  j.thread = Array.isArray(j.thread) ? j.thread : [];
   j.thread.push(entry);
   j.thread = window._threadMigrate(j.thread);
   if (status === '완료') {
@@ -1626,6 +1676,37 @@ window.onAddChild = function(rootId){
   }
   showToast('✓ 추가');
   try { window.pushJobsToCloud(); } catch(_){}
+  renderThread(_currentJobId);
+};
+
+// ✏️ 처리결과(child) 수정 — 잘못 입력한 처리결과를 고칠 수 있게(내용·진행/완료 상태)
+window.onEditChild = function(threadId){ _editChildId = threadId; renderThread(_currentJobId); };
+window.onCancelChildEdit = function(){ _editChildId = null; renderThread(_currentJobId); };
+window.onSaveChildEdit = function(threadId){
+  const ta = document.getElementById('ed-text-' + threadId);
+  const text = (ta && ta.value || '').trim();
+  if (!text) { showToast('⚠ 내용을 입력하세요'); return; }
+  const status = (document.querySelector(`input[name="ed-st-${threadId}"]:checked`) || {}).value || '진행';
+  const jobs = getJobs();
+  const ix = jobs.findIndex(x => x.id === _currentJobId);
+  if (ix < 0) return;
+  const j = jobs[ix];
+  const e = (j.thread || []).find(x => x && x.threadId === threadId);
+  if (!e) { _editChildId = null; renderThread(_currentJobId); return; }
+  e.text = text; e.status = status; e.updatedAt = Date.now();
+  // 상태 재계산 — 모든 요청접수(ROOT) 그룹이 완료면 job 완료, 아니면 진행중(수동 수정이라 reopen 허용)
+  const roots = j.thread.filter(x => x.parentId === null);
+  const kids = new Map();
+  for (const x of j.thread) if (x.parentId) { if (!kids.has(x.parentId)) kids.set(x.parentId, []); kids.get(x.parentId).push(x); }
+  const allDone = roots.length > 0 && roots.every(r => window._groupStatus(r, kids.get(r.threadId) || []) === '완료');
+  if (allDone) { j.status = '완료'; j.completed = true; j.doneAt = j.doneAt || (new Date()).toISOString(); }
+  else { j.status = '진행중'; j.completed = false; }
+  j.updatedAt = Date.now();
+  jobs[ix] = j;
+  saveJobs(jobs);
+  _editChildId = null;
+  try { window.pushJobsToCloud(); } catch(_){}
+  showToast('✓ 처리결과 수정됨');
   renderThread(_currentJobId);
 };
 
