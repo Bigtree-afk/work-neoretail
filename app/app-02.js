@@ -3010,6 +3010,7 @@ ${text.slice(0, 4000)}`;
     // ⚠ m-core.js _scoreStore 와 동일 로직 유지 의무 (PC·모바일 SSOT-쌍, 2026-06-19)
     const norm = (x) => String(x||'').toLowerCase().replace(/\s+/g,'');
     const name    = norm(s.name || s.storeName);
+    const nameCore = _normalizeSearch(s.name || s.storeName);   // 법인표기·괄호 제거(접두 매칭용)
     const addr    = norm(s.address || s.addr);
     const bizNo   = String(s.bizNo || s.biz || s.bizno || '').replace(/\D/g,'');
     const ceo     = norm(s.ceo || s.ceoName);
@@ -3026,6 +3027,9 @@ ${text.slice(0, 4000)}`;
       let hit = false;
       if (name === nt)            { score += 10; hit = true; }
       else if (name.includes(nt)) { score += 4;  hit = true; }
+      // 🔝 이름이 질의로 '시작'하면 가점 — '드림마트'/'주식회사 드림마트' 를 '더드림마트'·'다드림마트'(중간일치) 위로
+      const ntCore = _normalizeSearch(t);
+      if (ntCore && nameCore.startsWith(ntCore)) { score += 6; hit = true; }
       if (aliases.some(a => a === nt))            { score += 8; hit = true; }
       else if (aliases.some(a => a.includes(nt))) { score += 3; hit = true; }
       if (addr.includes(nt))      { score += 2;  hit = true; }
