@@ -289,16 +289,19 @@ function runStoreSearch() {
   if (!results) return;
   if (q.length < 1) { results.style.display = 'none'; results.innerHTML = ''; return; }
   const stores = _storesAll();
-  const qn = normSearch(q);
+  // 🔎 토큰 기반 매칭(순서 무관) + 주소 포함 + 법인표기 제거 — '상계 오케이'(주소+상호 혼합)·
+  //   '주식회사 오케이마트' 모두 조회되도록. 기존 통짜 매칭('상계오케이')·주소 미포함 버그 fix.
+  const _n = x => String(x||'').toLowerCase()
+    .replace(/주식회사|유한회사|합자회사|합명회사|유한책임회사|재단법인|사단법인|\(주\)|\(유\)|\(합\)|\(재\)|\(사\)/g,'')
+    .replace(/[()\[\]{}<>「」._\-·\/\\,'"!?@#%&*+=:;|~` ]/g,'');
+  const qToks = q.trim().split(/[\s/,·;|]+/).map(_n).filter(Boolean);
   const qDigits = q.replace(/\D/g,'');
   const hits = stores.filter(s => {
-    const nm = normSearch(s.name || s.storeName || '');
-    const signage = normSearch(s.signageName || '');
-    const aliases = Array.isArray(s.aliases) ? s.aliases.map(normSearch).join(' ') : '';
-    const tags    = Array.isArray(s.tags)    ? s.tags.map(normSearch).join(' ')    : '';
+    const blob = _n((s.name||s.storeName||'') + ' ' + (s.signageName||'') + ' '
+      + (Array.isArray(s.aliases)?s.aliases.join(' '):'') + ' ' + (Array.isArray(s.tags)?s.tags.join(' '):'')
+      + ' ' + (s.code||'') + ' ' + (s.addr||s.address||'') + ' ' + (s.ceo||s.owner||''));
     const biz = String(s.biz || s.bizNo || s.bizno || '').replace(/\D/g,'');
-    const code = normSearch(s.code || '');
-    if (nm.includes(qn) || signage.includes(qn) || aliases.includes(qn) || tags.includes(qn) || code.includes(qn)) return true;
+    if (qToks.length && qToks.every(t => blob.includes(t))) return true;
     if (qDigits.length >= 3 && biz.includes(qDigits)) return true;
     return false;
   }).slice(0, 50);
