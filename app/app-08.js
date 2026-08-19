@@ -684,24 +684,27 @@
     if (!s) return [];
     if (scope === 'ceo')      return [s.ceo, s.owner];
     if (scope === 'addr')     return [s.addr, s.address];
-    // 기본 'name_biz' — 상호 + 간판명 + 별칭 + 사업자번호 + 거래처코드 + 태그
+    // 기본 'name_biz' = 통합 — 상호+간판+별칭+사업자+코드+태그 + 주소 + 대표
+    //   ('상계 오케이'처럼 상호+주소를 섞어 검색하는 기존 방식 지원)
     const aliasNames = Array.isArray(s.aliases) ? s.aliases : [];
     const tagNames   = Array.isArray(s.tags)    ? s.tags    : [];
-    return [s.name, s.signageName, ...aliasNames, s.biz, s.bizno, s.code, ...tagNames];
+    return [s.name, s.storeName, s.signageName, ...aliasNames, s.biz, s.bizno, s.code, ...tagNames, s.addr, s.address, s.ceo, s.owner];
   }
-  /* 입력값 normalize + scope 적용해서 매칭 */
-  function _matchStore(store, qNorm, scope) {
-    if (!qNorm) return true;
+  /* 매칭 — 질의를 토큰(공백/구분자)으로 나눠 각 토큰이 scope blob 에 모두 포함되면 매칭(순서 무관).
+     통짜 문자열 매칭('상계오케이')이 '상계 오케이'(주소+상호 혼합)를 못 잡던 버그 fix. rawQuery 를 받음. */
+  function _matchStore(store, rawQuery, scope) {
+    const tokens = String(rawQuery == null ? '' : rawQuery).trim().split(/[\s/,·;|]+/).map(_normalizeSearch).filter(Boolean);
+    if (!tokens.length) return true;
     const blob = _normalizeSearch(_storeFieldsForScope(store, scope).filter(Boolean).join(' | '));
-    return blob.includes(qNorm);
+    return tokens.every(t => blob.includes(t));
   }
   /* 검색창 옆에 끼워 넣을 scope selector HTML 생성 */
   function _scopeSelectorHTML(id, current) {
     const cur = current || 'name_biz';
     return `<select id="${id}" style="width:auto;flex:0 0 auto;min-width:140px;padding:6px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;font-weight:600;color:var(--gray-700);margin-right:6px">
-      <option value="name_biz"${cur==='name_biz'?' selected':''}>상호·사업자번호</option>
-      <option value="ceo"${cur==='ceo'?' selected':''}>대표자</option>
-      <option value="addr"${cur==='addr'?' selected':''}>주소</option>
+      <option value="name_biz"${cur==='name_biz'?' selected':''}>통합(상호·주소·대표)</option>
+      <option value="ceo"${cur==='ceo'?' selected':''}>대표자만</option>
+      <option value="addr"${cur==='addr'?' selected':''}>주소만</option>
     </select>`;
   }
 
@@ -724,7 +727,7 @@
     // 검색어 있으면 → 전체 점포 데이터에서 매칭 결과만 렌더 (DOM 외부 점포까지 포함)
     const scope = (document.getElementById('storeSearchScope')||{}).value || 'name_biz';
     const stores = (typeof getStores === 'function') ? (getStores() || []) : [];
-    const matched = stores.filter(s => _matchStore(s, qNorm, scope));
+    const matched = stores.filter(s => _matchStore(s, q, scope));   // raw q → 토큰 매칭(상호+주소 혼합 지원)
 
     // 렌더 (성능: 최대 500건) — 정렬 상태 반영, 없으면 등록순
     if (_storeSort) {

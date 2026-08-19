@@ -2408,7 +2408,7 @@
     let matched = stores;
     if (q.length >= 1) {
       const qNorm = normFn(q);
-      if (matchFn) matched = stores.filter(s => matchFn(s, qNorm, scope));
+      if (matchFn) matched = stores.filter(s => matchFn(s, q, scope));   // raw q → 토큰 매칭
       else {
         // 폴백 — 토큰 AND 매칭(상호+주소+aliases 통합 blob). 통짜 매칭이 '상계 오케이' 등 주소+상호 혼합을 못 잡던 버그 fix.
         const _tk = q.trim().split(/[\s/,·;|]+/).map(normFn).filter(Boolean);

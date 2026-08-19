@@ -2805,8 +2805,14 @@
     let matched = stores;
     if (q.length >= 1) {
       const qNorm = normFn(q);
-      if (matchFn) matched = stores.filter(s => matchFn(s, qNorm, scope));
-      else matched = stores.filter(s => normFn(s.name||'').includes(qNorm) || normFn(s.biz||'').includes(qNorm));
+      if (matchFn) matched = stores.filter(s => matchFn(s, q, scope));   // raw q → 토큰 매칭
+      else {
+        const _tk = q.trim().split(/[\s/,·;|]+/).map(normFn).filter(Boolean);
+        matched = stores.filter(s => {
+          const blob = normFn((s.name||s.storeName||'') + ' ' + (s.address||s.addr||'') + ' ' + ((Array.isArray(s.aliases)?s.aliases:[]).join(' ')) + ' ' + (s.biz||s.bizNo||''));
+          return _tk.length ? _tk.every(t => blob.includes(t)) : false;
+        });
+      }
     }
     matched = matched.slice(0, 30);
     if (matched.length === 0) {
