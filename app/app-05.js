@@ -2409,7 +2409,14 @@
     if (q.length >= 1) {
       const qNorm = normFn(q);
       if (matchFn) matched = stores.filter(s => matchFn(s, qNorm, scope));
-      else matched = stores.filter(s => normFn(s.name||'').includes(qNorm) || normFn(s.biz||'').includes(qNorm));
+      else {
+        // 폴백 — 토큰 AND 매칭(상호+주소+aliases 통합 blob). 통짜 매칭이 '상계 오케이' 등 주소+상호 혼합을 못 잡던 버그 fix.
+        const _tk = q.trim().split(/[\s/,·;|]+/).map(normFn).filter(Boolean);
+        matched = stores.filter(s => {
+          const blob = normFn((s.name||s.storeName||'') + ' ' + (s.address||s.addr||'') + ' ' + ((Array.isArray(s.aliases)?s.aliases:[]).join(' ')) + ' ' + (s.biz||s.bizNo||''));
+          return _tk.length ? _tk.every(t => blob.includes(t)) : false;
+        });
+      }
     }
     matched = matched.slice(0, 30);
     if (matched.length === 0) {

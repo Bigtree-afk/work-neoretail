@@ -828,15 +828,18 @@ function _doLinkSearch() {
   const norm = window._normalizeSearch || (s => String(s||'').toLowerCase());
   const qn = norm(q);
   const qDigits = q.replace(/\D/g,'');
-  const hits = (typeof window._searchStores === 'function') ? window._searchStores(q, 20) : stores.filter(s => {
-    const nm = norm(s.name || s.storeName || '');
-    const al = (Array.isArray(s.aliases) ? s.aliases : []).map(norm).join(' ');
-    const bz = String(s.biz || s.bizNo || '').replace(/\D/g,'');
-    const cd = norm(s.code || '');
-    if (nm.includes(qn) || al.includes(qn) || cd.includes(qn)) return true;
-    if (qDigits.length >= 3 && bz.includes(qDigits)) return true;
-    return false;
-  }).slice(0, 8);
+  const hits = (typeof window._searchStores === 'function') ? window._searchStores(q, 20) : (function(){
+    const _n = x => String(x||'').toLowerCase().replace(/주식회사|유한회사|합자회사|합명회사|\(주\)|\(유\)|\(합\)|\(재\)|\(사\)/g,'').replace(/[()\[\]{}<>「」._\-·\/\,'"!?@#%&*+=:;|~` ]/g,'');
+    const _tk = String(q).trim().split(/[\s/,·;|]+/).map(_n).filter(Boolean);
+    if (!_tk.length && qDigits.length < 3) return [];
+    return stores.filter(s => {
+      const blob = _n((s.name||s.storeName||'') + (s.address||s.addr||'') + ((Array.isArray(s.aliases)?s.aliases:[]).join('')) + (s.code||''));
+      const bz = String(s.biz || s.bizNo || s.bizno || '').replace(/\D/g,'');
+      if (_tk.length && _tk.every(t => blob.includes(t))) return true;
+      if (qDigits.length >= 3 && bz.includes(qDigits)) return true;
+      return false;
+    }).slice(0, 20);
+  })();
   if (!hits.length) {
     res.innerHTML = `<div style="color:#9CA3AF;text-align:center;padding:20px;font-size:13px">'${esc(q)}' 에 일치하는 매장 없음</div>`;
     return;
@@ -1118,15 +1121,18 @@ function doStoreSearch(){
   const norm = window._normalizeSearch || (s => String(s||'').toLowerCase());
   const qn = norm(q);
   const qDigits = q.replace(/\D/g,'');
-  const hits = (typeof window._searchStores === 'function') ? window._searchStores(q, 20) : stores.filter(s => {
-    const nm = norm(s.name || s.storeName || '');
-    const al = (Array.isArray(s.aliases) ? s.aliases : []).map(norm).join(' ');
-    const bz = String(s.biz || s.bizNo || s.bizno || '').replace(/\D/g,'');
-    const cd = norm(s.code || '');
-    if (nm.includes(qn) || al.includes(qn) || cd.includes(qn)) return true;
-    if (qDigits.length >= 3 && bz.includes(qDigits)) return true;
-    return false;
-  }).slice(0, 8);
+  const hits = (typeof window._searchStores === 'function') ? window._searchStores(q, 20) : (function(){
+    const _n = x => String(x||'').toLowerCase().replace(/주식회사|유한회사|합자회사|합명회사|\(주\)|\(유\)|\(합\)|\(재\)|\(사\)/g,'').replace(/[()\[\]{}<>「」._\-·\/\,'"!?@#%&*+=:;|~` ]/g,'');
+    const _tk = String(q).trim().split(/[\s/,·;|]+/).map(_n).filter(Boolean);
+    if (!_tk.length && qDigits.length < 3) return [];
+    return stores.filter(s => {
+      const blob = _n((s.name||s.storeName||'') + (s.address||s.addr||'') + ((Array.isArray(s.aliases)?s.aliases:[]).join('')) + (s.code||''));
+      const bz = String(s.biz || s.bizNo || s.bizno || '').replace(/\D/g,'');
+      if (_tk.length && _tk.every(t => blob.includes(t))) return true;
+      if (qDigits.length >= 3 && bz.includes(qDigits)) return true;
+      return false;
+    }).slice(0, 20);
+  })();
   if (!hits.length) {
     results.innerHTML = `
       <div class="sr-row" style="color:var(--gray-500);text-align:center;cursor:default">'${esc(q)}' 에 일치하는 매장 없음 (총 ${stores.length}개 등록)</div>
