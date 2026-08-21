@@ -110,6 +110,20 @@
 </div>
 
 <div class="wrap">
+  <!-- 🔍 매장 검색 (최상단) — 외부 직원이 매장 주소·연락처 빠르게 확인 -->
+  <div class="store-search-sec" id="storeSearchSec">
+    <div class="hdr">
+      <span class="hdr-em">🔍</span>
+      <div class="hdr-title">매장 빠른 검색</div>
+      <span class="hdr-cnt" id="storeCount">-</span>
+    </div>
+    <div class="search-bar">
+      <input id="storeSearchInput" type="search" placeholder="매장명 / 사업자번호 / 거래처코드" autocomplete="off" inputmode="search" enterkeyhint="search">
+      <button class="search-btn" onclick="onStoreSearchBtn()">검색</button>
+    </div>
+    <div class="store-results" id="storeResults"></div>
+  </div>
+
   <div class="hello">안녕하세요 👋</div>
   <div class="h1">오늘 처리할 업무를 선택하세요</div>
 
@@ -155,24 +169,6 @@
     <div class="nm" style="color:#1E40AF">전자결재</div>
     <div class="sub">기안·결재·연차</div>
   </a>
-
-  <!-- 🔍 매장 검색 — 외부 직원이 매장 주소·연락처 빠르게 확인 -->
-  <div class="store-search-sec" id="storeSearchSec">
-    <div class="hdr">
-      <span class="hdr-em">🔍</span>
-      <div class="hdr-title">매장 빠른 검색</div>
-      <span class="hdr-cnt" id="storeCount">-</span>
-    </div>
-    <div class="search-bar">
-      <input id="storeSearchInput" type="search" placeholder="매장명 / 사업자번호 / 거래처코드" autocomplete="off" inputmode="search" enterkeyhint="search">
-      <button class="search-btn" onclick="onStoreSearchBtn()">검색</button>
-    </div>
-    <div class="store-results" id="storeResults"></div>
-  </div>
-
-  <div class="notice">
-    💡 매장 검색으로 주소·연락처를 빠르게 확인하세요. 매장 정보를 탭하면 전화 걸기 / 지도 열기가 가능합니다.
-  </div>
 
   <div class="build-notice">
     📱 모바일 베타 — 각 카테고리의 카드를 탭하면 thread(요청·처리 기록) 으로 진입. 데이터 추가/수정 후 변경은 자동 동기화됩니다.
@@ -369,22 +365,17 @@ window.openStoreDetail = function(storeId) {
 };
 window.closeStoreDetail = function() { document.getElementById('storeDetailModal').classList.remove('show'); };
 
-/* 🏪 매장 탭 진입 시 (URL hash 가 #stores) — 검색 input 으로 자동 스크롤·포커스 */
+/* 홈은 하나의 페이지 — 매장 검색은 최상단 섹션(2중 구조 제거).
+   타 페이지 '매장' 탭(#stores)으로 진입하면 최상단 검색 input 에 포커스만.
+   홈에서는 항상 '홈' 탭 활성(별도 '매장 페이지' 취급 안 함). */
 function _focusStoreSearchIfHash() {
   if ((location.hash || '').replace(/^#/,'').toLowerCase() === 'stores') {
-    const sec = document.getElementById('storeSearchSec');
     const inp = document.getElementById('storeSearchInput');
-    if (sec) sec.scrollIntoView({ behavior:'smooth', block:'center' });
-    if (inp) setTimeout(() => inp.focus(), 250);
-    // 활성 탭 토글
-    document.querySelectorAll('#bottomNav .item').forEach(a => {
-      a.classList.toggle('active', a.getAttribute('data-nav') === 'store');
-    });
-  } else {
-    document.querySelectorAll('#bottomNav .item').forEach(a => {
-      a.classList.toggle('active', a.getAttribute('data-nav') === 'home');
-    });
+    if (inp) { try { window.scrollTo({ top:0, behavior:'smooth' }); } catch(_){} setTimeout(() => inp.focus(), 200); }
   }
+  document.querySelectorAll('#bottomNav .item').forEach(a => {
+    a.classList.toggle('active', a.getAttribute('data-nav') === 'home');
+  });
 }
 
 /* init */
