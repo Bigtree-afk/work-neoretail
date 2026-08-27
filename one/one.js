@@ -867,6 +867,9 @@
     } catch (e) { recProg('⚠ 다듬기 실패: ' + e.message); setTimeout(() => recProg(''), 4000); }
     finally { REC.busy = false; }
   }
+  // 🎯 Whisper 도메인 프라이머 — 매장 운영/설치/AS 회의에서 자주 나오는 전문용어·고유명사를
+  //   미리 알려 고유명사 오인식을 줄임. (Whisper initial_prompt 로 전달, ~90자)
+  const WHISPER_DOMAIN_PRIMER = 'POS 단말기, VAN 카드결제기, TID, 시리얼번호, 키오스크, 프린터, 밴사 KOCES·NICE·KIS·KSNET, 카드가맹, 프라이스텍, 저울라벨, 재고조사, 소모품, 설치·가오픈·오픈 관련 매장 업무 회의.';
   async function transcribeBlob(blob) {
     const buf = await blob.arrayBuffer();
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -876,16 +879,22 @@
     const mono16k = await resampleMono16k(decoded);   // Float32Array @16kHz
     const CHUNK_SEC = 50, SR = 16000, chunkLen = CHUNK_SEC * SR;
     const total = Math.ceil(mono16k.length / chunkLen);
-    let out = '';
+    let out = '', prevTail = '';
     for (let i = 0; i < total; i++) {
       recProg(`정본 전사 중… (${i + 1}/${total})`);
       const slice = mono16k.subarray(i * chunkLen, (i + 1) * chunkLen);
       const wav = encodeWav16(slice, SR);
       const b64 = bytesToB64(new Uint8Array(wav));
-      const r = await fetch('/api/one-transcribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ audio: b64, language: 'ko' }) });
+      // 🎯 initial_prompt = 도메인 용어 프라이머 + 직전 청크 꼬리(문맥 이어주기).
+      //   Whisper 는 마지막 ~224토큰만 반영 → 총 ~200자 이내로 유지(프라이머≈90 + 꼬리≤110).
+      const initialPrompt = (WHISPER_DOMAIN_PRIMER + (prevTail ? ' ' + prevTail : '')).slice(0, 220);
+      const r = await fetch('/api/one-transcribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ audio: b64, language: 'ko', initial_prompt: initialPrompt, vad_filter: true }) });
       const d = await r.json();
-      if (d && d.ok && d.text) out += (out ? ' ' : '') + d.text.trim();
-      else if (d && d.error) throw new Error(d.error + (d.detail ? ': ' + d.detail : ''));
+      if (d && d.ok && d.text) {
+        const t = d.text.trim();
+        out += (out ? ' ' : '') + t;
+        prevTail = t.split(/\s+/).slice(-16).join(' ').slice(-110);   // 다음 청크에 넘길 문맥(마지막 ~16어절)
+      } else if (d && d.error) throw new Error(d.error + (d.detail ? ': ' + d.detail : ''));
     }
     return out.trim();
   }

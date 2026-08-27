@@ -50,14 +50,19 @@ export async function onRequestPost({ request, env }) {
   if (!bytes.length) return json({ ok: false, error: 'empty_audio' }, 400);
 
   const language = (body.language || 'ko').slice(0, 8);
+  // 🎯 인식률 향상 파라미터
+  //   initial_prompt — 도메인 용어·직전 청크 문맥 힌트(고유명사·전문용어 편향). Whisper 는 마지막 ~224토큰만
+  //     사용하므로 과도하게 길 필요 없음(클라이언트가 이미 길이 제한). 방어적으로 상한만 둠.
+  //   vad_filter    — 무음 구간 제거(헛인식·hallucination 감소). 기본 ON(명시적 false 일 때만 끔).
+  const initialPrompt = (typeof body.initial_prompt === 'string' ? body.initial_prompt : '').slice(0, 896);
+  const vadFilter = body.vad_filter !== false;
 
   // 1차: whisper-large-v3-turbo (base64 입력, 다국어·품질 우수)
   try {
-    const r = await env.AI.run('@cf/openai/whisper-large-v3-turbo', {
-      audio: b64,
-      task: 'transcribe',
-      language,
-    });
+    const params = { audio: b64, task: 'transcribe', language };
+    if (initialPrompt) params.initial_prompt = initialPrompt;
+    if (vadFilter) params.vad_filter = true;
+    const r = await env.AI.run('@cf/openai/whisper-large-v3-turbo', params);
     const text = (r && (r.text || r.transcription || '')) || '';
     return json({ ok: true, text: String(text).trim(), model: 'whisper-large-v3-turbo' });
   } catch (e1) {
