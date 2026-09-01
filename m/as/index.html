@@ -564,6 +564,24 @@ function _lastEntryStatus(j){
   const t = (Array.isArray(j.thread) ? j.thread : []).slice().sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||'')));
   return (t[0] && t[0].status) || j.status || '진행중';
 }
+/* 카드 상태 pill — 미완료(진행중) 작업이 어느 단계인지. 요청접수 여러 건 중 일부만 완료돼도
+   '완료'로 보이던 문제 fix(부강후레쉬): 최근 엔트리가 아니라 미완료 ROOT 그룹 기준으로 표시. */
+function _asOpenStatus(j){
+  const th = Array.isArray(j.thread) ? j.thread : [];
+  const roots = th.filter(e => e && e.parentId == null);
+  if (!roots.length) return j.status || '진행중';
+  const gs = window._groupStatus || ((r, k) => { if (k.some(c=>c.status==='완료')) return '완료'; if (k.some(c=>c.status==='진행')) return '진행'; return '요청접수'; });
+  let hasReq = false, hasProg = false;
+  for (const r of roots) {
+    const kids = th.filter(e => e && e.parentId === r.threadId);
+    const s = gs(r, kids);
+    if (s === '완료') continue;       // 완료된 그룹은 건너뜀 — 미완료 그룹만 카드 상태에 반영
+    if (s === '진행') hasProg = true; else hasReq = true;
+  }
+  if (hasReq)  return '요청접수';
+  if (hasProg) return '진행';
+  return '진행중';
+}
 function _lineCount(j){
   if (typeof j.lineSent === 'number') return j.lineSent;
   if (Array.isArray(j.lineLog)) return j.lineLog.length;
@@ -750,7 +768,7 @@ function renderEntry(){
         else if (u.cls === 'soon') { cls = 'soon'; urgentPill = `<span class="pill soon">${esc(u.label)}</span>`; }
         else { urgentPill = `<span class="pill prog">${esc(u.label)}</span>`; }
       } else {
-        const st = _lastEntryStatus(j);
+        const st = _asOpenStatus(j);   // ⚠ 최근 엔트리(_lastEntryStatus) 아님 — 미완료 그룹 기준(부강후레쉬 fix)
         if (st === '요청접수' || st === '접수') { cls = 'req'; urgentPill = `<span class="pill req">${esc(st)}</span>`; }
         else urgentPill = `<span class="pill prog">${esc(st)}</span>`;
       }
