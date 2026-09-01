@@ -695,9 +695,9 @@ function renderEntry(){
   const _statusOf = (j) => {
     if (isDone(j)) return 'done';
     if (j && (j.status === '완료' || j.completed)) return 'done';
-    try {
-      if (_lastEntryStatus(j) === '완료') return 'done';
-    } catch(_){}
+    // ⚠ '최근 thread 엔트리가 완료면 done' shortcut 제거(2026-09-01, 부강후레쉬 버그):
+    //   요청접수 여러 건 중 하나만 완료해도 그 완료가 '가장 최근 엔트리'라 작업 전체가 done 으로
+    //   오판돼 진행중 탭에서 사라지던 버그. 전체 완료 판정은 _isJobEffectivelyDone(all-roots-done)이 담당.
     return 'prog';
   };
   // 카운트 — 필터 탭에 표시
