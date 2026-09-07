@@ -56,12 +56,16 @@ export async function onRequestPost({ request, env }) {
 원문:
 ${text.slice(0, 16000)}`;
 
-  const base = resolveClaudeUrl(cfg.anthropicBase) || 'https://api.anthropic.com/v1/messages';
+  // 🔁 릴레이 최우선 — CF 엣지의 워커 egress 403 차단 우회(HKG 등). 미설정 시 게이트웨이/직접.
+  const relayUrl = String(cfg.claudeRelayUrl || '').trim();
+  const relaySecret = String(cfg.claudeRelaySecret || '').trim();
+  const useRelay = !!(relayUrl && relaySecret);
+  const base = useRelay ? relayUrl : (resolveClaudeUrl(cfg.anthropicBase) || 'https://api.anthropic.com/v1/messages');
   let r;
   try {
     r = await fetch(base, {
       method: 'POST',
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'accept': 'application/json', 'user-agent': 'neoretail-one/1.0 (+https://work.neoretail.net)' },
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'accept': 'application/json', 'user-agent': 'Anthropic/Python 0.40.0', ...(useRelay ? { 'x-relay-secret': relaySecret } : {}) },
       body: JSON.stringify({ model: MODEL, max_tokens: 8000, messages: [{ role: 'user', content: prompt }] }),
     });
   } catch (e) { return json({ ok: false, error: 'claude_fetch_failed', detail: String(e).slice(0, 200) }, 200); }

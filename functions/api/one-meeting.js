@@ -84,7 +84,12 @@ ${hint ? '\n추가 맥락: ' + hint : ''}
 전사 내용:
 ${transcript.slice(0, 24000)}`;
 
-  const base = resolveClaudeUrl(cfg.anthropicBase) || 'https://api.anthropic.com/v1/messages';
+  // 🔁 릴레이 최우선 — Anthropic 앞단 CF 엣지가 워커 egress(HKG 등)를 403 차단하는 문제 우회.
+  //   relay 설정 시 비-CF 릴레이 경유(x-relay-secret 인증), 미설정 시 게이트웨이/직접.
+  const relayUrl = String(cfg.claudeRelayUrl || '').trim();
+  const relaySecret = String(cfg.claudeRelaySecret || '').trim();
+  const useRelay = !!(relayUrl && relaySecret);
+  const base = useRelay ? relayUrl : (resolveClaudeUrl(cfg.anthropicBase) || 'https://api.anthropic.com/v1/messages');
   async function callOnce(model) {
     const payload = { model, max_tokens: 2600, messages: [{ role: 'user', content: prompt }] };
     if (/opus-5|opus-4-8|opus-4-7|fable-5|sonnet-5/.test(model)) payload.thinking = { type: 'disabled' };  // 도구 없음 → 저지연·품질 유지
@@ -95,7 +100,8 @@ ${transcript.slice(0, 24000)}`;
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
         'accept': 'application/json',
-        'user-agent': 'neoretail-one/1.0 (+https://work.neoretail.net)',
+        'user-agent': 'Anthropic/Python 0.40.0',
+        ...(useRelay ? { 'x-relay-secret': relaySecret } : {}),
       },
       body: JSON.stringify(payload),
     });
