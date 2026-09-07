@@ -47,6 +47,8 @@ export async function onRequestGet({ env, request }) {
     alertRecipientId:   cfg.alertRecipientId || '',
     alertRecipientName: cfg.alertRecipientName || '',
     anthropicBase:      cfg.anthropicBase || '',   // 비밀 아님(게이트웨이 URL) — 평문 반환
+    claudeRelayUrl:     cfg.claudeRelayUrl || '',  // 비밀 아님(릴레이 URL) — 평문 반환
+    hasRelaySecret:     !!cfg.claudeRelaySecret,
     hasToken:           !!cfg.channelAccessToken,
     hasSecret:          !!cfg.channelSecret,
     hasParseSecret:     !!cfg.parseSecret,
@@ -61,7 +63,7 @@ export async function onRequestPost({ env, request }) {
   let body;
   try { body = await request.json(); } catch(e){ return text('invalid json', 400); }
   const cur = (await env.STORES_KV.get(KV_KEY, 'json')) || {};
-  const keys = ['channelAccessToken', 'channelSecret', 'parseSecret', 'claudeApiKey', 'roomMap', 'categoryRooms', 'alertRecipientId', 'alertRecipientName'];
+  const keys = ['channelAccessToken', 'channelSecret', 'parseSecret', 'claudeApiKey', 'roomMap', 'categoryRooms', 'alertRecipientId', 'alertRecipientName', 'claudeRelayUrl', 'claudeRelaySecret'];
   for (const k of keys) {
     if (body[k] !== undefined && body[k] !== null && body[k] !== '') cur[k] = body[k];
   }

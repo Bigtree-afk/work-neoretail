@@ -66,7 +66,7 @@ export async function onRequestPost(ctx) {
 // 지정 ms 후 abort 되는 Claude 호출 (fetch 가 매달려 워커가 죽는 것 방지)
 // baseUrl: 기본 api.anthropic.com. cfg.anthropicBase 설정 시 Cloudflare AI Gateway 등으로 우회 가능
 //   (예: https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic/v1/messages)
-async function callClaudeOnce(apiKey, model, system, messages, timeoutMs, baseUrl) {
+async function callClaudeOnce(apiKey, model, system, messages, timeoutMs, baseUrl, extraHdr) {
   const payload = { model, max_tokens: 1024, system, messages };
   if (/opus-5|opus-4-8|opus-4-7|fable-5|sonnet-5/.test(model)) payload.thinking = { type: 'disabled' };
   const ctl = new AbortController();
@@ -89,6 +89,7 @@ async function callClaudeOnce(apiKey, model, system, messages, timeoutMs, baseUr
         'x-stainless-runtime-version': '3.11.9',
         'x-stainless-os': 'Linux',
         'x-stainless-arch': 'x64',
+        ...(extraHdr || {}),   // 릴레이 경유 시 x-relay-secret 등
       },
       body: JSON.stringify(payload),
     });
@@ -136,10 +137,11 @@ async function handleChat({ request, env }) {
     return m;
   });
 
+  const relayUrl = String(cfg.claudeRelayUrl || '').trim();     // 비-CF 릴레이 프록시 URL(설정 시 최우선)
+  const relaySecret = String(cfg.claudeRelaySecret || '').trim();
   const gwUrl = resolveClaudeUrl(cfg.anthropicBase);            // 게이트웨이 messages URL (설정 시)
-  const directUrl = '';                                         // '' = api.anthropic.com 직접
   const colo = (request.cf && request.cf.colo) || '';           // 워커 실행 콜로(=egress 위치) — ICN=서울, HKG=홍콩
-  let via = gwUrl ? 'gateway' : 'direct';                       // 마지막 시도 경로(진단 기록용)
+  let via = 'direct';                                           // 마지막 시도 경로(진단 기록용)
   // 실패 시 진단 캡처(콜로·차단주체) 후 JSON 반환.
   const fail = async (payload) => {
     try {
@@ -153,10 +155,10 @@ async function handleChat({ request, env }) {
   };
   const sleep = (ms) => new Promise(res => setTimeout(res, ms));
   // 단일 호출 — 타임아웃 22s, 429/5xx/네트워크만 1회 즉시 재시도(같은 경로). 403/404 는 상위 경로·모델 순회가 처리.
-  async function callWithRetry(model, url) {
+  async function callWithRetry(model, url, hdr) {
     for (let attempt = 0; attempt < 2; attempt++) {
       let res;
-      try { res = await callClaudeOnce(apiKey, model, system, messages, 22000, url); }
+      try { res = await callClaudeOnce(apiKey, model, system, messages, 22000, url, hdr); }
       catch (e) { if (attempt === 0) { await sleep(900); continue; } return { err: 'timeout_or_network', detail: String((e && e.message) || e) }; }
       if (res.ok) return res;
       if ((res.status === 429 || res.status >= 500) && attempt === 0) { await sleep(900); continue; }
@@ -164,22 +166,24 @@ async function handleChat({ request, env }) {
     }
   }
 
-  // 🔁 403('Request not allowed' — Anthropic 앞단 CF 엣지가 특정 콜로 egress 를 간헐 차단)은
-  //   같은 경로 재시도로는 안 뚫림 → 경로(게이트웨이↔직접)를 바꿔가며 순회. 간헐적이라 경로/시각을
-  //   바꾸면 통과하는 경우가 많음. 진짜 모델 미지원(권한) 403/404 도 이 순회에서 sonnet 으로 커버됨.
-  //   시도 순서: opus@게이트웨이 → opus@직접 → sonnet@게이트웨이 → sonnet@직접 (게이트웨이 없으면 직접만).
-  const routes = gwUrl ? [gwUrl, directUrl] : [directUrl];
+  // 🔁 경로 순회 — 403('Request not allowed': Anthropic 앞단 CF 엣지가 워커 egress IP(특정 콜로)를
+  //   차단)은 게이트웨이·직접 모두 같은 IP 라 못 뚫림. **비-CF 릴레이(relay)** 가 설정돼 있으면 최우선
+  //   시도(Anthropic 이 안 막는 IP 에서 호출). 그다음 게이트웨이·직접 순. 각 경로를 opus→sonnet 로.
+  const routes = [];
+  if (relayUrl && relaySecret) routes.push({ url: relayUrl, hdr: { 'x-relay-secret': relaySecret }, name: 'relay' });
+  if (gwUrl) routes.push({ url: gwUrl, hdr: null, name: 'gateway' });
+  routes.push({ url: '', hdr: null, name: 'direct' });
   const attempts = [];
-  for (const rt of routes) attempts.push({ model: PRIMARY_MODEL, url: rt });
-  for (const rt of routes) attempts.push({ model: FALLBACK_MODEL, url: rt });
+  for (const rt of routes) attempts.push({ model: PRIMARY_MODEL, rt });
+  for (const rt of routes) attempts.push({ model: FALLBACK_MODEL, rt });
 
   let model = PRIMARY_MODEL;
   let res = null;
   for (let a = 0; a < attempts.length; a++) {
     const at = attempts[a];
     model = at.model;
-    via = at.url ? 'gateway' : 'direct';
-    res = await callWithRetry(at.model, at.url);
+    via = at.rt.name;
+    res = await callWithRetry(at.model, at.rt.url, at.rt.hdr);
     if (res && res.err) {                              // timeout/network
       if (a < attempts.length - 1) { await sleep(700); continue; }
       return await fail({ ok: false, error: res.err, detail: (res.detail || '').slice(0, 200) });
