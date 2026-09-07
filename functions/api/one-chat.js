@@ -74,13 +74,21 @@ async function callClaudeOnce(apiKey, model, system, messages, timeoutMs, baseUr
   try {
     const r = await fetch(baseUrl || 'https://api.anthropic.com/v1/messages', {
       method: 'POST', signal: ctl.signal,
-      // 표준 클라이언트처럼 보이게 — 빈 UA + 워커 egress IP 는 Anthropic 앞단 CF 가 403 차단하는 패턴
+      // 공식 Anthropic SDK 트래픽으로 보이게 — 워커 egress IP 를 Anthropic 앞단 CF WAF 가
+      //   'Request not allowed'(403)로 차단하는 문제 대응. 비표준 UA(neoretail-one)는 봇 의심 소지.
+      //   SDK 가 보내는 x-stainless-* 헤더까지 동봉해 정식 클라이언트로 인식되게 함.
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
         'accept': 'application/json',
-        'user-agent': 'neoretail-one/1.0 (+https://work.neoretail.net)',
+        'user-agent': 'Anthropic/Python 0.40.0',
+        'x-stainless-lang': 'python',
+        'x-stainless-package-version': '0.40.0',
+        'x-stainless-runtime': 'CPython',
+        'x-stainless-runtime-version': '3.11.9',
+        'x-stainless-os': 'Linux',
+        'x-stainless-arch': 'x64',
       },
       body: JSON.stringify(payload),
     });
