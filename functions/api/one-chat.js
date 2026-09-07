@@ -49,6 +49,14 @@ function resolveClaudeUrl(anthropicBase) {
 
 export async function onRequestOptions() { return json({}, 204); }
 
+// 🔎 진단 — 마지막 Claude 호출 실패 상세(콜로·차단주체) 조회. 403 재발 원인 확정용.
+export async function onRequestGet({ env }) {
+  if (!env.STORES_KV) return json({ ok: false, error: 'kv_not_bound' }, 200);
+  let last = null;
+  try { last = await env.STORES_KV.get('one_chat_last_error', 'json'); } catch (_) {}
+  return json({ ok: true, lastError: last || null }, 200);
+}
+
 export async function onRequestPost(ctx) {
   // 🛡 어떤 경우에도 JSON 만 반환 — 미처리 예외로 Cloudflare 502(HTML) 뜨는 것 차단
   try { return await handleChat(ctx); }
@@ -121,6 +129,19 @@ async function handleChat({ request, env }) {
   });
 
   const baseUrl = resolveClaudeUrl(cfg.anthropicBase);
+  const colo = (request.cf && request.cf.colo) || '';           // 워커 실행 콜로(=egress 위치) — ICN=서울
+  const via = baseUrl ? 'gateway' : 'direct';                    // 게이트웨이 경유 여부
+  // 실패 시 진단 캡처(콜로·차단주체) 후 JSON 반환. 재현 안 되던 403 원인 확정용.
+  const fail = async (payload) => {
+    try {
+      await env.STORES_KV.put('one_chat_last_error', JSON.stringify({
+        at: new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' '),
+        colo, via, turns: clean.length,
+        error: payload.error || '', detail: payload.detail || '',
+      }), { expirationTtl: 172800 });
+    } catch (_) {}
+    return json(payload, 200);
+  };
   const sleep = (ms) => new Promise(res => setTimeout(res, ms));
   // 호출 — 타임아웃 22s, 429/5xx/네트워크는 1회 재시도, Opus 5 미지원(404/403)이면 sonnet 폴백
   async function callWithRetry(model) {
@@ -137,14 +158,14 @@ async function handleChat({ request, env }) {
 
   let model = PRIMARY_MODEL;
   let res = await callWithRetry(PRIMARY_MODEL);
-  if (res && res.err) return json({ ok: false, error: res.err, detail: (res.detail || '').slice(0, 200) }, 200);
+  if (res && res.err) return await fail({ ok: false, error: res.err, detail: (res.detail || '').slice(0, 200) });
   // Opus 5 미지원 키 → sonnet 폴백
   if (res && !res.ok && (res.status === 404 || res.status === 403)) {
     model = FALLBACK_MODEL;
     res = await callWithRetry(FALLBACK_MODEL);
-    if (res && res.err) return json({ ok: false, error: res.err, detail: (res.detail || '').slice(0, 200) }, 200);
+    if (res && res.err) return await fail({ ok: false, error: res.err, detail: (res.detail || '').slice(0, 200) });
   }
-  if (!res || !res.ok) return json({ ok: false, error: 'claude_' + ((res && res.status) || '000'), detail: ((res && res.text || '').slice(0, 160) + (res && res.meta || '')) }, 200);
+  if (!res || !res.ok) return await fail({ ok: false, error: 'claude_' + ((res && res.status) || '000'), detail: ((res && res.text || '').slice(0, 160) + (res && res.meta || '')) });
 
   let data;
   try { data = JSON.parse(res.text); }
