@@ -281,13 +281,53 @@
     tbl.querySelectorAll('tr').forEach(tr => { out += '<tr>'; tr.querySelectorAll('td,th').forEach(cell => { const t = cell.tagName === 'TH' ? 'th' : 'td'; const cs = parseInt(cell.getAttribute('colspan')) || 0, rs = parseInt(cell.getAttribute('rowspan')) || 0; const txt = esc(String(cell.textContent || '').replace(/\s+/g, ' ').trim()); out += `<${t}${cs > 1 ? ` colspan="${cs}"` : ''}${rs > 1 ? ` rowspan="${rs}"` : ''}>${txt || '<br>'}</${t}>`; }); out += '</tr>'; });
     return out + '</table>';
   }
+  // 🔗 URL 자동 링크화 — 텍스트 내 http(s):// 또는 www. 를 클릭 가능한 <a> 로 변환. 링크 없으면 null.
+  function _linkifyText(text) {
+    const re = /((?:https?:\/\/|www\.)[^\s<]+)/gi;
+    let out = '', last = 0, m, any = false;
+    while ((m = re.exec(text))) {
+      out += esc(text.slice(last, m.index));
+      let url = m[1], trail = '';
+      const tm = url.match(/[),.;!?'"\]]+$/); if (tm) { trail = tm[0]; url = url.slice(0, -trail.length); }
+      if (url) { const href = /^www\./i.test(url) ? 'https://' + url : url; out += `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(url)}</a>`; any = true; }
+      out += esc(trail);
+      last = m.index + m[1].length;
+    }
+    out += esc(text.slice(last));
+    return any ? out : null;
+  }
+  // 커서 바로 앞 단어가 URL 이면 <a> 로 교체(타이핑 중 스페이스/엔터 직전 호출). 교체 시 true.
+  function _linkifyBeforeCaret() {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !sel.isCollapsed) return false;
+    const node = sel.anchorNode;
+    if (!node || node.nodeType !== 3) return false;
+    if (node.parentNode && node.parentNode.closest && node.parentNode.closest('a')) return false;  // 이미 링크 안이면 skip
+    const off = sel.anchorOffset;
+    const mm = node.nodeValue.slice(0, off).match(/(?:^|[\s(])((?:https?:\/\/|www\.)[^\s]+)$/);
+    if (!mm) return false;
+    let url = mm[1], trail = '';
+    const tm = url.match(/[),.;!?'"\]]+$/); if (tm) { trail = tm[0]; url = url.slice(0, -trail.length); }
+    if (!url) return false;
+    const start = off - (url.length + trail.length);
+    const r = document.createRange(); r.setStart(node, start); r.setEnd(node, start + url.length);
+    sel.removeAllRanges(); sel.addRange(r);
+    const href = /^www\./i.test(url) ? 'https://' + url : url;
+    document.execCommand('insertHTML', false, `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(url)}</a>`);
+    return true;
+  }
   function onPaste(ev) {
     const cd = ev.clipboardData; if (!cd) return;
     const imgIt = [...(cd.items || [])].find(it => it.kind === 'file' && /^image\//.test(it.type));
     if (imgIt) { ev.preventDefault(); const f = imgIt.getAsFile(); if (f) compressImage(f, du => { if (du) { document.execCommand('insertHTML', false, `<img src="${du}"><br>`); afterEdit(); } }); return; }
     const html = cd.getData('text/html');
     if (html && /<table/i.test(html)) { ev.preventDefault(); const t = rebuildTable(html); if (t) { document.execCommand('insertHTML', false, t + '<br>'); afterEdit(); } return; }
-    ev.preventDefault(); const text = cd.getData('text/plain'); if (text) document.execCommand('insertText', false, text);
+    ev.preventDefault(); const text = cd.getData('text/plain');
+    if (text) {
+      const linked = _linkifyText(text);   // 붙여넣은 텍스트에 URL 있으면 바로 링크로 삽입
+      if (linked) { document.execCommand('insertHTML', false, linked); afterEdit(); return; }
+      document.execCommand('insertText', false, text);
+    }
   }
   function exec(cmd, val) { $('docBody').focus(); document.execCommand(cmd, false, val || null); afterEdit(); }
   function afterEdit() { const b = bodyCache[curPageId], el = $('docBody'); if (b && el) { b.html = el.innerHTML; savePage(curPageId); } }
@@ -406,8 +446,13 @@
   function onBodyKeydown(e) {
     const cell = currentCell();
     if (e.key === 'Tab') { if (!cell) return; e.preventDefault(); _curCell = cell; moveCell(cell, e.shiftKey ? -1 : 1); return; }
+    // 🔗 스페이스 입력 직전, 커서 앞 단어가 URL 이면 링크로 변환 후 스페이스 삽입
+    if (e.key === ' ') {
+      if (_linkifyBeforeCaret()) { e.preventDefault(); document.execCommand('insertText', false, ' '); afterEdit(); }
+      return;
+    }
     if (e.key !== 'Enter') return;
-    if (!cell) return;
+    if (!cell) { _linkifyBeforeCaret(); return; }   // 표 밖 엔터: URL 이면 링크화 후 기본 줄바꿈
     if (e.ctrlKey || e.metaKey) { e.preventDefault(); _curCell = cell; addRow(true); }
     else if (e.shiftKey) { e.preventDefault(); _curCell = cell; addCol(true); }
   }
