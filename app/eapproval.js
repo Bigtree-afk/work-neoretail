@@ -736,6 +736,8 @@
     } else if (d.drafter === ME() && d.status === 'rej') {
       actions = `<div class="eap-meta" style="margin-bottom:6px">반려된 기안입니다. 수정 후 다시 상신할 수 있습니다.</div><div class="eap-actrow"><button class="eap-btn eap-btn-o" onclick="EAP.openDraftEdit(${J(d.id)})">✏️ 수정 후 재상신</button><button class="eap-btn eap-btn-p" onclick="EAP.resubmit(${J(d.id)})">📤 그대로 재상신</button></div>`;
     }
+    // 📑 복사하여 새 기안 — 결재선·내용 그대로 새 문서로 상신(신규 id). 반복/유사 결재 재사용.
+    actions += `<div class="eap-actrow" style="margin-top:8px"><button class="eap-btn eap-btn-o" style="width:100%" onclick="EAP.openDraftCopy(${J(d.id)})">📑 복사하여 새 기안</button></div>`;
     // 🗑 완료 결재 삭제 (지정 관리자) — 되돌릴 수 없으므로 다른 액션과 분리해 아래쪽에 배치
     if (canDeleteDoc(d)) {
       actions += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-200)">
@@ -924,13 +926,13 @@
   };
 
   /* ════════════════ 기안 작성 모달 ════════════════ */
-  let draftTpl = null, draftLine = [], draftCC = [], draftAtts = [], _editDocId = null, _draftVals = {}, _editTpl = null;
+  let draftTpl = null, draftLine = [], draftCC = [], draftAtts = [], _editDocId = null, _draftVals = {}, _editTpl = null, _copyMode = false;
   // 회수/작성 문서 수정 후 재상신 — 기존 doc 프리필 (문서의 필드 기준으로 렌더 — 템플릿 변경에도 안전)
   EAP.openDraftEdit = function (id) {
     const d = getDocs().find(x => x.id === id);
     if (!d) { toast('문서를 찾을 수 없습니다'); return; }
     if (d.drafter !== ME()) { toast('본인 기안만 수정할 수 있습니다'); return; }
-    _editDocId = id;
+    _editDocId = id; _copyMode = false;
     _draftVals = {}; (d.fields || []).forEach(f => { _draftVals[f.label] = f.value; });
     draftLine = (d.line || []).filter(s => s.role !== '기안').map(s => s.n);
     draftCC = (d.cc || []).slice();
@@ -944,8 +946,25 @@
     _editTpl = { id: d.tplId, name: (t && t.name) || d.tpl || '문서', cat: d.kind || (t && t.cat) || 'gen', fields: docFields };
     _renderDraftModal(d.tplId, d.title || '');
   };
+  // 📑 복사하여 새 기안 — 기존 문서의 내용·결재선·참조·첨부·양식을 그대로 가져오되
+  //   _editDocId=null 로 두어 상신 시 '신규 문서(새 id)'로 생성(원본은 그대로). 반복 결재 재사용.
+  EAP.openDraftCopy = function (id) {
+    const d = getDocs().find(x => x.id === id);
+    if (!d) { toast('문서를 찾을 수 없습니다'); return; }
+    _editDocId = null; _copyMode = true;
+    _draftVals = {}; (d.fields || []).forEach(f => { _draftVals[f.label] = f.value; });
+    draftLine = (d.line || []).filter(s => s.role !== '기안').map(s => s.n);
+    draftCC = (d.cc || []).slice();
+    draftAtts = (d.attachments || []).slice();
+    const t = tplById(d.tplId);
+    const docFields = (d.fields && d.fields.length)
+      ? d.fields.map(f => { const tf = (t && t.fields || []).find(x => x.label === f.label); return { label: f.label, type: (tf && tf.type) || f.type, options: tf ? tf.options : undefined }; })
+      : ((t && t.fields) || []);
+    _editTpl = { id: d.tplId, name: (t && t.name) || d.tpl || '문서', cat: d.kind || (t && t.cat) || 'gen', fields: docFields };
+    _renderDraftModal(d.tplId, d.title || '');
+  };
   EAP.openDraft = function (tplId) {
-    _editDocId = null; _draftVals = {}; _editTpl = null;
+    _editDocId = null; _copyMode = false; _draftVals = {}; _editTpl = null;
     draftLine = myRoute().filter(n => n !== ME());
     draftCC = [];
     draftAtts = [];
@@ -953,13 +972,13 @@
   };
   function _renderDraftModal(tplId, titleVal) {
     const tpls = getTpls();
-    draftTpl = (_editDocId && _editTpl) ? _editTpl : (tplId ? tplById(tplId) : (tpls[0] || null));
+    draftTpl = _editTpl ? _editTpl : (tplId ? tplById(tplId) : (tpls[0] || null));   // 수정·복사 모드는 원본 양식 사용
     const tplOpts = tpls.map(t => `<option value="${esc(t.id)}" ${draftTpl && t.id === draftTpl.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
     const staff = STAFF().filter(n => n !== ME());
     const editing = !!_editDocId;
     const html = `
       <div class="eap-modal wide">
-        <div class="eap-mhead"><h3>${editing ? '✏️ 수정 후 재상신' : '✏️ 새 기안'}</h3><button class="eap-x" onclick="EAP.closeModal()">✕</button></div>
+        <div class="eap-mhead"><h3>${editing ? '✏️ 수정 후 재상신' : (_copyMode ? '📑 복사하여 새 기안' : '✏️ 새 기안')}</h3><button class="eap-x" onclick="EAP.closeModal()">✕</button></div>
         <div class="eap-fld"><label>문서 양식</label>
           <select id="eapTplSel" onchange="EAP.onTplChange(this.value)" ${editing ? 'disabled' : ''}>${tplOpts}</select></div>
         <div class="eap-fld"><label>제목</label><input id="eapTitle" type="text" placeholder="제목 입력" oninput="EAP.onTitleTop()"></div>

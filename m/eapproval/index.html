@@ -401,7 +401,7 @@
       (l.manual>0?('['+(l.manualDate||'-')+'] 수기 이월 '+l.manual+'일\n'):'')+
       docs.map(function(d){var rng=(d.to&&d.to!==d.from)?(String(d.from).slice(0,10)+'~'+String(d.to).slice(0,10)):String(d.from||'').slice(0,10);return '['+rng+'] 문서 '+(d.days||1)+'일 · '+(d.title||'연차');}).join('\n'));
   };
-  window._eapNewLeave=function(){const t=getTpls().find(x=>x.cat==='leave');if(!t){toast('연차 양식이 없습니다 — PC에서 등록하세요');return;}_editDocId=null;_editVals={};draftTpl=t;location.hash='#form';};
+  window._eapNewLeave=function(){const t=getTpls().find(x=>x.cat==='leave');if(!t){toast('연차 양식이 없습니다 — PC에서 등록하세요');return;}_editDocId=null;_copyDocId=null;_editVals={};draftTpl=t;location.hash='#form';};
 
   /* ── 자금관리 (fund) — 조회 전용(입력·마감은 PC) ── */
   function fundHtml(){
@@ -573,6 +573,8 @@
     }else if(d.drafter===ME()&&d.status==='rej'){
       act='<div class="meta" style="margin-top:12px;margin-bottom:6px">반려된 기안 — 수정 후 다시 상신할 수 있습니다.</div><div class="actrow"><button class="btn btn-o" onclick="_eapEdit(\''+esc(id)+'\')">✏️ 수정 후 재상신</button><button class="btn btn-p" onclick="_eapResubmit(\''+esc(id)+'\')">📤 그대로</button></div>';
     }
+    // 📑 복사하여 새 기안 — 결재선·내용 그대로 새 문서로 상신(신규 id)
+    act+='<div class="actrow" style="margin-top:12px"><button class="btn btn-o" style="width:100%" onclick="_eapCopy(\''+esc(id)+'\')">📑 복사하여 새 기안</button></div>';
     // 🗑 완료 결재 삭제 (지정 관리자) — 되돌릴 수 없어 다른 액션과 분리
     if(canDeleteDoc(d)){
       act+='<div style="margin-top:14px;padding-top:12px;border-top:1px solid #E2E8F0">'
@@ -611,7 +613,7 @@
   async function pushCfg(){try{await fetch('/api/eapproval',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({config:getCfg()})});}catch(_){}}
 
   /* ── form (draft) ── */
-  let draftTpl=null,draftLine=[],draftCC=[],_editDocId=null,_editVals={};
+  let draftTpl=null,draftLine=[],draftCC=[],_editDocId=null,_editVals={},_copyDocId=null;
   /* 👁 완료 결재에 참조자 추가 — 전 직원 가능(사후 공유). 참조자는 '참조' 탭에서 열람 가능해짐 */
   window._eapAddCC=function(id,name){
     if(!name)return;
@@ -639,20 +641,24 @@
     setDocs(docs.filter(x=>x.id!==id));
     location.hash=''; toast(d.kind==='leave'&&Number(d.days)?'🗑 삭제 — 연차 '+d.days+'일 복원':'🗑 결재를 삭제했습니다');
   };
-  window._eapEdit=function(id){const d=getDocs().find(x=>x.id===id);if(!d)return;if(d.drafter!==ME()){toast('본인 기안만 수정 가능');return;}_editDocId=id;location.hash='#form';if(parseHash().view==='form')render();};
-  window._eapNewDraft=function(){_editDocId=null;_editVals={};draftTpl=null;location.hash='#form';};
+  window._eapEdit=function(id){const d=getDocs().find(x=>x.id===id);if(!d)return;if(d.drafter!==ME()){toast('본인 기안만 수정 가능');return;}_editDocId=id;_copyDocId=null;location.hash='#form';if(parseHash().view==='form')render();};
+  // 📑 복사하여 새 기안 — 내용·결재선·참조 복제(신규 id로 상신). 모바일은 첨부 제외.
+  window._eapCopy=function(id){const d=getDocs().find(x=>x.id===id);if(!d)return;_editDocId=null;_copyDocId=id;_editVals={};draftTpl=null;location.hash='#form';if(parseHash().view==='form')render();};
+  window._eapNewDraft=function(){_editDocId=null;_copyDocId=null;_editVals={};draftTpl=null;location.hash='#form';};
   function renderForm(){
     const tpls=getTpls();
     if(!tpls.length){document.getElementById('view-form').innerHTML='<div class="empty">등록된 양식이 없습니다.<br>PC에서 양식을 먼저 등록하세요.</div>';return;}
-    let editDoc=null;
+    let editDoc=null,copyDoc=null;
     if(_editDocId){editDoc=getDocs().find(x=>x.id===_editDocId);if(!editDoc)_editDocId=null;}
-    if(_editDocId&&editDoc){
-      const t=tplById(editDoc.tplId);
-      const dfs=(editDoc.fields&&editDoc.fields.length)?editDoc.fields.map(f=>{const tf=(t&&t.fields||[]).find(x=>x.label===f.label);return {label:f.label,type:f.type,options:tf?tf.options:undefined};}):((t&&t.fields)||[]);
-      draftTpl={id:editDoc.tplId,name:(t&&t.name)||editDoc.tpl||'문서',cat:editDoc.kind||(t&&t.cat)||'gen',fields:dfs};
-      draftLine=(editDoc.line||[]).filter(s=>s.role!=='기안').map(s=>s.n);
-      draftCC=(editDoc.cc||[]).slice();
-      _editVals={};(editDoc.fields||[]).forEach(f=>_editVals[f.label]=f.value);
+    if(!_editDocId&&_copyDocId){copyDoc=getDocs().find(x=>x.id===_copyDocId);if(!copyDoc)_copyDocId=null;}
+    const srcDoc=editDoc||copyDoc;   // 수정 또는 복사 소스
+    if(srcDoc){
+      const t=tplById(srcDoc.tplId);
+      const dfs=(srcDoc.fields&&srcDoc.fields.length)?srcDoc.fields.map(f=>{const tf=(t&&t.fields||[]).find(x=>x.label===f.label);return {label:f.label,type:f.type,options:tf?tf.options:undefined};}):((t&&t.fields)||[]);
+      draftTpl={id:srcDoc.tplId,name:(t&&t.name)||srcDoc.tpl||'문서',cat:srcDoc.kind||(t&&t.cat)||'gen',fields:dfs};
+      draftLine=(srcDoc.line||[]).filter(s=>s.role!=='기안').map(s=>s.n);
+      draftCC=(srcDoc.cc||[]).slice();
+      _editVals={};(srcDoc.fields||[]).forEach(f=>_editVals[f.label]=f.value);
     }else{
       draftTpl=draftTpl&&tplById(draftTpl.id)?draftTpl:tpls[0];
       draftLine=myRoute().filter(n=>n!==ME());draftCC=[];_editVals={};
@@ -667,7 +673,7 @@
       +'<div class="fld"><label>결재선 (순서대로 선택)</label><div class="picker" id="fLine">'+staff.map(n=>'<span class="pk '+(draftLine.includes(n)?'on':'')+'" onclick="_eapTL(\''+esc(n)+'\')">'+lblIdx(draftLine,n)+esc(n)+'</span>').join('')+'</div><div class="meta" id="fLinePrev" style="margin-top:6px"></div></div>'
       +'<div class="fld"><label style="display:flex;align-items:center;gap:8px">참조<button type="button" class="att-btn" style="margin-left:auto" onclick="_eapCCAll()">전체 선택</button></label><div class="picker" id="fCC">'+staff.map(n=>'<span class="pk '+(draftCC.includes(n)?'on':'')+'" onclick="_eapCC(\''+esc(n)+'\')">'+esc(n)+'</span>').join('')+'</div></div>'
       +'<button class="btn btn-p" style="width:100%;margin-top:6px" onclick="_eapSubmit()">'+(editing?'📤 수정 후 재상신':'📤 상신')+'</button>';
-    const ti=document.getElementById('fTitle');if(ti)ti.value=editing?(editDoc.title||''):'';
+    const ti=document.getElementById('fTitle');if(ti)ti.value=srcDoc?(srcDoc.title||''):'';
     renderFormFields();updateLinePrev();
   }
   function lblIdx(arr,n){const i=arr.indexOf(n);return i>=0?'<b>'+(i+1)+'</b> ':'';}
@@ -720,7 +726,7 @@
     applyCat(d);
     docs.push(d);setDocs(docs);
     if(d.line[1])notify(d.line[1].n,'request',d);
-    draftTpl=null;toast('📤 상신 완료');location.hash='#detail/'+d.id;
+    draftTpl=null;_copyDocId=null;toast('📤 상신 완료');location.hash='#detail/'+d.id;
   };
 
   /* ── boot ── */
