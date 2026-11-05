@@ -259,8 +259,9 @@
   function isMyTurn(d){return d.status==='wait'&&d.line[d.step]&&d.line[d.step].n===ME();}
   function isCC(d){const me=ME();return (d.cc||[]).includes(me)&&d.drafter!==me&&!(d.line||[]).some(s=>s.n===me);}
   // 🗑 완료(ok) 결재 삭제 권한 — 지정 관리자만. ⚠ PC app/eapproval.js 의 DOC_DELETERS 와 쌍둥이(양쪽 동일 유지)
-  const DOC_DELETERS=['이동호','김혜연'];
+  const DOC_DELETERS=['김혜연'];   // 완료 결재 실제 삭제 = 김혜연 + 관리자(나). 이전 이동호 제거(요청 승인제)
   function canDeleteDoc(d){return !!d&&d.status==='ok'&&(isAdmin()||DOC_DELETERS.includes(ME()));}
+  function canRequestDelete(d){return !!d&&d.status==='ok'&&(d.drafter===ME()||isAdmin()||DOC_DELETERS.includes(ME()));}
   // 👁 완료(ok) 결재의 참조 추가 — 공유 목적이라 전 직원 허용
   function canAddCC(d){return !!d&&d.status==='ok';}
   // 검색 노출 대상(권한): 기안/결재선은 진행중도, 참조는 완료 후만 (서브탭 규칙과 동일)
@@ -575,11 +576,24 @@
     }
     // 📑 복사하여 새 기안 — 결재선·내용 그대로 새 문서로 상신(신규 id)
     act+='<div class="actrow" style="margin-top:12px"><button class="btn btn-o" style="width:100%" onclick="_eapCopy(\''+esc(id)+'\')">📑 복사하여 새 기안</button></div>';
-    // 🗑 완료 결재 삭제 (지정 관리자) — 되돌릴 수 없어 다른 액션과 분리
-    if(canDeleteDoc(d)){
-      act+='<div style="margin-top:14px;padding-top:12px;border-top:1px solid #E2E8F0">'
-        +'<button class="btn btn-rej" style="width:100%" onclick="_eapDelDoc(\''+esc(id)+'\')">🗑 이 결재 삭제</button>'
-        +'<div class="meta" style="margin-top:4px">완료된 결재를 모든 기기에서 영구 삭제합니다.</div></div>';
+    // 🗑 완료 결재 삭제 — '요청 → 김혜연/관리자 승인' 흐름
+    if(d.status==='ok'){
+      const dr=d.delReq;
+      if(canDeleteDoc(d)){
+        act+='<div style="margin-top:14px;padding-top:12px;border-top:1px solid #E2E8F0">'
+          +(dr?'<div class="meta" style="margin-bottom:6px;color:#B45309">🗑 삭제 요청: <b>'+esc(dr.by)+'</b> · '+esc(dr.at)+'</div>':'')
+          +'<button class="btn btn-rej" style="width:100%" onclick="_eapDelDoc(\''+esc(id)+'\')">🗑 이 결재 삭제'+(dr?' (요청 승인)':'')+'</button>'
+          +(dr?'<button class="btn btn-o" style="width:100%;margin-top:6px" onclick="_eapCancelDelReq(\''+esc(id)+'\')">삭제 요청 반려</button>':'')
+          +'<div class="meta" style="margin-top:4px">완료된 결재를 모든 기기에서 영구 삭제합니다.</div></div>';
+      }else if(dr){
+        act+='<div style="margin-top:14px;padding-top:12px;border-top:1px solid #E2E8F0">'
+          +'<div class="meta" style="color:#B45309">🗑 삭제 요청됨 — <b>'+esc(dr.by)+'</b> · 승인 대기(김혜연/관리자)</div>'
+          +(dr.by===ME()?'<button class="btn btn-o" style="width:100%;margin-top:6px" onclick="_eapCancelDelReq(\''+esc(id)+'\')">삭제 요청 취소</button>':'')+'</div>';
+      }else if(canRequestDelete(d)){
+        act+='<div style="margin-top:14px;padding-top:12px;border-top:1px solid #E2E8F0">'
+          +'<button class="btn btn-o" style="width:100%" onclick="_eapReqDel(\''+esc(id)+'\')">🗑 삭제 요청</button>'
+          +'<div class="meta" style="margin-top:4px">요청하면 김혜연/관리자가 확인 후 삭제합니다.</div></div>';
+      }
     }
     // 👁 참조 — 완료 건은 누구나 참조자 추가 가능(사후 공유)
     const ccNow=Array.isArray(d.cc)?d.cc:[];
@@ -629,10 +643,12 @@
     setDocs(docs); notify(name,'cc',d); render(); toast('👁 참조 추가 — '+name);
   };
   /* 🗑 완료 결재 삭제 — 지정 관리자만. 삭제 레지스트리 등록으로 다른 기기 부활 차단 */
+  window._eapReqDel=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||d.status!=='ok')return;if(!canRequestDelete(d)){toast('삭제 요청 권한이 없습니다');return;}if(d.delReq){toast('이미 삭제 요청되었습니다');return;}if(!confirm('이 완료 결재의 삭제를 요청할까요?\n김혜연/관리자가 확인 후 삭제합니다.'))return;d.delReq={by:ME(),at:kstNow()};d.history=d.history||[];d.history.push({n:ME(),act:'삭제요청',at:kstNow()});d.updatedAt=Date.now();setDocs(docs);try{notify('김혜연','delreq',d);}catch(_){}toast('🗑 삭제 요청됨 — 김혜연/관리자 확인 대기');render();};
+  window._eapCancelDelReq=function(id){const docs=getDocs(),d=docs.find(x=>x.id===id);if(!d||!d.delReq)return;if(!(d.delReq.by===ME()||isAdmin()||DOC_DELETERS.includes(ME()))){toast('취소 권한이 없습니다');return;}const wasBy=d.delReq.by;delete d.delReq;d.history=d.history||[];d.history.push({n:ME(),act:(wasBy===ME()?'삭제요청취소':'삭제요청반려'),at:kstNow()});d.updatedAt=Date.now();setDocs(docs);toast('삭제 요청이 해제되었습니다');render();};
   window._eapDelDoc=function(id){
     const docs=getDocs(),d=docs.find(x=>x.id===id);
     if(!d)return;
-    if(!canDeleteDoc(d)){toast('완료된 결재만, 지정된 관리자만 삭제할 수 있습니다');return;}
+    if(!canDeleteDoc(d)){toast('삭제는 김혜연/관리자만 가능합니다. (기안자는 삭제 요청)');return;}
     if(!confirm('이 결재를 삭제합니다.\n\n'+(d.title||'(제목 없음)')+'\n기안: '+(d.drafter||'')+'\n\n모든 기기에서 사라지며 되돌릴 수 없습니다.\n계속할까요?'))return;
     // 🌴 완료된 연차 삭제 → 사용 일수 복원 (승인 시 d.days 만큼 누적된 used 를 되돌림)
     if(d.kind==='leave'&&Number(d.days)){const c=getCfg();c.leave=c.leave||{};const l=c.leave[d.drafter]||{total:15,used:0};l.used=Math.max(0,(Number(l.used)||0)-Number(d.days));c.leave[d.drafter]=l;c.updatedAt=Date.now();setItem(CFG_LS,JSON.stringify(c));pushCfg();}

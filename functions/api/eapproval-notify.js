@@ -29,6 +29,7 @@ const EVENT_LABEL = {
   done:     '🎉 최종 승인 완료',
   exec:     '💸 자금 집행완료',
   cc:       '👁 참조 공유',
+  delreq:   '🗑 결재 삭제 요청',
 };
 
 export async function onRequestPost({ request, env }) {
@@ -73,11 +74,14 @@ export async function onRequestPost({ request, env }) {
   } else if (event === 'cc') {
     // 완료된 결재를 참조자로 공유 — 결재 요청이 아니라 열람 안내
     line1 = `${label}\n\n${viaGroup ? `[${toName}님] ` : ''}완료된 결재가 참조로 공유되었습니다.\n"${title}"${drafter ? `\n기안자: ${drafter}` : ''}`;
+  } else if (event === 'delreq') {
+    // 완료 결재 삭제 요청 — 삭제권자(김혜연/관리자)에게 확인 안내
+    line1 = `${label}\n\n${viaGroup ? `[${toName}님] ` : ''}"${title}" 완료 결재의 삭제를 요청했습니다.${drafter ? `\n기안자: ${drafter}` : ''}\n확인 후 삭제해 주세요.`;
   } else {
     // 다음 결재자에게 요청
     line1 = `${label}\n\n${viaGroup ? `[${toName}님] ` : ''}"${title}" 결재를 요청합니다.${drafter ? `\n기안자: ${drafter}` : ''}`;
   }
-  const text = `${line1}\n\n📱 ${event === 'cc' ? '결재 내용 보기' : '결재하러 가기'}:\n${link}`;
+  const text = `${line1}\n\n📱 ${(event === 'cc' || event === 'delreq') ? '결재 내용 보기' : '결재하러 가기'}:\n${link}`;
 
   try {
     const r = await fetch(LINE_PUSH_URL, {

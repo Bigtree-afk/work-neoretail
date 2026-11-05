@@ -145,8 +145,10 @@
   const MANAGERS = ['이동호', '김혜연'];
   // 🗑 완료(ok) 결재 삭제 권한 — 지정 관리자만. 진행중/반려/회수 건은 삭제 불가(회수·반려로 처리).
   //   ⚠ 모바일 m/eapproval/index.html 의 DOC_DELETERS 와 쌍둥이 — 한쪽 수정 시 양쪽 동일하게.
-  const DOC_DELETERS = ['이동호', '김혜연'];
+  const DOC_DELETERS = ['김혜연'];   // 완료 결재 실제 삭제 = 김혜연 + 관리자(나). (이전 이동호 제거 — 요청 승인제로 전환)
   function canDeleteDoc(d) { return !!d && d.status === 'ok' && (isAdmin() || DOC_DELETERS.includes(ME())); }
+  // 완료 결재 삭제 '요청' — 기안자 본인(또는 관리자/삭제권자)만. 요청하면 삭제권자가 확인 후 실제 삭제.
+  function canRequestDelete(d) { return !!d && d.status === 'ok' && (d.drafter === ME() || isAdmin() || DOC_DELETERS.includes(ME())); }
   // 👁 완료(ok) 결재의 참조 추가 — 공유 목적이라 전 직원 허용.
   function canAddCC(d) { return !!d && d.status === 'ok'; }
   function canEditLeave() { return isAdmin() || MANAGERS.includes(ME()); }
@@ -738,11 +740,27 @@
     }
     // 📑 복사하여 새 기안 — 결재선·내용 그대로 새 문서로 상신(신규 id). 반복/유사 결재 재사용.
     actions += `<div class="eap-actrow" style="margin-top:8px"><button class="eap-btn eap-btn-o" style="width:100%" onclick="EAP.openDraftCopy(${J(d.id)})">📑 복사하여 새 기안</button></div>`;
-    // 🗑 완료 결재 삭제 (지정 관리자) — 되돌릴 수 없으므로 다른 액션과 분리해 아래쪽에 배치
-    if (canDeleteDoc(d)) {
-      actions += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-200)">
-        <button class="eap-btn eap-btn-rej" style="width:100%" onclick="EAP.delDoc(${J(d.id)})">🗑 이 결재 삭제</button>
-        <div class="eap-meta" style="margin-top:4px">완료된 결재를 모든 기기에서 영구 삭제합니다.</div></div>`;
+    // 🗑 완료 결재 삭제 — '요청 → 김혜연/관리자 승인' 흐름. 되돌릴 수 없어 아래쪽에 분리 배치.
+    if (d.status === 'ok') {
+      const dr = d.delReq;
+      if (canDeleteDoc(d)) {
+        // 김혜연/관리자(나) — 직접 삭제 + 요청 처리
+        actions += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-200)">
+          ${dr ? `<div class="eap-meta" style="margin-bottom:6px;color:#B45309">🗑 삭제 요청: <b>${esc(dr.by)}</b> · ${esc(dr.at)}</div>` : ''}
+          <button class="eap-btn eap-btn-rej" style="width:100%" onclick="EAP.delDoc(${J(d.id)})">🗑 이 결재 삭제${dr ? ' (요청 승인)' : ''}</button>
+          ${dr ? `<button class="eap-btn eap-btn-o" style="width:100%;margin-top:6px" onclick="EAP.cancelDelReq(${J(d.id)})">삭제 요청 반려</button>` : ''}
+          <div class="eap-meta" style="margin-top:4px">완료된 결재를 모든 기기에서 영구 삭제합니다.</div></div>`;
+      } else if (dr) {
+        // 요청 대기 — 요청자/일반
+        actions += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-200)">
+          <div class="eap-meta" style="color:#B45309">🗑 삭제 요청됨 — <b>${esc(dr.by)}</b> · 승인 대기(김혜연/관리자)</div>
+          ${(dr.by === ME()) ? `<button class="eap-btn eap-btn-o" style="width:100%;margin-top:6px" onclick="EAP.cancelDelReq(${J(d.id)})">삭제 요청 취소</button>` : ''}</div>`;
+      } else if (canRequestDelete(d)) {
+        // 요청 가능(기안자)
+        actions += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-200)">
+          <button class="eap-btn eap-btn-o" style="width:100%" onclick="EAP.reqDelDoc(${J(d.id)})">🗑 삭제 요청</button>
+          <div class="eap-meta" style="margin-top:4px">요청하면 김혜연/관리자가 확인 후 삭제합니다.</div></div>`;
+      }
     }
 
     // 👁 참조 — 완료 건은 누구나 참조자를 추가할 수 있다(사후 공유)
@@ -814,10 +832,32 @@
 
   /* 🗑 완료 결재 삭제 — 지정 관리자(DOC_DELETERS)만. 되돌릴 수 없음.
      삭제 레지스트리(tombstone)에 등록해 다른 기기에서 부활하지 않게 한다(jobs 와 동일 방식). */
+  // 🗑 삭제 요청 — 기안자가 완료 결재의 삭제를 요청. 김혜연/관리자가 상세에서 승인(삭제)한다.
+  EAP.reqDelDoc = function (id) {
+    const docs = getDocs(); const d = docs.find(x => x.id === id);
+    if (!d || d.status !== 'ok') return;
+    if (!canRequestDelete(d)) { toast('삭제 요청 권한이 없습니다'); return; }
+    if (d.delReq) { toast('이미 삭제 요청되었습니다'); return; }
+    if (!confirm('이 완료 결재의 삭제를 요청할까요?\n김혜연/관리자가 확인 후 삭제합니다.')) return;
+    d.delReq = { by: ME(), at: kstNow() };
+    d.history = d.history || []; d.history.push({ n: ME(), act: '삭제요청', at: kstNow() });
+    d.updatedAt = Date.now(); _save(docs);
+    try { notify('김혜연', 'delreq', d); } catch (_) {}
+    EAP.openDetail(id); toast('🗑 삭제 요청됨 — 김혜연/관리자 확인 대기');
+  };
+  EAP.cancelDelReq = function (id) {
+    const docs = getDocs(); const d = docs.find(x => x.id === id);
+    if (!d || !d.delReq) return;
+    if (!(d.delReq.by === ME() || isAdmin() || DOC_DELETERS.includes(ME()))) { toast('취소 권한이 없습니다'); return; }
+    const wasBy = d.delReq.by; delete d.delReq;
+    d.history = d.history || []; d.history.push({ n: ME(), act: (wasBy === ME() ? '삭제요청취소' : '삭제요청반려'), at: kstNow() });
+    d.updatedAt = Date.now(); _save(docs);
+    EAP.openDetail(id); toast('삭제 요청이 해제되었습니다');
+  };
   EAP.delDoc = function (id) {
     const docs = getDocs(); const d = docs.find(x => x.id === id);
     if (!d) return;
-    if (!canDeleteDoc(d)) { toast('완료된 결재만, 지정된 관리자만 삭제할 수 있습니다'); return; }
+    if (!canDeleteDoc(d)) { toast('삭제는 김혜연/관리자만 가능합니다. (기안자는 삭제 요청)'); return; }
     if (!confirm('이 결재를 삭제합니다.\n\n' + (d.title || '(제목 없음)') + '\n기안: ' + (d.drafter || '') + '\n\n모든 기기에서 사라지며 되돌릴 수 없습니다.\n계속할까요?')) return;
     // 🌴 연차 삭제 시 사용일수 복원 불필요 — 문서사용은 문서 목록에서 파생(getLeave)되므로
     //   문서가 삭제되면 자동으로 문서사용/잔여가 재계산됨. (옛 used 카운터 수동 복원 로직 제거)
