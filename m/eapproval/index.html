@@ -224,6 +224,7 @@
     }catch(e){ if(sending.length){_pendingTombs=sending.concat(_pendingTombs);schedulePush();} }
   }
   let _syncing=false;
+  let _inDetailHeal=false;   // 딥링크 상세 자가치유 재진입 가드 — syncFromCloud 꼬리의 render() 가 renderDetail 을 n=0 으로 재호출해 무한 새로고침 루프 돌던 것 차단
   async function syncFromCloud(force){
     if(_syncing)return;_syncing=true;
     try{
@@ -548,9 +549,15 @@
     if(!d){
       // 자가치유: 로컬에 없으면 즉시 "없음" 선언 X — 강제 재동기화(등록/딥링크/bfcache stale 대응) 후 재조회
       const n=_retry||0;
+      // ⚠ _inDetailHeal 가드: syncFromCloud 는 끝에서 render()→renderDetail(id, n=0) 를 호출한다.
+      //   자가치유 중(await syncFromCloud) 그 재호출이 또 syncFromCloud 를 부르면 n 이 0 으로 리셋되며
+      //   문서를 못 찾는 동안 무한 fetch/재렌더('계속 새로고침') 루프가 된다 → 재진입 시 즉시 종료.
+      if(_inDetailHeal)return;
       if(n<3){
         box.innerHTML='<div class="empty">📄 문서 불러오는 중…</div>';
+        _inDetailHeal=true;
         try{await syncFromCloud(true);}catch(_){}
+        _inDetailHeal=false;
         if(parseHash().view!=='detail'||parseHash().id!==id)return; // 그 사이 화면 이동
         if(getDocs().find(x=>x.id===id))return renderDetail(id,n+1);
         setTimeout(()=>{if(parseHash().view==='detail'&&parseHash().id===id)renderDetail(id,n+1);},700);
